@@ -1,49 +1,299 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ideas Estudio</title>
-  <meta name="description" content="Ideas Estudio - Web pública" />
-  <style>
-    body{
-      margin:0;
-      font-family:Arial, sans-serif;
-      background:#fffdf7;
-      color:#111;
-      display:flex;
-      min-height:100vh;
-      align-items:center;
-      justify-content:center;
-      padding:40px;
-    }
-    .card{
-      max-width:760px;
-      background:white;
-      border:1px solid #eee7cc;
-      border-radius:24px;
-      padding:40px;
-      box-shadow:0 10px 30px rgba(0,0,0,.06);
-    }
-    h1{margin:0 0 12px;font-size:40px;}
-    p{font-size:18px;line-height:1.6;margin:0 0 12px;}
-    .badge{
-      display:inline-block;
-      background:#f1d146;
-      color:#111;
-      padding:8px 14px;
-      border-radius:999px;
-      font-weight:700;
-      margin-bottom:18px;
-    }
-  </style>
-</head>
-<body>
-  <main class="card">
-    <div class="badge">Ideas Estudio</div>
-    <h1>Web pública en preparación</h1>
-    <p>Este repositorio servirá la página principal de Ideas Estudio.</p>
-    <p>La app y la API se desplegarán por separado para mantener una arquitectura limpia y escalable.</p>
-  </main>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ideas Estudio</title>
+    <meta
+      name="description"
+      content="Servicios creativos, fotografía, video y estrategia digital en Ideas Estudio."
+    />
+    <style>
+      :root {
+        --bg: #fffefb;
+        --text: #171717;
+        --muted: #5f5f5f;
+        --line: #e7dfca;
+        --brand: #121212;
+        --brand-soft: #f4ecdb;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      .container { width: min(1120px, 92vw); margin: 0 auto; }
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        backdrop-filter: blur(6px);
+        background: rgba(255, 254, 251, 0.85);
+        border-bottom: 1px solid var(--line);
+      }
+      .nav-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 0;
+        gap: 12px;
+      }
+      .brand { font-weight: 800; letter-spacing: 0.02em; text-decoration: none; color: var(--text); }
+      .links { display: flex; gap: 14px; flex-wrap: wrap; }
+      .links a { text-decoration: none; color: var(--muted); font-size: 14px; }
+      .links a:hover { color: var(--text); }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 14px;
+        padding: 10px 16px;
+        text-decoration: none;
+        font-weight: 700;
+        border: 1px solid transparent;
+      }
+      .btn-primary { background: var(--brand); color: #fff; }
+      .btn-secondary { border-color: var(--line); color: var(--text); background: #fff; }
+      .hero {
+        padding: 68px 0 42px;
+        border-bottom: 1px solid var(--line);
+      }
+      .hero h1 {
+        font-size: clamp(34px, 6vw, 62px);
+        margin: 0 0 14px;
+        line-height: 1.05;
+      }
+      .hero p { max-width: 760px; color: var(--muted); font-size: 18px; line-height: 1.55; }
+      .actions { margin-top: 26px; display: flex; gap: 10px; flex-wrap: wrap; }
+      .section { padding: 42px 0; }
+      .section h2 { margin: 0 0 8px; font-size: 30px; }
+      .section p.lead { margin: 0 0 22px; color: var(--muted); }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 12px;
+      }
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 16px;
+        background: #fff;
+      }
+      .card h3 { margin: 0 0 6px; font-size: 18px; }
+      .card p { margin: 0 0 10px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+      .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+      .chip {
+        background: var(--brand-soft);
+        border: 1px solid #e8dec3;
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .muted { color: var(--muted); }
+      .footer {
+        margin-top: 36px;
+        border-top: 1px solid var(--line);
+        padding: 28px 0 36px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .cta {
+        margin-top: 20px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 18px;
+        background: #fff;
+      }
+      @media (max-width: 720px) {
+        .links { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="nav">
+      <div class="container nav-row">
+        <a class="brand" href="/">Ideas Estudio</a>
+        <nav class="links">
+          <a href="/">Inicio</a>
+          <a href="/servicios">Servicios</a>
+          <a href="/contacto">Contacto</a>
+        </nav>
+        <a class="btn btn-primary" href="https://app.ideasestudio.com/">App CRM</a>
+      </div>
+    </header>
+
+    <main id="app"></main>
+
+    <footer class="footer">
+      <div class="container">© <span id="year"></span> Ideas Estudio</div>
+    </footer>
+
+    <script>
+      const services = [
+        {
+          slug: "fotografia-profesional-de-eventos",
+          name: "Fotografía profesional de eventos",
+          from: "$450",
+          short: "Cobertura visual para bodas, cumpleaños, graduaciones y eventos corporativos.",
+          includes: ["Cobertura", "Edición profesional", "Entrega digital"],
+        },
+        {
+          slug: "produccion-de-video-comercial",
+          name: "Producción de video comercial",
+          from: "$750",
+          short: "Piezas audiovisuales para campañas, redes sociales y lanzamientos.",
+          includes: ["Guion base", "Grabación", "Postproducción"],
+        },
+        {
+          slug: "diseno-web-para-negocios",
+          name: "Diseño web para negocios",
+          from: "$950",
+          short: "Sitio web claro y funcional para presentar servicios y convertir contactos.",
+          includes: ["Estructura web", "Diseño responsive", "Entrega publicada"],
+        },
+      ];
+
+      function layout(title, content) {
+        return `
+          <section class="hero">
+            <div class="container">
+              <h1>${title}</h1>
+              ${content}
+            </div>
+          </section>
+        `;
+      }
+
+      function homeView() {
+        return `
+          ${layout(
+            "Servicios creativos y producción visual para marcas y eventos.",
+            `<p>Explora el catálogo, revisa detalles y envía tu solicitud de servicio para coordinar contigo alcance, fechas y entregables.</p>
+            <div class="actions">
+              <a class="btn btn-primary" href="/servicios">Ver servicios</a>
+              <a class="btn btn-secondary" href="https://app.ideasestudio.com/">Entrar al CRM App</a>
+            </div>`
+          )}
+          <section class="section">
+            <div class="container">
+              <h2>Categorías de servicio</h2>
+              <p class="lead">Dos rutas claras según tu necesidad.</p>
+              <div class="grid">
+                <article class="card">
+                  <h3>Para negocios y marcas</h3>
+                  <p>Estrategia digital, contenido, diseño web, branding y video marketing.</p>
+                  <div class="chips">
+                    <span class="chip">Redes sociales</span>
+                    <span class="chip">Diseño web</span>
+                    <span class="chip">Branding</span>
+                    <span class="chip">Video marketing</span>
+                  </div>
+                </article>
+                <article class="card">
+                  <h3>Para eventos y fotografía</h3>
+                  <p>Coberturas y sesiones para momentos personales o eventos de negocio.</p>
+                  <div class="chips">
+                    <span class="chip">Bodas</span>
+                    <span class="chip">Cumpleaños</span>
+                    <span class="chip">Graduaciones</span>
+                    <span class="chip">Cobertura visual</span>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </section>
+        `;
+      }
+
+      function servicesView() {
+        const cards = services
+          .map(
+            (s) => `
+              <article class="card">
+                <h3>${s.name}</h3>
+                <p>${s.short}</p>
+                <p><strong>Desde ${s.from}</strong></p>
+                <a class="btn btn-secondary" href="/servicios/${s.slug}">Ver servicio</a>
+              </article>
+            `
+          )
+          .join("");
+        return `
+          ${layout(
+            "Catálogo de servicios",
+            `<p class="muted">Selecciona el servicio que te interesa y avanza a solicitud.</p>`
+          )}
+          <section class="section">
+            <div class="container">
+              <div class="grid">${cards}</div>
+              <div class="cta">
+                <strong>Flujo:</strong> catálogo → detalle → solicitud → coordinación.
+              </div>
+            </div>
+          </section>
+        `;
+      }
+
+      function serviceDetailView(slug) {
+        const s = services.find((x) => x.slug === slug);
+        if (!s) {
+          return `
+            ${layout("Servicio no encontrado", `<p>Este servicio no existe en el catálogo actual.</p>`)}
+            <section class="section"><div class="container"><a class="btn btn-secondary" href="/servicios">Volver a servicios</a></div></section>
+          `;
+        }
+        return `
+          ${layout(
+            s.name,
+            `<p>${s.short}</p>
+             <p><strong>Desde ${s.from}</strong></p>
+             <div class="actions">
+               <a class="btn btn-primary" href="/servicios">Volver al catálogo</a>
+               <a class="btn btn-secondary" href="/carrito">Ir a carrito</a>
+             </div>`
+          )}
+          <section class="section">
+            <div class="container">
+              <h2>Qué incluye</h2>
+              <div class="chips">${s.includes.map((i) => `<span class="chip">${i}</span>`).join("")}</div>
+              <div class="cta"><strong>Nota:</strong> este flujo es de solicitud de servicio, no de envío físico.</div>
+            </div>
+          </section>
+        `;
+      }
+
+      function render() {
+        const path = window.location.pathname;
+        const app = document.getElementById("app");
+        if (path === "/" || path === "/index.html") {
+          app.innerHTML = homeView();
+          return;
+        }
+        if (path === "/servicios") {
+          app.innerHTML = servicesView();
+          return;
+        }
+        if (path.startsWith("/servicios/")) {
+          const slug = decodeURIComponent(path.replace("/servicios/", "").split("/")[0]);
+          app.innerHTML = serviceDetailView(slug);
+          return;
+        }
+        if (path === "/carrito") {
+          app.innerHTML = layout("Carrito", "<p>Tu carrito de servicios está en implementación en esta fase del sitio público.</p>");
+          return;
+        }
+        if (path === "/checkout" || path.startsWith("/checkout/")) {
+          app.innerHTML = layout("Checkout", "<p>El flujo de checkout público está en implementación en esta fase del sitio.</p>");
+          return;
+        }
+        app.innerHTML = layout("Página no encontrada", "<p>La ruta solicitada no existe.</p>");
+      }
+
+      document.getElementById("year").textContent = new Date().getFullYear();
+      render();
+    </script>
+  </body>
 </html>
