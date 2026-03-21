@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import heroPhoto from "@/assets/osvaldo-marfisi.jpg";
 
 const cards = [
   {
@@ -26,9 +27,6 @@ const cards = [
     to: "/bodas-eventos-sesiones",
   },
 ];
-
-const heroPhoto =
-  "https://ideasestudiopr.com/wp-content/uploads/2023/03/Osvaldo-Marfisi-scaled.jpg";
 
 function ClientCard({ title, description, to }) {
   return (
