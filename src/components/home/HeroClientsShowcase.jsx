@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import heroPhoto from "@/assets/hero.png";
 
 const cards = [
   {
@@ -27,6 +26,9 @@ const cards = [
     to: "/bodas-eventos-sesiones",
   },
 ];
+
+const heroPhoto =
+  "https://ideasestudiopr.com/wp-content/uploads/2023/03/Osvaldo-Marfisi-scaled.jpg";
 
 function ClientCard({ title, description, to }) {
   return (
@@ -59,7 +61,7 @@ export default function HeroClientsShowcase() {
           <div className="home-clients-hero__photo">
             <div className="home-clients-hero__glow" />
             <div className="home-clients-hero__frame">
-              <img src={heroPhoto} alt="Ideas Estudio" />
+              <img src={heroPhoto} alt="Osvaldo Marfisi" />
             </div>
           </div>
 
@@ -73,7 +75,7 @@ export default function HeroClientsShowcase() {
           <div className="home-clients-hero__photo home-clients-hero__photo--mobile">
             <div className="home-clients-hero__glow" />
             <div className="home-clients-hero__frame">
-              <img src={heroPhoto} alt="Ideas Estudio" />
+              <img src={heroPhoto} alt="Osvaldo Marfisi" />
             </div>
           </div>
 
