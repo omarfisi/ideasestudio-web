@@ -34,10 +34,7 @@ function ClientCard({ title, description, to }) {
       <div className="home-clients-card__line" />
       <h3>{title}</h3>
       <p>{description}</p>
-      <span className="home-clients-card__link">
-        Explorar
-        <span aria-hidden="true">-&gt;</span>
-      </span>
+      <span className="home-clients-card__link">Explorar</span>
     </Link>
   );
 }
