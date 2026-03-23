@@ -3194,17 +3194,19 @@ section[id] {
 .prospectos-ref__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 28px;
+  gap: 20px;
 }
 
 .prospecto-ref-card {
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 18px;
-  padding: 12px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 860px;
+  font-family: var(--font-body);
   background: #ffffff;
   border: 1px solid rgba(17, 17, 17, 0.08);
-  border-radius: 28px;
+  border-radius: 34px;
   box-shadow: 0 16px 40px rgba(17, 17, 17, 0.06);
   transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
 }
@@ -3215,51 +3217,171 @@ section[id] {
   box-shadow: 0 24px 50px rgba(17, 17, 17, 0.1);
 }
 
-.prospecto-ref-card__content {
+.prospecto-ref-card__media {
+  position: relative;
+  padding: 14px 14px 0;
+}
+
+.prospecto-ref-card__visual {
+  position: relative;
+  overflow: hidden;
+  min-height: 420px;
+  border-radius: 24px 24px 0 0;
+  isolation: isolate;
+}
+
+.prospecto-ref-card__visual::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      138deg,
+      rgba(255, 255, 255, 0.2) 18%,
+      rgba(255, 255, 255, 0.06) 44%,
+      transparent 64%
+    );
+  pointer-events: none;
+  z-index: 1;
+}
+
+.prospecto-ref-card__badge {
+  position: absolute;
+  top: 30px;
+  left: 30px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  color: #111111;
+  font-size: 1.08rem;
+  font-weight: 800;
+  font-style: normal;
+  letter-spacing: -0.01em;
+}
+
+.prospecto-ref-card__body {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 18px 18px 18px 22px;
+  flex: 1;
+  padding: 28px 28px 30px;
 }
 
-.prospecto-ref-card__kicker {
-  margin: 0 0 10px;
-  font-size: 0.86rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #111111;
-}
-
-.prospecto-ref-card__content h3 {
+.prospecto-ref-card__body h3 {
   margin: 0;
-  font-size: 1.45rem;
-  line-height: 1.08;
+  font-size: clamp(2rem, 2.3vw, 2.5rem);
+  line-height: 1.02;
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-style: normal;
   letter-spacing: -0.03em;
   color: #111111;
 }
 
-.prospecto-ref-card__content p {
+.prospecto-ref-card__description {
   margin: 16px 0 0;
-  font-size: 0.98rem;
-  line-height: 1.7;
+  font-size: 1.02rem;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-style: normal;
+  line-height: 1.65;
   color: #5f6368;
 }
 
-.prospecto-ref-card__content a {
+.prospecto-ref-card__lead {
+  margin: 28px 0 0;
+  font-size: 1.02rem;
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-style: normal;
+  color: #111111;
+}
+
+.prospecto-ref-card__list {
+  margin: 14px 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.prospecto-ref-card__list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  font-size: 1.02rem;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-style: normal;
+  line-height: 1.6;
+  color: #1f2328;
+}
+
+.prospecto-ref-card__list li + li {
+  margin-top: 12px;
+}
+
+.prospecto-ref-card__list li::before {
+  content: "✓";
+  width: 24px;
+  height: 24px;
+  margin-top: 2px;
+  border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 46px;
-  width: fit-content;
-  margin-top: 22px;
-  padding: 0 18px;
+  background: rgba(17, 17, 17, 0.1);
+  color: #111111;
+  font-size: 0.82rem;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+.prospecto-ref-card__footer {
+  margin-top: auto;
+  padding-top: 28px;
+  border-top: 1px solid rgba(17, 17, 17, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.prospecto-ref-card__chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 52px;
+  padding: 0 22px;
   border-radius: 999px;
   border: 1px solid rgba(17, 17, 17, 0.1);
-  background: #ffffff;
+  background: rgba(17, 17, 17, 0.03);
   color: #111111;
+  font-size: 1rem;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-style: normal;
+}
+
+.prospecto-ref-card__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  padding: 0 30px;
+  border-radius: 999px;
+  border: 1px solid #111111;
+  background: #111111;
   text-decoration: none;
   font-weight: 700;
+  font-size: 1.04rem;
+  font-family: var(--font-body);
+  font-style: normal;
+  color: #ffffff;
   transition:
     background-color 0.22s ease,
     color 0.22s ease,
@@ -3267,70 +3389,17 @@ section[id] {
     border-color 0.22s ease;
 }
 
-.prospecto-ref-card__content a:hover {
-  background: #111111;
-  color: #ffffff;
-  border-color: #111111;
+.prospecto-ref-card__cta:hover {
+  background: #222222;
+  border-color: #222222;
   transform: translateY(-1px);
-}
-
-.prospecto-ref-card__visual {
-  position: relative;
-  overflow: hidden;
-  min-height: 260px;
-  border-radius: 22px;
-  border: 1px solid rgba(17, 17, 17, 0.06);
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-start;
-  padding: 20px;
-  isolation: isolate;
-}
-
-.prospecto-ref-card__visual::before {
-  content: "";
-  position: absolute;
-  inset: 18px;
-  border-radius: 18px;
-  border: 1px solid rgba(17, 17, 17, 0.08);
-  z-index: 0;
-}
-
-.prospecto-ref-card__visual::after {
-  content: "";
-  position: absolute;
-  width: 140px;
-  height: 140px;
-  top: 18px;
-  right: 18px;
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(17, 17, 17, 0.08);
-  z-index: 0;
-  transition: transform 0.22s ease;
-}
-
-.prospecto-ref-card:hover .prospecto-ref-card__visual::after {
-  transform: scale(1.04);
-}
-
-.prospecto-ref-card__visual span {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  padding: 10px 14px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  color: #111111;
-  font-size: 0.9rem;
-  font-weight: 700;
-  border: 1px solid rgba(17, 17, 17, 0.08);
 }
 
 .prospecto-ref-card:nth-child(1) .prospecto-ref-card__visual {
   background:
-    radial-gradient(circle at top right, rgba(243, 204, 0, 0.3), transparent 38%),
-    linear-gradient(135deg, #f7f7f7 0%, #efefef 100%);
+    linear-gradient(180deg, rgba(17, 17, 17, 0.06) 0%, rgba(17, 17, 17, 0.24) 100%),
+    url("https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/presencia-visual.webp")
+      center / cover no-repeat;
 }
 
 .prospecto-ref-card:nth-child(2) .prospecto-ref-card__visual {
@@ -3347,8 +3416,9 @@ section[id] {
 
 .prospecto-ref-card:nth-child(4) .prospecto-ref-card__visual {
   background:
-    radial-gradient(circle at top right, rgba(17, 17, 17, 0.12), transparent 38%),
-    linear-gradient(135deg, #f6f6f6 0%, #ededed 100%);
+    linear-gradient(180deg, rgba(17, 17, 17, 0.06) 0%, rgba(17, 17, 17, 0.24) 100%),
+    url("https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/solucion-medida.webp")
+      center / cover no-repeat;
 }
 
 .servicios-preview {
@@ -3416,7 +3486,31 @@ section[id] {
 
 @media (max-width: 980px) {
   .prospectos-ref__grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .prospecto-ref-card {
+    min-height: 760px;
+  }
+
+  .prospecto-ref-card__visual {
+    min-height: 340px;
+  }
+
+  .prospecto-ref-card__badge {
+    top: 26px;
+    left: 26px;
+    min-height: 44px;
+    padding: 0 18px;
+    font-size: 0.98rem;
+  }
+
+  .prospecto-ref-card__body {
+    padding: 24px;
+  }
+
+  .prospecto-ref-card__body h3 {
+    font-size: 1.8rem;
   }
 
   .servicios-preview__grid {
@@ -3425,16 +3519,52 @@ section[id] {
 }
 
 @media (max-width: 720px) {
-  .prospecto-ref-card {
+  .prospectos-ref__grid {
     grid-template-columns: 1fr;
   }
 
-  .prospecto-ref-card__content {
-    padding: 14px 14px 8px;
+  .prospecto-ref-card {
+    min-height: 0;
+  }
+
+  .prospecto-ref-card__media {
+    padding: 12px 12px 0;
   }
 
   .prospecto-ref-card__visual {
-    min-height: 180px;
+    min-height: 260px;
+  }
+
+  .prospecto-ref-card__badge {
+    top: 20px;
+    left: 20px;
+    min-height: 40px;
+    padding: 0 14px;
+    font-size: 0.9rem;
+  }
+
+  .prospecto-ref-card__body {
+    padding: 22px 20px 24px;
+  }
+
+  .prospecto-ref-card__body h3 {
+    font-size: 1.7rem;
+  }
+
+  .prospecto-ref-card__description,
+  .prospecto-ref-card__list li {
+    font-size: 1rem;
+  }
+
+  .prospecto-ref-card__footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .prospecto-ref-card__chip,
+  .prospecto-ref-card__cta {
+    width: 100%;
+    justify-content: center;
   }
 }
 

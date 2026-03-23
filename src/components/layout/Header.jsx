@@ -24,6 +24,9 @@ const CLIENT_PATHS = [
   },
 ];
 
+const BRAND_LOGO_URL =
+  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/logos/favicon_ideasestudio.webp";
+
 function ChevronDownIcon({ open = false }) {
   return (
     <svg
@@ -160,9 +163,9 @@ export default function Header() {
         }
 
         .ie-header {
-          display: flex;
+          display: grid;
+          grid-template-columns: auto 1fr auto;
           align-items: center;
-          justify-content: space-between;
           gap: 18px;
           padding: 14px 18px;
           background: var(--ie-bg);
@@ -183,13 +186,33 @@ export default function Header() {
           font-size: 1.08rem;
         }
 
+        .ie-brand__text {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .ie-brand__name {
+          font-weight: 800;
+          line-height: 1.05;
+        }
+
+        .ie-brand__slogan {
+          font-size: 0.74rem;
+          font-weight: 600;
+          line-height: 1.2;
+          letter-spacing: 0;
+          color: var(--ie-muted);
+        }
+
         .ie-brand__logo {
           width: 44px;
           height: 44px;
           border-radius: 14px;
           object-fit: cover;
-          background: #fff;
-          border: 1px solid var(--ie-line);
+          background: transparent;
+          border: none;
           flex-shrink: 0;
         }
 
@@ -204,7 +227,7 @@ export default function Header() {
           color: #111;
           font-size: 0.95rem;
           font-weight: 900;
-          border: 1px solid rgba(17,17,17,0.06);
+          border: none;
           flex-shrink: 0;
         }
 
@@ -212,7 +235,8 @@ export default function Header() {
           display: flex;
           align-items: center;
           gap: 8px;
-          margin-left: auto;
+          margin-left: 0;
+          justify-self: center;
         }
 
         .ie-nav__link,
@@ -251,6 +275,7 @@ export default function Header() {
           display: flex;
           align-items: center;
           gap: 10px;
+          justify-self: end;
         }
 
         .ie-icon-btn {
@@ -312,6 +337,7 @@ export default function Header() {
           color: var(--ie-text);
           align-items: center;
           justify-content: center;
+          justify-self: end;
           cursor: pointer;
         }
 
@@ -502,7 +528,7 @@ export default function Header() {
 
           .ie-mobile-toggle {
             display: inline-flex;
-            margin-left: auto;
+            margin-left: 0;
           }
         }
 
@@ -516,8 +542,12 @@ export default function Header() {
             border-radius: 20px;
           }
 
-          .ie-brand span:last-child {
+          .ie-brand__name {
             font-size: 1rem;
+          }
+
+          .ie-brand__slogan {
+            font-size: 0.7rem;
           }
 
           .ie-brand__logo,
@@ -546,12 +576,15 @@ export default function Header() {
               ) : (
                 <img
                   className="ie-brand__logo"
-                  src="/favicon_ideasestudio.jpg"
+                  src={BRAND_LOGO_URL}
                   alt="Ideas Estudio"
                   onError={() => setLogoError(true)}
                 />
               )}
-              <span>Ideas Estudio</span>
+              <span className="ie-brand__text">
+                <span className="ie-brand__name">Ideas Estudio</span>
+                <span className="ie-brand__slogan">La idea que tu negocio necesita</span>
+              </span>
             </Link>
 
             <nav className="ie-nav" aria-label="Navegacion principal">
