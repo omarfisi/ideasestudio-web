@@ -1,7 +1,6 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout.jsx";
 import {
-  getFeaturedServices,
   getPublicCatalog,
   getPublicClientRouteBundle,
   getPublicServiceBySlug,
@@ -32,9 +31,6 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        loader: async () => ({
-          featuredServices: await getFeaturedServices(6),
-        }),
         element: <HomePage />,
       },
       {
