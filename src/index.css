@@ -17,7 +17,7 @@ html {
 body {
   margin: 0;
   min-width: 320px;
-  background: #f5efe6;
+  background: #ffffff;
   color: #161616;
   font-family: var(--font-body);
   text-rendering: optimizeLegibility;
@@ -43,4 +43,10 @@ textarea {
 
 ::selection {
   background: rgba(203, 105, 51, 0.22);
+}
+
+html,
+body,
+#root {
+  background: #ffffff;
 }
