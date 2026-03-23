@@ -95,73 +95,121 @@ export default function HomePage() {
             <div className="prospectos-ref__intro">
               <p className="prospectos-ref__eyebrow">Elige tu camino</p>
               <h2 className="prospectos-ref__title">
-                Soluciones según lo que estás buscando
+                Servicios pensados para cada necesidad
               </h2>
               <p className="prospectos-ref__text">
-                No todos los clientes necesitan lo mismo. Escoge la opción que más
-                se parezca a tu necesidad y te guiamos por el camino correcto.
+                Cada proyecto es diferente. Escoge la opción que mejor represente
+                lo que necesitas y descubre el camino más adecuado para ti o tu
+                negocio.
               </p>
             </div>
 
             <div className="prospectos-ref__grid">
               <article className="prospecto-ref-card">
-                <div className="prospecto-ref-card__content">
-                  <p className="prospecto-ref-card__kicker">01</p>
+                <div className="prospecto-ref-card__media">
+                  <div className="prospecto-ref-card__visual" />
+                  <span className="prospecto-ref-card__badge">01. Marca / Negocio</span>
+                </div>
+                <div className="prospecto-ref-card__body">
                   <h3>Tengo una marca o negocio</h3>
-                  <p>
+                  <p className="prospecto-ref-card__description">
                     Branding, contenido, web, redes y presencia digital para
                     emprendedores, marcas personales y pequeños negocios.
                   </p>
-                  <a href="#contacto">Explorar opción</a>
-                </div>
-                <div className="prospecto-ref-card__visual">
-                  <span>Marca / Negocio</span>
+                  <p className="prospecto-ref-card__lead">Este camino está diseñado para:</p>
+                  <ul className="prospecto-ref-card__list">
+                    <li>Fortalecer tu identidad visual y posicionamiento.</li>
+                    <li>Mejorar tu presencia digital en canales clave.</li>
+                    <li>Convertir visitas en contactos o clientes reales.</li>
+                    <li>Unificar la comunicación de tu marca.</li>
+                  </ul>
+                  <div className="prospecto-ref-card__footer">
+                    <span className="prospecto-ref-card__chip">Marca y negocio</span>
+                    <a className="prospecto-ref-card__cta" href="#contacto">
+                      Más información
+                    </a>
+                  </div>
                 </div>
               </article>
 
               <article className="prospecto-ref-card">
-                <div className="prospecto-ref-card__content">
-                  <p className="prospecto-ref-card__kicker">02</p>
+                <div className="prospecto-ref-card__media">
+                  <div className="prospecto-ref-card__visual" />
+                  <span className="prospecto-ref-card__badge">02. Presencia visual</span>
+                </div>
+                <div className="prospecto-ref-card__body">
                   <h3>Necesito presencia visual profesional</h3>
-                  <p>
-                    Imagen corporativa, fotografía profesional, video
-                    institucional y contenido de marca para empresas y
-                    organizaciones.
+                  <p className="prospecto-ref-card__description">
+                    Imagen corporativa, fotografía profesional, video institucional
+                    y contenido de marca para empresas y organizaciones.
                   </p>
-                  <a href="#contacto">Explorar opción</a>
-                </div>
-                <div className="prospecto-ref-card__visual">
-                  <span>Presencia visual</span>
+                  <p className="prospecto-ref-card__lead">Con esta opción podrás:</p>
+                  <ul className="prospecto-ref-card__list">
+                    <li>Elevar la percepción profesional de tu marca.</li>
+                    <li>Comunicar confianza con imagen coherente.</li>
+                    <li>Generar piezas para web, redes y presentaciones.</li>
+                    <li>Conectar visualmente con clientes y aliados.</li>
+                  </ul>
+                  <div className="prospecto-ref-card__footer">
+                    <span className="prospecto-ref-card__chip">Presencia visual</span>
+                    <a className="prospecto-ref-card__cta" href="#contacto">
+                      Más información
+                    </a>
+                  </div>
                 </div>
               </article>
 
               <article className="prospecto-ref-card">
-                <div className="prospecto-ref-card__content">
-                  <p className="prospecto-ref-card__kicker">03</p>
+                <div className="prospecto-ref-card__media">
+                  <div className="prospecto-ref-card__visual" />
+                  <span className="prospecto-ref-card__badge">03. Momento especial</span>
+                </div>
+                <div className="prospecto-ref-card__body">
                   <h3>Quiero capturar un momento especial</h3>
-                  <p>
+                  <p className="prospecto-ref-card__description">
                     Fotografía, video, sesiones, bodas, cumpleaños y cobertura
                     visual para recuerdos auténticos y memorables.
                   </p>
-                  <a href="#contacto">Explorar opción</a>
-                </div>
-                <div className="prospecto-ref-card__visual">
-                  <span>Momento especial</span>
+                  <p className="prospecto-ref-card__lead">Con esta cobertura lograrás:</p>
+                  <ul className="prospecto-ref-card__list">
+                    <li>Documentar cada detalle con calidad profesional.</li>
+                    <li>Crear piezas emocionales y atemporales.</li>
+                    <li>Capturar momentos espontáneos con intención.</li>
+                    <li>Entregar recuerdos listos para compartir.</li>
+                  </ul>
+                  <div className="prospecto-ref-card__footer">
+                    <span className="prospecto-ref-card__chip">Momentos especiales</span>
+                    <a className="prospecto-ref-card__cta" href="#contacto">
+                      Más información
+                    </a>
+                  </div>
                 </div>
               </article>
 
               <article className="prospecto-ref-card">
-                <div className="prospecto-ref-card__content">
-                  <p className="prospecto-ref-card__kicker">04</p>
-                  <h3>Busco una solución creativa a mi medida</h3>
-                  <p>
+                <div className="prospecto-ref-card__media">
+                  <div className="prospecto-ref-card__visual" />
+                  <span className="prospecto-ref-card__badge">04. Solución a medida</span>
+                </div>
+                <div className="prospecto-ref-card__body">
+                  <h3>Busco una solución creativa a mi idea</h3>
+                  <p className="prospecto-ref-card__description">
                     Campañas, proyectos mixtos, combinaciones de servicios y
                     propuestas personalizadas según tu necesidad.
                   </p>
-                  <a href="#contacto">Explorar opción</a>
-                </div>
-                <div className="prospecto-ref-card__visual">
-                  <span>Solución a medida</span>
+                  <p className="prospecto-ref-card__lead">Esta solución personalizada te permite:</p>
+                  <ul className="prospecto-ref-card__list">
+                    <li>Diseñar una propuesta alineada a tus objetivos.</li>
+                    <li>Combinar servicios sin perder coherencia visual.</li>
+                    <li>Priorizar acciones según etapa y presupuesto.</li>
+                    <li>Ejecutar con enfoque estratégico y comercial.</li>
+                  </ul>
+                  <div className="prospecto-ref-card__footer">
+                    <span className="prospecto-ref-card__chip">Solución a medida</span>
+                    <a className="prospecto-ref-card__cta" href="#contacto">
+                      Más información
+                    </a>
+                  </div>
                 </div>
               </article>
             </div>
