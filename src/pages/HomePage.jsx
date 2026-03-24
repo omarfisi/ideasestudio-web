@@ -1,11 +1,83 @@
 import React, { useEffect, useState } from "react";
 
 const OBJETIVO_WORDS = ["marca", "empresa", "crecimiento", "presencia"];
+const CAMINOS_CARDS = [
+  {
+    visualClass: "is-visual-1",
+    badge: "01. Marca / Negocio",
+    title: "Tengo una marca o negocio",
+    description:
+      "Branding, contenido, web, redes y presencia digital para emprendedores, marcas personales y pequeños negocios.",
+    lead: "Este camino está diseñado para:",
+    items: [
+      "Fortalecer tu identidad visual y posicionamiento.",
+      "Mejorar tu presencia digital en canales clave.",
+      "Convertir visitas en contactos o clientes reales.",
+      "Unificar la comunicación de tu marca.",
+    ],
+    chip: "Marca y negocio",
+  },
+  {
+    visualClass: "is-visual-2",
+    badge: "02. Presencia visual",
+    title: "Necesito presencia visual profesional",
+    description:
+      "Imagen corporativa, fotografía profesional, video institucional y contenido de marca para empresas y organizaciones.",
+    lead: "Con esta opción podrás:",
+    items: [
+      "Elevar la percepción profesional de tu marca.",
+      "Comunicar confianza con imagen coherente.",
+      "Generar piezas para web, redes y presentaciones.",
+      "Conectar visualmente con clientes y aliados.",
+    ],
+    chip: "Presencia visual",
+  },
+  {
+    visualClass: "is-visual-3",
+    badge: "03. Momento especial",
+    title: "Quiero capturar un momento especial",
+    description:
+      "Fotografía, video, sesiones, bodas, cumpleaños y cobertura visual para recuerdos auténticos y memorables.",
+    lead: "Con esta cobertura lograrás:",
+    items: [
+      "Documentar cada detalle con calidad profesional.",
+      "Crear piezas emocionales y atemporales.",
+      "Capturar momentos espontáneos con intención.",
+      "Entregar recuerdos listos para compartir.",
+    ],
+    chip: "Momentos especiales",
+  },
+  {
+    visualClass: "is-visual-4",
+    badge: "04. Solución a medida",
+    title: "Busco una solución creativa a mi idea",
+    description:
+      "Campañas, proyectos mixtos, combinaciones de servicios y propuestas personalizadas según tu necesidad.",
+    lead: "Esta solución personalizada te permite:",
+    items: [
+      "Diseñar una propuesta alineada a tus objetivos.",
+      "Combinar servicios sin perder coherencia visual.",
+      "Priorizar acciones según etapa y presupuesto.",
+      "Ejecutar con enfoque estratégico y comercial.",
+    ],
+    chip: "Solución a medida",
+  },
+];
 
 export default function HomePage() {
   const [wordIndex, setWordIndex] = useState(0);
   const [typedObjetivo, setTypedObjetivo] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [activeCamino, setActiveCamino] = useState(0);
+  const [cardsPerView, setCardsPerView] = useState(() =>
+    typeof window !== "undefined" && window.innerWidth <= 980 ? 1 : 2
+  );
+
+  const caminoSlides = [];
+
+  for (let index = 0; index < CAMINOS_CARDS.length; index += cardsPerView) {
+    caminoSlides.push(CAMINOS_CARDS.slice(index, index + cardsPerView));
+  }
 
   useEffect(() => {
     const currentWord = OBJETIVO_WORDS[wordIndex];
@@ -38,6 +110,33 @@ export default function HomePage() {
 
     return () => clearTimeout(timeout);
   }, [typedObjetivo, isDeleting, wordIndex]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setCardsPerView(window.innerWidth <= 980 ? 1 : 2);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    setActiveCamino((prev) => Math.min(prev, caminoSlides.length - 1));
+  }, [caminoSlides.length]);
+
+  useEffect(() => {
+    if (caminoSlides.length <= 1) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setActiveCamino((prev) => (prev + 1) % caminoSlides.length);
+    }, 6000);
+
+    return () => window.clearInterval(intervalId);
+  }, [caminoSlides.length]);
 
   return (
     <main>
@@ -94,123 +193,95 @@ export default function HomePage() {
             <div className="prospectos-ref__intro">
               <p className="prospectos-ref__eyebrow">Elige tu camino</p>
               <h2 className="prospectos-ref__title">
-                Servicios pensados para cada necesidad
+                Encuentra la solución ideal para ti
               </h2>
               <p className="prospectos-ref__text">
-                Cada proyecto es diferente. Escoge la opción que mejor represente
-                lo que necesitas y descubre el camino más adecuado para ti o tu
-                negocio.
+                Sabemos que cada proyecto es único. Por eso, puedes elegir la
+                opción que mejor se ajuste a tus necesidades y avanzar por el
+                camino más adecuado.
               </p>
             </div>
 
-            <div className="prospectos-ref__grid">
-              <article className="prospecto-ref-card">
-                <div className="prospecto-ref-card__media">
-                  <div className="prospecto-ref-card__visual" />
-                  <span className="prospecto-ref-card__badge">01. Marca / Negocio</span>
-                </div>
-                <div className="prospecto-ref-card__body">
-                  <h3>Tengo una marca o negocio</h3>
-                  <p className="prospecto-ref-card__description">
-                    Branding, contenido, web, redes y presencia digital para
-                    emprendedores, marcas personales y pequeños negocios.
-                  </p>
-                  <p className="prospecto-ref-card__lead">Este camino está diseñado para:</p>
-                  <ul className="prospecto-ref-card__list">
-                    <li>Fortalecer tu identidad visual y posicionamiento.</li>
-                    <li>Mejorar tu presencia digital en canales clave.</li>
-                    <li>Convertir visitas en contactos o clientes reales.</li>
-                    <li>Unificar la comunicación de tu marca.</li>
-                  </ul>
-                  <div className="prospecto-ref-card__footer">
-                    <span className="prospecto-ref-card__chip">Marca y negocio</span>
-                    <a className="prospecto-ref-card__cta" href="#contacto">
-                      Más información
-                    </a>
-                  </div>
-                </div>
-              </article>
+            <div className="prospectos-ref__slider">
+              <button
+                type="button"
+                className="prospectos-ref__arrow"
+                onClick={() =>
+                  setActiveCamino((prev) => (prev - 1 + caminoSlides.length) % caminoSlides.length)
+                }
+                aria-label="Tarjeta anterior"
+              >
+                ‹
+              </button>
 
-              <article className="prospecto-ref-card">
-                <div className="prospecto-ref-card__media">
-                  <div className="prospecto-ref-card__visual" />
-                  <span className="prospecto-ref-card__badge">02. Presencia visual</span>
+              <div className="prospectos-ref__viewport">
+                <div
+                  className="prospectos-ref__grid"
+                  style={{ transform: `translateX(-${activeCamino * 100}%)` }}
+                >
+                  {caminoSlides.map((slide, slideIndex) => (
+                    <div
+                      className="prospectos-ref__slide"
+                      key={`camino-slide-${slideIndex}`}
+                      style={{
+                        gridTemplateColumns: `repeat(${cardsPerView}, minmax(0, 1fr))`,
+                      }}
+                    >
+                      {slide.map((card) => (
+                        <article
+                          className={`prospecto-ref-card ${card.visualClass}`}
+                          key={card.badge}
+                        >
+                          <div className="prospecto-ref-card__media">
+                            <div className="prospecto-ref-card__visual" />
+                            <span className="prospecto-ref-card__badge">{card.badge}</span>
+                          </div>
+                          <div className="prospecto-ref-card__body">
+                            <h3>{card.title}</h3>
+                            <p className="prospecto-ref-card__description">{card.description}</p>
+                            <p className="prospecto-ref-card__lead">{card.lead}</p>
+                            <ul className="prospecto-ref-card__list">
+                              {card.items.map((item) => (
+                                <li key={item}>{item}</li>
+                              ))}
+                            </ul>
+                            <div className="prospecto-ref-card__footer">
+                              <span className="prospecto-ref-card__chip">{card.chip}</span>
+                              <a className="prospecto-ref-card__cta" href="#contacto">
+                                Más información
+                              </a>
+                            </div>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  ))}
                 </div>
-                <div className="prospecto-ref-card__body">
-                  <h3>Necesito presencia visual profesional</h3>
-                  <p className="prospecto-ref-card__description">
-                    Imagen corporativa, fotografía profesional, video institucional
-                    y contenido de marca para empresas y organizaciones.
-                  </p>
-                  <p className="prospecto-ref-card__lead">Con esta opción podrás:</p>
-                  <ul className="prospecto-ref-card__list">
-                    <li>Elevar la percepción profesional de tu marca.</li>
-                    <li>Comunicar confianza con imagen coherente.</li>
-                    <li>Generar piezas para web, redes y presentaciones.</li>
-                    <li>Conectar visualmente con clientes y aliados.</li>
-                  </ul>
-                  <div className="prospecto-ref-card__footer">
-                    <span className="prospecto-ref-card__chip">Presencia visual</span>
-                    <a className="prospecto-ref-card__cta" href="#contacto">
-                      Más información
-                    </a>
-                  </div>
-                </div>
-              </article>
+              </div>
 
-              <article className="prospecto-ref-card">
-                <div className="prospecto-ref-card__media">
-                  <div className="prospecto-ref-card__visual" />
-                  <span className="prospecto-ref-card__badge">03. Momento especial</span>
-                </div>
-                <div className="prospecto-ref-card__body">
-                  <h3>Quiero capturar un momento especial</h3>
-                  <p className="prospecto-ref-card__description">
-                    Fotografía, video, sesiones, bodas, cumpleaños y cobertura
-                    visual para recuerdos auténticos y memorables.
-                  </p>
-                  <p className="prospecto-ref-card__lead">Con esta cobertura lograrás:</p>
-                  <ul className="prospecto-ref-card__list">
-                    <li>Documentar cada detalle con calidad profesional.</li>
-                    <li>Crear piezas emocionales y atemporales.</li>
-                    <li>Capturar momentos espontáneos con intención.</li>
-                    <li>Entregar recuerdos listos para compartir.</li>
-                  </ul>
-                  <div className="prospecto-ref-card__footer">
-                    <span className="prospecto-ref-card__chip">Momentos especiales</span>
-                    <a className="prospecto-ref-card__cta" href="#contacto">
-                      Más información
-                    </a>
-                  </div>
-                </div>
-              </article>
+              <button
+                type="button"
+                className="prospectos-ref__arrow"
+                onClick={() => setActiveCamino((prev) => (prev + 1) % caminoSlides.length)}
+                aria-label="Siguiente tarjeta"
+              >
+                ›
+              </button>
+            </div>
 
-              <article className="prospecto-ref-card">
-                <div className="prospecto-ref-card__media">
-                  <div className="prospecto-ref-card__visual" />
-                  <span className="prospecto-ref-card__badge">04. Solución a medida</span>
-                </div>
-                <div className="prospecto-ref-card__body">
-                  <h3>Busco una solución creativa a mi idea</h3>
-                  <p className="prospecto-ref-card__description">
-                    Campañas, proyectos mixtos, combinaciones de servicios y
-                    propuestas personalizadas según tu necesidad.
-                  </p>
-                  <p className="prospecto-ref-card__lead">Esta solución personalizada te permite:</p>
-                  <ul className="prospecto-ref-card__list">
-                    <li>Diseñar una propuesta alineada a tus objetivos.</li>
-                    <li>Combinar servicios sin perder coherencia visual.</li>
-                    <li>Priorizar acciones según etapa y presupuesto.</li>
-                    <li>Ejecutar con enfoque estratégico y comercial.</li>
-                  </ul>
-                  <div className="prospecto-ref-card__footer">
-                    <span className="prospecto-ref-card__chip">Solución a medida</span>
-                    <a className="prospecto-ref-card__cta" href="#contacto">
-                      Más información
-                    </a>
-                  </div>
-                </div>
-              </article>
+            <div className="prospectos-ref__dots" aria-label="Navegación de tarjetas">
+              {caminoSlides.map((_, index) => (
+                <button
+                  key={`camino-dot-${index}`}
+                  type="button"
+                  className={`prospectos-ref__dot ${
+                    index === activeCamino ? "is-active" : ""
+                  }`}
+                  onClick={() => setActiveCamino(index)}
+                  aria-label={`Ir al slide ${index + 1}`}
+                  aria-current={index === activeCamino ? "true" : "false"}
+                />
+              ))}
             </div>
           </div>
         </div>
