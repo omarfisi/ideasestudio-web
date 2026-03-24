@@ -64,6 +64,27 @@ function CartIcon() {
   );
 }
 
+function CrmAccessIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M14 4H18C19.1 4 20 4.9 20 6V18C20 19.1 19.1 20 18 20H14"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M10 8L14 12L10 16"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M4 12H14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function MenuIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -85,6 +106,74 @@ function CloseIcon() {
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function FacebookIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M14 8H16V5H14C11.8 5 10 6.8 10 9V11H8V14H10V19H13V14H15.2L16 11H13V9C13 8.45 13.45 8 14 8Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function InstagramIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="4" y="4" width="16" height="16" rx="5" stroke="currentColor" strokeWidth="2" />
+      <circle cx="12" cy="12" r="3.4" stroke="currentColor" strokeWidth="2" />
+      <circle cx="17.2" cy="6.8" r="1.2" fill="currentColor" />
+    </svg>
+  );
+}
+
+function YouTubeIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M21 8.2C20.8 7.4 20.2 6.8 19.4 6.6C17.8 6.2 12 6.2 12 6.2S6.2 6.2 4.6 6.6C3.8 6.8 3.2 7.4 3 8.2C2.6 9.8 2.6 12 2.6 12S2.6 14.2 3 15.8C3.2 16.6 3.8 17.2 4.6 17.4C6.2 17.8 12 17.8 12 17.8S17.8 17.8 19.4 17.4C20.2 17.2 20.8 16.6 21 15.8C21.4 14.2 21.4 12 21.4 12S21.4 9.8 21 8.2Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <path d="M10 9.5L15 12L10 14.5V9.5Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+function EmailIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 7H20V17H4V7Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M4 8L12 13L20 8"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function PhoneIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M22 16.92V20A2 2 0 0 1 20.18 22C11.47 22 4 14.53 4 5.82A2 2 0 0 1 6 4H9.08A2 2 0 0 1 11.06 5.67L11.58 8.64A2 2 0 0 1 11.01 10.4L9.5 11.91C10.59 14.29 12.71 16.41 15.09 17.5L16.6 15.99A2 2 0 0 1 18.36 15.42L21.33 15.94A2 2 0 0 1 22 16.92Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );
@@ -135,9 +224,9 @@ export default function Header() {
           --ie-bg: #ffffff;
           --ie-text: #111111;
           --ie-muted: #5f6368;
-          --ie-line: rgba(17, 17, 17, 0.08);
+          --ie-line: rgba(17, 17, 17, 0.10);
           --ie-line-strong: rgba(17, 17, 17, 0.12);
-          --ie-shadow: 0 16px 48px rgba(17, 17, 17, 0.08);
+          --ie-shadow: 0 10px 20px rgba(17, 17, 17, 0.05);
           --ie-yellow: #f3cc00;
           --ie-yellow-soft: rgba(243, 204, 0, 0.16);
           --ie-yellow-soft-2: rgba(243, 204, 0, 0.10);
@@ -150,10 +239,8 @@ export default function Header() {
           position: sticky;
           top: 0;
           z-index: 50;
-          padding: 18px 18px 0;
-          background:
-            linear-gradient(to bottom, rgba(255,255,255,0.95), rgba(255,255,255,0));
-          backdrop-filter: blur(6px);
+          padding: 0 18px 0;
+          background: transparent;
         }
 
         .ie-header-shell {
@@ -166,12 +253,13 @@ export default function Header() {
           display: grid;
           grid-template-columns: auto 1fr auto;
           align-items: center;
-          gap: 18px;
-          padding: 14px 18px;
+          gap: 22px;
+          padding: 14px 22px;
           background: var(--ie-bg);
           border: 1px solid var(--ie-line);
+          border-top: 0;
           box-shadow: var(--ie-shadow);
-          border-radius: var(--ie-radius-xl);
+          border-radius: 0 0 18px 18px;
         }
 
         .ie-brand {
@@ -234,7 +322,7 @@ export default function Header() {
         .ie-nav {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 20px;
           margin-left: 0;
           justify-self: center;
         }
@@ -244,23 +332,24 @@ export default function Header() {
           appearance: none;
           border: 0;
           background: transparent;
-          color: var(--ie-text);
+          color: #4d4d4d;
           text-decoration: none;
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          padding: 12px 14px;
-          border-radius: 14px;
-          font-size: 0.98rem;
-          font-weight: 600;
+          padding: 8px 2px;
+          border-radius: 0;
+          font-size: 0.99rem;
+          font-weight: 650;
           cursor: pointer;
-          transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+          transition: color 0.2s ease, transform 0.2s ease;
         }
 
         .ie-nav__link:hover,
         .ie-nav__button:hover,
         .ie-nav__button.is-active {
-          background: var(--ie-yellow-soft-2);
+          color: var(--ie-text);
+          transform: translateY(-1px);
         }
 
         .ie-header-chevron {
@@ -274,64 +363,75 @@ export default function Header() {
         .ie-actions {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 14px;
           justify-self: end;
         }
 
         .ie-icon-btn {
-          width: 46px;
-          height: 46px;
+          min-height: 42px;
+          padding: 0 14px;
+          gap: 8px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          border-radius: 14px;
-          border: 1px solid var(--ie-line-strong);
-          background: #fff;
-          color: var(--ie-text);
+          border-radius: 12px;
+          border: 1px solid rgba(17, 17, 17, 0.12);
+          background: #ffffff;
+          color: #444444;
           text-decoration: none;
-          transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+          transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+        }
+
+        .ie-icon-btn span {
+          font-size: 0.92rem;
+          font-weight: 700;
+          letter-spacing: -0.01em;
         }
 
         .ie-icon-btn:hover {
           transform: translateY(-1px);
-          border-color: rgba(17,17,17,0.18);
-          box-shadow: 0 10px 24px rgba(17,17,17,0.08);
+          color: #111111;
+          background: #f7f7f7;
         }
 
         .ie-crm-btn {
           display: inline-flex;
           align-items: center;
-          gap: 10px;
-          padding: 0 18px;
-          height: 46px;
-          border-radius: 14px;
-          background: #111111;
-          color: #ffffff;
+          gap: 8px;
+          padding: 0 24px;
+          height: 48px;
+          border-radius: 999px;
+          border: 1px solid #d4b200;
+          background: var(--ie-yellow);
+          color: #111111;
           text-decoration: none;
-          font-weight: 700;
+          font-weight: 800;
           letter-spacing: -0.02em;
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
+          transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+        }
+
+        .ie-crm-btn span {
+          font-size: 0.92rem;
+          font-weight: 800;
+          letter-spacing: -0.01em;
+        }
+
+        .ie-crm-btn svg {
+          width: 20px;
+          height: 20px;
         }
 
         .ie-crm-btn:hover {
           transform: translateY(-1px);
-          box-shadow: 0 14px 28px rgba(17,17,17,0.16);
-        }
-
-        .ie-crm-btn__dot {
-          width: 10px;
-          height: 10px;
-          border-radius: 999px;
-          background: var(--ie-yellow);
-          box-shadow: 0 0 0 4px rgba(243, 204, 0, 0.16);
-          flex-shrink: 0;
+          background: #111111;
+          color: #ffffff;
         }
 
         .ie-mobile-toggle {
           display: none;
-          width: 46px;
-          height: 46px;
-          border-radius: 14px;
+          width: 42px;
+          height: 42px;
+          border-radius: 12px;
           border: 1px solid var(--ie-line-strong);
           background: #fff;
           color: var(--ie-text);
@@ -534,12 +634,12 @@ export default function Header() {
 
         @media (max-width: 640px) {
           .ie-header-wrap {
-            padding: 14px 14px 0;
+            padding: 0 14px 0;
           }
 
           .ie-header {
             padding: 12px 14px;
-            border-radius: 20px;
+            border-radius: 0 0 16px 16px;
           }
 
           .ie-brand__name {
@@ -566,6 +666,58 @@ export default function Header() {
           }
         }
       `}</style>
+
+      <div className="ie-topbar">
+        <div className="ie-topbar__inner">
+          <div className="ie-topbar__left">
+            <a href="mailto:omarfisi@ideasestudiopr.com" className="ie-topbar__item">
+              <span className="ie-topbar__icon ie-topbar__icon--social" aria-hidden="true">
+                <EmailIcon />
+              </span>
+              <span>omarfisi@ideasestudiopr.com</span>
+            </a>
+
+            <a href="tel:17875030349" className="ie-topbar__item">
+              <span className="ie-topbar__icon ie-topbar__icon--social" aria-hidden="true">
+                <PhoneIcon />
+              </span>
+              <span>1-787-503-0349</span>
+            </a>
+          </div>
+
+          <div className="ie-topbar__right">
+            <a
+              href="https://www.facebook.com/ideasestudiopr"
+              target="_blank"
+              rel="noreferrer"
+              className="ie-topbar__social"
+              aria-label="Facebook"
+            >
+              <FacebookIcon />
+            </a>
+
+            <a
+              href="https://www.instagram.com/ideasestudiopr/"
+              target="_blank"
+              rel="noreferrer"
+              className="ie-topbar__social"
+              aria-label="Instagram"
+            >
+              <InstagramIcon />
+            </a>
+
+            <a
+              href="https://www.youtube.com/@ideasestudio"
+              target="_blank"
+              rel="noreferrer"
+              className="ie-topbar__social"
+              aria-label="YouTube"
+            >
+              <YouTubeIcon />
+            </a>
+          </div>
+        </div>
+      </div>
 
       <header className="ie-header-wrap">
         <div className="ie-header-shell" ref={dropdownRef}>
@@ -611,14 +763,19 @@ export default function Header() {
                 Portafolio
               </a>
 
+              <a className="ie-nav__link" href="/#blog">
+                Blog
+              </a>
+
               <a className="ie-nav__link" href="/#contacto">
                 Contacto
               </a>
             </nav>
 
             <div className="ie-actions">
-              <Link className="ie-icon-btn" to={cartPath} aria-label="Carrito">
+              <Link className="ie-icon-btn" to={cartPath} aria-label="Ordenes">
                 <CartIcon />
+                <span>Ordenes</span>
               </Link>
 
               <a
@@ -626,9 +783,11 @@ export default function Header() {
                 href={crmUrl}
                 target={crmIsExternal ? "_blank" : undefined}
                 rel={crmIsExternal ? "noreferrer" : undefined}
+                aria-label="Acceder CRM"
+                title="Acceder CRM"
               >
-                <span className="ie-crm-btn__dot" />
-                CRM App
+                <CrmAccessIcon />
+                <span>Acceder CRM</span>
               </a>
             </div>
 
@@ -703,6 +862,10 @@ export default function Header() {
 
                 <a className="ie-mobile-link" href="/#portafolio">
                   <span>Portafolio</span>
+                </a>
+
+                <a className="ie-mobile-link" href="/#blog">
+                  <span>Blog</span>
                 </a>
 
                 <a className="ie-mobile-link" href="/#contacto">

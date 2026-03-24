@@ -87,9 +87,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-      <div className="section-divider-circuit" aria-hidden="true" />
 
-      <section id="caminos">
+      <section id="caminos" className="section-split">
         <div className="container">
           <div className="prospectos-ref">
             <div className="prospectos-ref__intro">
@@ -216,9 +215,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-      <div className="section-divider-circuit" aria-hidden="true" />
 
-      <section id="servicios">
+      <section id="servicios" className="section-split">
         <div className="container">
           <div className="servicios-preview">
             <p className="servicios-preview__eyebrow">Servicios principales</p>
@@ -270,17 +268,15 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-      <div className="section-divider-circuit" aria-hidden="true" />
 
-      <section id="portafolio">
+      <section id="portafolio" className="section-split">
         <div className="container">
           <p>Placeholder</p>
           <h2>Portafolio</h2>
         </div>
       </section>
-      <div className="section-divider-circuit" aria-hidden="true" />
 
-      <section id="contacto">
+      <section id="contacto" className="section-split">
         <div className="container">
           <p>Placeholder</p>
           <h2>Contacto / CTA final</h2>
