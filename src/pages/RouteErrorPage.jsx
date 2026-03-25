@@ -18,6 +18,11 @@ export default function RouteErrorPage() {
     message = error.message || message;
   }
 
+  if (message === "Failed to fetch") {
+    message =
+      "No se pudo conectar con el backend local. Verifica que la API este levantada y que VITE_CRM_BASE_URL apunte a la URL correcta.";
+  }
+
   return (
     <section className="section">
       <div className="container">

@@ -33,9 +33,49 @@ import CheckoutPage from "@/pages/CheckoutPage.jsx";
 import OrderConfirmationPage from "@/pages/OrderConfirmationPage.jsx";
 import NotFoundPage from "@/pages/NotFoundPage.jsx";
 import RouteErrorPage from "@/pages/RouteErrorPage.jsx";
+import { getClientRouteByKey } from "@/data/routes.js";
 
-const loadClientRoute = (routeKey) => async () =>
-  getPublicClientRouteBundle(routeKey);
+const loadClientRoute = (routeKey) => async () => {
+  try {
+    return await getPublicClientRouteBundle(routeKey);
+  } catch (error) {
+    return {
+      route: getClientRouteByKey(routeKey),
+      services: [],
+    };
+  }
+};
+
+const loadServicesCatalog = async () => {
+  try {
+    const [catalog, categories] = await Promise.all([
+      getPublicCatalog(),
+      getPublicServiceCategories(),
+    ]);
+
+    return {
+      services: catalog.items,
+      categories,
+    };
+  } catch (error) {
+    return {
+      services: [],
+      categories: [],
+    };
+  }
+};
+
+const loadServiceDetail = async ({ params }) => {
+  try {
+    return {
+      service: await getPublicServiceBySlug(params.slug),
+    };
+  } catch (error) {
+    return {
+      service: null,
+    };
+  }
+};
 
 const loadProductsCatalog = async ({ request }) => {
   const url = new URL(request.url);
@@ -150,17 +190,7 @@ const router = createBrowserRouter([
       },
       {
         path: "servicios",
-        loader: async () => {
-          const [catalog, categories] = await Promise.all([
-            getPublicCatalog(),
-            getPublicServiceCategories(),
-          ]);
-
-          return {
-            services: catalog.items,
-            categories,
-          };
-        },
+        loader: loadServicesCatalog,
         element: <ServicesPage />,
       },
       {
@@ -198,9 +228,7 @@ const router = createBrowserRouter([
       },
       {
         path: "servicios/:slug",
-        loader: async ({ params }) => ({
-          service: await getPublicServiceBySlug(params.slug),
-        }),
+        loader: loadServiceDetail,
         element: <ServiceDetailPage />,
       },
       {
