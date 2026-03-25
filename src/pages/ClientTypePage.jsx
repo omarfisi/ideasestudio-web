@@ -80,7 +80,11 @@ export default function ClientTypePage() {
 
           <div className="service-grid">
             {services.map((service) => (
-              <ServiceCard key={service.id} service={service} />
+              <ServiceCard
+                key={service.id}
+                service={service}
+                clientType={route.key}
+              />
             ))}
           </div>
         </div>

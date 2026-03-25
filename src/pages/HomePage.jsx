@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { useLoaderData } from "react-router-dom";
+import ServicesOverview from "@/components/home/ServicesOverview.jsx";
 import portfolioProcessHero from "../assets/quland-process/process-1.png";
 import portfolioProcessStep1 from "../assets/quland-process/process-2.png";
 import portfolioProcessStep2 from "../assets/quland-process/process-3.png";
@@ -157,11 +159,13 @@ const PORTFOLIO_PROCESS_STEPS = [
 const SLIDESHOW_INTERVAL_MS = 20000;
 
 export default function HomePage() {
+  const { featuredServices = [] } = useLoaderData();
   const [wordIndex, setWordIndex] = useState(0);
   const [typedObjetivo, setTypedObjetivo] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeCamino, setActiveCamino] = useState(0);
-  const [activePortfolioMedia, setActivePortfolioMedia] = useState(0);
+  const [activePortfolioTopMedia, setActivePortfolioTopMedia] = useState(0);
+  const [activePortfolioLeftMedia, setActivePortfolioLeftMedia] = useState(1);
   const [activePortfolioStep, setActivePortfolioStep] = useState(0);
   const [isPortfolioTransitionEnabled, setIsPortfolioTransitionEnabled] = useState(true);
   const [cardsPerView, setCardsPerView] = useState(() =>
@@ -253,7 +257,19 @@ export default function HomePage() {
     }
 
     const intervalId = window.setInterval(() => {
-      setActivePortfolioMedia((prev) => (prev + 1) % PORTFOLIO_VISUAL_SLIDES.length);
+      setActivePortfolioTopMedia((prev) => (prev + 1) % PORTFOLIO_VISUAL_SLIDES.length);
+    }, SLIDESHOW_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    if (PORTFOLIO_VISUAL_SLIDES.length <= 1) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setActivePortfolioLeftMedia((prev) => (prev + 1) % PORTFOLIO_VISUAL_SLIDES.length);
     }, SLIDESHOW_INTERVAL_MS);
 
     return () => window.clearInterval(intervalId);
@@ -285,8 +301,8 @@ export default function HomePage() {
   }, [isPortfolioTransitionEnabled]);
 
   const portfolioActiveDot = activePortfolioStep % PORTFOLIO_PROCESS_STEPS.length;
-  const getPortfolioMediaIndex = (offset = 0) =>
-    (activePortfolioMedia + offset) % PORTFOLIO_VISUAL_SLIDES.length;
+  const getPortfolioTopMediaIndex = () => activePortfolioTopMedia;
+  const getPortfolioLeftMediaIndex = () => activePortfolioLeftMedia;
 
   const handlePortfolioNext = () => {
     setIsPortfolioTransitionEnabled(true);
@@ -305,12 +321,22 @@ export default function HomePage() {
     setActivePortfolioStep(index);
   };
 
-  const handlePortfolioMediaNext = () => {
-    setActivePortfolioMedia((prev) => (prev + 1) % PORTFOLIO_VISUAL_SLIDES.length);
+  const handlePortfolioTopMediaNext = () => {
+    setActivePortfolioTopMedia((prev) => (prev + 1) % PORTFOLIO_VISUAL_SLIDES.length);
   };
 
-  const handlePortfolioMediaPrev = () => {
-    setActivePortfolioMedia((prev) =>
+  const handlePortfolioTopMediaPrev = () => {
+    setActivePortfolioTopMedia((prev) =>
+      prev === 0 ? PORTFOLIO_VISUAL_SLIDES.length - 1 : prev - 1
+    );
+  };
+
+  const handlePortfolioLeftMediaNext = () => {
+    setActivePortfolioLeftMedia((prev) => (prev + 1) % PORTFOLIO_VISUAL_SLIDES.length);
+  };
+
+  const handlePortfolioLeftMediaPrev = () => {
+    setActivePortfolioLeftMedia((prev) =>
       prev === 0 ? PORTFOLIO_VISUAL_SLIDES.length - 1 : prev - 1
     );
   };
@@ -472,7 +498,7 @@ export default function HomePage() {
                   <div
                     key={`portfolio-top-${index}`}
                     className={`portfolio-process__media-slide ${
-                      index === getPortfolioMediaIndex() ? "is-active" : ""
+                      index === getPortfolioTopMediaIndex() ? "is-active" : ""
                     }`}
                   >
                     <img src={slide.image} alt="" />
@@ -488,7 +514,7 @@ export default function HomePage() {
                     <span
                       key={`portfolio-top-dot-${index}`}
                       className={`portfolio-process__media-dot ${
-                        index === getPortfolioMediaIndex() ? "is-active" : ""
+                        index === getPortfolioTopMediaIndex() ? "is-active" : ""
                       }`}
                     />
                   ))}
@@ -498,7 +524,7 @@ export default function HomePage() {
                   <button
                     type="button"
                     className="portfolio-process__media-control"
-                    onClick={handlePortfolioMediaPrev}
+                    onClick={handlePortfolioTopMediaPrev}
                     aria-label="Imagen anterior"
                   >
                     ‹
@@ -507,7 +533,7 @@ export default function HomePage() {
                   <button
                     type="button"
                     className="portfolio-process__media-control"
-                    onClick={handlePortfolioMediaNext}
+                    onClick={handlePortfolioTopMediaNext}
                     aria-label="Imagen siguiente"
                   >
                     ›
@@ -523,7 +549,7 @@ export default function HomePage() {
                     <div
                       key={`portfolio-left-portrait-${index}`}
                       className={`portfolio-process__media-slide ${
-                        index === getPortfolioMediaIndex(1) ? "is-active" : ""
+                        index === getPortfolioLeftMediaIndex() ? "is-active" : ""
                       }`}
                     >
                       <img src={slide.image} alt="" />
@@ -539,7 +565,7 @@ export default function HomePage() {
                     <button
                       type="button"
                       className="portfolio-process__media-control"
-                      onClick={handlePortfolioMediaPrev}
+                      onClick={handlePortfolioLeftMediaPrev}
                       aria-label="Imagen anterior"
                     >
                       ‹
@@ -548,7 +574,7 @@ export default function HomePage() {
                     <button
                       type="button"
                       className="portfolio-process__media-control"
-                      onClick={handlePortfolioMediaNext}
+                      onClick={handlePortfolioLeftMediaNext}
                       aria-label="Imagen siguiente"
                     >
                       ›
@@ -624,58 +650,14 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="servicios" className="section-split">
-        <div className="container">
-          <div className="servicios-preview">
-            <p className="servicios-preview__eyebrow">Servicios principales</p>
-
-            <div className="servicios-preview__heading">
-              <h2 className="servicios-preview__title">
-                Un estudio creativo con soluciones visuales y digitales
-              </h2>
-              <p className="servicios-preview__text">
-                Trabajamos fotografía, video, diseño, contenido y presencia
-                digital para ayudarte a comunicar mejor tu marca, tu negocio o tu
-                momento especial.
-              </p>
-            </div>
-
-            <div className="servicios-preview__grid">
-              <article className="servicio-preview-card">
-                <h3>Fotografía profesional</h3>
-                <p>
-                  Estudio, exterior, eventos, productos, bodas y sesiones
-                  especiales.
-                </p>
-              </article>
-
-              <article className="servicio-preview-card">
-                <h3>Producción de video</h3>
-                <p>
-                  Contenido visual para marcas, negocios, campañas y cobertura de
-                  eventos.
-                </p>
-              </article>
-
-              <article className="servicio-preview-card">
-                <h3>Diseño gráfico</h3>
-                <p>
-                  Identidad visual, piezas promocionales y materiales para
-                  comunicar mejor.
-                </p>
-              </article>
-
-              <article className="servicio-preview-card">
-                <h3>Presencia digital</h3>
-                <p>
-                  Contenido, redes sociales, páginas web y apoyo creativo para
-                  crecer online.
-                </p>
-              </article>
-            </div>
-          </div>
-        </div>
-      </section>
+      <ServicesOverview
+        id="servicios"
+        className="section-split"
+        services={featuredServices}
+        eyebrow="Servicios principales"
+        title="Un catálogo público para explorar servicios antes de comprar, reservar o solicitar propuesta."
+        subtitle="La home ahora muestra servicios reales del CRM y te lleva directo a la página separada donde estará el catálogo completo y la futura capa eCommerce."
+      />
 
       <section id="contacto" className="section-split">
         <div className="container">

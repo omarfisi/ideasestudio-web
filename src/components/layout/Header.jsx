@@ -190,7 +190,7 @@ export default function Header() {
     import.meta.env.VITE_CRM_BASE_URL ||
     "/crm";
 
-  const cartPath = "/carrito";
+  const cartPath = "/servicios/carrito";
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -755,9 +755,9 @@ export default function Header() {
                 <ChevronDownIcon open={solutionsOpen} />
               </button>
 
-              <a className="ie-nav__link" href="/#servicios">
+              <Link className="ie-nav__link" to="/servicios">
                 Servicios
-              </a>
+              </Link>
 
               <a className="ie-nav__link" href="/#portafolio">
                 Portafolio
@@ -856,9 +856,9 @@ export default function Header() {
                   </div>
                 )}
 
-                <a className="ie-mobile-link" href="/#servicios">
+                <Link className="ie-mobile-link" to="/servicios">
                   <span>Servicios</span>
-                </a>
+                </Link>
 
                 <a className="ie-mobile-link" href="/#portafolio">
                   <span>Portafolio</span>

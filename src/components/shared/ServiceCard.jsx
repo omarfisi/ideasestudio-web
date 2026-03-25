@@ -11,6 +11,7 @@ export default function ServiceCard({
   service,
   showPrimaryAction = true,
   showViewAction = true,
+  clientType = null,
 }) {
   return (
     <article className="service-card">
@@ -40,7 +41,12 @@ export default function ServiceCard({
             </Button>
           ) : null}
           {showPrimaryAction ? (
-            <Button to={getServiceActionHref(service)}>
+            <Button
+              to={getServiceActionHref(service, {
+                cta: "service_card_primary",
+                clientType,
+              })}
+            >
               {getSaleTypeCTA(service.saleType)}
             </Button>
           ) : null}

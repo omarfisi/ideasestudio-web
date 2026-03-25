@@ -367,6 +367,27 @@ const saleTypeModes = {
   deposit_booking: "booking",
 };
 
+function getCurrentPageOrigin() {
+  return typeof window !== "undefined" ? window.location.pathname : "";
+}
+
+function buildServiceLeadQuery(service, options = {}) {
+  const params = new URLSearchParams();
+  const mode = options.mode || saleTypeModes[service.saleType] || "proposal";
+  const pageOrigin = options.pageOrigin || getCurrentPageOrigin();
+  const cta = options.cta || null;
+  const clientType = options.clientType || null;
+
+  if (service.name) params.set("service", service.name);
+  if (service.slug) params.set("serviceSlug", service.slug);
+  if (mode) params.set("mode", mode);
+  if (pageOrigin) params.set("pageOrigin", pageOrigin);
+  if (cta) params.set("cta", cta);
+  if (clientType) params.set("clientType", clientType);
+
+  return params.toString();
+}
+
 export function getServiceCategoryLabel(category) {
   return categoryLabels[category] || "Servicio";
 }
@@ -379,14 +400,23 @@ export function getSaleTypeCTA(saleType) {
   return saleTypeCtas[saleType] || "Ver servicio";
 }
 
-export function getServiceActionHref(service) {
-  const serviceName = encodeURIComponent(service.name);
-  const serviceSlug = encodeURIComponent(service.slug);
+export function getServiceInquiryHref(service, options = {}) {
+  const query = buildServiceLeadQuery(service, {
+    ...options,
+    mode: options.mode || saleTypeModes[service.saleType] || "proposal",
+    cta: options.cta || "service_inquiry",
+  });
+
+  return `/servicios/checkout?${query}`;
+}
+
+export function getServiceActionHref(service, options = {}) {
   const mode = saleTypeModes[service.saleType] || "proposal";
+  const query = buildServiceLeadQuery(service, {
+    ...options,
+    mode,
+    cta: options.cta || "service_primary",
+  });
 
-  if (service.saleType === "quote_only") {
-    return `/contacto?service=${serviceName}&serviceSlug=${serviceSlug}&mode=${mode}`;
-  }
-
-  return `/checkout?service=${serviceName}&serviceSlug=${serviceSlug}&mode=${mode}`;
+  return `/servicios/checkout?${query}`;
 }

@@ -1,24 +1,32 @@
 import SectionTitle from "@/components/shared/SectionTitle.jsx";
-import ServiceCard from "@/components/shared/ServiceCard.jsx";
+import Button from "@/components/shared/Button.jsx";
+import ServicesGrid from "@/components/shared/ServicesGrid.jsx";
 
-export default function ServicesOverview({ services }) {
+export default function ServicesOverview({
+  services = [],
+  eyebrow = "Servicios",
+  title = "Catalogo listo para ecommerce, propuestas o reservas",
+  subtitle = "La home ya consume servicios reales del CRM y mantiene inferencias temporales solo donde el backend aun no expone campos publicos completos.",
+  className = "",
+  id,
+}) {
+  const sectionClasses = ["section", className].filter(Boolean).join(" ");
+
   return (
-    <section className="section">
+    <section id={id} className={sectionClasses}>
       <div className="container">
         <SectionTitle
-          eyebrow="Servicios"
-          title="Catalogo listo para ecommerce, propuestas o reservas"
-          subtitle="La home ya consume servicios reales del CRM y mantiene inferencias temporales solo donde el backend aun no expone campos publicos completos."
+          eyebrow={eyebrow}
+          title={title}
+          subtitle={subtitle}
         />
 
-        <div className="service-grid">
-          {services.map((service) => (
-            <ServiceCard
-              key={service.id}
-              service={service}
-              showPrimaryAction={false}
-            />
-          ))}
+        {services.length ? (
+          <ServicesGrid services={services} showPrimaryAction={false} />
+        ) : null}
+
+        <div className="services-overview__actions">
+          <Button to="/servicios">Ver catalogo completo</Button>
         </div>
       </div>
     </section>

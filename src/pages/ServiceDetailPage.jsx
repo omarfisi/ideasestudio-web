@@ -1,13 +1,14 @@
 import { useLoaderData } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
 import CTASection from "@/components/shared/CTASection.jsx";
-import PageHero from "@/components/shared/PageHero.jsx";
+import ServiceDetailHero from "@/components/shared/ServiceDetailHero.jsx";
+import ServiceIncludesList from "@/components/shared/ServiceIncludesList.jsx";
 import { clientRoutes } from "@/data/routes.js";
 import {
   getSaleTypeCTA,
   getSaleTypeLabel,
   getServiceActionHref,
-  getServiceCategoryLabel,
+  getServiceInquiryHref,
 } from "@/data/services.js";
 import { formatPrice } from "@/lib/formatPrice.js";
 
@@ -35,26 +36,15 @@ export default function ServiceDetailPage() {
 
   return (
     <>
-      <PageHero
-        eyebrow={getServiceCategoryLabel(service.category)}
-        title={service.name}
-        subtitle={service.shortDescription}
-        primaryAction={
-          <Button to={getServiceActionHref(service)}>
-            {getSaleTypeCTA(service.saleType)}
-          </Button>
-        }
-        secondaryAction={
-          <Button to="/servicios" variant="secondary">
-            Volver al catalogo
-          </Button>
-        }
-      />
+      <ServiceDetailHero service={service} />
 
       <section className="section">
         <div className="container detail-grid">
-          <article className="detail-panel">
-            <h2>Descripcion</h2>
+          <article className="detail-panel service-detail-panel">
+            <div className="service-detail-panel__copy">
+              <span className="eyebrow">Resumen del servicio</span>
+              <h2>{service.detailsSchema?.title || service.name}</h2>
+            </div>
             <p>{service.description}</p>
 
             <div className="detail-tags">
@@ -65,12 +55,7 @@ export default function ServiceDetailPage() {
               ))}
             </div>
 
-            <h3>Incluye</h3>
-            <ul className="bullet-list">
-              {service.includes.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
+            <ServiceIncludesList items={service.includes} />
           </article>
 
           <aside className="detail-summary">
@@ -92,11 +77,17 @@ export default function ServiceDetailPage() {
             </div>
 
             <div className="detail-summary__actions">
-              <Button to={getServiceActionHref(service)} block>
+              <Button
+                to={getServiceActionHref(service, { cta: "service_detail_sidebar_primary" })}
+                block
+              >
                 {getSaleTypeCTA(service.saleType)}
               </Button>
               <Button
-                to={`/contacto?service=${encodeURIComponent(service.name)}&serviceSlug=${encodeURIComponent(service.slug)}&mode=proposal`}
+                to={getServiceInquiryHref(service, {
+                  mode: "proposal",
+                  cta: "service_detail_sidebar_inquiry",
+                })}
                 variant="secondary"
                 block
               >
