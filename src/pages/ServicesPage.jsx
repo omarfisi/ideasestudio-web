@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useLoaderData } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
 import PageHero from "@/components/shared/PageHero.jsx";
-import ServicesGrid from "@/components/shared/ServicesGrid.jsx";
 import { clientRoutes } from "@/data/routes.js";
 import {
   getSaleTypeLabel,
@@ -15,12 +14,6 @@ function getUniqueOptions(items, getValue) {
 
 export default function ServicesPage() {
   const { services, categories: loadedCategories = [] } = useLoaderData();
-  const [clientType, setClientType] = useState("all");
-  const [category, setCategory] = useState("all");
-  const [saleType, setSaleType] = useState("all");
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
-
   const fallbackCategories = getUniqueOptions(services, (service) => service.category).map(
     (code) => ({
       id: code,
@@ -30,25 +23,6 @@ export default function ServicesPage() {
   );
   const categories = loadedCategories.length ? loadedCategories : fallbackCategories;
   const saleTypes = getUniqueOptions(services, (service) => service.saleType);
-  const featuredServices = services.filter((service) => service.featured).slice(0, 3);
-
-  const filteredServices = services.filter((service) => {
-    const matchesClient =
-      clientType === "all" || service.clientTypes.includes(clientType);
-    const matchesCategory =
-      category === "all" || service.category === category;
-    const matchesSaleType = saleType === "all" || service.saleType === saleType;
-    const matchesMin = minPrice === "" || service.price >= Number(minPrice);
-    const matchesMax = maxPrice === "" || service.price <= Number(maxPrice);
-
-    return (
-      matchesClient &&
-      matchesCategory &&
-      matchesSaleType &&
-      matchesMin &&
-      matchesMax
-    );
-  });
 
   const saleTypeSummary = saleTypes.map((item) => {
     const count = services.filter((service) => service.saleType === item).length;
@@ -74,6 +48,7 @@ export default function ServicesPage() {
       title: getSaleTypeLabel(item),
       description: descriptions[item] || "Flujo comercial disponible en el catalogo.",
       cta: ctas[item] || "Ver catalogo",
+      href: item === "buy_now" ? "/servicios/productos" : "/contacto",
     };
   });
 
@@ -95,42 +70,13 @@ export default function ServicesPage() {
     { value: categories.length, label: "categorias publicas" },
   ];
 
-  function scrollToCatalog() {
-    const node = document.getElementById("catalogo-servicios");
-
-    if (node) {
-      node.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }
-
-  function resetFilters() {
-    setClientType("all");
-    setCategory("all");
-    setSaleType("all");
-    setMinPrice("");
-    setMaxPrice("");
-  }
-
-  function applyPreset({
-    nextClientType = "all",
-    nextCategory = "all",
-    nextSaleType = "all",
-  }) {
-    setClientType(nextClientType);
-    setCategory(nextCategory);
-    setSaleType(nextSaleType);
-    setMinPrice("");
-    setMaxPrice("");
-    scrollToCatalog();
-  }
-
   return (
     <>
       <PageHero
         eyebrow="Servicios"
         title="Servicios como hub comercial para cotizar, reservar o comprar"
         subtitle="Aqui conviven los servicios consultivos y los productos de compra directa dentro de una sola experiencia publica, sin mezclar la arquitectura real del backend."
-        primaryAction={<Button href="#catalogo-servicios">Explorar servicios</Button>}
+        primaryAction={<Button to="/contacto">Solicitar orientación</Button>}
         secondaryAction={
           <Button to="/servicios/productos" variant="secondary">
             Ver productos
@@ -172,11 +118,10 @@ export default function ServicesPage() {
 
               <div className="services-catalog-page__mode-grid">
                 {saleTypeSummary.map((item) => (
-                  <button
+                  <Link
                     key={item.key}
-                    type="button"
+                    to={item.href}
                     className="services-catalog-page__mode-card"
-                    onClick={() => applyPreset({ nextSaleType: item.key })}
                   >
                     <span className="services-catalog-page__mode-count">
                       {item.count}
@@ -186,7 +131,7 @@ export default function ServicesPage() {
                     <span className="services-catalog-page__mode-cta">
                       {item.cta}
                     </span>
-                  </button>
+                  </Link>
                 ))}
               </div>
             </aside>
@@ -206,11 +151,10 @@ export default function ServicesPage() {
 
             <div className="services-catalog-page__route-grid">
               {routeSummary.map((route) => (
-                <button
+                <Link
                   key={route.key}
-                  type="button"
+                  to={route.path}
                   className="services-catalog-page__route-card"
-                  onClick={() => applyPreset({ nextClientType: route.key })}
                 >
                   <div className="services-catalog-page__route-top">
                     <span>{route.label}</span>
@@ -218,128 +162,11 @@ export default function ServicesPage() {
                   </div>
                   <p>{route.shortText}</p>
                   <span className="services-catalog-page__route-link">
-                    Filtrar catalogo
+                    Ver camino
                   </span>
-                </button>
+                </Link>
               ))}
             </div>
-          </div>
-
-          <div className="services-catalog-page__segment">
-            <div className="split-heading services-catalog-page__split">
-              <div className="section-title services-catalog-page__title-block">
-                <span className="eyebrow">Destacados</span>
-                <h2>Servicios listos para empujar la venta principal.</h2>
-              </div>
-              <p className="services-catalog-page__split-copy">
-                Esta franja resalta los servicios consultivos con mas salida
-                antes de pasar al listado completo o al bloque de productos.
-              </p>
-            </div>
-
-            <ServicesGrid
-              className="services-catalog-page__featured-grid"
-              services={featuredServices}
-              clientType={clientType !== "all" ? clientType : null}
-            />
-          </div>
-
-          <div id="catalogo-servicios" className="services-catalog-page__segment">
-            <div className="split-heading services-catalog-page__split">
-              <div className="section-title services-catalog-page__title-block">
-                <span className="eyebrow">Catalogo activo</span>
-                <h2>Todos los servicios publicados en la capa publica.</h2>
-              </div>
-              <p className="services-catalog-page__split-copy">
-                Usa filtros para separar compras directas, reservas o servicios
-                de propuesta dentro del mismo hub comercial.
-              </p>
-            </div>
-
-            <div className="filters-card services-catalog-page__filters">
-              <div className="filters-grid">
-                <label className="field">
-                  <span>Tipo de cliente</span>
-                  <select
-                    value={clientType}
-                    onChange={(event) => setClientType(event.target.value)}
-                  >
-                    <option value="all">Todos</option>
-                    {clientRoutes.map((route) => (
-                      <option key={route.key} value={route.key}>
-                        {route.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="field">
-                  <span>Categoria</span>
-                  <select
-                    value={category}
-                    onChange={(event) => setCategory(event.target.value)}
-                  >
-                    <option value="all">Todas</option>
-                    {categories.map((item) => (
-                      <option key={item.code} value={item.code}>
-                        {item.label || getServiceCategoryLabel(item.code)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="field">
-                  <span>Tipo de venta</span>
-                  <select
-                    value={saleType}
-                    onChange={(event) => setSaleType(event.target.value)}
-                  >
-                    <option value="all">Todos</option>
-                    {saleTypes.map((item) => (
-                      <option key={item} value={item}>
-                        {getSaleTypeLabel(item)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="field">
-                  <span>Precio minimo</span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={minPrice}
-                    onChange={(event) => setMinPrice(event.target.value)}
-                    placeholder="0"
-                  />
-                </label>
-
-                <label className="field">
-                  <span>Precio maximo</span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={maxPrice}
-                    onChange={(event) => setMaxPrice(event.target.value)}
-                    placeholder="2000"
-                  />
-                </label>
-              </div>
-
-              <div className="filters-card__footer">
-                <p>
-                  Mostrando <strong>{filteredServices.length}</strong> servicios
-                </p>
-                <Button type="button" variant="ghost" onClick={resetFilters}>
-                  Limpiar filtros
-                </Button>
-              </div>
-            </div>
-
-            <ServicesGrid
-              services={filteredServices}
-              clientType={clientType !== "all" ? clientType : null}
-            />
           </div>
         </div>
       </section>
