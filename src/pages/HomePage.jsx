@@ -518,50 +518,12 @@ export default function HomePage() {
 
             <div className="portfolio-process__body">
               <div className="portfolio-process__left-stack">
-                <div className="portfolio-process__media-card portfolio-process__media-card--stack">
+                <div className="portfolio-process__media-card portfolio-process__media-card--portrait">
                   {PORTFOLIO_VISUAL_SLIDES.map((slide, index) => (
                     <div
-                      key={`portfolio-left-a-${index}`}
+                      key={`portfolio-left-portrait-${index}`}
                       className={`portfolio-process__media-slide ${
                         index === getPortfolioMediaIndex(1) ? "is-active" : ""
-                      }`}
-                    >
-                      <img src={slide.image} alt="" />
-                      <div className="portfolio-process__media-overlay portfolio-process__media-overlay--compact">
-                        <p className="portfolio-process__media-eyebrow">{slide.eyebrow}</p>
-                        <h3>{slide.title}</h3>
-                        <p className="portfolio-process__media-text">{slide.text}</p>
-                      </div>
-                    </div>
-                  ))}
-
-                  <div className="portfolio-process__media-controls portfolio-process__media-controls--stack">
-                    <button
-                      type="button"
-                      className="portfolio-process__media-control"
-                      onClick={handlePortfolioMediaPrev}
-                      aria-label="Imagen anterior"
-                    >
-                      ‹
-                    </button>
-
-                    <button
-                      type="button"
-                      className="portfolio-process__media-control"
-                      onClick={handlePortfolioMediaNext}
-                      aria-label="Imagen siguiente"
-                    >
-                      ›
-                    </button>
-                  </div>
-                </div>
-
-                <div className="portfolio-process__media-card portfolio-process__media-card--stack">
-                  {PORTFOLIO_VISUAL_SLIDES.map((slide, index) => (
-                    <div
-                      key={`portfolio-left-b-${index}`}
-                      className={`portfolio-process__media-slide ${
-                        index === getPortfolioMediaIndex(2) ? "is-active" : ""
                       }`}
                     >
                       <img src={slide.image} alt="" />
