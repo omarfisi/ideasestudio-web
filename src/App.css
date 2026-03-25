@@ -4671,6 +4671,34 @@ section[id] {
 
   .site-footer__brand {
     max-width: none;
+    text-align: center;
+  }
+
+  .site-footer__brand-link {
+    justify-content: center;
+  }
+
+  .site-footer__copy {
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+  }
+
+  .site-footer__socials,
+  .site-footer__list,
+  .site-footer__contact {
+    justify-content: center;
+    align-items: center;
+  }
+
+  .site-footer__column {
+    text-align: center;
+  }
+
+  .site-footer__link,
+  .site-footer__contact-row {
+    justify-content: center;
+    text-align: center;
   }
 
   .site-footer__bottom {
@@ -4695,7 +4723,7 @@ section[id] {
   }
 
   .site-footer__brand-link {
-    align-items: flex-start;
+    align-items: center;
   }
 
   .site-footer__brand-mark {
