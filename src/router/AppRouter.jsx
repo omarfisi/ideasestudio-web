@@ -6,7 +6,6 @@ import {
 } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout.jsx";
 import {
-  getFeaturedServices,
   getPublicCatalog,
   getPublicClientRouteBundle,
   getPublicProductBySlug,
@@ -155,17 +154,6 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        loader: async () => {
-          try {
-            return {
-              featuredServices: await getFeaturedServices(4),
-            };
-          } catch (error) {
-            return {
-              featuredServices: [],
-            };
-          }
-        },
         element: <HomePage />,
       },
       {

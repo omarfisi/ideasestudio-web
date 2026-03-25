@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { useLoaderData } from "react-router-dom";
-import ServicesOverview from "@/components/home/ServicesOverview.jsx";
 import portfolioProcessHero from "../assets/quland-process/process-1.png";
 import portfolioProcessStep1 from "../assets/quland-process/process-2.png";
 import portfolioProcessStep2 from "../assets/quland-process/process-3.png";
@@ -159,7 +157,6 @@ const PORTFOLIO_PROCESS_STEPS = [
 const SLIDESHOW_INTERVAL_MS = 20000;
 
 export default function HomePage() {
-  const { featuredServices = [] } = useLoaderData();
   const [wordIndex, setWordIndex] = useState(0);
   const [typedObjetivo, setTypedObjetivo] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -649,15 +646,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      <ServicesOverview
-        id="servicios"
-        className="section-split"
-        services={featuredServices}
-        eyebrow="Servicios principales"
-        title="Un catálogo público para explorar servicios antes de comprar, reservar o solicitar propuesta."
-        subtitle="La home ahora muestra servicios reales del CRM y te lleva directo a la página separada donde estará el catálogo completo y la futura capa eCommerce."
-      />
 
       <section id="contacto" className="section-split">
         <div className="container">
