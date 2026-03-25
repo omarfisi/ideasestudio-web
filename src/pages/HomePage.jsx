@@ -327,7 +327,7 @@ export default function HomePage() {
                   <span className="hero-editorial__type--yellow">visuales</span>
                 </span>{" "}
                 para impulsar tu{" "}
-                <span className="hero-editorial__type">
+                <span className="hero-editorial__type hero-editorial__type--animated">
                   <span className="hero-editorial__type--yellow">
                     {typedObjetivo || "\u00A0"}
                   </span>
