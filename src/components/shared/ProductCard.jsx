@@ -3,7 +3,7 @@ import { formatPrice } from "@/lib/formatPrice.js";
 
 const productTypeLabels = {
   digital: "Digital",
-  physical: "Fisico",
+  physical: "Físico",
   service_like: "Servicio fijo",
 };
 
@@ -33,7 +33,7 @@ export default function ProductCard({
       >
         <div className="product-card__badges">
           <span className="pill pill--light">
-            {product.category?.name || "Catalogo"}
+            {product.category?.name || "Catálogo"}
           </span>
           <span className="pill pill--soft">
             {getProductTypeLabel(product.productType)}
@@ -74,7 +74,7 @@ export default function ProductCard({
             onClick={() => onAddToCart(product)}
             disabled={addState === "loading"}
           >
-            {addState === "loading" ? "Agregando..." : "Anadir al carrito"}
+            {addState === "loading" ? "Agregando..." : "Añadir al carrito"}
           </Button>
         </div>
       </div>

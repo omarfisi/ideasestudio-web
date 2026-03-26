@@ -10,7 +10,7 @@ import { addProductToPublicCart } from "@/lib/api.js";
 const productTypeOptions = [
   { value: "all", label: "Todos" },
   { value: "digital", label: "Digitales" },
-  { value: "physical", label: "Fisicos" },
+  { value: "physical", label: "Físicos" },
   { value: "service_like", label: "Servicios fijos" },
 ];
 
@@ -70,8 +70,8 @@ export default function StorePage() {
     <>
       <PageHero
         eyebrow="Servicios"
-        title="Productos de compra directa dentro del hub comercial"
-        subtitle="Esta capa ya consume `products` reales del backend, los agrega a carrito por `session_token` y prepara checkout y ordenes sin mezclarlo con los servicios consultivos."
+        title="Productos listos para comprar dentro de Servicios"
+        subtitle="Explora recursos, plantillas y paquetes creados para apoyar tu marca, tu negocio o tu próximo proyecto desde una experiencia clara y consistente."
         primaryAction={<Button to="/servicios/carrito">Ver carrito</Button>}
         secondaryAction={
           <Button to="/servicios" variant="secondary">
@@ -85,32 +85,32 @@ export default function StorePage() {
           <div className="store-shell__intro info-card">
             <SectionTitle
               eyebrow="Compra directa"
-              title="Productos listos para vender dentro de Servicios"
-              subtitle="Esta vista ya usa el backend nuevo de `products` y queda preparada para carrito, checkout y ordenes conectadas al CRM."
+              title="Compra directa con la misma identidad visual del sitio"
+              subtitle="Selecciona productos, revísalos en tu carrito y completa tu pedido desde una experiencia integrada dentro de Servicios."
             />
 
             <div className="store-shell__stats">
               <div className="store-shell__stat">
                 <strong>{products.length}</strong>
-                <span>Productos visibles</span>
+                <span>Productos disponibles</span>
               </div>
               <div className="store-shell__stat">
                 <strong>{categories.length}</strong>
-                <span>Categorias activas</span>
+                <span>Categorías activas</span>
               </div>
               <div className="store-shell__stat">
                 <strong>1</strong>
-                <span>Sesion publica por carrito</span>
+                <span>Carrito activo por visita</span>
               </div>
             </div>
           </div>
 
           <aside className="store-shell__sidebar info-card">
-            <p className="services-catalog-page__system-kicker">Capa ecommerce</p>
+            <p className="services-catalog-page__system-kicker">Compra directa</p>
             <ul className="bullet-list bullet-list--compact">
-              <li>`products` para venta directa.</li>
-              <li>`cart` persistido por `session_token`.</li>
-              <li>`checkout` crea orden y vincula contacto CRM.</li>
+              <li>Productos digitales, físicos o paquetes con precio fijo.</li>
+              <li>Carrito y checkout integrados dentro de Servicios.</li>
+              <li>Pedido conectado a tu contacto para seguimiento.</li>
             </ul>
 
             <div className="store-shell__sidebar-actions">
@@ -127,10 +127,10 @@ export default function StorePage() {
           <div className="split-heading">
             <div className="section-title">
               <span className="eyebrow">Explorar tienda</span>
-              <h2>Filtra y entra al detalle del producto</h2>
+              <h2>Explora el catálogo disponible</h2>
               <p>
-                Esta pagina ya usa categorias, tipos de producto y busqueda para
-                organizar la venta directa.
+                Filtra por categoría o tipo de producto y entra al detalle antes
+                de añadirlo a tu carrito.
               </p>
             </div>
           </div>
@@ -148,7 +148,7 @@ export default function StorePage() {
               </label>
 
               <label className="field">
-                <span>Categoria</span>
+                <span>Categoría</span>
                 <select
                   value={filters.category}
                   onChange={(event) => updateFilter("category", event.target.value)}
@@ -205,11 +205,10 @@ export default function StorePage() {
             />
           ) : (
             <div className="empty-state">
-              <h2>No hay productos publicados todavia</h2>
+              <h2>Pronto verás productos aquí</h2>
               <p>
-                El backend ya esta listo. Falta poblar `products` y
-                `product_categories` en la base real para que este bloque de
-                productos se vea completo.
+                Esta sección quedará lista para mostrar productos, paquetes y
+                recursos de compra directa tan pronto estén publicados.
               </p>
               <Button to="/servicios">Volver a servicios</Button>
             </div>
@@ -218,8 +217,8 @@ export default function StorePage() {
       </section>
 
       <CTASection
-        title="La compra directa ya vive dentro de Servicios"
-        text="Listado, detalle y carrito ya corren sobre el backend ecommerce nuevo, pero la experiencia publica ahora queda concentrada debajo de Servicios."
+        title="La compra directa vive dentro de Servicios"
+        text="Explora productos, revisa tu carrito y completa tu pedido sin salir del mismo ecosistema visual de Ideas Estudio."
         primaryLabel="Abrir carrito"
         primaryTo="/servicios/carrito"
         secondaryLabel="Ver servicios"

@@ -12,7 +12,7 @@ export default function OrderConfirmationPage() {
         <PageHero
           eyebrow="Servicios"
           title="Orden no encontrada"
-          subtitle="La confirmacion que buscas no existe o todavia no esta disponible en el sistema publico."
+          subtitle="La confirmación que buscas no existe o todavía no está disponible."
         />
 
         <section className="section">
@@ -20,7 +20,7 @@ export default function OrderConfirmationPage() {
             <div className="empty-state">
               <h2>No pudimos cargar esa orden</h2>
               <p>
-                Verifica el numero de orden o vuelve a productos para retomar el
+                Verifica el número de orden o vuelve a productos para retomar el
                 flujo comercial.
               </p>
               <div className="empty-state__actions">
@@ -41,7 +41,7 @@ export default function OrderConfirmationPage() {
       <PageHero
         eyebrow="Servicios"
         title={`Orden ${order.orderNumber}`}
-        subtitle="Esta vista publica resume la orden creada desde checkout y deja el resultado listo para soporte, seguimiento y futuras automatizaciones."
+        subtitle="Aquí puedes revisar el estado actual de tu pedido y el resumen de lo comprado."
         primaryAction={<Button to="/servicios/productos">Seguir comprando</Button>}
         secondaryAction={
           <Button to="/servicios" variant="secondary">
@@ -53,10 +53,10 @@ export default function OrderConfirmationPage() {
       <section className="section">
         <div className="container detail-grid">
           <article className="detail-panel">
-            <h2>Confirmacion de la orden</h2>
+            <h2>Confirmación de la orden</h2>
 
             <div className="summary-row">
-              <span>Numero de orden</span>
+              <span>Número de orden</span>
               <strong>{order.orderNumber}</strong>
             </div>
             <div className="summary-row">
@@ -89,7 +89,7 @@ export default function OrderConfirmationPage() {
 
           <aside className="detail-summary">
             <div className="summary-row">
-              <span>Lineas</span>
+              <span>Líneas</span>
               <strong>{order.summary.lineItems}</strong>
             </div>
             <div className="summary-row">

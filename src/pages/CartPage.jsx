@@ -123,8 +123,8 @@ export default function CartPage() {
     <>
       <PageHero
         eyebrow="Carrito"
-        title="Revision final antes del checkout"
-        subtitle="Esta vista ya usa la sesion publica del carrito y el snapshot de products. Aqui puedes validar cantidades antes de crear la orden."
+        title="Tu carrito dentro de Servicios"
+        subtitle="Revisa productos, ajusta cantidades y confirma tu selección antes de continuar al checkout."
       />
 
       <section className="section">
@@ -137,11 +137,10 @@ export default function CartPage() {
 
           {cartIsEmpty ? (
             <div className="empty-state">
-              <h2>Tu carrito esta vacio</h2>
+              <h2>Tu carrito está vacío</h2>
               <p>
-                Cuando agregues productos desde `/servicios/productos`, esta
-                vista mostrara la sesion real con sus snapshots, cantidades y
-                subtotal.
+                Cuando agregues productos desde el catálogo, aquí verás tu
+                selección, cantidades y subtotal antes de continuar.
               </p>
               <Button to="/servicios/productos">Ir a productos</Button>
             </div>
@@ -176,7 +175,7 @@ export default function CartPage() {
 
                         <div className="cart-item-card__meta">
                           <strong>{formatPrice(item.unitPrice, item.currency)}</strong>
-                          <span>{item.product?.category?.name || "Catalogo"}</span>
+                          <span>{item.product?.category?.name || "Catálogo"}</span>
                         </div>
 
                         <div className="cart-item-card__actions">
@@ -222,7 +221,7 @@ export default function CartPage() {
 
               <aside className="detail-summary">
                 <div className="summary-row">
-                  <span>Lineas</span>
+                  <span>Líneas</span>
                   <strong>{cart.summary.lineItems}</strong>
                 </div>
                 <div className="summary-row">
@@ -236,8 +235,8 @@ export default function CartPage() {
                   </strong>
                 </div>
                 <div className="summary-row">
-                  <span>Sesion</span>
-                  <strong>{cart.sessionToken}</strong>
+                  <span>Estado</span>
+                  <strong>Listo para continuar</strong>
                 </div>
 
                 <div className="detail-summary__actions">
@@ -245,7 +244,7 @@ export default function CartPage() {
                     to={`/servicios/checkout?sessionToken=${cart.sessionToken}`}
                     block
                   >
-                    Ir a checkout
+                    Continuar al checkout
                   </Button>
                   <Button to="/servicios/productos" variant="secondary" block>
                     Seguir comprando

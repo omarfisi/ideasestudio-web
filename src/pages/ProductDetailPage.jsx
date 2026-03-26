@@ -7,7 +7,7 @@ import { formatPrice } from "@/lib/formatPrice.js";
 
 const productTypeLabels = {
   digital: "Producto digital",
-  physical: "Producto fisico",
+  physical: "Producto físico",
   service_like: "Servicio con precio fijo",
 };
 
@@ -75,10 +75,12 @@ export default function ProductDetailPage() {
         <div className="container store-detail-hero__inner">
           <span className="eyebrow">Productos</span>
           <h1 className="page-title">{product.name}</h1>
-          <p className="page-subtitle">{product.longDescription}</p>
+          <p className="page-subtitle">
+            {product.longDescription || product.shortDescription}
+          </p>
 
           <div className="service-detail-hero__meta">
-            <span className="pill">{product.category?.name || "Catalogo"}</span>
+            <span className="pill">{product.category?.name || "Catálogo"}</span>
             <span className="pill pill--soft">
               {getProductTypeLabel(product.productType)}
             </span>
@@ -120,9 +122,9 @@ export default function ProductDetailPage() {
                   ))
                 ) : (
                   <>
-                    <li>Acceso directo al producto desde Servicios.</li>
-                    <li>Snapshot estable dentro de la orden y el carrito.</li>
-                    <li>Relacion automatica con contacto CRM al hacer checkout.</li>
+                    <li>Acceso claro al producto desde el hub de Servicios.</li>
+                    <li>Resumen organizado dentro de tu pedido.</li>
+                    <li>Seguimiento simple para continuar la compra.</li>
                   </>
                 )}
               </ul>
@@ -175,7 +177,7 @@ export default function ProductDetailPage() {
               >
                 {cartState.status === "loading"
                   ? "Agregando..."
-                  : "Anadir al carrito"}
+                  : "Añadir al carrito"}
               </Button>
               <Button to="/servicios/carrito" variant="secondary" block>
                 Ver carrito
@@ -190,11 +192,11 @@ export default function ProductDetailPage() {
           <div className="container">
             <div className="split-heading">
               <div className="section-title">
-                <span className="eyebrow">Galeria</span>
-                <h2>Activos visuales del producto</h2>
+                <span className="eyebrow">Galería</span>
+                <h2>Vista previa del producto</h2>
                 <p>
-                  Esta vista ya queda preparada para cover image y gallery reales
-                  del backend ecommerce.
+                  Explora referencias visuales, variaciones o piezas asociadas a
+                  este producto.
                 </p>
               </div>
             </div>
@@ -222,7 +224,7 @@ export default function ProductDetailPage() {
 
       <CTASection
         title="Listo para cerrar la compra dentro de Servicios"
-        text="Este detalle ya consume el producto real del backend y lo empuja al carrito publico por session token, manteniendo separados los productos de los servicios consultivos."
+        text="Revisa el detalle, ajusta la cantidad y lleva tu pedido al carrito cuando estés listo."
         primaryLabel="Seguir en productos"
         primaryTo="/servicios/productos"
         secondaryLabel="Ir al carrito"

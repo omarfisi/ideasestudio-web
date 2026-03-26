@@ -6,6 +6,7 @@ export default function ServicesGrid({
   showPrimaryAction = true,
   showViewAction = true,
   clientType = null,
+  variant = "default",
 }) {
   const classes = ["service-grid", className].filter(Boolean).join(" ");
 
@@ -18,6 +19,7 @@ export default function ServicesGrid({
           showPrimaryAction={showPrimaryAction}
           showViewAction={showViewAction}
           clientType={clientType}
+          variant={variant}
         />
       ))}
     </div>

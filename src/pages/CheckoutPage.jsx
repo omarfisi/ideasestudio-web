@@ -12,7 +12,7 @@ import { formatPrice } from "@/lib/formatPrice.js";
 
 const modeLabels = {
   buy: "Compra directa",
-  booking: "Reserva con deposito",
+  booking: "Reserva con depósito",
   proposal: "Propuesta",
 };
 
@@ -94,8 +94,8 @@ function ServiceIntentCheckout({
     <>
       <PageHero
         eyebrow="Servicios"
-        title="Solicitud comercial conectada al CRM"
-        subtitle="Esta pantalla centraliza compra, reserva o propuesta para servicios consultivos y guarda el contexto completo dentro del CRM."
+        title="Completa tu solicitud"
+        subtitle="Comparte tus datos y el contexto de tu proyecto para continuar con una propuesta, reserva o compra de servicio."
       />
 
       <section className="section">
@@ -128,25 +128,25 @@ function ServiceIntentCheckout({
               </label>
 
               <label className="field">
-                <span>Telefono</span>
+                <span>Teléfono</span>
                 <input
                   type="text"
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  placeholder="Tu telefono"
+                  placeholder="Tu teléfono"
                 />
               </label>
 
               <label className="field">
-                <span>Metodo preferido</span>
+                <span>Método preferido</span>
                 <select
                   name="method"
                   value={formData.method}
                   onChange={handleChange}
                 >
                   <option value="card">Tarjeta</option>
-                  <option value="deposit">Deposito</option>
+                  <option value="deposit">Depósito</option>
                   <option value="transfer">Transferencia</option>
                 </select>
               </label>
@@ -186,18 +186,17 @@ function ServiceIntentCheckout({
               <strong>{modeLabels[mode] || "Compra directa"}</strong>
             </div>
             <div className="summary-row">
-              <span>Destino</span>
-              <strong>POST /lead-booster/leads</strong>
+              <span>Canal</span>
+              <strong>Seguimiento comercial</strong>
             </div>
             <div className="summary-row">
-              <span>Servicio slug</span>
-              <strong>{serviceSlug || "Sin contexto"}</strong>
+              <span>Referencia</span>
+              <strong>{serviceSlug || "Servicio activo"}</strong>
             </div>
 
             <p className="detail-summary__note">
-              Este flujo sigue siendo el correcto para servicios consultivos. Ya
-              guarda `service_slug`, `page_origin`, `origin_cta`, `submit_cta`
-              y `payment_method` dentro del CRM.
+              Tu solicitud quedará registrada con el servicio consultado y el
+              contexto necesario para continuar el seguimiento.
             </p>
           </aside>
         </div>
@@ -264,8 +263,8 @@ function StoreCheckout({
       <>
         <PageHero
           eyebrow="Servicios"
-          title="Orden creada y vinculada al CRM"
-          subtitle="La orden ya se guardó en el backend ecommerce y quedó enlazada al contacto por email."
+          title="Tu pedido fue registrado"
+          subtitle="La orden quedó creada correctamente y ya está lista para seguimiento."
         />
 
         <section className="section">
@@ -273,7 +272,7 @@ function StoreCheckout({
             <article className="detail-panel">
               <h2>Resumen de la orden</h2>
               <div className="summary-row">
-                <span>Numero</span>
+                <span>Número</span>
                 <strong>{completedOrder.orderNumber}</strong>
               </div>
               <div className="summary-row">
@@ -304,7 +303,7 @@ function StoreCheckout({
                   to={`/servicios/ordenes/${completedOrder.orderNumber}`}
                   block
                 >
-                  Ver confirmacion
+                  Ver confirmación
                 </Button>
                 <Button to="/servicios/productos" block>
                   Volver a productos
@@ -324,14 +323,14 @@ function StoreCheckout({
     <>
       <PageHero
         eyebrow="Servicios"
-        title="Checkout real conectado a ordenes"
-        subtitle="Esta pantalla ya usa `POST /checkout`, crea la orden en backend y relaciona el resultado con tu contacto dentro del CRM."
+        title="Finaliza tu pedido"
+        subtitle="Confirma tus datos para crear la orden y continuar con el seguimiento de tu compra."
       />
 
       <section className="section">
         <div className="container detail-grid">
           <form className="detail-panel" onSubmit={handleSubmit}>
-            <h2>Datos para crear la orden</h2>
+            <h2>Datos para tu orden</h2>
             <div className="form-grid">
               <label className="field">
                 <span>Nombre</span>
@@ -358,13 +357,13 @@ function StoreCheckout({
               </label>
 
               <label className="field">
-                <span>Telefono</span>
+                <span>Teléfono</span>
                 <input
                   type="text"
                   name="phone"
                   value={checkoutForm.phone}
                   onChange={handleChange}
-                  placeholder="Telefono de contacto"
+                  placeholder="Teléfono de contacto"
                 />
               </label>
 
@@ -386,7 +385,7 @@ function StoreCheckout({
                   name="notes"
                   value={checkoutForm.notes}
                   onChange={handleChange}
-                  placeholder="Notas internas para la orden, entrega o contexto del cliente."
+                  placeholder="Notas sobre entrega, acceso o cualquier detalle adicional."
                 />
               </label>
             </div>
@@ -400,13 +399,13 @@ function StoreCheckout({
             <Button type="submit" disabled={submitState.status === "loading"}>
               {submitState.status === "loading"
                 ? "Creando orden..."
-                : "Completar checkout"}
+                : "Completar pedido"}
             </Button>
           </form>
 
           <aside className="detail-summary">
             <div className="summary-row">
-              <span>Lineas</span>
+              <span>Líneas</span>
               <strong>{cart.summary.lineItems}</strong>
             </div>
             <div className="summary-row">
@@ -420,8 +419,8 @@ function StoreCheckout({
               </strong>
             </div>
             <div className="summary-row">
-              <span>Destino</span>
-              <strong>POST /checkout</strong>
+              <span>Resultado</span>
+              <strong>Se creará una orden para seguimiento</strong>
             </div>
 
             <div className="checkout-summary-list">
@@ -538,7 +537,7 @@ export default function CheckoutPage() {
           <PageHero
             eyebrow="Servicios"
             title="Preparando el checkout"
-            subtitle="Cargando la sesion activa del carrito para crear la orden."
+            subtitle="Estamos cargando tu carrito para que puedas completar el pedido."
           />
           <section className="section">
             <div className="container">
@@ -556,16 +555,16 @@ export default function CheckoutPage() {
         <>
           <PageHero
             eyebrow="Servicios"
-            title="No hay items listos para checkout"
-            subtitle="Necesitas una sesion de carrito activa antes de crear una orden."
+            title="No hay productos listos para comprar"
+            subtitle="Necesitas productos en tu carrito antes de continuar al checkout."
           />
           <section className="section">
             <div className="container">
               <div className="empty-state">
-                <h2>Tu carrito no esta listo para checkout</h2>
+                <h2>Tu carrito no está listo para comprar</h2>
                 <p>
                   {cartState.message ||
-                    "Agrega productos desde /servicios/productos antes de continuar."}
+                    "Agrega productos desde el catálogo antes de continuar."}
                 </p>
                 <div className="empty-state__actions">
                   <Button to="/servicios/productos">Ir a productos</Button>
