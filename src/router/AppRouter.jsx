@@ -21,6 +21,7 @@ import EntrepreneurPage from "@/pages/EntrepreneurPage.jsx";
 import EmergingBusinessPage from "@/pages/EmergingBusinessPage.jsx";
 import WeddingsPage from "@/pages/WeddingsPage.jsx";
 import ServicesPage from "@/pages/ServicesPage.jsx";
+import ServiceNichePage from "@/pages/ServiceNichePage.jsx";
 import ServiceDetailPage from "@/pages/ServiceDetailPage.jsx";
 import StorePage from "@/pages/StorePage.jsx";
 import ProductDetailPage from "@/pages/ProductDetailPage.jsx";
@@ -33,6 +34,7 @@ import OrderConfirmationPage from "@/pages/OrderConfirmationPage.jsx";
 import NotFoundPage from "@/pages/NotFoundPage.jsx";
 import RouteErrorPage from "@/pages/RouteErrorPage.jsx";
 import { getClientRouteByKey } from "@/data/routes.js";
+import { getServiceNichePageBySlug } from "@/data/serviceNichePages.js";
 
 const loadClientRoute = (routeKey) => async () => {
   try {
@@ -75,6 +77,10 @@ const loadServiceDetail = async ({ params }) => {
     };
   }
 };
+
+const loadServiceNiche = (slug) => async () => ({
+  niche: getServiceNichePageBySlug(slug),
+});
 
 const loadProductsCatalog = async ({ request }) => {
   const url = new URL(request.url);
@@ -180,6 +186,26 @@ const router = createBrowserRouter([
         path: "servicios",
         loader: loadServicesCatalog,
         element: <ServicesPage />,
+      },
+      {
+        path: "servicios/marca-o-negocio",
+        loader: loadServiceNiche("marca-o-negocio"),
+        element: <ServiceNichePage />,
+      },
+      {
+        path: "servicios/presencia-visual-profesional",
+        loader: loadServiceNiche("presencia-visual-profesional"),
+        element: <ServiceNichePage />,
+      },
+      {
+        path: "servicios/momento-especial",
+        loader: loadServiceNiche("momento-especial"),
+        element: <ServiceNichePage />,
+      },
+      {
+        path: "servicios/solucion-creativa",
+        loader: loadServiceNiche("solucion-creativa"),
+        element: <ServiceNichePage />,
       },
       {
         path: "servicios/productos",

@@ -5,22 +5,22 @@ const CLIENT_PATHS = [
   {
     title: "Tengo una marca o negocio",
     description: "Branding, contenido, web y redes para crecer.",
-    href: "/#caminos",
+    to: "/servicios/marca-o-negocio",
   },
   {
     title: "Necesito presencia visual profesional",
     description: "Imagen corporativa, foto y video para empresas.",
-    href: "/#caminos",
+    to: "/servicios/presencia-visual-profesional",
   },
   {
     title: "Quiero capturar un momento especial",
     description: "Bodas, cumpleaños, sesiones y eventos.",
-    href: "/#caminos",
+    to: "/servicios/momento-especial",
   },
   {
     title: "Busco una solución creativa a mi medida",
     description: "Campañas, proyectos mixtos y propuestas personalizadas.",
-    href: "/#caminos",
+    to: "/servicios/solucion-creativa",
   },
 ];
 
@@ -215,6 +215,11 @@ export default function Header() {
 
       return next;
     });
+  }
+
+  function closeMenus() {
+    setSolutionsOpen(false);
+    setMobileOpen(false);
   }
 
   return (
@@ -810,20 +815,25 @@ export default function Header() {
                   Elige el camino que mejor encaje contigo
                 </h3>
                 <p className="ie-dropdown__text">
-                  Esta landing esta pensada para ayudarte a identificar rapido
-                  que tipo de solucion necesitas.
+                  Estas rutas estan segmentadas por los 4 mercados principales
+                  para ayudarte a entrar directo en la pagina correcta.
                 </p>
               </div>
 
               <div className="ie-dropdown__grid">
                 {CLIENT_PATHS.map((item, index) => (
-                  <a key={item.title} href={item.href} className="ie-dropdown__item">
+                  <Link
+                    key={item.title}
+                    to={item.to}
+                    className="ie-dropdown__item"
+                    onClick={closeMenus}
+                  >
                     <span className="ie-dropdown__icon">{index + 1}</span>
                     <span>
                       <h4 className="ie-dropdown__item-title">{item.title}</h4>
                       <p className="ie-dropdown__item-text">{item.description}</p>
                     </span>
-                  </a>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -848,10 +858,10 @@ export default function Header() {
                 {solutionsOpen && (
                   <div className="ie-mobile-submenu">
                     {CLIENT_PATHS.map((item) => (
-                      <a key={item.title} href={item.href}>
+                      <Link key={item.title} to={item.to} onClick={closeMenus}>
                         <strong>{item.title}</strong>
                         <span>{item.description}</span>
-                      </a>
+                      </Link>
                     ))}
                   </div>
                 )}

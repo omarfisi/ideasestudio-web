@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLoaderData } from "react-router-dom";
+import ClientNichesSection from "@/components/services/ClientNichesSection.jsx";
 import Button from "@/components/shared/Button.jsx";
 import PageHero from "@/components/shared/PageHero.jsx";
 import ServicesGrid from "@/components/shared/ServicesGrid.jsx";
@@ -76,11 +77,6 @@ export default function ServicesPage() {
       cta: ctas[item] || "Ver catalogo",
     };
   });
-
-  const routeSummary = clientRoutes.map((route) => ({
-    ...route,
-    count: services.filter((service) => service.clientTypes.includes(route.key)).length,
-  }));
 
   const stats = [
     { value: services.length, label: "servicios activos" },
@@ -193,36 +189,7 @@ export default function ServicesPage() {
           </div>
 
           <div className="services-catalog-page__segment">
-            <div className="split-heading services-catalog-page__split">
-              <div className="section-title services-catalog-page__title-block">
-                <span className="eyebrow">Por tipo de cliente</span>
-                <h2>Filtra rapido segun la clase de proyecto que quieres atender.</h2>
-              </div>
-              <p className="services-catalog-page__split-copy">
-                Este hub queda mas claro si primero orienta por tipo de cliente
-                y luego deja pasar a servicios consultivos o a compra directa.
-              </p>
-            </div>
-
-            <div className="services-catalog-page__route-grid">
-              {routeSummary.map((route) => (
-                <button
-                  key={route.key}
-                  type="button"
-                  className="services-catalog-page__route-card"
-                  onClick={() => applyPreset({ nextClientType: route.key })}
-                >
-                  <div className="services-catalog-page__route-top">
-                    <span>{route.label}</span>
-                    <strong>{route.count}</strong>
-                  </div>
-                  <p>{route.shortText}</p>
-                  <span className="services-catalog-page__route-link">
-                    Filtrar catalogo
-                  </span>
-                </button>
-              ))}
-            </div>
+            <ClientNichesSection className="services-catalog-page__niches" />
           </div>
 
           <div className="services-catalog-page__segment">
