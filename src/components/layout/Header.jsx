@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { APP_CRM_URL } from "@/lib/constants.js";
 
 const CLIENT_PATHS = [
   {
@@ -185,10 +186,7 @@ export default function Header() {
   const [logoError, setLogoError] = useState(false);
   const dropdownRef = useRef(null);
 
-  const crmUrl =
-    import.meta.env.VITE_APP_CRM_URL ||
-    import.meta.env.VITE_CRM_BASE_URL ||
-    "/crm";
+  const crmUrl = APP_CRM_URL;
 
   const cartPath = "/servicios/carrito";
 
