@@ -1,14 +1,36 @@
+import { useId, useState } from "react";
+import {
+  BriefcaseBusiness,
+  Camera,
+  Heart,
+  Image,
+  Layers3,
+  Megaphone,
+  MonitorPlay,
+  PartyPopper,
+  Presentation,
+  Rocket,
+  Sparkles,
+  UserRound,
+} from "lucide-react";
 import Button from "@/components/shared/Button.jsx";
 import SectionTitle from "@/components/shared/SectionTitle.jsx";
 import ServiceNicheHero from "@/components/services/ServiceNicheHero.jsx";
+import serviceShowcaseImage from "../../../quland-template/client/assets/images/home-five/hero/service-img.webp";
+import serviceShowcaseShape from "../../../quland-template/client/assets/images/home-five/tab-content-shape.png";
 
-const modeClassMap = {
-  Consulta: "is-consulta",
-  "Cotizacion": "is-cotizacion",
-  "Cotización": "is-cotizacion",
-  Reserva: "is-reserva",
-  "Compra directa": "is-compra-directa",
+const DEFAULT_ICON_SET = [Megaphone, MonitorPlay, BriefcaseBusiness];
+
+const ICON_SET_BY_NICHE = {
+  "marca-o-negocio": [Megaphone, MonitorPlay, BriefcaseBusiness],
+  "presencia-visual-profesional": [UserRound, Camera, Presentation],
+  "momento-especial": [Image, PartyPopper, Heart],
+  "solucion-creativa": [Sparkles, Layers3, Rocket],
 };
+
+function getIconSet(slug) {
+  return ICON_SET_BY_NICHE[slug] || DEFAULT_ICON_SET;
+}
 
 function SupportList({ items = [] }) {
   if (!items.length) return null;
@@ -40,6 +62,9 @@ function RailList({ items = [] }) {
 }
 
 export default function ServiceNicheTemplate({ niche }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const baseId = useId();
+
   const orientation = niche.orientation || {};
   const catalogSection = niche.catalogSection || {};
   const catalogCards = niche.catalogCards || [];
@@ -47,6 +72,8 @@ export default function ServiceNicheTemplate({ niche }) {
   const supportSection = niche.supportSection || {};
   const supportCards = niche.supportCards || [];
   const cta = niche.cta || {};
+  const iconSet = getIconSet(niche.slug);
+  const safeActiveIndex = Math.min(activeIndex, Math.max(catalogCards.length - 1, 0));
 
   return (
     <div
@@ -86,52 +113,140 @@ export default function ServiceNicheTemplate({ niche }) {
       </section>
 
       <section id="rutas-principales" className="section">
-        <div className="container">
-          <SectionTitle
-            eyebrow={catalogSection.eyebrow || "Rutas principales"}
-            title={
-              catalogSection.title ||
-              "Servicios y combinaciones que suelen funcionar dentro de este segmento"
-            }
-            subtitle={
-              catalogSection.subtitle ||
-              "Cada bloque ya se presenta como una ruta real de servicio, no como una maqueta vacia."
-            }
-          />
+        <div className="service-h5-showcase">
+          <div className="container">
+            <div className="service-h5-showcase__intro">
+              <span className="service-h5-showcase__eyebrow">
+                {catalogSection.eyebrow || "Rutas principales"}
+              </span>
+              <h2>
+                {catalogSection.title ||
+                  "Servicios y combinaciones que suelen funcionar dentro de este segmento"}
+              </h2>
+              <p>
+                {catalogSection.subtitle ||
+                  "Cada bloque ya se presenta como una ruta real de servicio, no como una maqueta vacia."}
+              </p>
+            </div>
 
-          <div className="service-segment-template__catalog-grid">
-            {catalogCards.map((card, index) => (
-              <article key={card.title} className="service-segment-template__catalog-card">
-                <div className="service-segment-template__catalog-head">
-                  <span className="service-segment-template__catalog-eyebrow">
-                    {card.eyebrow}
-                  </span>
-                  {card.saleMode ? (
-                    <span
-                      className={`service-segment-template__mode-pill ${modeClassMap[card.saleMode] || ""}`}
-                    >
-                      {card.saleMode}
-                    </span>
-                  ) : null}
+            {catalogCards.length ? (
+              <div className="service-h5-showcase__shell">
+                <div
+                  className="service-h5-showcase__tabs"
+                  role="tablist"
+                  aria-label={`Rutas principales para ${niche.title}`}
+                >
+                  {catalogCards.map((card, index) => {
+                    const Icon = iconSet[index % iconSet.length];
+                    const isActive = index === safeActiveIndex;
+                    const tabId = `${baseId}-route-tab-${index}`;
+
+                    return (
+                      <button
+                        key={card.title}
+                        id={tabId}
+                        type="button"
+                        role="tab"
+                        aria-selected={isActive}
+                        aria-controls={`${baseId}-route-panel-${index}`}
+                        className={`service-h5-showcase__tab ${isActive ? "is-active" : ""}`}
+                        onClick={() => setActiveIndex(index)}
+                      >
+                        <span className="service-h5-showcase__tab-icon" aria-hidden="true">
+                          <Icon size={26} strokeWidth={1.9} />
+                        </span>
+
+                        <span className="service-h5-showcase__tab-copy">
+                          {card.eyebrow ? <small>{card.eyebrow}</small> : null}
+                          <strong>{card.title}</strong>
+                          <span className="service-h5-showcase__tab-detail">
+                            {card.description}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
 
-                <h3>{card.title}</h3>
-                <p>{card.description}</p>
-                <SupportList items={card.points || []} />
+                <div className="service-h5-showcase__stage">
+                  {catalogCards.map((card, index) => {
+                    const Icon = iconSet[index % iconSet.length] || Sparkles;
+                    const isActive = index === safeActiveIndex;
 
-                <Button
-                  to={
-                    card.to ||
-                    `/contacto?mode=proposal&niche=${niche.slug}&route=${encodeURIComponent(
-                      card.title
-                    )}`
-                  }
-                  variant={index === 0 ? "primary" : "secondary"}
-                >
-                  {card.ctaLabel || "Consultar esta ruta"}
-                </Button>
-              </article>
-            ))}
+                    return (
+                      <article
+                        key={card.title}
+                        id={`${baseId}-route-panel-${index}`}
+                        role="tabpanel"
+                        aria-labelledby={`${baseId}-route-tab-${index}`}
+                        aria-hidden={!isActive}
+                        hidden={!isActive}
+                        className="service-h5-showcase__panel"
+                      >
+                        <div className="service-h5-showcase__panel-copy">
+                          <div className="service-h5-showcase__panel-head">
+                            <span className="service-h5-showcase__panel-icon" aria-hidden="true">
+                              <Icon size={28} strokeWidth={1.9} />
+                            </span>
+
+                            <div className="service-h5-showcase__badge-row">
+                              {card.eyebrow ? (
+                                <span className="service-h5-showcase__badge">{card.eyebrow}</span>
+                              ) : null}
+
+                              {card.saleMode ? (
+                                <span className="service-h5-showcase__badge service-h5-showcase__badge--muted">
+                                  {card.saleMode}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          <h3>{card.title}</h3>
+                          <p className="service-h5-showcase__description">{card.description}</p>
+
+                          {card.points?.length ? (
+                            <ul className="service-h5-showcase__point-list">
+                              {card.points.map((point) => (
+                                <li key={point}>{point}</li>
+                              ))}
+                            </ul>
+                          ) : null}
+
+                          <div className="service-h5-showcase__actions">
+                            <Button to={`/contacto?mode=proposal&niche=${niche.slug}&route=${index + 1}`}>
+                              {card.ctaLabel || "Cotizar esta ruta"}
+                            </Button>
+                            <Button
+                              to={`/contacto?mode=proposal&niche=${niche.slug}&cta=segment-conversation`}
+                              variant="secondary"
+                            >
+                              Hablar sobre este segmento
+                            </Button>
+                          </div>
+
+                          <div className="service-h5-showcase__media">
+                            <img
+                              src={serviceShowcaseImage}
+                              alt=""
+                              aria-hidden="true"
+                              className="service-h5-showcase__image"
+                            />
+                          </div>
+
+                          <img
+                            src={serviceShowcaseShape}
+                            alt=""
+                            aria-hidden="true"
+                            className="service-h5-showcase__shape"
+                          />
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </section>

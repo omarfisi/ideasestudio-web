@@ -230,9 +230,9 @@ export default function Header() {
           --ie-line: rgba(17, 17, 17, 0.10);
           --ie-line-strong: rgba(17, 17, 17, 0.12);
           --ie-shadow: 0 10px 20px rgba(17, 17, 17, 0.05);
-          --ie-yellow: #f3cc00;
-          --ie-yellow-soft: rgba(243, 204, 0, 0.16);
-          --ie-yellow-soft-2: rgba(243, 204, 0, 0.10);
+          --ie-yellow: #f1d146;
+          --ie-yellow-soft: rgba(241, 209, 70, 0.16);
+          --ie-yellow-soft-2: rgba(241, 209, 70, 0.10);
           --ie-radius-xl: 24px;
           --ie-radius-lg: 18px;
           --ie-radius-md: 14px;
@@ -524,7 +524,7 @@ export default function Header() {
           height: 44px;
           border-radius: 14px;
           background: var(--ie-yellow-soft);
-          border: 1px solid rgba(243, 204, 0, 0.28);
+          border: 1px solid rgba(241, 209, 70, 0.28);
           display: inline-flex;
           align-items: center;
           justify-content: center;
