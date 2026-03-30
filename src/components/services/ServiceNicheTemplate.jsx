@@ -16,8 +16,8 @@ import {
 import Button from "@/components/shared/Button.jsx";
 import SectionTitle from "@/components/shared/SectionTitle.jsx";
 import ServiceNicheHero from "@/components/services/ServiceNicheHero.jsx";
-import serviceShowcaseImage from "../../../quland-template/client/assets/images/home-five/hero/service-img.webp";
-import serviceShowcaseShape from "../../../quland-template/client/assets/images/home-five/tab-content-shape.png";
+import serviceShowcaseImage from "/images/services/service-img.webp";
+import serviceShowcaseShape from "/images/services/tab-content-shape.png";
 
 const DEFAULT_ICON_SET = [Megaphone, MonitorPlay, BriefcaseBusiness];
 
