@@ -33,6 +33,7 @@ import CheckoutPage from "@/pages/CheckoutPage.jsx";
 import OrderConfirmationPage from "@/pages/OrderConfirmationPage.jsx";
 import NotFoundPage from "@/pages/NotFoundPage.jsx";
 import RouteErrorPage from "@/pages/RouteErrorPage.jsx";
+import QulandSystemPreview from "@/pages/QulandSystemPreview.jsx";
 import { getClientRouteByKey } from "@/data/routes.js";
 import { getServiceNichePageBySlug } from "@/data/serviceNichePages.js";
 
@@ -280,6 +281,10 @@ const router = createBrowserRouter([
       {
         path: "ordenes/:orderNumber",
         element: <RedirectLegacyOrder />,
+      },
+      {
+        path: "preview/quland-system",
+        element: <QulandSystemPreview />,
       },
       {
         path: "*",

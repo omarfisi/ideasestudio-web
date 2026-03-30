@@ -35,3 +35,4 @@ src/components/layout/*.backup.jsx
 src/components/layout/*.before-*.jsx
 src/pages/*.backup.jsx
 src/pages/*.landing-backup.jsx
+.vercel
