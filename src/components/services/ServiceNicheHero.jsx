@@ -43,7 +43,22 @@ export default function ServiceNicheHero({ niche }) {
       heading={
         <h1 className="quland-hero__title">
           <span>
-            <HighlightTitle text={niche.heroTitle} words={niche.heroTitleHighlight} />
+            {niche.heroTitleBoxGlow
+              ? (() => {
+                  const t = niche.heroTitle || "";
+                  const w = niche.heroTitleBoxGlow;
+                  const idx = t.indexOf(w);
+                  if (idx === -1) return t;
+                  return (
+                    <>
+                      {t.slice(0, idx)}
+                      <span className="highlight-box-glow">{w}</span>
+                      {t.slice(idx + w.length)}
+                    </>
+                  );
+                })()
+              : <HighlightTitle text={niche.heroTitle} words={niche.heroTitleHighlight} />
+            }
           </span>
         </h1>
       }

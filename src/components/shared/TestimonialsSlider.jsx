@@ -97,6 +97,7 @@ function SourceBadge({ source }) {
 
 export default function TestimonialsSlider({
   title,
+  titleNode,
   titleHighlight,
   description,
   items = [],
@@ -148,7 +149,7 @@ export default function TestimonialsSlider({
       <div className="container">
         <div className="testimonials-slider">
           <div className="testimonials-slider__intro">
-            {title ? <h2><HighlightTitle text={title} words={titleHighlight} /></h2> : null}
+            {titleNode ? <h2>{titleNode}</h2> : title ? <h2><HighlightTitle text={title} words={titleHighlight} /></h2> : null}
             {description ? <p>{description}</p> : null}
           </div>
 

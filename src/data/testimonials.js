@@ -439,13 +439,12 @@ export const TESTIMONIAL_SECTION_COPY = {
     title: "Lo que dicen nuestros clientes",
     titleHighlight: ["clientes"],
     description:
-      "Experiencias reales de clientes que confiaron en Ideas Estudio para presentar mejor su proyecto, su marca o su momento especial.",
+      "Estas experiencias reflejan cómo una propuesta bien trabajada puede ayudar a comunicar mejor, verse mejor y avanzar con más claridad.",
   },
 
   niches: {
     eyebrow: "Testimonios",
-    title: "Clientes que ya confiaron en nosotros para construir su marca.",
-    titleHighlight: ["Clientes", "nosotros", "marca"],
+    title: "Clientes que ya confiaron en nosotros para construir su marca y cubrir sus eventos.",
     description:
       "Estas experiencias reflejan cómo una propuesta bien trabajada puede ayudar a comunicar mejor, verse mejor y avanzar con más claridad.",
   },

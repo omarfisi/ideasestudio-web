@@ -44,7 +44,6 @@ export default function ServiceNicheTemplate({ niche }) {
   const segmentSelector = niche.segmentSelector || {};
   const catalogSection = niche.catalogSection || {};
   const catalogCards = niche.catalogCards || [];
-  const highlight = niche.highlight || {};
   const cta = niche.cta || {};
   const iconSet = getIconSet(niche.slug);
   const safeActiveIndex = Math.min(activeIndex, Math.max(catalogCards.length - 1, 0));
@@ -59,10 +58,27 @@ export default function ServiceNicheTemplate({ niche }) {
         <div className="container">
           <div className="niche-services-grid__intro">
             <h2>
-              <HighlightTitle
-                text={catalogSection.title || "Servicios y combinaciones que suelen funcionar dentro de este segmento"}
-                words={catalogSection.titleHighlight}
-              />
+              {catalogSection.titleBoxGlow
+                ? (() => {
+                    const t = catalogSection.title || "";
+                    const w = catalogSection.titleBoxGlow;
+                    const idx = t.indexOf(w);
+                    if (idx === -1) return t;
+                    return (
+                      <>
+                        {t.slice(0, idx)}
+                        <span className="highlight-box-glow">{w}</span>
+                        {t.slice(idx + w.length)}
+                      </>
+                    );
+                  })()
+                : (
+                  <HighlightTitle
+                    text={catalogSection.title || "Servicios y combinaciones que suelen funcionar dentro de este segmento"}
+                    words={catalogSection.titleHighlight}
+                  />
+                )
+              }
             </h2>
             {catalogSection.subtitle ? (
               <p>{catalogSection.subtitle}</p>
@@ -237,10 +253,27 @@ export default function ServiceNicheTemplate({ niche }) {
           <div className="service-segment-selector">
             <div className="service-segment-selector__intro">
               <h2>
-                <HighlightTitle
-                  text={segmentSelector.title || "Elige el camino que mejor representa lo que quieres construir"}
-                  words={segmentSelector.titleHighlight}
-                />
+                {segmentSelector.titleBoxGlow
+                  ? (() => {
+                      const t = segmentSelector.title || "";
+                      const w = segmentSelector.titleBoxGlow;
+                      const idx = t.indexOf(w);
+                      if (idx === -1) return t;
+                      return (
+                        <>
+                          {t.slice(0, idx)}
+                          <span className="highlight-box-glow">{w}</span>
+                          {t.slice(idx + w.length)}
+                        </>
+                      );
+                    })()
+                  : (
+                    <HighlightTitle
+                      text={segmentSelector.title || "Elige el camino que mejor representa lo que quieres construir"}
+                      words={segmentSelector.titleHighlight}
+                    />
+                  )
+                }
               </h2>
 
               {segmentSelector.description ? (
@@ -273,8 +306,7 @@ export default function ServiceNicheTemplate({ niche }) {
 
       <TestimonialsSlider
         eyebrow={TESTIMONIAL_SECTION_COPY.niches.eyebrow}
-        title={TESTIMONIAL_SECTION_COPY.niches.title}
-        titleHighlight={TESTIMONIAL_SECTION_COPY.niches.titleHighlight}
+        titleNode={<>Clientes que ya confiaron en <span className="highlight-box-glow">nosotros</span> para construir su marca y cubrir sus eventos.</>}
         description={TESTIMONIAL_SECTION_COPY.niches.description}
         items={getTestimonialsForPage(niche.slug)}
       />
@@ -283,12 +315,27 @@ export default function ServiceNicheTemplate({ niche }) {
         <div className="container">
           <div className="service-route-cta">
             <div className="service-route-cta__copy">
-              <span className="service-route-cta__eyebrow">
-                {cta.eyebrow || "Listo para avanzar"}
-              </span>
+              {cta.eyebrow ? (
+                <span className="service-route-cta__eyebrow">{cta.eyebrow}</span>
+              ) : null}
 
               <h2>
-                <HighlightTitle text={cta.title} words={cta.titleHighlight} />
+                {cta.titleBoxGlow
+                  ? (() => {
+                      const t = cta.title || "";
+                      const w = cta.titleBoxGlow;
+                      const idx = t.indexOf(w);
+                      if (idx === -1) return t;
+                      return (
+                        <>
+                          {t.slice(0, idx)}
+                          <span className="highlight-box-glow">{w}</span>
+                          {t.slice(idx + w.length)}
+                        </>
+                      );
+                    })()
+                  : <HighlightTitle text={cta.title} words={cta.titleHighlight} />
+                }
               </h2>
 
               {cta.description ? (

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import TestimonialsSlider from "@/components/shared/TestimonialsSlider.jsx";
 import {
   getTestimonialsForPage,
@@ -166,6 +166,13 @@ const PORTFOLIO_PROCESS_STEPS = [
     image: portfolioProcessStep4,
   },
 ];
+
+const portfolioIntro = {
+  title: "Proyectos visuales que convierten ideas en presencia real.",
+  titleHighlight: ["visuales", "presencia real"],
+  description:
+    "Una muestra de trabajos pensados para comunicar mejor, verse mejor y construir una propuesta más clara, sólida y profesional.",
+};
 
 const SLIDESHOW_INTERVAL_MS = 20000;
 
@@ -359,13 +366,13 @@ export default function HomePage() {
             <div className="hero-editorial__content">
               <h1 className="hero-editorial__title">
                 Estrategias{" "}
-                <span className="hero-editorial__type">
-                  <span className="hero-editorial__type--yellow">visuales</span>
-                </span>{" "}
-                para impulsar tu{" "}
+                <span className="highlight-box-glow">visuales</span>{" "}
+                para impulsar tu
+                <br />
                 <span className="hero-editorial__type hero-editorial__type--animated">
                   <span className="hero-editorial__type--yellow">
                     {typedObjetivo || "\u00A0"}
+                    {!isDeleting && typedObjetivo === OBJETIVO_WORDS[wordIndex] ? "." : ""}
                   </span>
                   <span className="hero-editorial__cursor" aria-hidden="true">
                     |
@@ -406,7 +413,7 @@ export default function HomePage() {
             <div className="prospectos-ref__intro">
               <p className="prospectos-ref__eyebrow">Servicios para marcas y negocios</p>
               <h2 className="prospectos-ref__title">
-                Elige el servicio correcto para tu marca o negocio
+                Descubre la propuesta adecuada para <span className="highlight-box-glow">tu marca,</span> negocio o evento social.
               </h2>
               <p className="prospectos-ref__text">
                 Cada opción responde a una necesidad concreta. Aquí puedes identificar
@@ -502,6 +509,13 @@ export default function HomePage() {
 
       <section id="portafolio" className="section-split">
         <div className="container">
+          <div className="portfolio-showcase__intro">
+            <h2>
+              Proyectos <span className="highlight-box-glow">visuales</span> que convierten ideas en presencia real.
+            </h2>
+            <p>{portfolioIntro.description}</p>
+          </div>
+
           <div className="portfolio-process">
             <div className="portfolio-process__top">
               <div className="portfolio-process__media-card portfolio-process__media-card--wide">
@@ -663,8 +677,7 @@ export default function HomePage() {
 
       <TestimonialsSlider
         eyebrow={TESTIMONIAL_SECTION_COPY.home.eyebrow}
-        title={TESTIMONIAL_SECTION_COPY.home.title}
-        titleHighlight={TESTIMONIAL_SECTION_COPY.home.titleHighlight}
+        titleNode={<>Clientes que ya confiaron en <span className="highlight-box-glow">nosotros</span> para construir su marca y cubrir sus eventos.</>}
         description={TESTIMONIAL_SECTION_COPY.home.description}
         items={getTestimonialsForPage("home")}
       />

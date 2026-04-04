@@ -8,7 +8,7 @@ const solucionCreativaSegment = getSegmentByKey("emprendedores");
 
 const sharedSegmentSelector = {
   title: "Encuentra la propuesta ideal para tu marca, negocio o evento social.",
-  titleHighlight: ["propuesta", "marca", "negocio", "evento social"],
+  titleBoxGlow: "propuesta",
   description:
     "Elige la dirección correcta para desarrollar tu marca, impulsar tu negocio o dar vida a un evento social especial.",
   items: [
@@ -106,7 +106,7 @@ const baseServiceNichePages = [
     title: "Tengo una marca o negocio",
     eyebrow: "Servicios especializados",
     heroTitle: "Soluciones para marcas y negocios que necesitan crecer con claridad.",
-    heroTitleHighlight: ["marcas", "negocios"],
+    heroTitleBoxGlow: "Soluciones",
     heroSubtitle:
       "Branding, contenido, web y activos comerciales para negocios que necesitan verse mejor, vender con mas orden y comunicar con mas intencion.",
     heroTags: [
@@ -151,7 +151,7 @@ const baseServiceNichePages = [
     catalogSection: {
       eyebrow: "Servicios para esta ruta",
       title: "Elige el servicio ideal para hacer crecer tu marca o negocio.",
-      titleHighlight: ["ideal", "marca", "negocio"],
+      titleBoxGlow: "ideal",
       subtitle:
         "Estos servicios están pensados para posicionar mejor tu marca, reforzar tu imagen y ayudarte a crecer con más claridad.",
     },
@@ -209,9 +209,8 @@ const baseServiceNichePages = [
       },
     ],
     cta: {
-      eyebrow: "Listo para avanzar",
       title: "Transformemos esta necesidad en una propuesta clara para tu marca o negocio.",
-      titleHighlight: ["Transformemos", "propuesta", "marca", "negocio"],
+      titleBoxGlow: "Transformemos",
       description:
         "Si ya identificaste lo que necesitas, te ayudamos a definir la combinación correcta entre branding, contenido, web y piezas comerciales.",
       primaryLabel: "Quiero una propuesta clara",
@@ -225,8 +224,8 @@ const baseServiceNichePages = [
     tone: "professional",
     title: "Necesito presencia visual profesional",
     eyebrow: "Servicios especializados",
-    heroTitle: "Presencia visual profesional para empresas y equipos.",
-    heroTitleHighlight: ["visual", "profesional"],
+    heroTitle: "Presencia visual para empresas y equipos.",
+    heroTitleBoxGlow: "Presencia",
     heroSubtitle:
       "Imagen corporativa, fotografia y video profesional para empresas, equipos y organizaciones que necesitan verse serios, consistentes y listos para presentar.",
     heroTags: [
@@ -272,7 +271,7 @@ const baseServiceNichePages = [
     catalogSection: {
       eyebrow: "Servicios para esta ruta",
       title: "Servicios enfocados en desarrollar una presencia visual profesional, clara y coherente.",
-      titleHighlight: ["desarrollar", "visual", "profesional"],
+      titleBoxGlow: "desarrollar",
       subtitle:
         "Servicios diseñados para fortalecer tu imagen de marca, mejorar tu contenido y hacer más coherente tu presencia visual.",
     },
@@ -362,9 +361,8 @@ const baseServiceNichePages = [
       },
     ],
     cta: {
-      eyebrow: "Listo para avanzar",
       title: "Llevemos tu presencia visual a una propuesta clara y bien presentada.",
-      titleHighlight: ["presencia visual"],
+      titleBoxGlow: "presencia",
       description:
         "Si ya sabes que necesitas mejorar imagen, presentación o contenido visual, te ayudamos a organizar la combinación correcta para que todo se vea más profesional y coherente.",
       primaryLabel: "Quiero una propuesta clara",
@@ -378,7 +376,7 @@ const baseServiceNichePages = [
     title: "Quiero capturar un momento especial",
     eyebrow: "Servicios especializados",
     heroTitle: "Haz de tus momentos especiales recuerdos que duren para siempre.",
-    heroTitleHighlight: ["momentos especiales", "siempre"],
+    heroTitleBoxGlow: "momentos",
     heroSubtitle:
       "Bodas, sesiones, celebraciones y coberturas con una estructura mas clara para reservar, entender la experiencia y elegir mejor.",
     heroTags: [
@@ -424,7 +422,7 @@ const baseServiceNichePages = [
     catalogSection: {
       eyebrow: "Servicios para esta ruta",
       title: "Convierte una ocasión importante en una experiencia que se recuerde.",
-      titleHighlight: ["ocasión", "experiencia", "recuerde"],
+      titleBoxGlow: "ocasión",
       subtitle:
         "Convierte tu evento en una experiencia que deje una huella.",
     },
@@ -514,9 +512,8 @@ const baseServiceNichePages = [
       },
     ],
     cta: {
-      eyebrow: "Listo para avanzar",
       title: "Llevemos este momento especial a una propuesta clara y bien presentada.",
-      titleHighlight: ["momento especial"],
+      titleBoxGlow: "Llevemos",
       description:
         "Si ya sabes que quieres cuidar mejor la imagen, la estética o la comunicación visual de tu evento, te ayudamos a organizar la combinación correcta para presentarlo con más intención.",
       primaryLabel: "Quiero una propuesta clara",
@@ -530,7 +527,7 @@ const baseServiceNichePages = [
     title: "Busco una solución creativa a mi medida",
     eyebrow: "Servicios especializados",
     heroTitle: "Propuestas pensadas para proyectos que merecen una solución más personalizada.",
-    heroTitleHighlight: ["Propuestas", "proyectos", "solución"],
+    heroTitleBoxGlow: "Propuestas",
     heroSubtitle:
       "Campañas, proyectos mixtos y propuestas personalizadas para necesidades donde branding, contenido, produccion o web deben mezclarse con criterio.",
     heroTags: [
@@ -576,7 +573,7 @@ const baseServiceNichePages = [
     catalogSection: {
       eyebrow: "Servicios para esta ruta",
       title: "Estrategías para desarrollar una solución creativa coherente con lo que tu proyecto necesita.",
-      titleHighlight: ["Estrategías", "solución creativa"],
+      titleBoxGlow: "desarrollar",
       subtitle:
         "Estos servicios están pensados para proyectos que necesitan claridad creativa, contenido y una ejecución más coherente.",
     },
@@ -666,9 +663,8 @@ const baseServiceNichePages = [
       },
     ],
     cta: {
-      eyebrow: "Listo para avanzar",
       title: "Llevemos esta solución creativa a una propuesta clara y bien construida.",
-      titleHighlight: ["solución creativa"],
+      titleBoxGlow: "solución",
       description:
         "Si ya sabes que necesitas una dirección más creativa para tu proyecto, te ayudamos a organizar la combinación correcta de servicios para desarrollarla con claridad y coherencia.",
       primaryLabel: "Quiero una propuesta clara",
