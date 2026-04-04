@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import QulandHeroShell, { QulandArrowIcon } from "@/components/shared/QulandHeroShell.jsx";
+import HighlightTitle from "@/components/shared/HighlightTitle.jsx";
 
 const FLOATING_TAG_CLASSES = [
   "quland-hero__tag--top-left",
@@ -41,7 +42,9 @@ export default function ServiceNicheHero({ niche }) {
       className="quland-hero--service"
       heading={
         <h1 className="quland-hero__title">
-          <span>{niche.heroTitle}</span>
+          <span>
+            <HighlightTitle text={niche.heroTitle} words={niche.heroTitleHighlight} />
+          </span>
         </h1>
       }
       subtitle={niche.heroSubtitle}

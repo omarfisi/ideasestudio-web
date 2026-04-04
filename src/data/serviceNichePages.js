@@ -1,10 +1,112 @@
+import { getSegmentByKey } from "@/data/serviceSegmentsMap.js";
+import { servicesMock } from "@/data/services.js";
+
+const marcasNegociosSegment = getSegmentByKey("marcas_negocios");
+const presenciaVisualSegment = getSegmentByKey("empresas_corporaciones");
+const momentoEspecialSegment = getSegmentByKey("eventos");
+const solucionCreativaSegment = getSegmentByKey("emprendedores");
+
+const sharedSegmentSelector = {
+  title: "Encuentra la propuesta ideal para tu marca, negocio o evento social.",
+  titleHighlight: ["propuesta", "marca", "negocio", "evento social"],
+  description:
+    "Elige la dirección correcta para desarrollar tu marca, impulsar tu negocio o dar vida a un evento social especial.",
+  items: [
+    {
+      title: "Emprendedores",
+      description:
+        "Para quienes quieren comenzar con claridad, construir su presencia y dar pasos firmes desde el inicio.",
+      href: "/servicios/emprendedores",
+    },
+    {
+      title: "Empresas y negocios",
+      description:
+        "Para negocios que necesitan orden, imagen y una estructura más sólida.",
+      href: "/servicios/empresas-y-negocios",
+    },
+    {
+      title: "Marcas",
+      description:
+        "Para marcas que buscan presencia, coherencia y conexión con su audiencia.",
+      href: "/servicios/marcas",
+    },
+    {
+      title: "Eventos sociales",
+      description:
+        "Para momentos que merecen verse bien y comunicarse con intención y emoción.",
+      href: "/servicios/eventos-sociales",
+    },
+  ],
+};
+
+const mockBySlug = Object.fromEntries(
+  servicesMock.map((s) => [s.slug, s])
+);
+
+const marcasNegociosServices = (marcasNegociosSegment?.services || []).map((item) => {
+  const mock = item.serviceSlug ? mockBySlug[item.serviceSlug] : null;
+  return {
+    title: item.serviceTitle,
+    slug: item.serviceSlug,
+    description: mock?.shortDescription || item.notes || "",
+    href: item.serviceSlug
+      ? `/servicios/${item.serviceSlug}?mode=proposal&cta=segment_card&niche=marca-o-negocio`
+      : `/contacto?mode=proposal&niche=marca-o-negocio`,
+    ctaLabel: item.serviceSlug ? "Ver servicio" : "Hablar sobre esta idea",
+  };
+});
+
+const presenciaVisualServices = (presenciaVisualSegment?.services || []).map((item) => {
+  const mock = item.serviceSlug ? mockBySlug[item.serviceSlug] : null;
+
+  return {
+    title: item.serviceTitle,
+    slug: item.serviceSlug,
+    description: mock?.shortDescription || item.notes || "",
+    href: item.serviceSlug
+      ? `/servicios/${item.serviceSlug}?mode=proposal&cta=segment_card&niche=presencia-visual-profesional`
+      : `/contacto?mode=proposal&niche=presencia-visual-profesional`,
+    ctaLabel: item.serviceSlug ? "Ver servicio" : "Hablar sobre esta idea",
+  };
+});
+
+const momentoEspecialServices = (momentoEspecialSegment?.services || []).map((item) => {
+  const mock = item.serviceSlug ? mockBySlug[item.serviceSlug] : null;
+
+  return {
+    title: item.serviceTitle,
+    slug: item.serviceSlug,
+    description: mock?.shortDescription || item.notes || "",
+    href: item.serviceSlug
+      ? `/servicios/${item.serviceSlug}?mode=proposal&cta=segment_card&niche=momento-especial`
+      : `/contacto?mode=proposal&niche=momento-especial`,
+    ctaLabel: item.serviceSlug ? "Ver servicio" : "Hablar sobre esta idea",
+  };
+});
+
+const solucionCreativaServices = (solucionCreativaSegment?.services || []).map((item) => {
+  const mock = item.serviceSlug ? mockBySlug[item.serviceSlug] : null;
+
+  return {
+    title: item.serviceTitle,
+    slug: item.serviceSlug,
+    description: mock?.shortDescription || item.notes || "",
+    href: item.serviceSlug
+      ? `/servicios/${item.serviceSlug}?mode=proposal&cta=segment_card&niche=solucion-creativa`
+      : `/contacto?mode=proposal&niche=solucion-creativa`,
+    ctaLabel: item.serviceSlug ? "Ver servicio" : "Hablar sobre esta idea",
+  };
+});
+
 const baseServiceNichePages = [
   {
     slug: "marca-o-negocio",
     tone: "business",
+    segmentServices: marcasNegociosServices,
     title: "Tengo una marca o negocio",
     eyebrow: "Servicios especializados",
-    heroTitle: "Soluciones para marcas y negocios que necesitan crecer con claridad",
+    heroTitle: "Soluciones para marcas y negocios que necesitan crecer con claridad.",
+    heroTitleHighlight: ["marcas", "negocios"],
     heroSubtitle:
       "Branding, contenido, web y activos comerciales para negocios que necesitan verse mejor, vender con mas orden y comunicar con mas intencion.",
     heroTags: [
@@ -45,70 +147,38 @@ const baseServiceNichePages = [
         "Crear una presencia mas util para captar, presentar y vender.",
       ],
     },
+    segmentSelector: sharedSegmentSelector,
     catalogSection: {
-      eyebrow: "Rutas principales",
-      title: "Bloques de servicio que suelen mover este segmento",
+      eyebrow: "Servicios para esta ruta",
+      title: "Elige el servicio ideal para hacer crecer tu marca o negocio.",
+      titleHighlight: ["ideal", "marca", "negocio"],
       subtitle:
-        "No es un wireframe de catalogo. Cada tarjeta ya plantea una ruta real que luego se puede convertir en servicio, paquete o combinacion.",
+        "Estos servicios están pensados para posicionar mejor tu marca, reforzar tu imagen y ayudarte a crecer con más claridad.",
     },
-    catalogCards: [
-      {
-        eyebrow: "Ruta 01",
-        title: "Branding y direccion visual",
-        description:
-          "Base para ordenar nombre, tono, sistema visual y piezas iniciales cuando una marca necesita verse consistente desde el principio.",
-        saleMode: "Cotizacion",
-        points: [
-          "Ideal para marcas nuevas o negocios en etapa de reorganizacion.",
-          "Sirve como base para redes, sitio web y materiales comerciales.",
-        ],
-        ctaLabel: "Cotizar esta ruta",
-      },
-      {
-        eyebrow: "Ruta 02",
-        title: "Contenido y presencia digital",
-        description:
-          "Ruta para construir contenido util y presencia constante en redes, lanzamientos o campañas donde la marca necesita verse activa.",
-        saleMode: "Consulta",
-        points: [
-          "Puede combinar fotografia, video, piezas graficas y direccion de contenido.",
-          "Ayuda a pasar de publicar por publicar a comunicar con criterio.",
-        ],
-        ctaLabel: "Explorar esta ruta",
-      },
-      {
-        eyebrow: "Ruta 03",
-        title: "Web y soporte comercial",
-        description:
-          "Bloque para paginas, presentaciones y activos digitales que ayudan a explicar mejor la oferta y facilitar conversion.",
-        saleMode: "Cotizacion",
-        points: [
-          "Pensado para negocios que necesitan vender mejor lo que hacen.",
-          "Se combina bien con branding, fotografia de producto y contenido.",
-        ],
-        ctaLabel: "Solicitar propuesta",
-      },
-    ],
+    catalogCards: (marcasNegociosSegment?.services || []).map((service, index) => ({
+      eyebrow: `Servicio ${String(index + 1).padStart(2, "0")}`,
+      title: service.serviceTitle,
+      saleMode: service.serviceSlug ? "Cotizacion" : "Consulta",
+      ctaLabel: service.serviceSlug
+        ? `Cotizar ${service.serviceTitle}`
+        : "Solicitar informacion",
+    })),
     highlight: {
-      railLabel: "Como suele moverse",
+      railLabel: "Cómo suele moverse",
       railItems: [
-        "Diagnostico de marca y claridad de oferta",
-        "Direccion visual y piezas base para comunicar",
-        "Sistema de contenido, web o activos para conversion",
+        "Diagnóstico de marca y claridad de oferta",
+        "Dirección visual y piezas base para comunicar",
+        "Sistema de contenido, web o activos para conversión",
       ],
       eyebrow: "Bloque destacado",
-      title: "La mejor version de este segmento mezcla identidad, contenido y una salida comercial concreta.",
+      title: "La mejor versión de este segmento mezcla identidad, contenido y una salida comercial concreta.",
       description:
-        "Cuando esta ruta funciona bien, la marca no solo se ve mejor: tambien se entiende mejor, comunica con mas criterio y tiene piezas que ayudan a vender.",
-      ctaLabel: "Quiero esta direccion",
-      accentLabel: "Tambien suele mezclarse con",
-      accentTitle: "Servicios complementarios que hacen mas fuerte la propuesta",
-      accentItems: [
-        "Fotografia de producto",
-        "Pagina de servicios",
-        "Materiales de marketing",
-        "Gestion de redes",
-      ],
+        "Cuando esta ruta funciona bien, la marca no solo se ve mejor: también se entiende mejor, comunica con más criterio y tiene piezas que ayudan a vender.",
+      ctaLabel: "Quiero esta dirección",
+      contestLabel: "Registrarme para concursos",
+      accentLabel: "También suele mezclarse con",
+      accentTitle: "Servicios complementarios que hacen más fuerte la propuesta",
+      accentItems: (marcasNegociosSegment?.services || []).map((s) => s.serviceTitle),
       note:
         "Es una buena ruta para negocios que quieren dejar de improvisar su presencia y empezar a verse como una marca clara.",
     },
@@ -140,11 +210,14 @@ const baseServiceNichePages = [
     ],
     cta: {
       eyebrow: "Listo para avanzar",
-      title: "Convirtamos esta ruta en una propuesta clara para tu marca o negocio.",
+      title: "Transformemos esta necesidad en una propuesta clara para tu marca o negocio.",
+      titleHighlight: ["Transformemos", "propuesta", "marca", "negocio"],
       description:
-        "Si ya sabes que necesitas ordenar tu presencia, podemos ayudarte a definir la mezcla correcta entre branding, contenido, web y materiales comerciales.",
-      primaryLabel: "Solicitar orientacion",
+        "Si ya identificaste lo que necesitas, te ayudamos a definir la combinación correcta entre branding, contenido, web y piezas comerciales.",
+      primaryLabel: "Quiero una propuesta clara",
       secondaryLabel: "Ver todos los servicios",
+      contestLabel: "Registrarme para concursos",
+      contestNote: "Pronto aqui puedes activar concursos, sorteos, formularios y registros especiales.",
     },
   },
   {
@@ -152,7 +225,8 @@ const baseServiceNichePages = [
     tone: "professional",
     title: "Necesito presencia visual profesional",
     eyebrow: "Servicios especializados",
-    heroTitle: "Presencia visual profesional para empresas y equipos",
+    heroTitle: "Presencia visual profesional para empresas y equipos.",
+    heroTitleHighlight: ["visual", "profesional"],
     heroSubtitle:
       "Imagen corporativa, fotografia y video profesional para empresas, equipos y organizaciones que necesitan verse serios, consistentes y listos para presentar.",
     heroTags: [
@@ -193,11 +267,14 @@ const baseServiceNichePages = [
         "Construir piezas que sirvan para web, decks, perfiles y ventas.",
       ],
     },
+    segmentServices: presenciaVisualServices,
+    segmentSelector: sharedSegmentSelector,
     catalogSection: {
-      eyebrow: "Rutas principales",
-      title: "Bloques que suelen resolver mejor la presencia visual profesional",
+      eyebrow: "Servicios para esta ruta",
+      title: "Servicios enfocados en desarrollar una presencia visual profesional, clara y coherente.",
+      titleHighlight: ["desarrollar", "visual", "profesional"],
       subtitle:
-        "Cada tarjeta responde a una necesidad empresarial real: verse bien, comunicar con claridad y elevar la percepcion del negocio.",
+        "Servicios diseñados para fortalecer tu imagen de marca, mejorar tu contenido y hacer más coherente tu presencia visual.",
     },
     catalogCards: [
       {
@@ -238,27 +315,25 @@ const baseServiceNichePages = [
       },
     ],
     highlight: {
-      railLabel: "Como suele moverse",
+      railLabel: "Cómo suele moverse",
       railItems: [
-        "Se define el punto de contacto visual mas importante",
-        "Se produce imagen profesional alineada con el tono del negocio",
-        "Se activan piezas para web, ventas y presentacion",
+        "Definición de imagen y enfoque visual",
+        "Producción de piezas y contenido para proyectar mejor",
+        "Presentación digital más clara, sólida y profesional",
       ],
       eyebrow: "Bloque destacado",
-      title: "Una empresa se ve mas solida cuando su imagen acompana la calidad de lo que ofrece.",
+      title:
+        "La mejor versión de este segmento mezcla imagen, presentación y una presencia visual que se siente cuidada.",
       description:
-        "Esta ruta funciona mejor cuando fotografia, video y materiales de presentacion trabajan juntos para dar una percepcion clara de profesionalismo.",
-      ctaLabel: "Quiero elevar esa percepcion",
-      accentLabel: "Tambien suele mezclarse con",
-      accentTitle: "Apoyos que vuelven mas consistente la presencia corporativa",
-      accentItems: [
-        "Retrato ejecutivo",
-        "Video institucional",
-        "Deck comercial",
-        "Actualizacion del sitio web",
-      ],
+        "Cuando esta ruta está bien trabajada, la presencia no solo se ve más bonita: también se percibe más profesional, más coherente y mejor pensada para generar confianza.",
+      ctaLabel: "Quiero esta dirección",
+      contestLabel: "Registrarme para concursos",
+      accentLabel: "También suele mezclarse con",
+      accentTitle:
+        "Servicios complementarios que ayudan a elevar mejor la presentación",
+      accentItems: (presenciaVisualSegment?.services || []).map((s) => s.serviceTitle),
       note:
-        "Es especialmente util cuando la empresa esta creciendo y necesita verse al nivel de sus oportunidades.",
+        "Es una buena ruta para profesionales, marcas personales o proyectos que necesitan verse mejor para comunicar con más claridad y confianza.",
     },
     supportSection: {
       eyebrow: "Apoyo comercial",
@@ -288,11 +363,13 @@ const baseServiceNichePages = [
     ],
     cta: {
       eyebrow: "Listo para avanzar",
-      title: "Llevemos tu presencia visual a un nivel mas profesional y util para el negocio.",
+      title: "Llevemos tu presencia visual a una propuesta clara y bien presentada.",
+      titleHighlight: ["presencia visual"],
       description:
-        "Podemos ayudarte a definir si necesitas retrato, fotografia institucional, video o una mezcla mas completa segun el momento de tu empresa.",
-      primaryLabel: "Solicitar orientacion",
+        "Si ya sabes que necesitas mejorar imagen, presentación o contenido visual, te ayudamos a organizar la combinación correcta para que todo se vea más profesional y coherente.",
+      primaryLabel: "Quiero una propuesta clara",
       secondaryLabel: "Ver todos los servicios",
+      contestLabel: "Registrarme para concursos",
     },
   },
   {
@@ -300,7 +377,8 @@ const baseServiceNichePages = [
     tone: "moments",
     title: "Quiero capturar un momento especial",
     eyebrow: "Servicios especializados",
-    heroTitle: "Coberturas y sesiones para momentos especiales",
+    heroTitle: "Haz de tus momentos especiales recuerdos que duren para siempre.",
+    heroTitleHighlight: ["momentos especiales", "siempre"],
     heroSubtitle:
       "Bodas, sesiones, celebraciones y coberturas con una estructura mas clara para reservar, entender la experiencia y elegir mejor.",
     heroTags: [
@@ -341,11 +419,14 @@ const baseServiceNichePages = [
         "Hacer facil reservar y avanzar con tranquilidad.",
       ],
     },
+    segmentServices: momentoEspecialServices,
+    segmentSelector: sharedSegmentSelector,
     catalogSection: {
-      eyebrow: "Rutas principales",
-      title: "Experiencias y coberturas que suelen mover este segmento",
+      eyebrow: "Servicios para esta ruta",
+      title: "Convierte una ocasión importante en una experiencia que se recuerde.",
+      titleHighlight: ["ocasión", "experiencia", "recuerde"],
       subtitle:
-        "Las tarjetas aqui no funcionan como relleno. Cada una apunta a una necesidad real y a una forma concreta de reservar o cotizar.",
+        "Convierte tu evento en una experiencia que deje una huella.",
     },
     catalogCards: [
       {
@@ -386,27 +467,25 @@ const baseServiceNichePages = [
       },
     ],
     highlight: {
-      railLabel: "Como suele moverse",
+      railLabel: "Cómo suele moverse",
       railItems: [
-        "Se define el tipo de momento y el tono de la experiencia",
-        "Se ajusta cobertura, estilo y alcance segun la ocasion",
-        "Se reserva o cotiza con mas claridad y menos friccion",
+        "Definición de estilo y dirección visual del evento",
+        "Piezas y contenido para comunicar con estética y coherencia",
+        "Presentación final más cuidada, memorable y emocional",
       ],
       eyebrow: "Bloque destacado",
-      title: "Este segmento funciona mejor cuando la experiencia se siente tan clara como el resultado final.",
+      title:
+        "La mejor versión de este segmento mezcla estética, intención y una presentación que se siente especial de verdad.",
       description:
-        "Una buena pagina para momentos especiales no solo enseña fotos: ayuda a entender que se vive, como se reserva y por que esa propuesta vale la pena.",
-      ctaLabel: "Quiero esa experiencia",
-      accentLabel: "Tambien suele mezclarse con",
-      accentTitle: "Complementos que vuelven mas completa la experiencia",
-      accentItems: [
-        "Video de evento",
-        "Sesiones pre evento",
-        "Cobertura extendida",
-        "Entrega premium",
-      ],
+        "Cuando esta ruta se trabaja bien, el evento no solo se ve bonito: también se siente mejor pensado, mejor presentado y más alineado con la emoción que quieres transmitir.",
+      ctaLabel: "Quiero esta dirección",
+      contestLabel: "Registrarme para concursos",
+      accentLabel: "También suele mezclarse con",
+      accentTitle:
+        "Servicios complementarios que ayudan a elevar la experiencia visual",
+      accentItems: (momentoEspecialSegment?.services || []).map((s) => s.serviceTitle),
       note:
-        "Es una ruta ideal para clientes que deciden desde la confianza y la sensibilidad, no solo desde una lista tecnica de entregables.",
+        "Es una buena ruta para celebraciones, actividades o momentos que necesitan una presentación visual más cuidada, emotiva y memorable.",
     },
     supportSection: {
       eyebrow: "Apoyo de la experiencia",
@@ -436,11 +515,13 @@ const baseServiceNichePages = [
     ],
     cta: {
       eyebrow: "Listo para avanzar",
-      title: "Cuéntanos qué momento quieres guardar y te orientamos hacia la mejor ruta.",
+      title: "Llevemos este momento especial a una propuesta clara y bien presentada.",
+      titleHighlight: ["momento especial"],
       description:
-        "Podemos ayudarte a definir si lo tuyo encaja mejor como sesion, cobertura o propuesta premium segun la experiencia que buscas.",
-      primaryLabel: "Solicitar orientacion",
+        "Si ya sabes que quieres cuidar mejor la imagen, la estética o la comunicación visual de tu evento, te ayudamos a organizar la combinación correcta para presentarlo con más intención.",
+      primaryLabel: "Quiero una propuesta clara",
       secondaryLabel: "Ver todos los servicios",
+      contestLabel: "Registrarme para concursos",
     },
   },
   {
@@ -448,7 +529,8 @@ const baseServiceNichePages = [
     tone: "creative",
     title: "Busco una solución creativa a mi medida",
     eyebrow: "Servicios especializados",
-    heroTitle: "Soluciones creativas a medida para proyectos especiales",
+    heroTitle: "Propuestas pensadas para proyectos que merecen una solución más personalizada.",
+    heroTitleHighlight: ["Propuestas", "proyectos", "solución"],
     heroSubtitle:
       "Campañas, proyectos mixtos y propuestas personalizadas para necesidades donde branding, contenido, produccion o web deben mezclarse con criterio.",
     heroTags: [
@@ -489,11 +571,14 @@ const baseServiceNichePages = [
         "Ordenar una propuesta clara antes de producir de mas o improvisar.",
       ],
     },
+    segmentServices: solucionCreativaServices,
+    segmentSelector: sharedSegmentSelector,
     catalogSection: {
-      eyebrow: "Rutas principales",
-      title: "Formatos de trabajo que suelen funcionar mejor en proyectos mixtos",
+      eyebrow: "Servicios para esta ruta",
+      title: "Estrategías para desarrollar una solución creativa coherente con lo que tu proyecto necesita.",
+      titleHighlight: ["Estrategías", "solución creativa"],
       subtitle:
-        "Aqui las rutas no son rigidas. Funcionan como bases para aterrizar una propuesta mas a medida sin que todo se sienta abierto o ambiguo.",
+        "Estos servicios están pensados para proyectos que necesitan claridad creativa, contenido y una ejecución más coherente.",
     },
     catalogCards: [
       {
@@ -534,27 +619,25 @@ const baseServiceNichePages = [
       },
     ],
     highlight: {
-      railLabel: "Como suele moverse",
+      railLabel: "Cómo suele moverse",
       railItems: [
-        "Se detecta la necesidad real y la meta principal",
-        "Se define la mezcla correcta entre servicios y fases",
-        "Se presenta una propuesta personalizada con direccion clara",
+        "Definición del enfoque creativo y concepto base",
+        "Desarrollo de piezas, contenido o recursos visuales",
+        "Presentación final más original, clara y funcional",
       ],
       eyebrow: "Bloque destacado",
-      title: "Lo mas valioso aqui es traducir una necesidad compleja en una solucion creativa clara.",
+      title:
+        "La mejor versión de este segmento mezcla creatividad, dirección y una ejecución que se siente pensada de verdad.",
       description:
-        "Esta ruta funciona cuando se ordena la mezcla entre estrategia, produccion y ejecucion para que el proyecto deje de sentirse disperso.",
-      ctaLabel: "Necesito esa propuesta",
-      accentLabel: "Tambien suele mezclarse con",
-      accentTitle: "Piezas que suelen entrar en proyectos a medida",
-      accentItems: [
-        "Branding puntual",
-        "Produccion de video",
-        "Fotografia de campana",
-        "Landing o pagina de apoyo",
-      ],
+        "Cuando esta ruta se trabaja bien, la idea no solo se ve diferente: también se entiende mejor, conecta más y se convierte en una propuesta visual mucho más sólida.",
+      ctaLabel: "Quiero esta dirección",
+      contestLabel: "Registrarme para concursos",
+      accentLabel: "También suele mezclarse con",
+      accentTitle:
+        "Servicios complementarios que ayudan a fortalecer mejor la propuesta",
+      accentItems: (solucionCreativaSegment?.services || []).map((s) => s.serviceTitle),
       note:
-        "Es la mejor salida cuando el proyecto no cabe en un paquete fijo pero tampoco deberia construirse desde la improvisacion.",
+        "Es una buena ruta para proyectos que necesitan una solución visual más creativa, más estratégica y mejor presentada.",
     },
     supportSection: {
       eyebrow: "Apoyo estrategico",
@@ -584,11 +667,13 @@ const baseServiceNichePages = [
     ],
     cta: {
       eyebrow: "Listo para avanzar",
-      title: "Si tu proyecto no cabe en una sola caja, armemos una solucion creativa a tu medida.",
+      title: "Llevemos esta solución creativa a una propuesta clara y bien construida.",
+      titleHighlight: ["solución creativa"],
       description:
-        "Podemos ayudarte a bajar una idea compleja a una mezcla concreta de servicios, fases y entregables segun tu objetivo real.",
-      primaryLabel: "Solicitar orientacion",
+        "Si ya sabes que necesitas una dirección más creativa para tu proyecto, te ayudamos a organizar la combinación correcta de servicios para desarrollarla con claridad y coherencia.",
+      primaryLabel: "Quiero una propuesta clara",
       secondaryLabel: "Ver todos los servicios",
+      contestLabel: "Registrarme para concursos",
     },
   },
 ];

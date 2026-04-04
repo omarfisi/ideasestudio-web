@@ -1,4 +1,9 @@
 import React, { useEffect, useState } from "react";
+import TestimonialsSlider from "@/components/shared/TestimonialsSlider.jsx";
+import {
+  getTestimonialsForPage,
+  TESTIMONIAL_SECTION_COPY,
+} from "@/data/testimonials.js";
 import portfolioProcessHero from "../assets/quland-process/process-1.png";
 import portfolioProcessStep1 from "../assets/quland-process/process-2.png";
 import portfolioProcessStep2 from "../assets/quland-process/process-3.png";
@@ -66,60 +71,68 @@ const CAMINOS_CARDS = [
     badge: "01. Marca / Negocio",
     title: "Tengo una marca o negocio",
     description:
-      "Branding, contenido, web, redes y presencia digital para emprendedores, marcas personales y pequeños negocios.",
-    lead: "Este camino está diseñado para:",
+      "Para marcas y negocios que necesitan verse mejor, comunicar con más claridad y vender con más orden.",
+    lead: "Es para ti si:",
     items: [
-      "Fortalecer tu identidad visual y posicionamiento.",
-      "Mejorar tu presencia digital en canales clave.",
-      "Convertir visitas en contactos o clientes reales.",
-      "Unificar la comunicación de tu marca.",
+      "Tu marca no refleja el nivel real de lo que ofreces.",
+      "No tienes una ruta clara entre presencia visual y ventas.",
+      "Publicas, pero no comunicas con criterio.",
+      "Necesitas branding, contenido, web o piezas comerciales.",
     ],
     chip: "Marca y negocio",
+    href: "/servicios",
+    ctaLabel: "Ver servicio",
   },
   {
     visualClass: "is-visual-2",
     badge: "02. Presencia visual",
     title: "Necesito presencia visual profesional",
     description:
-      "Imagen corporativa, fotografía profesional, video institucional y contenido de marca para empresas y organizaciones.",
-    lead: "Con esta opción podrás:",
+      "Para empresas y equipos que necesitan proyectar confianza con imagen corporativa, fotografía y materiales de presentación.",
+    lead: "Es para ti si:",
     items: [
-      "Elevar la percepción profesional de tu marca.",
-      "Comunicar confianza con imagen coherente.",
-      "Generar piezas para web, redes y presentaciones.",
-      "Conectar visualmente con clientes y aliados.",
+      "Tu empresa no proyecta el nivel de confianza que merece.",
+      "Faltan piezas visuales para reuniones, web o propuestas.",
+      "Tu imagen se siente dispersa entre canales y materiales.",
+      "Necesitas retrato, foto institucional, video o deck.",
     ],
     chip: "Presencia visual",
+    href: "/servicios",
+    ctaLabel: "Ver servicio",
   },
   {
     visualClass: "is-visual-3",
     badge: "03. Momento especial",
     title: "Quiero capturar un momento especial",
     description:
-      "Fotografía, video, sesiones, bodas, cumpleaños y cobertura visual para recuerdos auténticos y memorables.",
-    lead: "Con esta cobertura lograrás:",
+      "Para personas que quieren documentar una fecha, sesión o evento con calidad, intención y una experiencia bien presentada.",
+    lead: "Es para ti si:",
     items: [
-      "Documentar cada detalle con calidad profesional.",
-      "Crear piezas emocionales y atemporales.",
-      "Capturar momentos espontáneos con intención.",
-      "Entregar recuerdos listos para compartir.",
+      "No estás seguro qué tipo de sesión o cobertura necesitas.",
+      "Quieres guardar un momento importante con criterio.",
+      "Buscas una experiencia clara antes de reservar.",
+      "Necesitas foto, video o una cobertura más completa.",
     ],
     chip: "Momentos especiales",
+    href: "/servicios",
+    ctaLabel: "Ver servicio",
   },
   {
     visualClass: "is-visual-4",
     badge: "04. Solución a medida",
-    title: "Busco una solución creativa a mi idea",
+    title: "Busco una solución creativa a mi medida",
     description:
-      "Campañas, proyectos mixtos, combinaciones de servicios y propuestas personalizadas según tu necesidad.",
-    lead: "Esta solución personalizada te permite:",
+      "Para proyectos que mezclan disciplinas o no encajan en un servicio estándar y necesitan una propuesta consultiva.",
+    lead: "Es para ti si:",
     items: [
-      "Diseñar una propuesta alineada a tus objetivos.",
-      "Combinar servicios sin perder coherencia visual.",
-      "Priorizar acciones según etapa y presupuesto.",
-      "Ejecutar con enfoque estratégico y comercial.",
+      "Tu necesidad mezcla foto, video, diseño, web o contenido.",
+      "El proyecto primero requiere diagnóstico, luego propuesta.",
+      "No quieres un paquete fijo, sino una solución a tu medida.",
+      "Buscas criterio y ejecución integrada, no servicios sueltos.",
     ],
     chip: "Solución a medida",
+    href: "#contacto",
+    ctaLabel: "Quiero esta solución",
   },
 ];
 
@@ -391,13 +404,14 @@ export default function HomePage() {
         <div className="container">
           <div className="prospectos-ref">
             <div className="prospectos-ref__intro">
+              <p className="prospectos-ref__eyebrow">Servicios para marcas y negocios</p>
               <h2 className="prospectos-ref__title">
-                Encuentra la solución ideal para ti
+                Elige el servicio correcto para tu marca o negocio
               </h2>
               <p className="prospectos-ref__text">
-                Sabemos que cada proyecto es único. Por eso, puedes elegir la
-                opción que mejor se ajuste a tus necesidades y avanzar por el
-                camino más adecuado.
+                Cada opción responde a una necesidad concreta. Aquí puedes identificar
+                lo que necesitas hoy y avanzar al servicio que mejor encaja con tu etapa,
+                tu prioridad y tu objetivo comercial.
               </p>
             </div>
 
@@ -446,8 +460,8 @@ export default function HomePage() {
                             </ul>
                             <div className="prospecto-ref-card__footer">
                               <span className="prospecto-ref-card__chip">{card.chip}</span>
-                              <a className="prospecto-ref-card__cta" href="#contacto">
-                                Más información
+                              <a className="prospecto-ref-card__cta" href={card.href}>
+                                {card.ctaLabel}
                               </a>
                             </div>
                           </div>
@@ -646,6 +660,14 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <TestimonialsSlider
+        eyebrow={TESTIMONIAL_SECTION_COPY.home.eyebrow}
+        title={TESTIMONIAL_SECTION_COPY.home.title}
+        titleHighlight={TESTIMONIAL_SECTION_COPY.home.titleHighlight}
+        description={TESTIMONIAL_SECTION_COPY.home.description}
+        items={getTestimonialsForPage("home")}
+      />
 
       <section id="contacto" className="section-split">
         <div className="container">
