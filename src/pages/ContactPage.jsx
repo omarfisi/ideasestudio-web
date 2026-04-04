@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
 import PageHero from "@/components/shared/PageHero.jsx";
-import { submitPublicContact } from "@/lib/api.js";
+import { submitPublicLead } from "@/lib/api.js";
 
 const modeLabels = {
   proposal: "Propuesta",
@@ -15,6 +15,8 @@ export default function ContactPage() {
   const service = searchParams.get("service") || "";
   const serviceSlug = searchParams.get("serviceSlug") || "";
   const clientType = searchParams.get("clientType") || "";
+  const pageOrigin = searchParams.get("pageOrigin") || "";
+  const originCta = searchParams.get("cta") || "";
   const mode = searchParams.get("mode") || "proposal";
   const [formData, setFormData] = useState({
     name: "",
@@ -46,15 +48,18 @@ export default function ContactPage() {
     });
 
     try {
-      const result = await submitPublicContact({
+      const result = await submitPublicLead({
         ...formData,
         serviceSlug,
         clientType,
+        pageOrigin,
+        originCta,
+        submitCta: "contact_form_submit",
       });
 
       setSubmitState({
         status: "success",
-        message: result.message || "Solicitud enviada correctamente.",
+        message: result.message || "Lead enviado correctamente.",
       });
 
       setFormData((current) => ({
@@ -80,7 +85,7 @@ export default function ContactPage() {
       <PageHero
         eyebrow="Contacto"
         title="Solicita propuesta, reserva o consulta"
-        subtitle="Esta vista ya crea contactos reales en el CRM y conserva el contexto publico dentro de la nota comercial."
+        subtitle="Esta vista ya crea leads reales en el CRM y conserva service_slug, page_origin, intent y CTA dentro del registro comercial."
       />
 
       <section className="section">
@@ -176,16 +181,20 @@ export default function ContactPage() {
             </div>
             <div className="summary-row">
               <span>Destino</span>
-              <strong>POST /contacts</strong>
+              <strong>POST /lead-booster/leads</strong>
             </div>
             <div className="summary-row">
               <span>Modo detectado</span>
               <strong>{modeLabels[formData.mode] || "Propuesta"}</strong>
             </div>
+            <div className="summary-row">
+              <span>Servicio slug</span>
+              <strong>{serviceSlug || "Sin contexto"}</strong>
+            </div>
 
             <p className="detail-summary__note">
-              Este formulario ya crea un contacto real y empaqueta el contexto de
-              la web publica en `source`, `tags`, `tipo` y `notes`.
+              Este formulario ya crea un lead real y guarda el contexto de la web
+              publica en `source`, `source_id`, `tags` y `meta`.
             </p>
           </aside>
         </div>

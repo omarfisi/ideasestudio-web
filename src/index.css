@@ -1,52 +1,362 @@
-html {
-  scroll-behavior: smooth;
-}
+/* ============================================================
+   IDEAS ESTUDIO — Design System
+   Fuente de verdad única para toda la Página Web Pública.
+   ============================================================ */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@700;800;900&display=swap");
+@import "tailwindcss";
 
 :root {
-  color-scheme: light;
-  --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
-  --font-body: "Avenir Next", "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  /* Colores Ideas Estudio */
+  --ideas-yellow: #F9D001;
+  --ideas-black:  #0B0B0D;
+  --ideas-white:  #FFFFFF;
+  --ideas-light:  #FFFFFF;
+  --ideas-max:    1280px;
+
+  /* Fuentes — usadas por componentes legacy en App.css */
+  --font-display: "Manrope", sans-serif;
+  --font-body:    "Inter", sans-serif;
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    font-family: "Inter", sans-serif;
+    background: var(--ideas-light);
+    color: var(--ideas-black);
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "Manrope", sans-serif;
+    color: var(--ideas-black);
+  }
+
+  a {
+    color: inherit;
+  }
+
+  img {
+    display: block;
+    max-width: 100%;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  ::selection {
+    background: var(--ideas-yellow);
+    color: var(--ideas-black);
+  }
 }
 
-body {
-  margin: 0;
-  min-width: 320px;
-  background: #ffffff;
-  color: #161616;
-  font-family: var(--font-body);
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer components {
+
+  /* --- Contenedores --- */
+  .page-shell {
+    margin-inline: auto;
+    width: 100%;
+    max-width: var(--ideas-max);
+    padding-inline: 20px;
+  }
+
+  .section-space {
+    padding-block: 64px;
+  }
+
+  .block-light {
+    background: var(--ideas-light);
+    color: var(--ideas-black);
+  }
+
+  .block-dark {
+    background-color: var(--ideas-black);
+    color: var(--ideas-white);
+    background-image: radial-gradient(circle at top right, rgba(249, 208, 1, 0.18), transparent 28%);
+  }
+
+  /* --- Tipografía --- */
+  .hero-title {
+    font-family: "Manrope", sans-serif;
+    font-weight: 900;
+    color: var(--ideas-black);
+    letter-spacing: -0.06em;
+    line-height: 0.94;
+    font-size: 42px;
+  }
+
+  .hero-title-dark {
+    color: var(--ideas-white);
+  }
+
+  .section-title {
+    font-family: "Manrope", sans-serif;
+    font-weight: 800;
+    color: var(--ideas-black);
+    letter-spacing: -0.04em;
+    line-height: 0.98;
+    font-size: 30px;
+  }
+
+  .section-title-dark {
+    color: var(--ideas-white);
+  }
+
+  .body-lg {
+    font-family: "Inter", sans-serif;
+    font-weight: 500;
+    color: var(--ideas-black);
+    line-height: 1.6;
+    font-size: 18px;
+  }
+
+  .body-lg-dark {
+    color: var(--ideas-white);
+  }
+
+  .body-md {
+    font-family: "Inter", sans-serif;
+    font-weight: 400;
+    color: var(--ideas-black);
+    line-height: 1.65;
+    font-size: 16px;
+  }
+
+  .body-md-dark {
+    color: var(--ideas-white);
+  }
+
+  .button-text {
+    font-family: "Inter", sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-size: 16px;
+  }
+
+  .label-text {
+    font-family: "Inter", sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 12px;
+  }
+
+  .nav-text {
+    font-family: "Inter", sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+  }
+
+  .card-title {
+    font-family: "Manrope", sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1.02;
+    font-size: 24px;
+  }
+
+  .text-ideas-yellow {
+    color: var(--ideas-yellow);
+  }
+
+  .eyebrow-yellow {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    background: var(--ideas-yellow);
+    color: var(--ideas-black);
+    padding: 8px 16px;
+    font-family: "Inter", sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 12px;
+  }
+
+  .eyebrow-dark {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    background: var(--ideas-black);
+    color: var(--ideas-white);
+    padding: 8px 16px;
+    font-family: "Inter", sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 12px;
+  }
+
+  /* --- Botones --- */
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: var(--ideas-yellow);
+    color: var(--ideas-black);
+    padding: 16px 24px;
+    font-family: "Inter", sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: -0.02em;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .btn-primary:hover {
+    transform: scale(1.01);
+    box-shadow: 0 8px 20px rgba(249, 208, 1, 0.22);
+  }
+
+  .btn-secondary-light {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    border: 1px solid var(--ideas-black);
+    background: transparent;
+    color: var(--ideas-black);
+    padding: 16px 24px;
+    font-family: "Inter", sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    letter-spacing: -0.02em;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  .btn-secondary-light:hover {
+    background: var(--ideas-black);
+    color: var(--ideas-white);
+  }
+
+  .btn-secondary-dark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    border: 1px solid var(--ideas-white);
+    background: transparent;
+    color: var(--ideas-white);
+    padding: 16px 24px;
+    font-family: "Inter", sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    letter-spacing: -0.02em;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  .btn-secondary-dark:hover {
+    background: var(--ideas-white);
+    color: var(--ideas-black);
+  }
+
+  /* --- Cards --- */
+  .card-light {
+    border-radius: 24px;
+    border: 1px solid rgba(11, 11, 13, 0.1);
+    background: #fff;
+    padding: 24px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  }
+
+  .card-dark {
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--ideas-black);
+    color: var(--ideas-white);
+    padding: 24px;
+    background-image: radial-gradient(circle at top right, rgba(249, 208, 1, 0.15), transparent 30%);
+  }
+
+  /* --- Listas --- */
+  .list-ideas {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .list-ideas li {
+    position: relative;
+    padding-left: 28px;
+    font-family: "Inter", sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+  }
+
+  .list-ideas li + li {
+    margin-top: 16px;
+  }
+
+  .list-ideas li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 10px;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    background: var(--ideas-yellow);
+  }
 }
 
-a {
-  color: inherit;
+/* ============================================================
+   Breakpoints
+   ============================================================ */
+
+@media (min-width: 640px) {
+  .page-shell       { padding-inline: 24px; }
+  .section-space    { padding-block: 80px; }
+  .hero-title       { font-size: 56px; }
+  .section-title    { font-size: 38px; }
+  .body-lg          { font-size: 20px; }
+  .body-md          { font-size: 17px; }
+  .button-text,
+  .nav-text         { font-size: 17px; }
+  .label-text,
+  .eyebrow-yellow,
+  .eyebrow-dark     { font-size: 13px; }
+  .card-light,
+  .card-dark        { padding: 32px; }
+  .btn-primary,
+  .btn-secondary-light,
+  .btn-secondary-dark { padding: 16px 32px; }
+  .card-title       { font-size: 28px; }
 }
 
-img {
-  display: block;
-  max-width: 100%;
+@media (min-width: 768px) {
+  .hero-title       { font-size: 72px; }
+  .section-title    { font-size: 48px; }
 }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
+@media (min-width: 1024px) {
+  .page-shell       { padding-inline: 40px; }
+  .section-space    { padding-block: 112px; }
+  .hero-title       { font-size: 88px; }
+  .section-title    { font-size: 60px; }
+  .body-lg          { font-size: 24px; }
+  .body-md          { font-size: 18px; }
+  .card-title       { font-size: 32px; }
+  .nav-text         { font-size: 17px; }
 }
 
-::selection {
-  background: rgba(203, 105, 51, 0.22);
-}
-
-html,
-body,
-#root {
-  background: #ffffff;
+@media (min-width: 1280px) {
+  .hero-title       { font-size: 104px; }
 }
