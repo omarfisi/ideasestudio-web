@@ -7,6 +7,12 @@ import {
   getSaleTypeLabel,
 } from "@/data/services.js";
 import { SERVICE_SEGMENTS_MAP } from "@/data/serviceSegmentsMap.js";
+import TestimonialsSlider from "@/components/shared/TestimonialsSlider.jsx";
+import Button from "@/components/shared/Button.jsx";
+import {
+  getTestimonialsForPage,
+  TESTIMONIAL_SECTION_COPY,
+} from "@/data/testimonials.js";
 
 const CATEGORY_ALL = "all";
 const SALE_TYPE_ALL = "all";
@@ -82,16 +88,16 @@ export default function ServicesPage() {
       {/* ── HERO ── */}
       <section className="services-catalog__hero">
         <div className="container">
-          <p className="services-catalog__eyebrow">Catálogo de servicios</p>
           <h1 className="services-catalog__title">
-            Todo lo que podemos{" "}
-            <span className="highlight-box-glow">construir</span>{" "}
-            juntos.
+            Encuentra en nuestro{" "}
+            <span className="highlight-box-glow">catálogo</span>{" "}
+            de servicios la opción ideal para ti.
           </h1>
           <p className="services-catalog__subtitle">
             Fotografía, video, branding, web y contenido. Encuentra el servicio
             que mejor encaja con tu etapa, tu marca o tu evento.
           </p>
+          <div className="services-catalog__divider" />
         </div>
       </section>
 
@@ -248,6 +254,36 @@ export default function ServicesPage() {
                 </div>
               </article>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── TESTIMONIALS ── */}
+      <TestimonialsSlider
+        eyebrow={TESTIMONIAL_SECTION_COPY.niches.eyebrow}
+        titleNode={<>Clientes que ya confiaron en <span className="highlight-box-glow">nosotros</span> para construir su marca y cubrir sus eventos.</>}
+        description={TESTIMONIAL_SECTION_COPY.niches.description}
+        items={getTestimonialsForPage("home")}
+      />
+
+      {/* ── CTA ── */}
+      <section className="section section-split">
+        <div className="container">
+          <div className="service-route-cta">
+            <div className="service-route-cta__copy">
+              <h2>
+                <span className="highlight-box-glow">Transformemos</span>{" "}
+                esta necesidad en una propuesta clara para tu marca o negocio.
+              </h2>
+            </div>
+            <div className="service-route-cta__actions">
+              <Button to="/contacto?mode=proposal&cta=services_catalog">
+                Quiero una propuesta clara
+              </Button>
+              <Button to="/contacto" variant="secondary">
+                Hablar sobre mi proyecto
+              </Button>
+            </div>
           </div>
         </div>
       </section>

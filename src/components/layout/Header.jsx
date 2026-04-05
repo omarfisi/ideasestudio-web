@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { APP_CRM_URL } from "@/lib/constants.js";
 
@@ -762,13 +762,17 @@ export default function Header() {
                 Servicios
               </Link>
 
-              <a className="ie-nav__link" href="/#portafolio">
+              <Link className="ie-nav__link" to="/portafolio">
                 Portafolio
-              </a>
+              </Link>
 
-              <a className="ie-nav__link" href="/#blog">
+              <Link className="ie-nav__link" to="/equipo">
+                Equipo
+              </Link>
+
+              <Link className="ie-nav__link" to="/blog">
                 Blog
-              </a>
+              </Link>
 
               <a className="ie-nav__link" href="/#contacto">
                 Contacto
@@ -868,13 +872,17 @@ export default function Header() {
                   <span>Servicios</span>
                 </Link>
 
-                <a className="ie-mobile-link" href="/#portafolio">
+                <Link className="ie-mobile-link" to="/portafolio">
                   <span>Portafolio</span>
-                </a>
+                </Link>
 
-                <a className="ie-mobile-link" href="/#blog">
+                <Link className="ie-mobile-link" to="/equipo">
+                  <span>Equipo</span>
+                </Link>
+
+                <Link className="ie-mobile-link" to="/blog">
                   <span>Blog</span>
-                </a>
+                </Link>
 
                 <a className="ie-mobile-link" href="/#contacto">
                   <span>Contacto</span>

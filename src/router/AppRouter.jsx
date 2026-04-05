@@ -26,6 +26,8 @@ import ServiceDetailPage from "@/pages/ServiceDetailPage.jsx";
 import StorePage from "@/pages/StorePage.jsx";
 import ProductDetailPage from "@/pages/ProductDetailPage.jsx";
 import PortfolioPage from "@/pages/PortfolioPage.jsx";
+import TeamPage from "@/pages/TeamPage.jsx";
+import BlogPage from "@/pages/BlogPage.jsx";
 import AboutPage from "@/pages/AboutPage.jsx";
 import ContactPage from "@/pages/ContactPage.jsx";
 import CartPage from "@/pages/CartPage.jsx";
@@ -257,6 +259,14 @@ const router = createBrowserRouter([
       {
         path: "portafolio",
         element: <PortfolioPage />,
+      },
+      {
+        path: "equipo",
+        element: <TeamPage />,
+      },
+      {
+        path: "blog",
+        element: <BlogPage />,
       },
       {
         path: "sobre-nosotros",
