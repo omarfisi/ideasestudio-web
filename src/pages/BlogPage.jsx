@@ -184,7 +184,7 @@ export default function BlogPage() {
     let cancelled = false;
     getBlogHome()
       .then((res) => { if (!cancelled) setLayout(res); })
-      .catch(() => { /* silencioso: usa fallback */ })
+      .catch((err) => { console.error("[BlogPage] getBlogHome error:", err); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
@@ -208,10 +208,8 @@ export default function BlogPage() {
     ? categories
     : ["Branding", "Diseño Web", "Contenido", "Fotografía", "Video", "SEO", "Marketing Digital"];
 
-  const hasContent = !!heroMain;
-
-  // Hero: usa API o fallback mock
-  const displayHero = heroMain || FALLBACK_HERO;
+  // Hero: solo usa fallback si no hay datos del API después de cargar
+  const displayHero = heroMain || (!loading ? FALLBACK_HERO : null);
 
   return (
     <main className="bg-white text-neutral-950">
@@ -232,38 +230,53 @@ export default function BlogPage() {
           </div>
 
           {/* Artículo hero principal */}
-          <article
-            className="group mt-10 cursor-pointer overflow-hidden rounded-[28px] bg-neutral-50 shadow-[0_12px_40px_rgba(0,0,0,0.06)] lg:grid lg:grid-cols-[1.1fr_0.9fr]"
-            onClick={() => heroMain && goPost(heroMain.slug)}
-          >
-            <div className="overflow-hidden">
-              <img
-                src={displayHero.image || displayHero.featured_image_url}
-                alt={displayHero.title}
-                className="h-full min-h-[360px] w-full object-cover transition duration-500 group-hover:scale-105"
-              />
-            </div>
-            <div className="flex items-center p-8 lg:p-12">
-              <div>
-                <MetaLine
-                  category={displayHero.category || displayHero.category_name || "Blog"}
-                  meta={displayHero.readTime || displayHero.meta || "Lectura"}
-                />
-                <h2 className="mt-4 text-3xl font-semibold leading-[1.05] text-neutral-950 lg:text-4xl">
-                  {displayHero.title}
-                </h2>
-                <p className="mt-5 text-[15px] leading-7 text-neutral-600">
-                  {displayHero.excerpt}
-                </p>
-                <div className="mt-8">
-                  <AuthorRow
-                    author={displayHero.author || displayHero.author_name || "Ideas Estudio"}
-                    date={displayHero.date}
-                  />
+          {loading ? (
+            <div className="mt-10 animate-pulse overflow-hidden rounded-[28px] bg-neutral-100 lg:grid lg:grid-cols-[1.1fr_0.9fr]">
+              <div className="min-h-[360px] bg-neutral-200" />
+              <div className="flex items-center p-8 lg:p-12">
+                <div className="w-full space-y-4">
+                  <div className="h-3 w-24 rounded bg-neutral-200" />
+                  <div className="h-8 w-full rounded bg-neutral-200" />
+                  <div className="h-8 w-3/4 rounded bg-neutral-200" />
+                  <div className="h-4 w-full rounded bg-neutral-200" />
+                  <div className="h-4 w-2/3 rounded bg-neutral-200" />
                 </div>
               </div>
             </div>
-          </article>
+          ) : displayHero ? (
+            <article
+              className="group mt-10 cursor-pointer overflow-hidden rounded-[28px] bg-neutral-50 shadow-[0_12px_40px_rgba(0,0,0,0.06)] lg:grid lg:grid-cols-[1.1fr_0.9fr]"
+              onClick={() => heroMain && goPost(heroMain.slug)}
+            >
+              <div className="overflow-hidden">
+                <img
+                  src={displayHero.image || displayHero.featured_image_url}
+                  alt={displayHero.title}
+                  className="h-full min-h-[360px] w-full object-cover transition duration-500 group-hover:scale-105"
+                />
+              </div>
+              <div className="flex items-center p-8 lg:p-12">
+                <div>
+                  <MetaLine
+                    category={displayHero.category || displayHero.category_name || "Blog"}
+                    meta={displayHero.readTime || displayHero.meta || "Lectura"}
+                  />
+                  <h2 className="mt-4 text-3xl font-semibold leading-[1.05] text-neutral-950 lg:text-4xl">
+                    {displayHero.title}
+                  </h2>
+                  <p className="mt-5 text-[15px] leading-7 text-neutral-600">
+                    {displayHero.excerpt}
+                  </p>
+                  <div className="mt-8">
+                    <AuthorRow
+                      author={displayHero.author || displayHero.author_name || "Ideas Estudio"}
+                      date={displayHero.date}
+                    />
+                  </div>
+                </div>
+              </div>
+            </article>
+          ) : null}
         </section>
 
         {/* ── TOPICS / CATEGORÍAS ── */}

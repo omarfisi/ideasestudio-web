@@ -1,0 +1,11 @@
+node_modules
+dist
+*.log
+*.pdf
+*.docx
+_audit*
+_backup*
+_debug*
+_legacy
+_bak*
+*.bak
