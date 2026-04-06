@@ -28,6 +28,8 @@ import ProductDetailPage from "@/pages/ProductDetailPage.jsx";
 import PortfolioPage from "@/pages/PortfolioPage.jsx";
 import TeamPage from "@/pages/TeamPage.jsx";
 import BlogPage from "@/pages/BlogPage.jsx";
+import BlogPostDetailPage from "@/pages/BlogPostDetailPage.jsx";
+import BlogPostPreviewPage from "@/pages/BlogPostPreviewPage.jsx";
 import AboutPage from "@/pages/AboutPage.jsx";
 import ContactPage from "@/pages/ContactPage.jsx";
 import CartPage from "@/pages/CartPage.jsx";
@@ -267,6 +269,14 @@ const router = createBrowserRouter([
       {
         path: "blog",
         element: <BlogPage />,
+      },
+      {
+        path: "blog/preview",
+        element: <BlogPostPreviewPage />,
+      },
+      {
+        path: "blog/:slug",
+        element: <BlogPostDetailPage />,
       },
       {
         path: "sobre-nosotros",

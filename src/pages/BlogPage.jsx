@@ -1,167 +1,18 @@
-const heroPost = {
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { getBlogHome } from "@/lib/api.js";
+
+// ─── Fallback mock (se usa solo cuando no hay artículos en la API) ───────────
+const FALLBACK_HERO = {
   category: "Blog / Destacado",
   readTime: "5 min de lectura",
   title: "Contenido que conecta, posiciona y convierte mejor.",
   excerpt:
     "Explora artículos sobre diseño web, redes sociales, branding, contenido y estrategias digitales pensadas para negocios que quieren crecer con claridad.",
   author: "Ideas Estudio",
-  date: "Abril 2026",
   image:
     "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=1400&q=80",
 };
-
-const topPosts = [
-  {
-    id: 1,
-    title: "Cómo mejorar la presencia digital de tu negocio local",
-    category: "Marketing",
-    meta: "6 min",
-    image:
-      "https://images.unsplash.com/photo-1556740749-887f6717d7e4?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: 2,
-    title: "Errores comunes al diseñar una página web comercial",
-    category: "Web",
-    meta: "4 min",
-    image:
-      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=900&q=80",
-    badge: "Popular",
-  },
-  {
-    id: 3,
-    title: "Qué tipo de contenido necesita una marca para vender mejor",
-    category: "Contenido",
-    meta: "7 min",
-    image:
-      "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: 4,
-    title: "Branding visual: cómo dar una imagen más profesional",
-    category: "Branding",
-    meta: "5 min",
-    image:
-      "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=900&q=80",
-  },
-];
-
-const sidePostsLeft = [
-  {
-    id: 1,
-    title: "Cómo elegir las fotos correctas para tu marca",
-    category: "Fotografía",
-    meta: "3 min",
-    image:
-      "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=800&q=80",
-  },
-  {
-    id: 2,
-    title: "La importancia de una identidad visual coherente",
-    category: "Branding",
-    meta: "4 min",
-    image:
-      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=80",
-    badge: "Nuevo",
-  },
-];
-
-const mainFeature = {
-  title: "Cómo construir una estrategia de contenido que sí tenga intención",
-  category: "Estrategia",
-  meta: "8 min de lectura",
-  excerpt:
-    "Una guía clara para organizar tus publicaciones, comunicar mejor tu propuesta de valor y crear una presencia digital más consistente.",
-  image:
-    "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80",
-};
-
-const sidePostsRight = [
-  {
-    id: 1,
-    title: "3 razones para invertir en una web bien estructurada",
-    category: "Web",
-    meta: "5 min",
-    image:
-      "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=800&q=80",
-  },
-  {
-    id: 2,
-    title: "Qué debes publicar si tu negocio apenas está comenzando",
-    category: "Contenido",
-    meta: "4 min",
-    image:
-      "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=800&q=80",
-  },
-];
-
-const latestPosts = [
-  {
-    id: 1,
-    title: "Cómo usar tu blog para atraer clientes potenciales",
-    category: "SEO",
-    meta: "6 min",
-    image:
-      "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: 2,
-    title: "Por qué una marca necesita una dirección visual clara",
-    category: "Branding",
-    meta: "5 min",
-    image:
-      "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=900&q=80",
-    badge: "Popular",
-  },
-  {
-    id: 3,
-    title: "Cómo organizar mejor tu contenido mensual",
-    category: "Redes Sociales",
-    meta: "4 min",
-    image:
-      "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: 4,
-    title: "Qué debe tener una landing page para vender",
-    category: "Web",
-    meta: "7 min",
-    image:
-      "https://images.unsplash.com/photo-1559028012-481c04fa702d?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: 5,
-    title: "La fotografía también comunica valor de marca",
-    category: "Fotografía",
-    meta: "5 min",
-    image:
-      "https://images.unsplash.com/photo-1516724562728-afc824a36e84?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: 6,
-    title: "Cómo crear confianza con contenido visual más sólido",
-    category: "Contenido",
-    meta: "6 min",
-    image:
-      "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: 7,
-    title: "Qué publicar cuando no sabes por dónde empezar",
-    category: "Marketing",
-    meta: "4 min",
-    image:
-      "https://images.unsplash.com/photo-1522542550221-31fd19575a2d?auto=format&fit=crop&w=900&q=80",
-  },
-  {
-    id: 8,
-    title: "Web, branding y contenido: cómo se conectan",
-    category: "Negocios",
-    meta: "6 min",
-    image:
-      "https://images.unsplash.com/photo-1516321165247-4aa89a48be28?auto=format&fit=crop&w=900&q=80",
-  },
-];
 
 const instagramPosts = [
   "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=600&q=80",
@@ -172,8 +23,24 @@ const instagramPosts = [
   "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=600&q=80",
 ];
 
-const topics = ["Branding", "Diseño Web", "Contenido", "Fotografía", "Video", "SEO", "Marketing Digital"];
+// ─── Helpers para normalizar artículos del API ───────────────────────────────
+function postToCard(post) {
+  if (!post) return null;
+  return {
+    id: post.id,
+    slug: post.slug,
+    title: post.title,
+    excerpt: post.excerpt || "",
+    category: post.category_name || "Blog",
+    meta: post.reading_time_minutes ? `${post.reading_time_minutes} min` : "Lectura",
+    image: post.featured_image_url || "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=900&q=80",
+    author: post.author_name || "Ideas Estudio",
+    date: post.published_at ? new Date(post.published_at).toLocaleDateString("es", { month: "long", year: "numeric" }) : "",
+    is_featured: post.is_featured,
+  };
+}
 
+// ─── Componentes visuales (idénticos al diseño original) ─────────────────────
 function MetaLine({ category, meta }) {
   return (
     <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.22em] text-neutral-500">
@@ -184,20 +51,20 @@ function MetaLine({ category, meta }) {
   );
 }
 
-function AuthorRow() {
+function AuthorRow({ author = "Ideas Estudio", date }) {
   return (
     <div className="flex items-center gap-3">
       <div className="h-11 w-11 overflow-hidden rounded-full bg-[#f2cc3d]">
         <img
           src="https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/logos/favicon_ideasestudio.webp"
-          alt="Ideas Estudio"
+          alt={author}
           className="h-full w-full object-cover"
           onError={(e) => { e.currentTarget.style.display = "none"; }}
         />
       </div>
       <div>
-        <p className="text-sm font-semibold text-neutral-900">Ideas Estudio</p>
-        <p className="text-xs uppercase tracking-[0.18em] text-neutral-500">Abril 2026</p>
+        <p className="text-sm font-semibold text-neutral-900">{author}</p>
+        {date && <p className="text-xs uppercase tracking-[0.18em] text-neutral-500">{date}</p>}
       </div>
     </div>
   );
@@ -211,11 +78,11 @@ function Badge({ text }) {
   );
 }
 
-function SmallPostCard({ post }) {
+function SmallPostCard({ post, onClick }) {
   return (
-    <article className="group cursor-pointer">
+    <article className="group cursor-pointer" onClick={onClick}>
       <div className="relative overflow-hidden rounded-[20px] bg-white">
-        {post.badge && <Badge text={post.badge} />}
+        {post.is_featured && <Badge text="Destacado" />}
         <img
           src={post.image}
           alt={post.title}
@@ -232,11 +99,10 @@ function SmallPostCard({ post }) {
   );
 }
 
-function MiniPostCard({ post }) {
+function MiniPostCard({ post, onClick }) {
   return (
-    <article className="group cursor-pointer">
+    <article className="group cursor-pointer" onClick={onClick}>
       <div className="relative overflow-hidden rounded-[16px] bg-white">
-        {post.badge && <Badge text={post.badge} />}
         <img
           src={post.image}
           alt={post.title}
@@ -253,9 +119,12 @@ function MiniPostCard({ post }) {
   );
 }
 
-function EditorialFeature({ post }) {
+function EditorialFeature({ post, onClick }) {
   return (
-    <article className="group cursor-pointer overflow-hidden rounded-[24px] bg-white shadow-[0_12px_40px_rgba(0,0,0,0.06)] lg:grid lg:grid-cols-[1.05fr_0.95fr]">
+    <article
+      className="group cursor-pointer overflow-hidden rounded-[24px] bg-white shadow-[0_12px_40px_rgba(0,0,0,0.06)] lg:grid lg:grid-cols-[1.05fr_0.95fr]"
+      onClick={onClick}
+    >
       <div className="overflow-hidden">
         <img
           src={post.image}
@@ -269,11 +138,11 @@ function EditorialFeature({ post }) {
           <h2 className="mt-4 text-3xl font-semibold leading-[1.05] text-neutral-950 lg:text-4xl">
             {post.title}
           </h2>
-          <p className="mt-5 text-[15px] leading-8 text-neutral-600">
-            {post.excerpt}
-          </p>
+          {post.excerpt && (
+            <p className="mt-5 text-[15px] leading-8 text-neutral-600">{post.excerpt}</p>
+          )}
           <div className="mt-8">
-            <AuthorRow />
+            <AuthorRow author={post.author} date={post.date} />
           </div>
         </div>
       </div>
@@ -281,11 +150,10 @@ function EditorialFeature({ post }) {
   );
 }
 
-function LatestPostCard({ post }) {
+function LatestPostCard({ post, onClick }) {
   return (
-    <article className="group cursor-pointer">
+    <article className="group cursor-pointer" onClick={onClick}>
       <div className="relative overflow-hidden rounded-[20px] bg-white">
-        {post.badge && <Badge text={post.badge} />}
         <img
           src={post.image}
           alt={post.title}
@@ -298,21 +166,59 @@ function LatestPostCard({ post }) {
           {post.title}
         </h3>
         <div className="mt-4">
-          <AuthorRow />
+          <AuthorRow author={post.author} date={post.date} />
         </div>
       </div>
     </article>
   );
 }
 
+// ─── Página principal ─────────────────────────────────────────────────────────
 export default function BlogPage() {
+  const navigate = useNavigate();
+  const [layout, setLayout] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    getBlogHome()
+      .then((res) => { if (!cancelled) setLayout(res); })
+      .catch(() => { /* silencioso: usa fallback */ })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  function goPost(slug) {
+    if (slug) navigate(`/blog/${slug}`);
+  }
+
+  // Datos del API o fallback
+  const heroMain = layout?.hero_main ? postToCard(layout.hero_main) : null;
+  const heroSide = layout?.hero_side ? postToCard(layout.hero_side) : null;
+  const topGrid = (layout?.top_grid || []).map(postToCard).filter(Boolean);
+  const featureMain = layout?.feature_main ? postToCard(layout.feature_main) : null;
+  const magazineLeft = (layout?.magazine_left || []).map(postToCard).filter(Boolean);
+  const magazineCenter = layout?.magazine_center ? postToCard(layout.magazine_center) : null;
+  const magazineRight = (layout?.magazine_right || []).map(postToCard).filter(Boolean);
+  const recentPosts = (layout?.recent_posts || []).map(postToCard).filter(Boolean);
+  const categories = (layout?.categories || []).map((c) => c.name);
+
+  const topicsDisplay = categories.length > 0
+    ? categories
+    : ["Branding", "Diseño Web", "Contenido", "Fotografía", "Video", "SEO", "Marketing Digital"];
+
+  const hasContent = !!heroMain;
+
+  // Hero: usa API o fallback mock
+  const displayHero = heroMain || FALLBACK_HERO;
+
   return (
     <main className="bg-white text-neutral-950">
       <div className="mx-auto max-w-[1220px] px-4 pb-20 pt-10 md:px-6 md:pb-28 md:pt-16">
 
         {/* ── HERO ── */}
         <section>
-          {/* Título centrado */}
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-[11px] uppercase tracking-[0.25em] text-neutral-500">
               Blog / Ideas Estudio
@@ -325,54 +231,83 @@ export default function BlogPage() {
             </p>
           </div>
 
-          {/* Artículo destacado — estilo EditorialFeature */}
-          <article className="group mt-10 cursor-pointer overflow-hidden rounded-[28px] bg-neutral-50 shadow-[0_12px_40px_rgba(0,0,0,0.06)] lg:grid lg:grid-cols-[1.1fr_0.9fr]">
+          {/* Artículo hero principal */}
+          <article
+            className="group mt-10 cursor-pointer overflow-hidden rounded-[28px] bg-neutral-50 shadow-[0_12px_40px_rgba(0,0,0,0.06)] lg:grid lg:grid-cols-[1.1fr_0.9fr]"
+            onClick={() => heroMain && goPost(heroMain.slug)}
+          >
             <div className="overflow-hidden">
               <img
-                src={heroPost.image}
-                alt={heroPost.title}
+                src={displayHero.image || displayHero.featured_image_url}
+                alt={displayHero.title}
                 className="h-full min-h-[360px] w-full object-cover transition duration-500 group-hover:scale-105"
               />
             </div>
             <div className="flex items-center p-8 lg:p-12">
               <div>
-                <MetaLine category={heroPost.category} meta={heroPost.readTime} />
+                <MetaLine
+                  category={displayHero.category || displayHero.category_name || "Blog"}
+                  meta={displayHero.readTime || displayHero.meta || "Lectura"}
+                />
                 <h2 className="mt-4 text-3xl font-semibold leading-[1.05] text-neutral-950 lg:text-4xl">
-                  {heroPost.title}
+                  {displayHero.title}
                 </h2>
                 <p className="mt-5 text-[15px] leading-7 text-neutral-600">
-                  {heroPost.excerpt}
+                  {displayHero.excerpt}
                 </p>
                 <div className="mt-8">
-                  <AuthorRow />
+                  <AuthorRow
+                    author={displayHero.author || displayHero.author_name || "Ideas Estudio"}
+                    date={displayHero.date}
+                  />
                 </div>
               </div>
             </div>
           </article>
         </section>
 
-        {/* ── TOPICS ── */}
+        {/* ── TOPICS / CATEGORÍAS ── */}
         <section className="mt-10 rounded-[20px] border border-neutral-200 py-7">
           <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-sm font-semibold uppercase tracking-[0.18em] text-neutral-500">
-            {topics.map((t) => (
-              <button key={t} type="button" className="transition hover:text-black">
+            {topicsDisplay.map((t) => (
+              <button
+                key={t}
+                type="button"
+                className={`transition hover:text-black ${activeCategory === t ? "text-black" : ""}`}
+                onClick={() => setActiveCategory(activeCategory === t ? "" : t)}
+              >
                 {t}
               </button>
             ))}
           </div>
         </section>
 
-        {/* ── TOP 4 ── */}
-        <section className="mt-14 grid gap-8 md:grid-cols-2 xl:grid-cols-4">
-          {topPosts.map((post) => (
-            <SmallPostCard key={post.id} post={post} />
-          ))}
-        </section>
+        {/* ── TOP GRID 4 ── */}
+        {(topGrid.length > 0 || loading) && (
+          <section className="mt-14 grid gap-8 md:grid-cols-2 xl:grid-cols-4">
+            {loading
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="animate-pulse space-y-3">
+                    <div className="h-[230px] w-full rounded-[20px] bg-neutral-100" />
+                    <div className="h-3 w-1/3 rounded bg-neutral-100" />
+                    <div className="h-5 w-full rounded bg-neutral-100" />
+                  </div>
+                ))
+              : topGrid.map((post) => (
+                  <SmallPostCard key={post.id} post={post} onClick={() => goPost(post.slug)} />
+                ))}
+          </section>
+        )}
 
         {/* ── FEATURE SPLIT ── */}
-        <section className="mt-14">
-          <EditorialFeature post={mainFeature} />
-        </section>
+        {(featureMain || (!loading && heroSide)) && (
+          <section className="mt-14">
+            <EditorialFeature
+              post={featureMain || heroSide}
+              onClick={() => goPost((featureMain || heroSide)?.slug)}
+            />
+          </section>
+        )}
 
         {/* ── NEWSLETTER ── */}
         <section className="mt-12 rounded-[20px] bg-neutral-50 px-6 py-6 shadow-[0_8px_30px_rgba(0,0,0,0.05)] md:px-8">
@@ -399,41 +334,50 @@ export default function BlogPage() {
         </section>
 
         {/* ── MAGAZINE MIX ── */}
-        <section className="mt-14 grid gap-8 xl:grid-cols-[0.8fr_1.4fr_0.8fr]">
-          <div className="space-y-8">
-            {sidePostsLeft.map((post) => (
-              <MiniPostCard key={post.id} post={post} />
-            ))}
-          </div>
-
-          <article className="group cursor-pointer overflow-hidden rounded-[24px] bg-white shadow-[0_12px_40px_rgba(0,0,0,0.06)]">
-            <div className="overflow-hidden">
-              <img
-                src="https://images.unsplash.com/photo-1482049016688-2d3e1b311543?auto=format&fit=crop&w=1300&q=80"
-                alt="Artículo central"
-                className="h-[340px] w-full object-cover transition duration-500 group-hover:scale-105 md:h-[420px]"
-              />
+        {(magazineLeft.length > 0 || magazineCenter || magazineRight.length > 0) && (
+          <section className="mt-14 grid gap-8 xl:grid-cols-[0.8fr_1.4fr_0.8fr]">
+            <div className="space-y-8">
+              {magazineLeft.map((post) => (
+                <MiniPostCard key={post.id} post={post} onClick={() => goPost(post.slug)} />
+              ))}
             </div>
-            <div className="p-8 lg:p-10">
-              <MetaLine category="Estrategia" meta="9 min de lectura" />
-              <h2 className="mt-4 text-3xl font-semibold leading-[1.05] text-neutral-950 lg:text-4xl">
-                Diseño, contenido y estrategia: cómo hacer que todo trabaje junto
-              </h2>
-              <p className="mt-5 text-[15px] leading-7 text-neutral-600">
-                Cuando tu contenido, tu web y tu identidad visual apuntan en la misma dirección, comunicar se vuelve más fácil y vender también.
-              </p>
-              <div className="mt-7">
-                <AuthorRow />
-              </div>
-            </div>
-          </article>
 
-          <div className="space-y-8">
-            {sidePostsRight.map((post) => (
-              <MiniPostCard key={post.id} post={post} />
-            ))}
-          </div>
-        </section>
+            {magazineCenter && (
+              <article
+                className="group cursor-pointer overflow-hidden rounded-[24px] bg-white shadow-[0_12px_40px_rgba(0,0,0,0.06)]"
+                onClick={() => goPost(magazineCenter.slug)}
+              >
+                <div className="overflow-hidden">
+                  <img
+                    src={magazineCenter.image}
+                    alt={magazineCenter.title}
+                    className="h-[340px] w-full object-cover transition duration-500 group-hover:scale-105 md:h-[420px]"
+                  />
+                </div>
+                <div className="p-8 lg:p-10">
+                  <MetaLine category={magazineCenter.category} meta={magazineCenter.meta} />
+                  <h2 className="mt-4 text-3xl font-semibold leading-[1.05] text-neutral-950 lg:text-4xl">
+                    {magazineCenter.title}
+                  </h2>
+                  {magazineCenter.excerpt && (
+                    <p className="mt-5 text-[15px] leading-7 text-neutral-600">
+                      {magazineCenter.excerpt}
+                    </p>
+                  )}
+                  <div className="mt-7">
+                    <AuthorRow author={magazineCenter.author} date={magazineCenter.date} />
+                  </div>
+                </div>
+              </article>
+            )}
+
+            <div className="space-y-8">
+              {magazineRight.map((post) => (
+                <MiniPostCard key={post.id} post={post} onClick={() => goPost(post.slug)} />
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ── CTA STRIP ── */}
         <section className="mt-14 rounded-[24px] bg-black px-8 py-12 text-center md:px-12">
@@ -443,33 +387,34 @@ export default function BlogPage() {
           <p className="mx-auto mt-4 max-w-xl text-[15px] leading-7 text-white/70">
             Artículos sobre branding, web, marketing digital, contenido, fotografía y video para negocios que quieren comunicar mejor.
           </p>
-          <button className="mt-6 rounded-full bg-[#f2cc3d] px-8 py-3 text-sm font-bold uppercase tracking-[0.15em] text-black transition hover:bg-white">
+          <button
+            className="mt-6 rounded-full bg-[#f2cc3d] px-8 py-3 text-sm font-bold uppercase tracking-[0.15em] text-black transition hover:bg-white"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          >
             Explorar artículos
           </button>
         </section>
 
         {/* ── ÚLTIMOS ARTÍCULOS ── */}
-        <section className="mt-16">
-          <div className="mb-10 flex items-end justify-between gap-4">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.25em] text-neutral-500">
-                Últimos artículos
-              </p>
-              <h2 className="mt-2 text-4xl font-semibold tracking-[-0.02em]">
-                Publicaciones recientes
-              </h2>
+        {recentPosts.length > 0 && (
+          <section className="mt-16">
+            <div className="mb-10 flex items-end justify-between gap-4">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.25em] text-neutral-500">
+                  Últimos artículos
+                </p>
+                <h2 className="mt-2 text-4xl font-semibold tracking-[-0.02em]">
+                  Publicaciones recientes
+                </h2>
+              </div>
             </div>
-            <button className="hidden rounded-full border border-neutral-300 px-5 py-2.5 text-sm font-semibold text-neutral-700 transition hover:border-black hover:text-black md:inline-flex">
-              Ver todos
-            </button>
-          </div>
-
-          <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-4">
-            {latestPosts.map((post) => (
-              <LatestPostCard key={post.id} post={post} />
-            ))}
-          </div>
-        </section>
+            <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-4">
+              {recentPosts.map((post) => (
+                <LatestPostCard key={post.id} post={post} onClick={() => goPost(post.slug)} />
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ── INSTAGRAM ── */}
         <section className="mt-16">
@@ -479,7 +424,6 @@ export default function BlogPage() {
               @ideasestudio en <span className="highlight-box-glow">Instagram</span>
             </h2>
           </div>
-
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
             {instagramPosts.map((image, index) => (
               <div key={index} className="group overflow-hidden rounded-[16px]">

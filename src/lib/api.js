@@ -1024,3 +1024,32 @@ export async function getPublicClientRouteBundle(routeKey) {
     services,
   };
 }
+
+// ─────────────────────────────────────────────────────────────
+// Blog público
+// ─────────────────────────────────────────────────────────────
+
+export async function getBlogHome() {
+  const url = buildUrl("/api/blog/home");
+  return apiFetch(url);
+}
+
+export async function getBlogPosts(params = {}) {
+  const url = buildUrl("/api/blog/posts", params);
+  return apiFetch(url);
+}
+
+export async function getBlogPostBySlug(slug) {
+  const url = buildUrl(`/api/blog/posts/${slug}`);
+  return apiFetch(url);
+}
+
+export async function getBlogRelated(slug) {
+  const url = buildUrl(`/api/blog/posts/${slug}/related`);
+  return apiFetch(url);
+}
+
+export async function getBlogCategories() {
+  const url = buildUrl("/api/blog/categories");
+  return apiFetch(url);
+}
