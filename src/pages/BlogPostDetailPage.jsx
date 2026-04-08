@@ -179,10 +179,22 @@ function ContentBlock({ block }) {
         </h2>
       );
 
-    case "paragraph":
+    case "paragraph": {
+      const html = String(block.text || "").trim();
+      const cleaned = html
+        .replace(/<br\s*\/?>/gi, "")
+        .replace(/&nbsp;/gi, "")
+        .trim();
+
+      if (!cleaned) return null;
+
       return (
-        <p className="mt-6 text-[16px] leading-9 text-neutral-700">{block.text}</p>
+        <div
+          className="mt-6 text-[16px] leading-8 text-neutral-700"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
       );
+    }
 
     case "quote":
       return (
@@ -255,10 +267,85 @@ function ContentBlock({ block }) {
   }
 }
 
+// ─── Legacy block normalizers ─────────────────────────────────────────────────
+
+function isBreakOnlyParagraph(block) {
+  if (block?.type !== "paragraph") return false;
+
+  const cleaned = String(block?.text || "")
+    .replace(/<br\s*\/?>/gi, "")
+    .replace(/&nbsp;/gi, "")
+    .trim();
+
+  return !cleaned;
+}
+
+function normalizeLegacyBlocks(input = []) {
+  const blocks = Array.isArray(input) ? input : [];
+  const normalized = [];
+
+  let i = 0;
+
+  while (i < blocks.length) {
+    const block = blocks[i];
+
+    if (isBreakOnlyParagraph(block)) {
+      i++;
+      continue;
+    }
+
+    if (block?.type === "image") {
+      const galleryImages = [];
+      let j = i;
+
+      while (j < blocks.length) {
+        const current = blocks[j];
+
+        if (isBreakOnlyParagraph(current)) {
+          j++;
+          continue;
+        }
+
+        if (current?.type !== "image") break;
+
+        if (current?.url) {
+          galleryImages.push({
+            url: current.url,
+            alt: current.alt || current.caption || "",
+          });
+        }
+
+        j++;
+      }
+
+      if (galleryImages.length > 1) {
+        normalized.push({
+          type: "gallery",
+          images: galleryImages,
+        });
+        i = j;
+        continue;
+      }
+
+      if (galleryImages.length === 1) {
+        normalized.push(block);
+        i = j;
+        continue;
+      }
+    }
+
+    normalized.push(block);
+    i++;
+  }
+
+  return normalized;
+}
+
 // ─── ArticleContent ───────────────────────────────────────────────────────────
 
 function ArticleContent({ post }) {
-  const blocks = Array.isArray(post?.content_json) ? post.content_json : [];
+  const rawBlocks = Array.isArray(post?.content_json) ? post.content_json : [];
+  const blocks = normalizeLegacyBlocks(rawBlocks);
   const hasBlocks = blocks.length > 0;
   const videoEnabled = Boolean(post?.show_youtube_embed) && Boolean(post?.youtube_url);
   const videoPosition = post?.youtube_position || "bottom";
