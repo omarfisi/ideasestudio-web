@@ -227,20 +227,7 @@ function ContentBlock({ block }) {
       );
 
     case "gallery":
-      if (!Array.isArray(block.images) || !block.images.length) return null;
-      return (
-        <section className="my-10 grid gap-4 md:grid-cols-3">
-          {block.images.map((img, i) => (
-            <div key={i} className="overflow-hidden rounded-[24px] bg-white">
-              <img
-                src={img.url}
-                alt={img.alt || `Galería ${i + 1}`}
-                className="h-[220px] w-full object-cover md:h-[260px]"
-              />
-            </div>
-          ))}
-        </section>
-      );
+      return <GalleryBlock images={block.images} />;
 
     case "cta":
       return (
@@ -265,6 +252,127 @@ function ContentBlock({ block }) {
     default:
       return null;
   }
+}
+
+// ─── GalleryBlock — grid con lightbox modal ───────────────────────────────────
+
+function GalleryBlock({ images = [] }) {
+  const validImages = Array.isArray(images) ? images.filter((img) => img?.url) : [];
+  const [activeIndex, setActiveIndex] = useState(null);
+
+  const hasModal = activeIndex !== null && validImages[activeIndex];
+  const activeImage = hasModal ? validImages[activeIndex] : null;
+
+  function closeModal() { setActiveIndex(null); }
+
+  function showPrev(e) {
+    e?.stopPropagation?.();
+    setActiveIndex((prev) =>
+      prev === null ? 0 : prev === 0 ? validImages.length - 1 : prev - 1
+    );
+  }
+
+  function showNext(e) {
+    e?.stopPropagation?.();
+    setActiveIndex((prev) =>
+      prev === null ? 0 : prev === validImages.length - 1 ? 0 : prev + 1
+    );
+  }
+
+  useEffect(() => {
+    if (!hasModal) return;
+    function onKeyDown(e) {
+      if (e.key === "Escape") closeModal();
+      if (e.key === "ArrowLeft" && validImages.length > 1) showPrev(e);
+      if (e.key === "ArrowRight" && validImages.length > 1) showNext(e);
+    }
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [hasModal, validImages.length]);
+
+  if (!validImages.length) return null;
+
+  return (
+    <>
+      <section className="my-10">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          {validImages.map((img, i) => (
+            <button
+              key={`${img.url}-${i}`}
+              type="button"
+              onClick={() => setActiveIndex(i)}
+              className="group relative overflow-hidden rounded-[24px] bg-white text-left"
+              aria-label={`Abrir imagen ${i + 1} de la galería`}
+            >
+              <img
+                src={img.url}
+                alt={img.alt || `Galería ${i + 1}`}
+                className="h-[180px] w-full object-cover transition duration-300 group-hover:scale-[1.03] md:h-[220px]"
+              />
+              <div className="pointer-events-none absolute inset-0 bg-black/0 transition duration-300 group-hover:bg-black/10" />
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {hasModal && (
+        <div
+          className="fixed inset-0 z-[120] bg-black/80 px-4 py-6 md:px-8"
+          onClick={closeModal}
+        >
+          <div
+            className="relative mx-auto flex h-full w-full max-w-6xl items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={closeModal}
+              className="absolute right-0 top-0 z-10 rounded-full bg-white/90 px-3 py-2 text-xs font-semibold text-black shadow hover:bg-white"
+            >
+              Cerrar
+            </button>
+
+            {validImages.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={showPrev}
+                  className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-black shadow hover:bg-white"
+                  aria-label="Imagen anterior"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  onClick={showNext}
+                  className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-black shadow hover:bg-white"
+                  aria-label="Siguiente imagen"
+                >
+                  ›
+                </button>
+              </>
+            )}
+
+            <div className="w-full text-center">
+              <img
+                src={activeImage.url}
+                alt={activeImage.alt || "Imagen ampliada"}
+                className="mx-auto max-h-[82vh] max-w-full rounded-[28px] object-contain shadow-2xl"
+              />
+              {activeImage.alt && (
+                <p className="mt-4 text-sm text-white/85">{activeImage.alt}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
 
 // ─── Legacy block normalizers ─────────────────────────────────────────────────
