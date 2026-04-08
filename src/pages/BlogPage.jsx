@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getBlogHome } from "@/lib/api.js";
+import NewsletterSplitBlock from "@/components/forms/NewsletterSplitBlock.jsx";
 
 // ─── Fallback mock (se usa solo cuando no hay artículos en la API) ───────────
 const FALLBACK_HERO = {
@@ -78,6 +79,21 @@ function Badge({ text }) {
   );
 }
 
+function ReadButton({ onClick, className = "" }) {
+  if (!onClick) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      className={`mt-4 inline-flex items-center gap-2 rounded-full border border-black/15 bg-white px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-black transition hover:border-[#f2cc3d] hover:bg-[#f2cc3d] ${className}`}
+    >
+      Leer artículo
+      <span className="text-[14px]">→</span>
+    </button>
+  );
+}
+
 function SmallPostCard({ post, onClick }) {
   return (
     <article className="group cursor-pointer" onClick={onClick}>
@@ -94,6 +110,7 @@ function SmallPostCard({ post, onClick }) {
         <h3 className="mt-3 text-[20px] font-semibold leading-[1.15] text-neutral-950 transition group-hover:text-black/70">
           {post.title}
         </h3>
+        <ReadButton onClick={onClick} />
       </div>
     </article>
   );
@@ -114,6 +131,7 @@ function MiniPostCard({ post, onClick }) {
         <h3 className="mt-3 text-lg font-semibold leading-[1.2] text-neutral-950 transition group-hover:text-black/70">
           {post.title}
         </h3>
+        <ReadButton onClick={onClick} />
       </div>
     </article>
   );
@@ -144,6 +162,7 @@ function EditorialFeature({ post, onClick }) {
           <div className="mt-8">
             <AuthorRow author={post.author} date={post.date} />
           </div>
+          <ReadButton onClick={onClick} />
         </div>
       </div>
     </article>
@@ -168,8 +187,22 @@ function LatestPostCard({ post, onClick }) {
         <div className="mt-4">
           <AuthorRow author={post.author} date={post.date} />
         </div>
+        <ReadButton onClick={onClick} />
       </div>
     </article>
+  );
+}
+
+function Divider() {
+  return (
+    <div
+      className="my-14"
+      style={{
+        height: "1px",
+        background:
+          "linear-gradient(90deg, rgba(17,17,17,0) 0%, rgba(17,17,17,0.06) 18%, rgba(17,17,17,0.14) 50%, rgba(17,17,17,0.06) 82%, rgba(17,17,17,0) 100%)",
+      }}
+    />
   );
 }
 
@@ -222,12 +255,14 @@ export default function BlogPage() {
               Blog / Ideas Estudio
             </p>
             <h1 className="mt-5 text-5xl font-semibold leading-[0.95] tracking-[-0.03em] md:text-6xl">
-              Artículos para crecer con más <span className="highlight-box-glow">claridad.</span>
+              Artículos con <span className="highlight-box-glow">estrategias</span> para generar más ventas, visitas y prospectos.
             </h1>
             <p className="mt-6 text-[15px] leading-8 text-neutral-600 md:text-[17px]">
-              Diseño, contenido, branding, fotografía, video y estrategias digitales explicadas de una forma más visual, más clara y más útil para negocios reales.
+              Explora artículos con ideas, estrategias y recomendaciones para generar más visitas, captar mejores prospectos y aumentar tus ventas.
             </p>
           </div>
+
+          <Divider />
 
           {/* Artículo hero principal */}
           {loading ? (
@@ -273,14 +308,19 @@ export default function BlogPage() {
                       date={displayHero.date}
                     />
                   </div>
+                  {heroMain && (
+                    <ReadButton onClick={() => goPost(heroMain.slug)} className="mt-7" />
+                  )}
                 </div>
               </div>
             </article>
           ) : null}
         </section>
 
+        <Divider />
+
         {/* ── TOPICS / CATEGORÍAS ── */}
-        <section className="mt-10 rounded-[20px] border border-neutral-200 py-7">
+        <section className="mt-0 rounded-[20px] border border-neutral-200 py-7">
           <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-sm font-semibold uppercase tracking-[0.18em] text-neutral-500">
             {topicsDisplay.map((t) => (
               <button
@@ -295,9 +335,11 @@ export default function BlogPage() {
           </div>
         </section>
 
+        <Divider />
+
         {/* ── TOP GRID 4 ── */}
         {(topGrid.length > 0 || loading) && (
-          <section className="mt-14 grid gap-8 md:grid-cols-2 xl:grid-cols-4">
+          <section className="mt-0 grid gap-8 md:grid-cols-2 xl:grid-cols-4">
             {loading
               ? Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className="animate-pulse space-y-3">
@@ -312,9 +354,11 @@ export default function BlogPage() {
           </section>
         )}
 
+        <Divider />
+
         {/* ── FEATURE SPLIT ── */}
         {(featureMain || (!loading && heroSide)) && (
-          <section className="mt-14">
+          <section className="mt-0">
             <EditorialFeature
               post={featureMain || heroSide}
               onClick={() => goPost((featureMain || heroSide)?.slug)}
@@ -322,33 +366,30 @@ export default function BlogPage() {
           </section>
         )}
 
+        <Divider />
+
         {/* ── NEWSLETTER ── */}
-        <section className="mt-12 rounded-[20px] bg-neutral-50 px-6 py-6 shadow-[0_8px_30px_rgba(0,0,0,0.05)] md:px-8">
-          <div className="grid items-center gap-4 lg:grid-cols-[1.2fr_1fr_1fr_auto]">
-            <div>
-              <h3 className="text-xl font-semibold text-neutral-950">
-                Recibe nuevos artículos y recursos
-              </h3>
-            </div>
-            <input
-              type="text"
-              placeholder="Tu nombre"
-              className="h-12 w-full rounded-[10px] border border-neutral-200 bg-white px-4 text-sm outline-none transition focus:border-black"
-            />
-            <input
-              type="email"
-              placeholder="Tu email"
-              className="h-12 w-full rounded-[10px] border border-neutral-200 bg-white px-4 text-sm outline-none transition focus:border-black"
-            />
-            <button className="h-12 min-w-[160px] rounded-[10px] bg-black px-6 text-sm font-bold uppercase tracking-[0.15em] text-white transition hover:bg-[#f2cc3d] hover:text-black">
-              Suscribirme
-            </button>
-          </div>
+        <section className="mt-0">
+          <NewsletterSplitBlock
+            eyebrow="Newsletter · Ideas Estudio"
+            title="Deja de improvisar tu marca. Recibe contenido que te ayude a comunicar mejor."
+            description="Suscríbete para recibir artículos, ideas y recursos prácticos sobre diseño, branding y crecimiento digital."
+            imageSrc="https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=900&q=80"
+            imageAlt="Newsletter de Ideas Estudio"
+            buttonLabel="Recibir contenido"
+            successMessage="Gracias por suscribirte. Muy pronto recibirás nuevos artículos y recursos."
+            source="website_blog"
+            segment="blog_subscribers"
+            segments={["blog_subscribers", "newsletter"]}
+            meta={{ page_url: "/blog", form_name: "blog_newsletter_split_block", entry_point: "blog_page", ui_context: "ideas_web_public", ab_variant: "blog_v1" }}
+          />
         </section>
+
+        <Divider />
 
         {/* ── MAGAZINE MIX ── */}
         {(magazineLeft.length > 0 || magazineCenter || magazineRight.length > 0) && (
-          <section className="mt-14 grid gap-8 xl:grid-cols-[0.8fr_1.4fr_0.8fr]">
+          <section className="mt-0 grid gap-8 xl:grid-cols-[0.8fr_1.4fr_0.8fr]">
             <div className="space-y-8">
               {magazineLeft.map((post) => (
                 <MiniPostCard key={post.id} post={post} onClick={() => goPost(post.slug)} />
@@ -380,6 +421,7 @@ export default function BlogPage() {
                   <div className="mt-7">
                     <AuthorRow author={magazineCenter.author} date={magazineCenter.date} />
                   </div>
+                  <ReadButton onClick={() => goPost(magazineCenter.slug)} />
                 </div>
               </article>
             )}
@@ -392,8 +434,10 @@ export default function BlogPage() {
           </section>
         )}
 
+        <Divider />
+
         {/* ── CTA STRIP ── */}
-        <section className="mt-14 rounded-[24px] bg-black px-8 py-12 text-center md:px-12">
+        <section className="mt-0 rounded-[24px] bg-black px-8 py-12 text-center md:px-12">
           <h2 className="text-3xl font-semibold text-white md:text-4xl">
             <span className="highlight-box-glow">Ideas Estudio</span> Blog
           </h2>
@@ -408,9 +452,11 @@ export default function BlogPage() {
           </button>
         </section>
 
+        <Divider />
+
         {/* ── ÚLTIMOS ARTÍCULOS ── */}
         {recentPosts.length > 0 && (
-          <section className="mt-16">
+          <section className="mt-0">
             <div className="mb-10 flex items-end justify-between gap-4">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.25em] text-neutral-500">
@@ -429,8 +475,10 @@ export default function BlogPage() {
           </section>
         )}
 
+        <Divider />
+
         {/* ── INSTAGRAM ── */}
-        <section className="mt-16">
+        <section className="mt-0">
           <div className="mb-8 text-center">
             <p className="text-[11px] uppercase tracking-[0.25em] text-neutral-500">Redes</p>
             <h2 className="mt-2 text-3xl font-semibold tracking-[-0.02em]">

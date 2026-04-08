@@ -1,0 +1,23 @@
+import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
+
+export default function NewsletterSplitBlock(props) {
+  return (
+    <SplitLeadBlock
+      eyebrow="Ideas Estudio / Blog"
+      title="Contenido que te ayuda a comunicar mejor tu marca."
+      description="Recibe artículos, ideas y recursos prácticos sobre branding, diseño, web y crecimiento digital."
+      buttonLabel="Suscribirme"
+      successMessage="Gracias por suscribirte. Pronto recibirás contenido útil directamente en tu correo."
+      source="website_blog"
+      segment="blog_subscribers"
+      segments={["blog_subscribers", "newsletter"]}
+      submissionKind="newsletter_signup"
+      showNameField={false}
+      showMessageField={false}
+      emailPlaceholder="Tu email"
+      consentLabel="Sin spam. Solo contenido útil y relevante."
+      defaultMessage="Suscripción desde el blog"
+      {...props}
+    />
+  );
+}
