@@ -774,9 +774,9 @@ export default function Header() {
                 Blog
               </Link>
 
-              <a className="ie-nav__link" href="/#contacto">
+              <Link className="ie-nav__link" to="/contacto" onClick={closeMenus}>
                 Contacto
-              </a>
+              </Link>
             </nav>
 
             <div className="ie-actions">
@@ -884,9 +884,9 @@ export default function Header() {
                   <span>Blog</span>
                 </Link>
 
-                <a className="ie-mobile-link" href="/#contacto">
+                <Link className="ie-mobile-link" to="/contacto" onClick={closeMenus}>
                   <span>Contacto</span>
-                </a>
+                </Link>
 
                 <Link className="ie-mobile-link" to={cartPath}>
                   <span>Carrito</span>
