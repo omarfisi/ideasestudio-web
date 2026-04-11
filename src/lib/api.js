@@ -1026,6 +1026,54 @@ export async function getPublicClientRouteBundle(routeKey) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Portafolio público
+// ─────────────────────────────────────────────────────────────
+
+function normalizePortfolioItem(raw) {
+  if (!raw) return null;
+  const coverUrl = raw.cover_url || "";
+  return {
+    id: raw.id || "",
+    title: raw.title || "",
+    slug: raw.slug || "",
+    description: raw.description || "",
+    category: raw.category || "",
+    subcategory: raw.subcategory || "",
+    segment: raw.segment || "",
+    clientName: raw.client_name || "",
+    tags: Array.isArray(raw.tags) ? raw.tags : [],
+    // Imagen según contexto — fallback siempre a cover_url
+    coverUrl,
+    homeCoverUrl: raw.home_cover_url || coverUrl,
+    portfolioCoverUrl: raw.portfolio_cover_url || coverUrl,
+    mediaUrls: Array.isArray(raw.media_urls) ? raw.media_urls.filter(Boolean) : [],
+    isPublished: !!raw.is_published,
+    isFeatured: !!raw.is_featured,
+    visualOrder: Number(raw.visual_order ?? 100),
+    placements: Array.isArray(raw.placements) ? raw.placements : ["portfolio_page"],
+    sectionKey: raw.section_key || "general",
+    mediaKind: raw.media_kind || "image",
+    videoUrl: raw.video_url || "",
+  };
+}
+
+export async function getPublicPortfolioItems(params = {}) {
+  try {
+    const url = buildUrl("/portfolio", {
+      is_published: true,
+      ...params,
+    });
+    const data = await apiFetch(url);
+    const raw = Array.isArray(data?.items) ? data.items
+               : Array.isArray(data)        ? data
+               : [];
+    return raw.map(normalizePortfolioItem).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // Blog público
 // ─────────────────────────────────────────────────────────────
 
