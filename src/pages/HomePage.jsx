@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import TestimonialsSlider from "@/components/shared/TestimonialsSlider.jsx";
 import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
 import {
@@ -185,6 +185,14 @@ export default function HomePage() {
   const [activeCamino, setActiveCamino] = useState(0);
   const [homePortfolioItems, setHomePortfolioItems] = useState([]);
   const [portfolioLoading, setPortfolioLoading] = useState(true);
+
+  const CAT_EYEBROW_HOME = { fotografia:"FOTOGRAFÍA", video:"VIDEO", branding_diseno:"DISEÑO", web:"WEB", marketing_digital:"MARKETING" };
+  const portfolioSlides = useMemo(() => homePortfolioItems.map((item) => ({
+    image: item.homeCoverUrl || item.coverUrl || "",
+    eyebrow: CAT_EYEBROW_HOME[item.category] || (item.category || "").toUpperCase(),
+    title: item.title || "",
+    text: item.description ? item.description.slice(0, 120) : "",
+  })), [homePortfolioItems]);
   const [activePortfolioTopMedia, setActivePortfolioTopMedia] = useState(0);
   const [activePortfolioLeftMedia, setActivePortfolioLeftMedia] = useState(1);
   const [activePortfolioStep, setActivePortfolioStep] = useState(0);
@@ -273,28 +281,25 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (PORTFOLIO_VISUAL_SLIDES.length <= 1) {
-      return undefined;
-    }
-
-    const intervalId = window.setInterval(() => {
-      setActivePortfolioTopMedia((prev) => (prev + 1) % PORTFOLIO_VISUAL_SLIDES.length);
-    }, SLIDESHOW_INTERVAL_MS);
-
-    return () => window.clearInterval(intervalId);
-  }, []);
+    setActivePortfolioTopMedia(0);
+    setActivePortfolioLeftMedia(portfolioSlides.length > 1 ? 1 : 0);
+  }, [portfolioSlides.length]);
 
   useEffect(() => {
-    if (PORTFOLIO_VISUAL_SLIDES.length <= 1) {
-      return undefined;
-    }
-
-    const intervalId = window.setInterval(() => {
-      setActivePortfolioLeftMedia((prev) => (prev + 1) % PORTFOLIO_VISUAL_SLIDES.length);
+    if (portfolioSlides.length <= 1) return undefined;
+    const id = window.setInterval(() => {
+      setActivePortfolioTopMedia((prev) => (prev + 1) % portfolioSlides.length);
     }, SLIDESHOW_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [portfolioSlides.length]);
 
-    return () => window.clearInterval(intervalId);
-  }, []);
+  useEffect(() => {
+    if (portfolioSlides.length <= 1) return undefined;
+    const id = window.setInterval(() => {
+      setActivePortfolioLeftMedia((prev) => (prev + 1) % portfolioSlides.length);
+    }, SLIDESHOW_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [portfolioSlides.length]);
 
   useEffect(() => {
     if (activePortfolioStep < PORTFOLIO_PROCESS_STEPS.length) {
@@ -357,22 +362,22 @@ export default function HomePage() {
   };
 
   const handlePortfolioTopMediaNext = () => {
-    setActivePortfolioTopMedia((prev) => (prev + 1) % PORTFOLIO_VISUAL_SLIDES.length);
+    setActivePortfolioTopMedia((prev) => (prev + 1) % Math.max(portfolioSlides.length, 1));
   };
 
   const handlePortfolioTopMediaPrev = () => {
     setActivePortfolioTopMedia((prev) =>
-      prev === 0 ? PORTFOLIO_VISUAL_SLIDES.length - 1 : prev - 1
+      prev === 0 ? Math.max(portfolioSlides.length - 1, 0) : prev - 1
     );
   };
 
   const handlePortfolioLeftMediaNext = () => {
-    setActivePortfolioLeftMedia((prev) => (prev + 1) % PORTFOLIO_VISUAL_SLIDES.length);
+    setActivePortfolioLeftMedia((prev) => (prev + 1) % Math.max(portfolioSlides.length, 1));
   };
 
   const handlePortfolioLeftMediaPrev = () => {
     setActivePortfolioLeftMedia((prev) =>
-      prev === 0 ? PORTFOLIO_VISUAL_SLIDES.length - 1 : prev - 1
+      prev === 0 ? Math.max(portfolioSlides.length - 1, 0) : prev - 1
     );
   };
 
@@ -537,7 +542,7 @@ export default function HomePage() {
           <div className="portfolio-process">
             <div className="portfolio-process__top">
               <div className="portfolio-process__media-card portfolio-process__media-card--wide">
-                {PORTFOLIO_VISUAL_SLIDES.map((slide, index) => (
+                {portfolioSlides.map((slide, index) => (
                   <div
                     key={`portfolio-top-${index}`}
                     className={`portfolio-process__media-slide ${
@@ -553,7 +558,7 @@ export default function HomePage() {
                   </div>
                 ))}
                 <div className="portfolio-process__media-dots" aria-hidden="true">
-                  {PORTFOLIO_VISUAL_SLIDES.map((_, index) => (
+                  {portfolioSlides.map((_, index) => (
                     <span
                       key={`portfolio-top-dot-${index}`}
                       className={`portfolio-process__media-dot ${
@@ -588,7 +593,7 @@ export default function HomePage() {
             <div className="portfolio-process__body">
               <div className="portfolio-process__left-stack">
                 <div className="portfolio-process__media-card portfolio-process__media-card--portrait">
-                  {PORTFOLIO_VISUAL_SLIDES.map((slide, index) => (
+                  {portfolioSlides.map((slide, index) => (
                     <div
                       key={`portfolio-left-portrait-${index}`}
                       className={`portfolio-process__media-slide ${
