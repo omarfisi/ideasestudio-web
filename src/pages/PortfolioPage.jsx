@@ -858,7 +858,7 @@ export default function PortfolioPage() {
 
                   <div className="flex flex-col justify-center p-8 md:p-12 lg:p-14">
                     <span className="inline-flex w-fit rounded-full bg-[#f2cc3d] px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-black">
-                      {slideActual.category}
+                      {getCardEyebrow(slideActual)}
                     </span>
                     <h3 className="mt-6 text-3xl font-semibold leading-tight text-white md:text-5xl">
                       {slideActual.title}

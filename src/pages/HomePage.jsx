@@ -187,12 +187,33 @@ export default function HomePage() {
   const [portfolioLoading, setPortfolioLoading] = useState(true);
 
   const CAT_EYEBROW_HOME = { fotografia:"FOTOGRAFÍA", video:"VIDEO", branding_diseno:"DISEÑO GRÁFICO", web:"WEB", marketing_digital:"MARKETING" };
-  const portfolioSlides = useMemo(() => homePortfolioItems.map((item) => ({
+
+  const toSlide = (item) => ({
     image: item.homeCoverUrl || item.coverUrl || "",
     eyebrow: CAT_EYEBROW_HOME[item.category] || (item.category || "").toUpperCase(),
     title: item.title || "",
     text: item.description ? item.description.slice(0, 120) : "",
-  })), [homePortfolioItems]);
+  });
+
+  const portfolioSlides = useMemo(() => {
+    if (!homePortfolioItems.length) return [];
+    const third = Math.ceil(homePortfolioItems.length / 3);
+    return homePortfolioItems.slice(0, third).map(toSlide);
+  }, [homePortfolioItems]);
+
+  const portfolioPortraitSlides = useMemo(() => {
+    if (homePortfolioItems.length < 2) return portfolioSlides;
+    const third = Math.ceil(homePortfolioItems.length / 3);
+    const slice = homePortfolioItems.slice(third, third * 2);
+    return slice.length ? slice.map(toSlide) : portfolioSlides;
+  }, [homePortfolioItems]);
+
+  const portfolioCardItems = useMemo(() => {
+    if (homePortfolioItems.length < 3) return homePortfolioItems;
+    const third = Math.ceil(homePortfolioItems.length / 3);
+    const slice = homePortfolioItems.slice(third * 2);
+    return slice.length ? slice : homePortfolioItems;
+  }, [homePortfolioItems]);
   const [activePortfolioTopMedia, setActivePortfolioTopMedia] = useState(0);
   const [activePortfolioLeftMedia, setActivePortfolioLeftMedia] = useState(1);
   const [activePortfolioStep, setActivePortfolioStep] = useState(0);
@@ -282,8 +303,8 @@ export default function HomePage() {
 
   useEffect(() => {
     setActivePortfolioTopMedia(0);
-    setActivePortfolioLeftMedia(portfolioSlides.length > 1 ? 1 : 0);
-  }, [portfolioSlides.length]);
+    setActivePortfolioLeftMedia(0);
+  }, [portfolioSlides.length, portfolioPortraitSlides.length]);
 
   useEffect(() => {
     if (portfolioSlides.length <= 1) return undefined;
@@ -294,12 +315,12 @@ export default function HomePage() {
   }, [portfolioSlides.length]);
 
   useEffect(() => {
-    if (portfolioSlides.length <= 1) return undefined;
+    if (portfolioPortraitSlides.length <= 1) return undefined;
     const id = window.setInterval(() => {
-      setActivePortfolioLeftMedia((prev) => (prev + 1) % portfolioSlides.length);
+      setActivePortfolioLeftMedia((prev) => (prev + 1) % portfolioPortraitSlides.length);
     }, SLIDESHOW_INTERVAL_MS);
     return () => window.clearInterval(id);
-  }, [portfolioSlides.length]);
+  }, [portfolioPortraitSlides.length]);
 
   useEffect(() => {
     if (activePortfolioStep < PORTFOLIO_PROCESS_STEPS.length) {
@@ -333,7 +354,7 @@ export default function HomePage() {
       if (cancelled) return;
       const filtered = items
         .filter((item) => item.placements.includes("home_portfolio"))
-        .slice(0, 4);
+        .slice(0, 12);
       setHomePortfolioItems(filtered);
       setPortfolioLoading(false);
     });
@@ -372,12 +393,12 @@ export default function HomePage() {
   };
 
   const handlePortfolioLeftMediaNext = () => {
-    setActivePortfolioLeftMedia((prev) => (prev + 1) % Math.max(portfolioSlides.length, 1));
+    setActivePortfolioLeftMedia((prev) => (prev + 1) % Math.max(portfolioPortraitSlides.length, 1));
   };
 
   const handlePortfolioLeftMediaPrev = () => {
     setActivePortfolioLeftMedia((prev) =>
-      prev === 0 ? Math.max(portfolioSlides.length - 1, 0) : prev - 1
+      prev === 0 ? Math.max(portfolioPortraitSlides.length - 1, 0) : prev - 1
     );
   };
 
@@ -593,7 +614,7 @@ export default function HomePage() {
             <div className="portfolio-process__body">
               <div className="portfolio-process__left-stack">
                 <div className="portfolio-process__media-card portfolio-process__media-card--portrait">
-                  {portfolioSlides.map((slide, index) => (
+                  {portfolioPortraitSlides.map((slide, index) => (
                     <div
                       key={`portfolio-left-portrait-${index}`}
                       className={`portfolio-process__media-slide ${
@@ -640,8 +661,8 @@ export default function HomePage() {
                       <div className="portfolio-item-card portfolio-item-card--skeleton" aria-hidden="true" />
                       <div className="portfolio-item-card portfolio-item-card--skeleton" aria-hidden="true" />
                     </>
-                  ) : homePortfolioItems.length > 0 ? (
-                    homePortfolioItems.map((item) => (
+                  ) : portfolioCardItems.length > 0 ? (
+                    portfolioCardItems.map((item) => (
                       <a
                         key={item.id}
                         href="/portafolio"
