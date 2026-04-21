@@ -9,3 +9,5 @@ _debug*
 _legacy
 _bak*
 *.bak
+docs
+env_refs.txt

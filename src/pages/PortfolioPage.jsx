@@ -14,6 +14,106 @@ const CATEGORY_FILTERS = [
   { value: "marketing_digital", label: "Marketing" },
 ];
 
+// ─── Etiqueta específica de tarjeta ──────────────────────────
+const SUBCAT_LABELS = {
+  embarazo:             "Fotografía de embarazo",
+  boda:                 "Fotografía de boda",
+  evento:               "Fotografía de evento",
+  retrato:              "Retrato",
+  producto:             "Fotografía de producto",
+  promocional:          "Video promocional",
+  cobertura:            "Cobertura de evento",
+  reel:                 "Reel / Short-form",
+  entrevista:           "Entrevista",
+  logo:                 "Logo",
+  identidad_visual:     "Identidad visual",
+  material_promocional: "Material promocional",
+  landing_page:         "Landing page",
+  web_corporativa:      "Web corporativa",
+  ecommerce:            "E-commerce",
+};
+
+const CAT_LABELS = {
+  fotografia:         "Fotografía",
+  video:              "Video",
+  branding_diseno:    "Branding & Diseño",
+  web:                "Web",
+  marketing_digital:  "Marketing digital",
+};
+
+function getCardLabel(item) {
+  if (item.subcategory) {
+    return (
+      SUBCAT_LABELS[item.subcategory] ||
+      item.subcategory.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
+    );
+  }
+  const t = (item.title || "").toLowerCase();
+  if (t.includes("embarazo") || t.includes("maternidad")) return "Fotografía de embarazo";
+  if (t.includes("boda") || t.includes("matrimonio"))      return "Fotografía de boda";
+  if (t.includes("producto"))                               return "Fotografía de producto";
+  if (t.includes("evento"))                                 return "Fotografía de evento";
+  return CAT_LABELS[item.category] || item.category || "";
+}
+
+// ─── Eyebrow + título editorial de tarjeta ───────────────────
+const EYEBROW_MAP = {
+  embarazo:             "TEMÁTICA",
+  boda:                 "MOMENTOS",
+  evento:               "MOMENTOS",
+  retrato:              "RETRATO",
+  producto:             "ESTILO",
+  promocional:          "VIDEO",
+  cobertura:            "EVENTOS",
+  reel:                 "REEL",
+  entrevista:           "ENTREVISTA",
+  logo:                 "IDENTIDAD",
+  identidad_visual:     "IDENTIDAD",
+  material_promocional: "DISEÑO",
+  landing_page:         "WEB",
+  web_corporativa:      "WEB",
+  ecommerce:            "E-COMMERCE",
+};
+
+const CAT_EYEBROW = {
+  fotografia:         "FOTOGRAFÍA",
+  video:              "VIDEO",
+  branding_diseno:    "BRANDING",
+  web:                "WEB",
+  marketing_digital:  "MARKETING",
+};
+
+function getCardEyebrow(item) {
+  if (item.subcategory && EYEBROW_MAP[item.subcategory]) return EYEBROW_MAP[item.subcategory];
+  const t = (item.title || "").toLowerCase();
+  if (t.includes("embarazo") || t.includes("maternidad")) return "TEMÁTICA";
+  if (t.includes("producto"))                              return "ESTILO";
+  if (t.includes("boda") || t.includes("matrimonio"))     return "MOMENTOS";
+  if (t.includes("evento"))                               return "MOMENTOS";
+  return CAT_EYEBROW[item.category] || (item.category || "").toUpperCase();
+}
+
+// Elimina prefijos verbosos del título para una lectura más editorial.
+// "Sesión Fotografía de Embarazo en un Bosque" → "Sesión fotográfica en un Bosque"
+// "Sesión de Fotografía para Producto "Barber Cape"" → "Sesión fotográfica "Barber Cape""
+const _TITLE_STRIP = /^(?:sesión\s+)?fotografía\s+(?:de\s+\w+|para\s+\w+)\s+/i;
+const _SESS_STRIP   = /^sesión\s+de\s+fotografía\s+(?:para\s+\w+|de\s+\w+)\s+/i;
+const _SESS_STRIP2  = /^sesión\s+fotografía\s+(?:de\s+\w+)\s+/i;
+
+function getCardTitle(item) {
+  const raw = (item.title || "").trim();
+  if (!raw) return "";
+  if (item.category !== "fotografia") return raw;
+
+  for (const re of [_SESS_STRIP, _SESS_STRIP2, _TITLE_STRIP]) {
+    const rest = raw.replace(re, "").trim();
+    if (rest && rest.length > 3 && rest.length < raw.length) {
+      return `Sesión fotográfica ${rest}`;
+    }
+  }
+  return raw;
+}
+
 // ─── Helpers YouTube ─────────────────────────────────────────
 function getYoutubeId(url) {
   if (!url) return "";
@@ -120,6 +220,173 @@ function YoutubeModal({ open, onClose, video }) {
   );
 }
 
+// ─── Slideshow automático dentro de tarjeta ──────────────────
+// Todas las imágenes en DOM; cross-fade por opacity.
+// Si solo hay 1 imagen, renderiza img normal.
+function CardSlideshow({ images, alt, className = "" }) {
+  const [idx, setIdx] = useState(0);
+  // "top" para imágenes portrait detectadas por onLoad
+  const [positions, setPositions] = useState({});
+
+  const onImgLoad = (src, e) => {
+    const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+    if (h > w) setPositions((p) => ({ ...p, [src]: "object-top" }));
+  };
+
+  useEffect(() => {
+    if (images.length <= 1) return;
+    const t = setInterval(
+      () => setIdx((i) => (i + 1) % images.length),
+      3200,
+    );
+    return () => clearInterval(t);
+  }, [images.length]);
+
+  if (!images.length) return <div className={`h-full w-full bg-neutral-200 ${className}`} />;
+
+  if (images.length === 1) {
+    const pos = positions[images[0]] ?? "object-center";
+    return (
+      <img
+        src={images[0]}
+        alt={alt}
+        onLoad={(e) => onImgLoad(images[0], e)}
+        className={`h-full w-full object-cover ${pos} transition duration-500 hover:scale-105 ${className}`}
+      />
+    );
+  }
+
+  const progress = ((idx + 1) / images.length) * 100;
+
+  return (
+    <div className={`relative h-full w-full ${className}`}>
+      {images.map((src, i) => {
+        const pos = positions[src] ?? "object-center";
+        return (
+          <img
+            key={src}
+            src={src}
+            alt={`${alt} ${i + 1}`}
+            onLoad={(e) => onImgLoad(src, e)}
+            className={`absolute inset-0 h-full w-full object-cover ${pos} transition-opacity duration-700 ${
+              i === idx ? "opacity-100" : "opacity-0"
+            }`}
+          />
+        );
+      })}
+
+      {/* ── Barra de progreso — solo si hay varias imágenes ── */}
+      <div className="pointer-events-none absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
+        <div className="flex items-center gap-2 rounded-full bg-black/30 px-3 py-[7px] backdrop-blur-md">
+          <div className="h-[3px] w-20 overflow-hidden rounded-full bg-white/20">
+            <div
+              className="h-full rounded-full bg-white transition-all duration-500 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <span className="text-[10px] font-medium leading-none tracking-wide text-white/60">
+            {idx + 1}&thinsp;/&thinsp;{images.length}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Modal de galería de imágenes ────────────────────────────
+function GalleryModal({ open, onClose, item }) {
+  const [idx, setIdx] = useState(0);
+  const images = item
+    ? item.mediaUrls?.length > 0 ? item.mediaUrls : [item.coverUrl].filter(Boolean)
+    : [];
+
+  useEffect(() => { if (open) setIdx(0); }, [open, item?.id]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const len = images.length;
+    const handle = (e) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft")  setIdx((i) => (i - 1 + len) % len);
+      if (e.key === "ArrowRight") setIdx((i) => (i + 1) % len);
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handle);
+    return () => { document.body.style.overflow = ""; window.removeEventListener("keydown", handle); };
+  }, [open, onClose, images.length]);
+
+  if (!open || !item || images.length === 0) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[999] flex items-center justify-center bg-black/92 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={item.title}
+    >
+      <div className="relative w-full max-w-5xl" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-3 top-3 z-20 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white text-xl transition hover:bg-black"
+          aria-label="Cerrar"
+        >
+          ×
+        </button>
+
+        <div className="overflow-hidden rounded-2xl bg-black">
+          <img
+            key={images[idx]}
+            src={images[idx]}
+            alt={`${item.title} — ${idx + 1}`}
+            className="max-h-[78vh] w-full object-contain"
+          />
+        </div>
+
+        {images.length > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={() => setIdx((i) => (i - 1 + images.length) % images.length)}
+              className="absolute left-3 top-1/2 -translate-y-1/2 inline-flex h-11 w-11 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black"
+              aria-label="Imagen anterior"
+            >
+              <ArrowLeftIcon />
+            </button>
+            <button
+              type="button"
+              onClick={() => setIdx((i) => (i + 1) % images.length)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex h-11 w-11 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black"
+              aria-label="Imagen siguiente"
+            >
+              <ArrowRightIcon />
+            </button>
+            <div className="mt-3 flex justify-center gap-2">
+              {images.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setIdx(i)}
+                  className={`h-2 rounded-full transition-all ${i === idx ? "w-6 bg-white" : "w-2 bg-white/35 hover:bg-white/65"}`}
+                  aria-label={`Ir a imagen ${i + 1}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        <div className="mt-3 text-center">
+          <p className="text-sm font-semibold text-white">{item.title}</p>
+          {images.length > 1 && (
+            <p className="mt-1 text-xs text-white/50">{idx + 1} / {images.length}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── VideoCard — portada tarjeta 16:10 ───────────────────────
 // Usa portfolioCoverUrl (portfolio_cover_url || cover_url)
 // con fallback a miniatura de YouTube si no hay portada propia.
@@ -166,7 +433,7 @@ function VideoCard({ item, onOpen }) {
 // ─── MasonryCard — portada general, altura variable ──────────
 // Usa coverUrl (cover_url). Las alturas varían según sectionKey
 // para crear el efecto masonry natural.
-function MasonryCard({ item }) {
+function MasonryCard({ item, onOpenGallery }) {
   const heightClass =
     item.sectionKey === "featured" || item.isFeatured
       ? "h-[480px]"
@@ -174,22 +441,35 @@ function MasonryCard({ item }) {
         ? "h-[280px]"
         : "h-[360px]";
 
+  const images =
+    item.mediaUrls?.length > 0
+      ? item.mediaUrls
+      : item.coverUrl ? [item.coverUrl] : [];
+
   return (
-    <article className="mb-6 break-inside-avoid overflow-hidden rounded-[28px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.06)]">
-      <div className={`overflow-hidden ${heightClass}`}>
-        {item.coverUrl ? (
-          <img
-            src={item.coverUrl}
-            alt={item.title}
-            className="h-full w-full object-cover transition duration-500 hover:scale-105"
-          />
-        ) : (
-          <div className="h-full w-full bg-neutral-200" />
+    <article
+      className={`mb-6 break-inside-avoid overflow-hidden rounded-[28px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.06)] ${onOpenGallery ? "cursor-pointer" : ""}`}
+      onClick={onOpenGallery ? () => onOpenGallery(item) : undefined}
+    >
+      <div className={`relative overflow-hidden ${heightClass}`}>
+        <CardSlideshow images={images} alt={item.title} />
+        {images.length > 1 && (
+          <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-black/65 px-2.5 py-1 text-xs font-semibold text-white pointer-events-none">
+            <svg viewBox="0 0 24 24" className="h-3 w-3 fill-current" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            {images.length}
+          </div>
         )}
       </div>
       <div className="p-5">
-        <p className="text-xs font-medium uppercase tracking-[0.18em] text-neutral-400">{item.category}</p>
-        <h3 className="mt-2 text-lg font-semibold text-neutral-950">{item.title}</h3>
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-neutral-400">
+          {getCardEyebrow(item)}
+        </p>
+        <h3 className="mt-2 text-lg font-semibold text-neutral-950">{getCardTitle(item)}</h3>
+        {item.clientName && (
+          <p className="mt-1.5 text-xs text-neutral-400">
+            Cliente: <span className="text-neutral-500">{item.clientName}</span>
+          </p>
+        )}
       </div>
     </article>
   );
@@ -197,28 +477,41 @@ function MasonryCard({ item }) {
 
 // ─── GridCard — portada tarjeta 4:3 ──────────────────────────
 // Usa portfolioCoverUrl (portfolio_cover_url || cover_url).
-function GridCard({ item, onOpenVideo }) {
+function GridCard({ item, onOpenVideo, onOpenGallery }) {
   const isVideo = item.mediaKind === "video" && Boolean(item.videoUrl);
   const thumb = item.portfolioCoverUrl || (isVideo ? getYoutubeThumbnail(item.videoUrl) : "");
 
+  const images = !isVideo
+    ? item.mediaUrls?.length > 0
+      ? item.mediaUrls
+      : thumb ? [thumb] : []
+    : [];
+
   return (
-    <article className="group overflow-hidden rounded-[28px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.06)]">
+    <article
+      className={`group overflow-hidden rounded-[28px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.06)] ${!isVideo && onOpenGallery ? "cursor-pointer" : ""}`}
+      onClick={!isVideo && onOpenGallery ? () => onOpenGallery(item) : undefined}
+    >
       {/* aspect-[4/3] — ratio real del componente */}
       <div className="relative aspect-[4/3] overflow-hidden">
-        {thumb ? (
-          <img
-            src={thumb}
-            alt={item.title}
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-          />
+        {isVideo ? (
+          thumb ? (
+            <img
+              src={thumb}
+              alt={item.title}
+              className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div className="h-full w-full bg-neutral-200" />
+          )
         ) : (
-          <div className="h-full w-full bg-neutral-200" />
+          <CardSlideshow images={images} alt={item.title} />
         )}
 
         {isVideo && onOpenVideo ? (
           <button
             type="button"
-            onClick={() => onOpenVideo(item)}
+            onClick={(e) => { e.stopPropagation(); onOpenVideo(item); }}
             className="absolute inset-0 flex items-center justify-center bg-black/20"
             aria-label={`Abrir video ${item.title}`}
           >
@@ -227,11 +520,25 @@ function GridCard({ item, onOpenVideo }) {
             </span>
           </button>
         ) : null}
+
+        {!isVideo && images.length > 1 && (
+          <div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-black/65 px-2.5 py-1 text-xs font-semibold text-white pointer-events-none">
+            <svg viewBox="0 0 24 24" className="h-3 w-3 fill-current" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            {images.length}
+          </div>
+        )}
       </div>
 
       <div className="p-5">
-        <p className="text-xs font-medium uppercase tracking-[0.18em] text-neutral-400">{item.category}</p>
-        <h3 className="mt-2 text-lg font-semibold text-neutral-950">{item.title}</h3>
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-neutral-400">
+          {getCardEyebrow(item)}
+        </p>
+        <h3 className="mt-2 text-lg font-semibold text-neutral-950">{getCardTitle(item)}</h3>
+        {item.clientName && (
+          <p className="mt-1.5 text-xs text-neutral-400">
+            Cliente: <span className="text-neutral-500">{item.clientName}</span>
+          </p>
+        )}
       </div>
     </article>
   );
@@ -253,7 +560,9 @@ function SkeletonCard({ aspect = "aspect-[16/10]" }) {
 // ─── Página principal ─────────────────────────────────────────
 export default function PortfolioPage() {
   const [filtroActivo, setFiltroActivo] = useState("Todos");
+  const [subcategoryActivo, setSubcategoryActivo] = useState(null);
   const [videoAbierto, setVideoAbierto] = useState(null);
+  const [galleryItem, setGalleryItem] = useState(null);
   const [slideIndex, setSlideIndex] = useState(0);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -293,11 +602,26 @@ export default function PortfolioPage() {
     [items]
   );
 
+  // ── Subcategorías disponibles para la categoría activa ────
+  const subcategoriesDisponibles = useMemo(() => {
+    const base = filtroActivo === "Todos" ? items : items.filter((i) => i.category === filtroActivo);
+    const seen = new Set();
+    return base
+      .map((i) => i.subcategory)
+      .filter((s) => s && !seen.has(s) && seen.add(s));
+  }, [filtroActivo, items]);
+
+  // reset subcategory cuando cambia la categoría principal
+  useEffect(() => { setSubcategoryActivo(null); }, [filtroActivo]);
+
   // ── Filtrado por categoría ─────────────────────────────────
   const fotosFiltradas = useMemo(() => {
-    if (filtroActivo === "Todos") return fotos;
-    return items.filter((i) => i.category === filtroActivo && i.mediaKind !== "video");
-  }, [filtroActivo, fotos, items]);
+    let base;
+    if (filtroActivo === "Todos") base = fotos;
+    else base = items.filter((i) => i.category === filtroActivo && i.mediaKind !== "video");
+    if (subcategoryActivo) base = base.filter((i) => i.subcategory === subcategoryActivo);
+    return base;
+  }, [filtroActivo, subcategoryActivo, fotos, items]);
 
   const videosFiltrados = useMemo(() => {
     if (filtroActivo === "Todos" || filtroActivo === "video") return videos;
@@ -521,6 +845,29 @@ export default function PortfolioPage() {
               );
             })}
           </div>
+
+          {/* ── Subcategorías dinámicas ── */}
+          {subcategoriesDisponibles.length > 0 && (
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              {subcategoriesDisponibles.map((sub) => {
+                const activo = subcategoryActivo === sub;
+                return (
+                  <button
+                    key={sub}
+                    type="button"
+                    onClick={() => setSubcategoryActivo(activo ? null : sub)}
+                    className={`rounded-full border px-5 py-2 text-sm font-medium transition ${
+                      activo
+                        ? "border-[#f2cc3d] bg-[#f2cc3d] text-black"
+                        : "border-neutral-300 bg-white text-neutral-600 hover:border-neutral-900 hover:text-neutral-900"
+                    }`}
+                  >
+                    {sub.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
 
@@ -589,7 +936,7 @@ export default function PortfolioPage() {
                     </div>
                   ))
                 : fotosFiltradas.map((item) => (
-                    <MasonryCard key={item.id} item={item} />
+                    <MasonryCard key={item.id} item={item} onOpenGallery={setGalleryItem} />
                   ))}
             </div>
           </div>
@@ -617,7 +964,7 @@ export default function PortfolioPage() {
                     <SkeletonCard key={i} aspect="aspect-[4/3]" />
                   ))
                 : gridFiltrado.map((item) => (
-                    <GridCard key={item.id} item={item} onOpenVideo={setVideoAbierto} />
+                    <GridCard key={item.id} item={item} onOpenVideo={setVideoAbierto} onOpenGallery={setGalleryItem} />
                   ))}
             </div>
           </div>
@@ -679,6 +1026,11 @@ export default function PortfolioPage() {
         open={Boolean(videoAbierto)}
         onClose={() => setVideoAbierto(null)}
         video={videoAbierto}
+      />
+      <GalleryModal
+        open={Boolean(galleryItem)}
+        onClose={() => setGalleryItem(null)}
+        item={galleryItem}
       />
     </main>
   );
