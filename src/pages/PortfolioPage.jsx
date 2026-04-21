@@ -102,7 +102,7 @@ const EYEBROW_MAP = {
 const CAT_EYEBROW = {
   fotografia:         "FOTOGRAFÍA",
   video:              "VIDEO",
-  branding_diseno:    "BRANDING",
+  branding_diseno:    "DISEÑO GRÁFICO",
   web:                "WEB",
   marketing_digital:  "MARKETING",
 };

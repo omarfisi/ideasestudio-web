@@ -186,7 +186,7 @@ export default function HomePage() {
   const [homePortfolioItems, setHomePortfolioItems] = useState([]);
   const [portfolioLoading, setPortfolioLoading] = useState(true);
 
-  const CAT_EYEBROW_HOME = { fotografia:"FOTOGRAFÍA", video:"VIDEO", branding_diseno:"DISEÑO", web:"WEB", marketing_digital:"MARKETING" };
+  const CAT_EYEBROW_HOME = { fotografia:"FOTOGRAFÍA", video:"VIDEO", branding_diseno:"DISEÑO GRÁFICO", web:"WEB", marketing_digital:"MARKETING" };
   const portfolioSlides = useMemo(() => homePortfolioItems.map((item) => ({
     image: item.homeCoverUrl || item.coverUrl || "",
     eyebrow: CAT_EYEBROW_HOME[item.category] || (item.category || "").toUpperCase(),
@@ -660,7 +660,7 @@ export default function HomePage() {
                         <div className="portfolio-item-card__body">
                           {(item.subcategory || item.category) && (
                             <p className="portfolio-item-card__eyebrow">
-                              {item.subcategory || item.category}
+                              {CAT_EYEBROW_HOME[item.subcategory] || CAT_EYEBROW_HOME[item.category] || (item.subcategory || item.category || "").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
                             </p>
                           )}
                           <h3 className="portfolio-item-card__title">{item.title}</h3>
