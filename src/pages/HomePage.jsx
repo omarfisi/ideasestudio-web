@@ -188,6 +188,15 @@ export default function HomePage() {
 
   const CAT_EYEBROW_HOME = { fotografia:"FOTOGRAFÍA", video:"VIDEO", branding_diseno:"DISEÑO GRÁFICO", web:"WEB", marketing_digital:"MARKETING" };
 
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
   const toSlide = (item) => ({
     image: item.homeCoverUrl || item.coverUrl || "",
     eyebrow: CAT_EYEBROW_HOME[item.category] || (item.category || "").toUpperCase(),
@@ -200,17 +209,17 @@ export default function HomePage() {
   });
 
   const portfolioSlides = useMemo(
-    () => homePortfolioItems.filter(i => i.placements.includes("home_wide")).map(toSlide),
+    () => shuffle(homePortfolioItems.filter(i => i.placements.includes("home_wide"))).map(toSlide),
     [homePortfolioItems]
   );
 
   const portfolioPortraitSlides = useMemo(
-    () => homePortfolioItems.filter(i => i.placements.includes("home_portrait")).map(toSlide),
+    () => shuffle(homePortfolioItems.filter(i => i.placements.includes("home_portrait"))).map(toSlide),
     [homePortfolioItems]
   );
 
   const portfolioCardItems = useMemo(
-    () => homePortfolioItems.filter(i => i.placements.includes("home_cards")),
+    () => shuffle(homePortfolioItems.filter(i => i.placements.includes("home_cards"))),
     [homePortfolioItems]
   );
   const [activePortfolioTopMedia, setActivePortfolioTopMedia] = useState(0);
