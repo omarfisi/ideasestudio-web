@@ -848,7 +848,7 @@ export default function PortfolioPage() {
                         key={slideActual.id}
                         src={slideActual.homeCoverUrl}
                         alt={slideActual.title}
-                        className="absolute inset-0 h-full w-full object-cover transition-opacity duration-500"
+                        className="absolute inset-0 h-full w-full object-cover object-top transition-opacity duration-500"
                       />
                     ) : (
                       <div className="absolute inset-0 bg-neutral-800" />
