@@ -590,6 +590,53 @@ function SkeletonCard({ aspect = "aspect-[16/10]" }) {
   );
 }
 
+// ─── Paginación ───────────────────────────────────────────────
+function Pagination({ total, pageSize, page, onChange }) {
+  const totalPages = Math.ceil(total / pageSize);
+  if (totalPages <= 1) return null;
+
+  const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
+
+  return (
+    <div className="mt-10 flex items-center justify-center gap-2">
+      <button
+        type="button"
+        disabled={page === 1}
+        onClick={() => onChange(page - 1)}
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-300 bg-white text-sm text-neutral-700 transition hover:border-black hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+        aria-label="Página anterior"
+      >
+        ‹
+      </button>
+
+      {pages.map((p) => (
+        <button
+          key={p}
+          type="button"
+          onClick={() => onChange(p)}
+          className={`flex h-9 w-9 items-center justify-center rounded-full border text-sm font-semibold transition ${
+            p === page
+              ? "border-black bg-black text-white"
+              : "border-neutral-300 bg-white text-neutral-700 hover:border-black hover:bg-black hover:text-white"
+          }`}
+        >
+          {p}
+        </button>
+      ))}
+
+      <button
+        type="button"
+        disabled={page === totalPages}
+        onClick={() => onChange(page + 1)}
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-300 bg-white text-sm text-neutral-700 transition hover:border-black hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+        aria-label="Página siguiente"
+      >
+        ›
+      </button>
+    </div>
+  );
+}
+
 // ─── Página principal ─────────────────────────────────────────
 export default function PortfolioPage() {
   const [filtroActivo, setFiltroActivo] = useState("Todos");
@@ -602,9 +649,10 @@ export default function PortfolioPage() {
   const carouselRef = useRef(null);
 
   // ── Paginación por sección ─────────────────────────────────
-  const [fotosVisible, setFotosVisible] = useState(6);
-  const [gridVisible, setGridVisible] = useState(6);
-  const [videosVisible, setVideosVisible] = useState(6);
+  const PAGE_SIZE = 6;
+  const [fotosPage, setFotosPage] = useState(1);
+  const [gridPage, setGridPage] = useState(1);
+  const [videosPage, setVideosPage] = useState(1);
 
   // Carga inicial
   useEffect(() => {
@@ -654,9 +702,9 @@ export default function PortfolioPage() {
 
   // reset paginación cuando cambia filtro o subcategoría
   useEffect(() => {
-    setFotosVisible(6);
-    setGridVisible(6);
-    setVideosVisible(6);
+    setFotosPage(1);
+    setGridPage(1);
+    setVideosPage(1);
   }, [filtroActivo, subcategoryActivo]);
 
   // ── Filtrado por categoría ─────────────────────────────────
@@ -949,20 +997,12 @@ export default function PortfolioPage() {
                       <SkeletonCard aspect="aspect-[16/10]" />
                     </div>
                   ))
-                : videosFiltrados.slice(0, videosVisible).map((item) => (
+                : videosFiltrados.slice((videosPage - 1) * PAGE_SIZE, videosPage * PAGE_SIZE).map((item) => (
                     <VideoCard key={item.id} item={item} onOpen={setVideoAbierto} />
                   ))}
             </div>
-            {!loading && videosFiltrados.length > videosVisible && (
-              <div className="mt-8 flex justify-center">
-                <button
-                  type="button"
-                  onClick={() => setVideosVisible((v) => v + 6)}
-                  className="rounded-full border border-neutral-300 bg-white px-8 py-3 text-sm font-semibold text-neutral-950 transition hover:border-black hover:bg-black hover:text-white"
-                >
-                  Ver más videos
-                </button>
-              </div>
+            {!loading && videosFiltrados.length > PAGE_SIZE && (
+              <Pagination total={videosFiltrados.length} pageSize={PAGE_SIZE} page={videosPage} onChange={setVideosPage} />
             )}
           </div>
         </section>
@@ -991,20 +1031,12 @@ export default function PortfolioPage() {
                       <SkeletonCard aspect={i % 3 === 0 ? "h-[480px]" : "h-[360px]"} />
                     </div>
                   ))
-                : fotosFiltradas.slice(0, fotosVisible).map((item) => (
+                : fotosFiltradas.slice((fotosPage - 1) * PAGE_SIZE, fotosPage * PAGE_SIZE).map((item) => (
                     <MasonryCard key={item.id} item={item} onOpenGallery={setGalleryItem} />
                   ))}
             </div>
-            {!loading && fotosFiltradas.length > fotosVisible && (
-              <div className="mt-8 flex justify-center">
-                <button
-                  type="button"
-                  onClick={() => setFotosVisible((v) => v + 6)}
-                  className="rounded-full border border-neutral-300 bg-white px-8 py-3 text-sm font-semibold text-neutral-950 transition hover:border-black hover:bg-black hover:text-white"
-                >
-                  Ver más fotografías
-                </button>
-              </div>
+            {!loading && fotosFiltradas.length > PAGE_SIZE && (
+              <Pagination total={fotosFiltradas.length} pageSize={PAGE_SIZE} page={fotosPage} onChange={setFotosPage} />
             )}
           </div>
         </section>
@@ -1030,20 +1062,12 @@ export default function PortfolioPage() {
                 ? Array.from({ length: 6 }).map((_, i) => (
                     <SkeletonCard key={i} aspect="aspect-[4/3]" />
                   ))
-                : gridFiltrado.slice(0, gridVisible).map((item) => (
+                : gridFiltrado.slice((gridPage - 1) * PAGE_SIZE, gridPage * PAGE_SIZE).map((item) => (
                     <GridCard key={item.id} item={item} onOpenVideo={setVideoAbierto} onOpenGallery={setGalleryItem} />
                   ))}
             </div>
-            {!loading && gridFiltrado.length > gridVisible && (
-              <div className="mt-8 flex justify-center">
-                <button
-                  type="button"
-                  onClick={() => setGridVisible((v) => v + 6)}
-                  className="rounded-full border border-neutral-300 bg-white px-8 py-3 text-sm font-semibold text-neutral-950 transition hover:border-black hover:bg-black hover:text-white"
-                >
-                  Ver más proyectos
-                </button>
-              </div>
+            {!loading && gridFiltrado.length > PAGE_SIZE && (
+              <Pagination total={gridFiltrado.length} pageSize={PAGE_SIZE} page={gridPage} onChange={setGridPage} />
             )}
           </div>
         </section>
