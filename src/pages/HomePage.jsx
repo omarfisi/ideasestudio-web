@@ -192,7 +192,11 @@ export default function HomePage() {
     image: item.homeCoverUrl || item.coverUrl || "",
     eyebrow: CAT_EYEBROW_HOME[item.category] || (item.category || "").toUpperCase(),
     title: item.title || "",
-    text: item.description ? item.description.slice(0, 120) : "",
+    text: item.description
+      ? item.description.length > 120
+        ? item.description.slice(0, 120).trimEnd() + "…"
+        : item.description
+      : "",
   });
 
   const portfolioSlides = useMemo(
