@@ -895,7 +895,7 @@ export default function PortfolioPage() {
                         : "border-neutral-300 bg-white text-neutral-600 hover:border-neutral-900 hover:text-neutral-900"
                     }`}
                   >
-                    {sub.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())}
+                    {SUBCAT_LABELS[sub] || sub.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
                   </button>
                 );
               })}
