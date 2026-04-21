@@ -412,7 +412,7 @@ function VideoCard({ item, onOpen }) {
         )}
         <div className="absolute inset-0 bg-black/25" />
         <div className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-neutral-900">
-          {item.category}
+          {getCardEyebrow(item)}
         </div>
         <div className="absolute inset-0 flex items-center justify-center">
           <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-white text-black shadow-lg">
@@ -422,9 +422,18 @@ function VideoCard({ item, onOpen }) {
       </div>
 
       <div className="p-5">
-        <p className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-400">{item.clientName}</p>
-        <h3 className="mt-2 text-xl font-semibold text-neutral-950">{item.title}</h3>
-        <p className="mt-2 text-sm leading-6 text-neutral-600">{item.description}</p>
+        <p className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-400">
+          {getCardEyebrow(item)}
+        </p>
+        <h3 className="mt-2 text-xl font-semibold text-neutral-950">{getCardTitle(item)}</h3>
+        {item.clientName && (
+          <p className="mt-1.5 text-xs text-neutral-400">
+            Cliente: <span className="text-neutral-500">{item.clientName}</span>
+          </p>
+        )}
+        {item.description && (
+          <p className="mt-2 text-sm leading-6 text-neutral-600">{item.description}</p>
+        )}
       </div>
     </button>
   );
