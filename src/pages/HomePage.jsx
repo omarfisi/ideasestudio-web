@@ -219,7 +219,7 @@ export default function HomePage() {
   );
 
   const portfolioCardItems = useMemo(
-    () => shuffle(homePortfolioItems.filter(i => i.placements.includes("home_cards"))),
+    () => shuffle(homePortfolioItems.filter(i => i.placements.includes("home_cards"))).slice(0, 4),
     [homePortfolioItems]
   );
   const [activePortfolioTopMedia, setActivePortfolioTopMedia] = useState(0);
