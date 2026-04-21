@@ -631,7 +631,7 @@ export default function PortfolioPage() {
   );
 
   const grid = useMemo(
-    () => items.filter((i) => i.mediaKind !== "video" || !i.videoUrl),
+    () => items.filter((i) => i.category !== "fotografia" && (i.mediaKind !== "video" || !i.videoUrl)),
     [items]
   );
 
