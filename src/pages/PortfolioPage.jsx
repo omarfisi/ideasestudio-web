@@ -842,14 +842,14 @@ export default function PortfolioPage() {
               <div className="overflow-hidden rounded-[36px] bg-black text-white shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
                 <div className="grid items-stretch lg:grid-cols-[1.05fr_0.95fr]">
                   {/* Imagen: homeCoverUrl — portada optimizada para home/slider */}
-                  <div className="relative min-h-[380px] lg:min-h-[520px]">
+                  <div className="relative flex items-center justify-center min-h-[380px] lg:min-h-[520px] overflow-hidden">
                     {slideActual.homeCoverUrl ? (
                       <img
                         key={slideActual.id}
                         src={slideActual.homeCoverUrl}
                         alt={slideActual.title}
                         className="absolute inset-0 h-full w-full object-cover transition-opacity duration-500"
-                        style={{ objectPosition: "center 20%" }}
+                        style={{ objectPosition: "50% 15%" }}
                       />
                     ) : (
                       <div className="absolute inset-0 bg-neutral-800" />
