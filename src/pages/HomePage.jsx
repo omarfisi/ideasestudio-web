@@ -195,31 +195,20 @@ export default function HomePage() {
     text: item.description ? item.description.slice(0, 120) : "",
   });
 
-  const portfolioSlides = useMemo(() => {
-    const tagged = homePortfolioItems.filter(i => i.placements.includes("home_wide"));
-    if (tagged.length) return tagged.map(toSlide);
-    // legacy fallback: first third of all home items
-    const third = Math.ceil(homePortfolioItems.length / 3);
-    return homePortfolioItems.slice(0, third).map(toSlide);
-  }, [homePortfolioItems]);
+  const portfolioSlides = useMemo(
+    () => homePortfolioItems.filter(i => i.placements.includes("home_wide")).map(toSlide),
+    [homePortfolioItems]
+  );
 
-  const portfolioPortraitSlides = useMemo(() => {
-    const tagged = homePortfolioItems.filter(i => i.placements.includes("home_portrait"));
-    if (tagged.length) return tagged.map(toSlide);
-    // legacy fallback: middle third
-    const third = Math.ceil(homePortfolioItems.length / 3);
-    const slice = homePortfolioItems.slice(third, third * 2);
-    return slice.length ? slice.map(toSlide) : portfolioSlides;
-  }, [homePortfolioItems]);
+  const portfolioPortraitSlides = useMemo(
+    () => homePortfolioItems.filter(i => i.placements.includes("home_portrait")).map(toSlide),
+    [homePortfolioItems]
+  );
 
-  const portfolioCardItems = useMemo(() => {
-    const tagged = homePortfolioItems.filter(i => i.placements.includes("home_cards"));
-    if (tagged.length) return tagged;
-    // legacy fallback: last third
-    const third = Math.ceil(homePortfolioItems.length / 3);
-    const slice = homePortfolioItems.slice(third * 2);
-    return slice.length ? slice : homePortfolioItems;
-  }, [homePortfolioItems]);
+  const portfolioCardItems = useMemo(
+    () => homePortfolioItems.filter(i => i.placements.includes("home_cards")),
+    [homePortfolioItems]
+  );
   const [activePortfolioTopMedia, setActivePortfolioTopMedia] = useState(0);
   const [activePortfolioLeftMedia, setActivePortfolioLeftMedia] = useState(1);
   const [activePortfolioStep, setActivePortfolioStep] = useState(0);
