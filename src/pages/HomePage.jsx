@@ -196,20 +196,26 @@ export default function HomePage() {
   });
 
   const portfolioSlides = useMemo(() => {
-    if (!homePortfolioItems.length) return [];
+    const tagged = homePortfolioItems.filter(i => i.placements.includes("home_wide"));
+    if (tagged.length) return tagged.map(toSlide);
+    // legacy fallback: first third of all home items
     const third = Math.ceil(homePortfolioItems.length / 3);
     return homePortfolioItems.slice(0, third).map(toSlide);
   }, [homePortfolioItems]);
 
   const portfolioPortraitSlides = useMemo(() => {
-    if (homePortfolioItems.length < 2) return portfolioSlides;
+    const tagged = homePortfolioItems.filter(i => i.placements.includes("home_portrait"));
+    if (tagged.length) return tagged.map(toSlide);
+    // legacy fallback: middle third
     const third = Math.ceil(homePortfolioItems.length / 3);
     const slice = homePortfolioItems.slice(third, third * 2);
     return slice.length ? slice.map(toSlide) : portfolioSlides;
   }, [homePortfolioItems]);
 
   const portfolioCardItems = useMemo(() => {
-    if (homePortfolioItems.length < 3) return homePortfolioItems;
+    const tagged = homePortfolioItems.filter(i => i.placements.includes("home_cards"));
+    if (tagged.length) return tagged;
+    // legacy fallback: last third
     const third = Math.ceil(homePortfolioItems.length / 3);
     const slice = homePortfolioItems.slice(third * 2);
     return slice.length ? slice : homePortfolioItems;
@@ -352,9 +358,12 @@ export default function HomePage() {
     setPortfolioLoading(true);
     getPublicPortfolioItems().then((items) => {
       if (cancelled) return;
-      const filtered = items
-        .filter((item) => item.placements.includes("home_portfolio"))
-        .slice(0, 12);
+      const filtered = items.filter((item) =>
+        item.placements.includes("home_portfolio") ||
+        item.placements.includes("home_wide") ||
+        item.placements.includes("home_portrait") ||
+        item.placements.includes("home_cards")
+      ).slice(0, 24);
       setHomePortfolioItems(filtered);
       setPortfolioLoading(false);
     });
