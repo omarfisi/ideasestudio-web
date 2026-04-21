@@ -5,6 +5,7 @@ import {
   getTestimonialsForPage,
   TESTIMONIAL_SECTION_COPY,
 } from "@/data/testimonials.js";
+import { getPublicPortfolioItems } from "@/lib/api.js";
 import portfolioProcessHero from "../assets/quland-process/process-1.png";
 import portfolioProcessStep1 from "../assets/quland-process/process-2.png";
 import portfolioProcessStep2 from "../assets/quland-process/process-3.png";
@@ -182,6 +183,8 @@ export default function HomePage() {
   const [typedObjetivo, setTypedObjetivo] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeCamino, setActiveCamino] = useState(0);
+  const [homePortfolioItems, setHomePortfolioItems] = useState([]);
+  const [portfolioLoading, setPortfolioLoading] = useState(true);
   const [activePortfolioTopMedia, setActivePortfolioTopMedia] = useState(0);
   const [activePortfolioLeftMedia, setActivePortfolioLeftMedia] = useState(1);
   const [activePortfolioStep, setActivePortfolioStep] = useState(0);
@@ -317,6 +320,20 @@ export default function HomePage() {
 
     return () => window.cancelAnimationFrame(frameId);
   }, [isPortfolioTransitionEnabled]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPortfolioLoading(true);
+    getPublicPortfolioItems().then((items) => {
+      if (cancelled) return;
+      const filtered = items
+        .filter((item) => item.placements.includes("home_portfolio"))
+        .slice(0, 4);
+      setHomePortfolioItems(filtered);
+      setPortfolioLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const portfolioActiveDot = activePortfolioStep % PORTFOLIO_PROCESS_STEPS.length;
   const getPortfolioTopMediaIndex = () => activePortfolioTopMedia;
@@ -610,65 +627,50 @@ export default function HomePage() {
               </div>
 
               <div className="portfolio-process__list">
-                <div className="portfolio-process__slider">
-                  <div className="portfolio-process__viewport">
-                    <div
-                      className={`portfolio-process__track ${
-                        isPortfolioTransitionEnabled ? "is-animated" : ""
-                      }`}
-                      style={{
-                        transform: `translateY(calc(-${activePortfolioStep} * (var(--portfolio-card-height) + var(--portfolio-card-gap))))`,
-                      }}
-                    >
-                      {portfolioLoopSteps.map((step, index) => (
-                        <article className="portfolio-process__item" key={`${step.number}-${index}`}>
-                          <div className="portfolio-process__item-media">
-                            <img src={step.image} alt="" />
-                          </div>
-
-                          <div className="portfolio-process__item-body">
-                            <h3>{step.title}</h3>
-                            <p>{step.description}</p>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="portfolio-process__controls">
-                    <button
-                      type="button"
-                      className="portfolio-process__control"
-                      onClick={handlePortfolioPrev}
-                      aria-label="Tarjeta anterior"
-                    >
-                      ↑
-                    </button>
-
-                    <div className="portfolio-process__dots" aria-label="Navegación del proceso">
-                      {PORTFOLIO_PROCESS_STEPS.map((step, index) => (
-                        <button
-                          key={`portfolio-step-${step.number}`}
-                          type="button"
-                          className={`portfolio-process__dot ${
-                            index === portfolioActiveDot ? "is-active" : ""
-                          }`}
-                          onClick={() => handlePortfolioDot(index)}
-                          aria-label={`Ir al paso ${step.number}`}
-                          aria-current={index === portfolioActiveDot ? "true" : "false"}
-                        />
-                      ))}
-                    </div>
-
-                    <button
-                      type="button"
-                      className="portfolio-process__control"
-                      onClick={handlePortfolioNext}
-                      aria-label="Siguiente tarjeta"
-                    >
-                      ↓
-                    </button>
-                  </div>
+                <div className="portfolio-items-grid">
+                  {portfolioLoading ? (
+                    <>
+                      <div className="portfolio-item-card portfolio-item-card--skeleton" aria-hidden="true" />
+                      <div className="portfolio-item-card portfolio-item-card--skeleton" aria-hidden="true" />
+                      <div className="portfolio-item-card portfolio-item-card--skeleton" aria-hidden="true" />
+                      <div className="portfolio-item-card portfolio-item-card--skeleton" aria-hidden="true" />
+                    </>
+                  ) : homePortfolioItems.length > 0 ? (
+                    homePortfolioItems.map((item) => (
+                      <a
+                        key={item.id}
+                        href="/portafolio"
+                        className="portfolio-item-card"
+                        aria-label={item.title}
+                      >
+                        <div className="portfolio-item-card__media">
+                          {(item.homeCoverUrl || item.coverUrl) && (
+                            <img
+                              src={item.homeCoverUrl || item.coverUrl}
+                              alt={item.title}
+                              loading="lazy"
+                            />
+                          )}
+                        </div>
+                        <div className="portfolio-item-card__body">
+                          {(item.subcategory || item.category) && (
+                            <p className="portfolio-item-card__eyebrow">
+                              {item.subcategory || item.category}
+                            </p>
+                          )}
+                          <h3 className="portfolio-item-card__title">{item.title}</h3>
+                          {item.clientName && (
+                            <p className="portfolio-item-card__client">{item.clientName}</p>
+                          )}
+                        </div>
+                      </a>
+                    ))
+                  ) : null}
+                </div>
+                <div className="portfolio-items-cta">
+                  <a href="/portafolio" className="portfolio-items-cta__link">
+                    Ver portafolio completo <span aria-hidden="true">→</span>
+                  </a>
                 </div>
               </div>
             </div>
