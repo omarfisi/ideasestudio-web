@@ -844,10 +844,10 @@ export default function PortfolioPage() {
         <div className="mx-auto max-w-7xl">
           <div className="mb-10 text-center">
             <h2 className="text-3xl font-semibold md:text-4xl">
-              Explora cada <span className="highlight-box-glow">categoría.</span>
+              Explora proyectos y otros <span className="highlight-box-glow">trabajos destacados.</span>
             </h2>
             <p className="mt-3 text-base leading-7 text-neutral-500">
-              Encuentra propuestas alineadas con tu objetivo, tu estilo y el tipo de proyecto que tienes en mente.
+              Descubre distintas áreas de nuestro portafolio de forma más clara, desde branding y web hasta fotografía de proyectos y momentos especiales.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-3">
