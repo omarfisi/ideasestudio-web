@@ -601,6 +601,11 @@ export default function PortfolioPage() {
   const [loading, setLoading] = useState(true);
   const carouselRef = useRef(null);
 
+  // ── Paginación por sección ─────────────────────────────────
+  const [fotosVisible, setFotosVisible] = useState(6);
+  const [gridVisible, setGridVisible] = useState(6);
+  const [videosVisible, setVideosVisible] = useState(6);
+
   // Carga inicial
   useEffect(() => {
     let cancelled = false;
@@ -646,6 +651,13 @@ export default function PortfolioPage() {
 
   // reset subcategory cuando cambia la categoría principal
   useEffect(() => { setSubcategoryActivo(null); }, [filtroActivo]);
+
+  // reset paginación cuando cambia filtro o subcategoría
+  useEffect(() => {
+    setFotosVisible(6);
+    setGridVisible(6);
+    setVideosVisible(6);
+  }, [filtroActivo, subcategoryActivo]);
 
   // ── Filtrado por categoría ─────────────────────────────────
   const fotosFiltradas = useMemo(() => {
@@ -937,10 +949,21 @@ export default function PortfolioPage() {
                       <SkeletonCard aspect="aspect-[16/10]" />
                     </div>
                   ))
-                : videosFiltrados.map((item) => (
+                : videosFiltrados.slice(0, videosVisible).map((item) => (
                     <VideoCard key={item.id} item={item} onOpen={setVideoAbierto} />
                   ))}
             </div>
+            {!loading && videosFiltrados.length > videosVisible && (
+              <div className="mt-8 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setVideosVisible((v) => v + 6)}
+                  className="rounded-full border border-neutral-300 bg-white px-8 py-3 text-sm font-semibold text-neutral-950 transition hover:border-black hover:bg-black hover:text-white"
+                >
+                  Ver más videos
+                </button>
+              </div>
+            )}
           </div>
         </section>
       ) : null}
@@ -968,10 +991,21 @@ export default function PortfolioPage() {
                       <SkeletonCard aspect={i % 3 === 0 ? "h-[480px]" : "h-[360px]"} />
                     </div>
                   ))
-                : fotosFiltradas.map((item) => (
+                : fotosFiltradas.slice(0, fotosVisible).map((item) => (
                     <MasonryCard key={item.id} item={item} onOpenGallery={setGalleryItem} />
                   ))}
             </div>
+            {!loading && fotosFiltradas.length > fotosVisible && (
+              <div className="mt-8 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setFotosVisible((v) => v + 6)}
+                  className="rounded-full border border-neutral-300 bg-white px-8 py-3 text-sm font-semibold text-neutral-950 transition hover:border-black hover:bg-black hover:text-white"
+                >
+                  Ver más fotografías
+                </button>
+              </div>
+            )}
           </div>
         </section>
       ) : null}
@@ -996,10 +1030,21 @@ export default function PortfolioPage() {
                 ? Array.from({ length: 6 }).map((_, i) => (
                     <SkeletonCard key={i} aspect="aspect-[4/3]" />
                   ))
-                : gridFiltrado.map((item) => (
+                : gridFiltrado.slice(0, gridVisible).map((item) => (
                     <GridCard key={item.id} item={item} onOpenVideo={setVideoAbierto} onOpenGallery={setGalleryItem} />
                   ))}
             </div>
+            {!loading && gridFiltrado.length > gridVisible && (
+              <div className="mt-8 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setGridVisible((v) => v + 6)}
+                  className="rounded-full border border-neutral-300 bg-white px-8 py-3 text-sm font-semibold text-neutral-950 transition hover:border-black hover:bg-black hover:text-white"
+                >
+                  Ver más proyectos
+                </button>
+              </div>
+            )}
           </div>
         </section>
       ) : null}
