@@ -668,23 +668,36 @@ export default function PortfolioPage() {
   }, []);
 
   // ── Derivar colecciones a partir de los datos ──────────────
+  // section_key controls placement explicitly; "general"/null falls back to category.
+  function getEffectiveSection(item) {
+    const sk = item.sectionKey;
+    if (sk === "featured")   return "featured";
+    if (sk === "fotografia") return "fotografia";
+    if (sk === "videos")     return "videos";
+    if (sk === "grid")       return "grid"; // explicit grid override (ignores category)
+    // "general" or null/empty → auto from category
+    if (item.category === "fotografia") return "fotografia";
+    if (item.mediaKind === "video" && item.videoUrl) return "videos";
+    return "grid";
+  }
+
   const destacados = useMemo(
-    () => items.filter((i) => i.isFeatured || i.placements.includes("home_portfolio")),
+    () => items.filter((i) => i.isFeatured || getEffectiveSection(i) === "featured"),
     [items]
   );
 
   const videos = useMemo(
-    () => items.filter((i) => i.mediaKind === "video"),
+    () => items.filter((i) => getEffectiveSection(i) === "videos"),
     [items]
   );
 
   const fotos = useMemo(
-    () => items.filter((i) => i.category === "fotografia"),
+    () => items.filter((i) => getEffectiveSection(i) === "fotografia"),
     [items]
   );
 
   const grid = useMemo(
-    () => items.filter((i) => i.category !== "fotografia" && (i.mediaKind !== "video" || !i.videoUrl)),
+    () => items.filter((i) => getEffectiveSection(i) === "grid"),
     [items]
   );
 
