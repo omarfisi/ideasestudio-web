@@ -902,23 +902,6 @@ export default function PortfolioPage() {
                       >
                         Ver proyecto
                       </Link>
-                      {totalSlides > 1 ? (
-                        <div className="flex items-center gap-2">
-                          {slideItems.map((_, i) => (
-                            <button
-                              key={i}
-                              type="button"
-                              onClick={() => irAlSlide(i)}
-                              aria-label={`Ir al slide ${i + 1}`}
-                              className={`h-2 rounded-full transition-all ${
-                                i === slideIndex
-                                  ? "w-6 bg-[#f2cc3d]"
-                                  : "w-2 bg-white/30 hover:bg-white/60"
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      ) : null}
                     </div>
                   </div>
                 </div>
