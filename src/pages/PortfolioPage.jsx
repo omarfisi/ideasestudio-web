@@ -868,6 +868,21 @@ export default function PortfolioPage() {
                       <div className="absolute inset-0 bg-neutral-800" />
                     )}
                     <div className="absolute inset-0 bg-black/35" />
+                    {totalSlides > 1 && (
+                      <div className="pointer-events-none absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
+                        <div className="flex items-center gap-2 rounded-full bg-black/30 px-3 py-[7px] backdrop-blur-md">
+                          <div className="h-[3px] w-20 overflow-hidden rounded-full bg-white/20">
+                            <div
+                              className="h-full rounded-full bg-white transition-all duration-500 ease-out"
+                              style={{ width: `${((slideIndex + 1) / totalSlides) * 100}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] font-medium leading-none tracking-wide text-white/60">
+                            {slideIndex + 1}&thinsp;/&thinsp;{totalSlides}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-col justify-center p-8 md:p-12 lg:p-14">
