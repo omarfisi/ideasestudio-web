@@ -658,7 +658,7 @@ export default function PortfolioPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getPublicPortfolioItems().then((data) => {
+    getPublicPortfolioItems({ limit: 500 }).then((data) => {
       if (!cancelled) {
         setItems(data);
         setLoading(false);
@@ -740,7 +740,7 @@ export default function PortfolioPage() {
   }, [filtroActivo, grid]);
 
   // ── Slider de destacados ───────────────────────────────────
-  const slideItems = destacados.length > 0 ? destacados : items.slice(0, 5);
+  const slideItems = destacados.length > 0 ? destacados : items;
   const totalSlides = slideItems.length;
   const slideActual = slideItems[slideIndex] ?? null;
   const irAlSlide = (i) => setSlideIndex((i + totalSlides) % totalSlides);
