@@ -66,18 +66,32 @@ export default function PublicFormRenderer({
   const [isPopupOpen, setIsPopupOpen] = useState(Boolean(forceOpen));
 
   const preset = config.preset;
+  const rawVisualConfig = formConfig?.visual_config || null;
+  const rawVisualPopup = rawVisualConfig?.popup || null;
   const popupConfig = config?.popup || {};
 
-  const rawMode = String(formConfig?.display_mode || config?.display_mode || "embedded").toLowerCase();
+  const rawMode = String(
+    rawVisualConfig?.display_mode || formConfig?.display_mode || config?.display_mode || "embedded"
+  ).toLowerCase();
   const resolvedMode = VALID_DISPLAY_MODES.has(rawMode)
     ? rawMode
     : "embedded";
   const mode = previewMode && forceOpen ? "popup" : resolvedMode;
 
-  const popupEnabled = popupConfig.enabled !== false && formConfig?.popup_enabled !== false;
-  const popupTriggerRaw = String(popupConfig.trigger || "button").toLowerCase();
+  const popupEnabled = typeof rawVisualPopup?.enabled === "boolean"
+    ? rawVisualPopup.enabled
+    : (
+      typeof formConfig?.popup_enabled === "boolean"
+        ? formConfig.popup_enabled
+        : popupConfig.enabled !== false
+    );
+  const popupTriggerRaw = String(
+    formConfig?.popup_trigger || rawVisualPopup?.trigger || popupConfig.trigger || "button"
+  ).toLowerCase();
   const popupTrigger = VALID_POPUP_TRIGGERS.has(popupTriggerRaw) ? popupTriggerRaw : "button";
-  const popupDelay = Number(popupConfig.delay_ms ?? formConfig?.popup_delay_ms ?? 3000);
+  const popupDelay = Number(
+    formConfig?.popup_delay_ms ?? rawVisualPopup?.delay_ms ?? popupConfig.delay_ms ?? 3000
+  );
 
   const shouldRenderInline = mode === "embedded" || mode === "both";
   const shouldRenderPopupTrigger = popupEnabled && (
