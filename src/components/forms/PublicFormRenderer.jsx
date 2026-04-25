@@ -17,6 +17,7 @@ const PRESET_COMPONENTS = {
 };
 
 const VALID_POPUP_TRIGGERS = new Set(["button", "auto", "delay", "exit_intent"]);
+const VALID_DISPLAY_MODES = new Set(["embedded", "popup", "both"]);
 
 // ── Popup frequency helpers (unchanged from previous version) ─────────────────
 
@@ -65,23 +66,30 @@ export default function PublicFormRenderer({
   const [isPopupOpen, setIsPopupOpen] = useState(Boolean(forceOpen));
 
   const preset = config.preset;
-  const popupConfig = config.popup || {};
+  const popupConfig = config?.popup || {};
 
-  // display_mode: config takes priority; fall back to formConfig legacy field
-  const displayMode = config.display_mode || formConfig?.display_mode || "embedded";
-  const effectiveDisplayMode = previewMode && forceOpen ? "popup" : displayMode;
+  const rawMode = String(formConfig?.display_mode || config?.display_mode || "embedded").toLowerCase();
+  const resolvedMode = VALID_DISPLAY_MODES.has(rawMode)
+    ? rawMode
+    : "embedded";
+  const mode = previewMode && forceOpen ? "popup" : resolvedMode;
 
-  const popupEnabled = popupConfig.enabled !== false;
-  const popupTriggerRaw = String(
-    popupConfig.trigger || formConfig?.popup_trigger || "button"
-  ).toLowerCase();
+  const popupEnabled = popupConfig.enabled !== false && formConfig?.popup_enabled !== false;
+  const popupTriggerRaw = String(popupConfig.trigger || "button").toLowerCase();
   const popupTrigger = VALID_POPUP_TRIGGERS.has(popupTriggerRaw) ? popupTriggerRaw : "button";
   const popupDelay = Number(popupConfig.delay_ms ?? formConfig?.popup_delay_ms ?? 3000);
 
-  const isPopupMode = effectiveDisplayMode === "popup" || effectiveDisplayMode === "both";
+  const shouldRenderInline = mode === "embedded" || mode === "both";
+  const shouldRenderPopupTrigger = popupEnabled && (
+    (mode === "popup" && popupTrigger === "button") ||
+    (mode === "both" && popupTrigger === "button")
+  );
+  const shouldRenderPopupShell = popupEnabled && (mode === "popup" || mode === "both");
+
+  const PresetComponent = PRESET_COMPONENTS[preset];
 
   useEffect(() => {
-    if (!isPopupMode || !popupEnabled) return undefined;
+    if (!shouldRenderPopupShell) return undefined;
 
     if (forceOpen) {
       setIsPopupOpen(true);
@@ -121,11 +129,10 @@ export default function PublicFormRenderer({
   }, [
     forceOpen,
     formConfig,
-    isPopupMode,
     popupDelay,
-    popupEnabled,
     popupTrigger,
     previewMode,
+    shouldRenderPopupShell,
   ]);
 
   function openPopup() {
@@ -137,8 +144,6 @@ export default function PublicFormRenderer({
     setIsPopupOpen(false);
   }
 
-  const PresetComponent = PRESET_COMPONENTS[preset];
-
   if (!PresetComponent) {
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-600">
@@ -148,7 +153,16 @@ export default function PublicFormRenderer({
   }
 
   const presetProps = { config, formConfig, placementId, onSuccess };
-  const showTriggerButton = popupTrigger === "button" && !forceOpen;
+
+  // Embedded mode: only inline, never popup trigger/shell.
+  if (mode === "embedded") {
+    return <PresetComponent {...presetProps} />;
+  }
+
+  // Popup mode with popup disabled: render nothing.
+  if (mode === "popup" && !popupEnabled) {
+    return null;
+  }
 
   const triggerButton = (
     <div className="text-center">
@@ -167,33 +181,11 @@ export default function PublicFormRenderer({
   );
 
   // Popup-only mode
-  if (effectiveDisplayMode === "popup") {
-    if (!popupEnabled) {
-      return <PresetComponent {...presetProps} />;
-    }
-
+  if (mode === "popup") {
     return (
       <>
-        {showTriggerButton && triggerButton}
-        <FormPopupShell
-          config={config}
-          isOpen={isPopupOpen}
-          onClose={closePopup}
-          previewMode={previewMode}
-        >
-          <PresetComponent {...presetProps} />
-        </FormPopupShell>
-      </>
-    );
-  }
-
-  // Both modes: embedded + optional popup
-  if (effectiveDisplayMode === "both") {
-    return (
-      <>
-        <PresetComponent {...presetProps} />
-        {popupEnabled && showTriggerButton && <div className="mt-4">{triggerButton}</div>}
-        {popupEnabled && (
+        {shouldRenderPopupTrigger && triggerButton}
+        {shouldRenderPopupShell && (
           <FormPopupShell
             config={config}
             isOpen={isPopupOpen}
@@ -207,6 +199,21 @@ export default function PublicFormRenderer({
     );
   }
 
-  // Embedded (default)
-  return <PresetComponent {...presetProps} />;
+  // Both mode: inline + popup only in this explicit mode.
+  return (
+    <>
+      {shouldRenderInline && <PresetComponent {...presetProps} />}
+      {shouldRenderPopupTrigger && <div className="mt-4">{triggerButton}</div>}
+      {shouldRenderPopupShell && (
+        <FormPopupShell
+          config={config}
+          isOpen={isPopupOpen}
+          onClose={closePopup}
+          previewMode={previewMode}
+        >
+          <PresetComponent {...presetProps} />
+        </FormPopupShell>
+      )}
+    </>
+  );
 }
