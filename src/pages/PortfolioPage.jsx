@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
 import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
+import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
 import { getPublicPortfolioItems } from "@/lib/api.js";
 
 // ─── Categorías de filtro — valor = slug de la API ───────────
@@ -1088,25 +1089,30 @@ export default function PortfolioPage() {
       {/* ── CTA LEAD ── */}
       <section className="px-4 pb-12 md:px-6">
         <div className="mx-auto max-w-[1220px]">
-          <SplitLeadBlock
-            eyebrow="Portafolio / Ideas Estudio"
-            title={<>Si esto te gustó, podemos crear algo igual o mejor para tu <span style={{ color: "#f2cc3d" }}>negocio</span>.</>}
-            description="Cuéntanos lo que tienes en mente y te ayudamos a desarrollar una propuesta visual más clara, profesional y estratégica."
-            imageSrc="https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=900&q=80"
-            imageAlt="Portafolio Ideas Estudio"
-            buttonLabel="Quiero algo así"
-            successMessage="Perfecto. Hemos recibido tu información y te contactaremos pronto."
-            showNameField={true}
-            namePlaceholder="Tu nombre"
-            emailPlaceholder="Tu email"
-            consentLabel="Respondo personalmente lo antes posible."
-            source="website_portfolio"
-            segment="portfolio_leads"
-            segments={["portfolio_leads", "newsletter"]}
-            submissionKind="lead_capture"
-            defaultMessage="Lead desde Portafolio"
-            meta={{ page_url: "/portafolio", form_name: "portfolio_split_lead_block", entry_point: "portfolio_page", ui_context: "ideas_web_public", ab_variant: "portfolio_v1" }}
-            theme="dark"
+          <FormPlacementRenderer
+            sectionKey="portfolio_cta_split"
+            fallback={
+              <SplitLeadBlock
+                eyebrow="Portafolio / Ideas Estudio"
+                title={<>Si esto te gustó, podemos crear algo igual o mejor para tu <span style={{ color: "#f2cc3d" }}>negocio</span>.</>}
+                description="Cuéntanos lo que tienes en mente y te ayudamos a desarrollar una propuesta visual más clara, profesional y estratégica."
+                imageSrc="https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=900&q=80"
+                imageAlt="Portafolio Ideas Estudio"
+                buttonLabel="Quiero algo así"
+                successMessage="Perfecto. Hemos recibido tu información y te contactaremos pronto."
+                showNameField={true}
+                namePlaceholder="Tu nombre"
+                emailPlaceholder="Tu email"
+                consentLabel="Respondo personalmente lo antes posible."
+                source="website_portfolio"
+                segment="portfolio_leads"
+                segments={["portfolio_leads", "newsletter"]}
+                submissionKind="lead_capture"
+                defaultMessage="Lead desde Portafolio"
+                meta={{ page_url: "/portafolio", form_name: "portfolio_split_lead_block", entry_point: "portfolio_page", ui_context: "ideas_web_public", ab_variant: "portfolio_v1" }}
+                theme="dark"
+              />
+            }
           />
         </div>
       </section>

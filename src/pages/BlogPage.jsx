@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getBlogHome } from "@/lib/api.js";
 import NewsletterSplitBlock from "@/components/forms/NewsletterSplitBlock.jsx";
+import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
 
 // ─── Fallback mock (se usa solo cuando no hay artículos en la API) ───────────
 const FALLBACK_HERO = {
@@ -370,18 +371,23 @@ export default function BlogPage() {
 
         {/* ── NEWSLETTER ── */}
         <section className="mt-0">
-          <NewsletterSplitBlock
-            eyebrow="Newsletter · Ideas Estudio"
-            title="Deja de improvisar tu marca. Recibe contenido que te ayude a comunicar mejor."
-            description="Suscríbete para recibir artículos, ideas y recursos prácticos sobre diseño, branding y crecimiento digital."
-            imageSrc="https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=900&q=80"
-            imageAlt="Newsletter de Ideas Estudio"
-            buttonLabel="Recibir contenido"
-            successMessage="Gracias por suscribirte. Muy pronto recibirás nuevos artículos y recursos."
-            source="website_blog"
-            segment="blog_subscribers"
-            segments={["blog_subscribers", "newsletter"]}
-            meta={{ page_url: "/blog", form_name: "blog_newsletter_split_block", entry_point: "blog_page", ui_context: "ideas_web_public", ab_variant: "blog_v1" }}
+          <FormPlacementRenderer
+            sectionKey="blog_newsletter_split"
+            fallback={
+              <NewsletterSplitBlock
+                eyebrow="Newsletter · Ideas Estudio"
+                title="Deja de improvisar tu marca. Recibe contenido que te ayude a comunicar mejor."
+                description="Suscríbete para recibir artículos, ideas y recursos prácticos sobre diseño, branding y crecimiento digital."
+                imageSrc="https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=900&q=80"
+                imageAlt="Newsletter de Ideas Estudio"
+                buttonLabel="Recibir contenido"
+                successMessage="Gracias por suscribirte. Muy pronto recibirás nuevos artículos y recursos."
+                source="website_blog"
+                segment="blog_subscribers"
+                segments={["blog_subscribers", "newsletter"]}
+                meta={{ page_url: "/blog", form_name: "blog_newsletter_split_block", entry_point: "blog_page", ui_context: "ideas_web_public", ab_variant: "blog_v1" }}
+              />
+            }
           />
         </section>
 
