@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import TestimonialsSlider from "@/components/shared/TestimonialsSlider.jsx";
 import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
 import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
+import SegmentHeroSection from "@/components/home/SegmentHeroSection.jsx";
 import {
   getTestimonialsForPage,
   TESTIMONIAL_SECTION_COPY,
@@ -68,77 +69,6 @@ const PORTFOLIO_VISUAL_SLIDES = [
 ];
 
 const OBJETIVO_WORDS = ["marca", "empresa", "crecimiento", "presencia"];
-const CAMINOS_CARDS = [
-  {
-    visualClass: "is-visual-1",
-    badge: "01. Marca / Negocio",
-    title: "Tengo una marca o negocio",
-    description:
-      "Para marcas y negocios que necesitan verse mejor, comunicar con más claridad y vender con más orden.",
-    lead: "Es para ti si:",
-    items: [
-      "Tu marca no refleja el nivel real de lo que ofreces.",
-      "No tienes una ruta clara entre presencia visual y ventas.",
-      "Publicas, pero no comunicas con criterio.",
-      "Necesitas branding, contenido, web o piezas comerciales.",
-    ],
-    chip: "Marca y negocio",
-    href: "/servicios",
-    ctaLabel: "Ver servicio",
-  },
-  {
-    visualClass: "is-visual-2",
-    badge: "02. Presencia visual",
-    title: "Necesito presencia visual profesional",
-    description:
-      "Para empresas y equipos que necesitan proyectar confianza con imagen corporativa, fotografía y materiales de presentación.",
-    lead: "Es para ti si:",
-    items: [
-      "Tu empresa no proyecta el nivel de confianza que merece.",
-      "Faltan piezas visuales para reuniones, web o propuestas.",
-      "Tu imagen se siente dispersa entre canales y materiales.",
-      "Necesitas retrato, foto institucional, video o deck.",
-    ],
-    chip: "Presencia visual",
-    href: "/servicios",
-    ctaLabel: "Ver servicio",
-  },
-  {
-    visualClass: "is-visual-3",
-    badge: "03. Momento especial",
-    title: "Quiero capturar un momento especial",
-    description:
-      "Para personas que quieren documentar una fecha, sesión o evento con calidad, intención y una experiencia bien presentada.",
-    lead: "Es para ti si:",
-    items: [
-      "No estás seguro qué tipo de sesión o cobertura necesitas.",
-      "Quieres guardar un momento importante con criterio.",
-      "Buscas una experiencia clara antes de reservar.",
-      "Necesitas foto, video o una cobertura más completa.",
-    ],
-    chip: "Momentos especiales",
-    href: "/servicios",
-    ctaLabel: "Ver servicio",
-  },
-  {
-    visualClass: "is-visual-4",
-    badge: "04. Solución a medida",
-    title: "Busco una solución creativa a mi medida",
-    description:
-      "Para proyectos que mezclan disciplinas o no encajan en un servicio estándar y necesitan una propuesta consultiva.",
-    lead: "Es para ti si:",
-    items: [
-      "Tu necesidad mezcla foto, video, diseño, web o contenido.",
-      "El proyecto primero requiere diagnóstico, luego propuesta.",
-      "No quieres un paquete fijo, sino una solución a tu medida.",
-      "Buscas criterio y ejecución integrada, no servicios sueltos.",
-    ],
-    chip: "Solución a medida",
-    href: "#contacto",
-    ctaLabel: "Quiero esta solución",
-  },
-];
-
 const PORTFOLIO_PROCESS_STEPS = [
   {
     number: "01",
@@ -183,7 +113,6 @@ export default function HomePage() {
   const [wordIndex, setWordIndex] = useState(0);
   const [typedObjetivo, setTypedObjetivo] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
-  const [activeCamino, setActiveCamino] = useState(0);
   const [homePortfolioItems, setHomePortfolioItems] = useState([]);
   const [portfolioLoading, setPortfolioLoading] = useState(true);
 
@@ -227,16 +156,6 @@ export default function HomePage() {
   const [activePortfolioLeftMedia, setActivePortfolioLeftMedia] = useState(1);
   const [activePortfolioStep, setActivePortfolioStep] = useState(0);
   const [isPortfolioTransitionEnabled, setIsPortfolioTransitionEnabled] = useState(true);
-  const [cardsPerView, setCardsPerView] = useState(() =>
-    typeof window !== "undefined" && window.innerWidth <= 980 ? 1 : 2
-  );
-
-  const caminoSlides = [];
-  const portfolioLoopSteps = [...PORTFOLIO_PROCESS_STEPS, ...PORTFOLIO_PROCESS_STEPS];
-
-  for (let index = 0; index < CAMINOS_CARDS.length; index += cardsPerView) {
-    caminoSlides.push(CAMINOS_CARDS.slice(index, index + cardsPerView));
-  }
 
   useEffect(() => {
     const currentWord = OBJETIVO_WORDS[wordIndex];
@@ -269,33 +188,6 @@ export default function HomePage() {
 
     return () => clearTimeout(timeout);
   }, [typedObjetivo, isDeleting, wordIndex]);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setCardsPerView(window.innerWidth <= 980 ? 1 : 2);
-    };
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
-
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  useEffect(() => {
-    setActiveCamino((prev) => Math.min(prev, caminoSlides.length - 1));
-  }, [caminoSlides.length]);
-
-  useEffect(() => {
-    if (caminoSlides.length <= 1) {
-      return undefined;
-    }
-
-    const intervalId = window.setInterval(() => {
-      setActiveCamino((prev) => (prev + 1) % caminoSlides.length);
-    }, SLIDESHOW_INTERVAL_MS);
-
-    return () => window.clearInterval(intervalId);
-  }, [caminoSlides.length]);
 
   useEffect(() => {
     if (PORTFOLIO_PROCESS_STEPS.length <= 1) {
@@ -463,105 +355,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="caminos" className="section-split">
-        <div className="container">
-          <div className="prospectos-ref">
-            <div className="prospectos-ref__intro">
-              <p className="prospectos-ref__eyebrow">Servicios para marcas y negocios</p>
-              <h2 className="prospectos-ref__title">
-                Descubre la propuesta adecuada para <span className="highlight-box-glow">tu marca,</span> negocio o evento social.
-              </h2>
-              <p className="prospectos-ref__text">
-                Cada opción responde a una necesidad concreta. Aquí puedes identificar
-                lo que necesitas hoy y avanzar al servicio que mejor encaja con tu etapa,
-                tu prioridad y tu objetivo comercial.
-              </p>
-            </div>
-
-            <div className="prospectos-ref__slider">
-              <button
-                type="button"
-                className="prospectos-ref__arrow"
-                onClick={() =>
-                  setActiveCamino((prev) => (prev - 1 + caminoSlides.length) % caminoSlides.length)
-                }
-                aria-label="Tarjeta anterior"
-              >
-                ‹
-              </button>
-
-              <div className="prospectos-ref__viewport">
-                <div
-                  className="prospectos-ref__grid"
-                  style={{ transform: `translateX(-${activeCamino * 100}%)` }}
-                >
-                  {caminoSlides.map((slide, slideIndex) => (
-                    <div
-                      className="prospectos-ref__slide"
-                      key={`camino-slide-${slideIndex}`}
-                      style={{
-                        gridTemplateColumns: `repeat(${cardsPerView}, minmax(0, 1fr))`,
-                      }}
-                    >
-                      {slide.map((card) => (
-                        <article
-                          className={`prospecto-ref-card ${card.visualClass}`}
-                          key={card.badge}
-                        >
-                          <div className="prospecto-ref-card__media">
-                            <div className="prospecto-ref-card__visual" />
-                            <span className="prospecto-ref-card__badge">{card.badge}</span>
-                          </div>
-                          <div className="prospecto-ref-card__body">
-                            <h3>{card.title}</h3>
-                            <p className="prospecto-ref-card__description">{card.description}</p>
-                            <p className="prospecto-ref-card__lead">{card.lead}</p>
-                            <ul className="prospecto-ref-card__list">
-                              {card.items.map((item) => (
-                                <li key={item}>{item}</li>
-                              ))}
-                            </ul>
-                            <div className="prospecto-ref-card__footer">
-                              <span className="prospecto-ref-card__chip">{card.chip}</span>
-                              <a className="prospecto-ref-card__cta" href={card.href}>
-                                {card.ctaLabel}
-                              </a>
-                            </div>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                className="prospectos-ref__arrow"
-                onClick={() => setActiveCamino((prev) => (prev + 1) % caminoSlides.length)}
-                aria-label="Siguiente tarjeta"
-              >
-                ›
-              </button>
-            </div>
-
-            <div className="prospectos-ref__dots" aria-label="Navegación de tarjetas">
-              {caminoSlides.map((_, index) => (
-                <button
-                  key={`camino-dot-${index}`}
-                  type="button"
-                  className={`prospectos-ref__dot ${
-                    index === activeCamino ? "is-active" : ""
-                  }`}
-                  onClick={() => setActiveCamino(index)}
-                  aria-label={`Ir al slide ${index + 1}`}
-                  aria-current={index === activeCamino ? "true" : "false"}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+      <SegmentHeroSection />
 
       <section id="portafolio" className="section-split">
         <div className="container">
