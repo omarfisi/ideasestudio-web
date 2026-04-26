@@ -642,6 +642,7 @@ function Pagination({ total, pageSize, page, onChange }) {
 export default function PortfolioPage() {
   const [filtroActivo, setFiltroActivo] = useState("Todos");
   const [subcategoryActivo, setSubcategoryActivo] = useState(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [videoAbierto, setVideoAbierto] = useState(null);
   const [galleryItem, setGalleryItem] = useState(null);
   const [slideIndex, setSlideIndex] = useState(0);
@@ -741,7 +742,7 @@ export default function PortfolioPage() {
   }, [filtroActivo, grid]);
 
   // ── Slider de destacados ───────────────────────────────────
-  const slideItems = destacados.length > 0 ? destacados : items;
+  const slideItems = items;
   const totalSlides = slideItems.length;
   const slideActual = slideItems[slideIndex] ?? null;
   const irAlSlide = (i) => setSlideIndex((i + totalSlides) % totalSlides);
@@ -923,7 +924,8 @@ export default function PortfolioPage() {
               Descubre distintas áreas de nuestro portafolio de forma más clara, desde branding y web hasta fotografía de proyectos y momentos especiales.
             </p>
           </div>
-          <div className="flex flex-wrap justify-center gap-3">
+          {/* ── Desktop: pills centrados ── */}
+          <div className="hidden md:flex flex-wrap justify-center gap-3">
             {CATEGORY_FILTERS.map((cat) => {
               const activo = filtroActivo === cat.value;
               const count = cat.value === "Todos" ? items.length : (countByCategory[cat.value] || 0);
@@ -941,9 +943,7 @@ export default function PortfolioPage() {
                 >
                   <span className="text-lg font-semibold">{cat.label}</span>
                   <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                    activo
-                      ? "bg-white/20 text-white"
-                      : "bg-neutral-100 text-neutral-500 group-hover:bg-white/20 group-hover:text-white"
+                    activo ? "bg-white/20 text-white" : "bg-neutral-100 text-neutral-500 group-hover:bg-white/20 group-hover:text-white"
                   }`}>
                     {loading ? "…" : count}
                   </span>
@@ -952,9 +952,92 @@ export default function PortfolioPage() {
             })}
           </div>
 
-          {/* ── Subcategorías dinámicas ── */}
+          {/* ── Móvil: Botón Filtrar + Drawer ── */}
+          <div className="md:hidden">
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(true)}
+                className="flex items-center gap-2 rounded-full border border-neutral-300 bg-white px-6 py-3 text-sm font-semibold text-neutral-900 shadow-sm"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
+                Filtrar
+                {filtroActivo !== "Todos" && (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black text-[10px] font-bold text-white">1</span>
+                )}
+              </button>
+            </div>
+            {filtroActivo !== "Todos" && (
+              <p className="mt-2 text-center text-sm text-neutral-500">
+                Filtrando por: <strong>{CATEGORY_FILTERS.find(c => c.value === filtroActivo)?.label}</strong>
+                {subcategoryActivo && <> · <strong>{SUBCAT_LABELS[subcategoryActivo] || subcategoryActivo}</strong></>}
+              </p>
+            )}
+          </div>
+
+          {/* Drawer overlay */}
+          {drawerOpen && (
+            <div className="fixed inset-0 z-50 md:hidden" onClick={() => setDrawerOpen(false)}>
+              <div className="absolute inset-0 bg-black/40" />
+              <div
+                className="absolute bottom-0 left-0 right-0 rounded-t-3xl bg-white px-5 pb-10 pt-6 shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="mb-1 flex items-center justify-between">
+                  <h3 className="text-base font-semibold text-neutral-900">Filtrar por categoría</h3>
+                  <button type="button" onClick={() => setDrawerOpen(false)} className="text-neutral-400 hover:text-neutral-900">✕</button>
+                </div>
+                <div className="mt-4 flex flex-col gap-2">
+                  {CATEGORY_FILTERS.map((cat) => {
+                    const activo = filtroActivo === cat.value;
+                    const count = cat.value === "Todos" ? items.length : (countByCategory[cat.value] || 0);
+                    if (cat.value !== "Todos" && count === 0 && !loading) return null;
+                    return (
+                      <button
+                        key={cat.value}
+                        type="button"
+                        onClick={() => { setFiltroActivo(activo ? "Todos" : cat.value); setSubcategoryActivo(null); setDrawerOpen(false); }}
+                        className={`flex items-center justify-between rounded-2xl border px-5 py-3.5 text-left transition ${
+                          activo ? "border-black bg-black text-white" : "border-neutral-200 bg-neutral-50 text-neutral-900"
+                        }`}
+                      >
+                        <span className="font-semibold">{cat.label}</span>
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                          activo ? "bg-white/20 text-white" : "bg-neutral-200 text-neutral-500"
+                        }`}>{loading ? "…" : count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {subcategoriesDisponibles.length > 0 && (
+                  <>
+                    <p className="mt-5 mb-3 text-xs font-semibold uppercase tracking-widest text-neutral-400">Subcategoría</p>
+                    <div className="flex flex-wrap gap-2">
+                      {subcategoriesDisponibles.map((sub) => {
+                        const activo = subcategoryActivo === sub;
+                        return (
+                          <button
+                            key={sub}
+                            type="button"
+                            onClick={() => { setSubcategoryActivo(activo ? null : sub); setDrawerOpen(false); }}
+                            className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                              activo ? "border-[#f2cc3d] bg-[#f2cc3d] text-black" : "border-neutral-300 bg-white text-neutral-600"
+                            }`}
+                          >
+                            {SUBCAT_LABELS[sub] || sub.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Desktop: Subcategorías ── */}
           {subcategoriesDisponibles.length > 0 && (
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <div className="mt-4 hidden md:flex flex-wrap justify-center gap-2">
               {subcategoriesDisponibles.map((sub) => {
                 const activo = subcategoryActivo === sub;
                 return (
@@ -963,9 +1046,7 @@ export default function PortfolioPage() {
                     type="button"
                     onClick={() => setSubcategoryActivo(activo ? null : sub)}
                     className={`rounded-full border px-5 py-2 text-sm font-medium transition ${
-                      activo
-                        ? "border-[#f2cc3d] bg-[#f2cc3d] text-black"
-                        : "border-neutral-300 bg-white text-neutral-600 hover:border-neutral-900 hover:text-neutral-900"
+                      activo ? "border-[#f2cc3d] bg-[#f2cc3d] text-black" : "border-neutral-300 bg-white text-neutral-600 hover:border-neutral-900 hover:text-neutral-900"
                     }`}
                   >
                     {SUBCAT_LABELS[sub] || sub.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
