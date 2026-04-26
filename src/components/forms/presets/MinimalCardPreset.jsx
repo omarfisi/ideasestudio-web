@@ -9,6 +9,9 @@ export default function MinimalCardPreset({ config, formConfig, placementId, onS
   const outerPadding =
     container.padding && container.padding !== "0" ? container.padding : "28px";
   const innerRadius = `calc(${container.radius} - 6px)`;
+  const gridClass = media.enabled
+    ? "grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]"
+    : "grid grid-cols-1";
 
   return (
     <div
@@ -28,7 +31,7 @@ export default function MinimalCardPreset({ config, formConfig, placementId, onS
           boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
         }}
       >
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <div className={gridClass}>
           {media.enabled && (
             <div className="p-5 lg:p-6">
               <div
