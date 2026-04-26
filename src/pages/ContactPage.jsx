@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { submitLeadForm } from "@/lib/publicLeadForms.js";
+import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
 
 const SERVICE_OPTIONS = [
   "Branding e identidad visual",
@@ -59,6 +60,7 @@ const CONTACT_INFO = [
 
 const CONTACT_MAP_EMBED_URL =
   "https://maps.google.com/maps?q=18.0261881,-66.6123375&z=17&output=embed";
+const CONTACT_FORM_SECTION_KEY = "contact_main_form";
 
 // ─── Contact form ─────────────────────────────────────────────────────────────
 
@@ -332,7 +334,10 @@ export default function ContactPage() {
           </div>
           <div className="contact-form-section__body">
             <div className="contact-form-section__form-col">
-              <ContactForm prefilledService={prefilledService} />
+              <FormPlacementRenderer
+                sectionKey={CONTACT_FORM_SECTION_KEY}
+                fallback={<ContactForm prefilledService={prefilledService} />}
+              />
             </div>
             <aside className="contact-form-section__info-col">
               <div className="contact-info-card">
