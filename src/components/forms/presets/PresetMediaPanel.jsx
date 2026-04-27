@@ -12,9 +12,11 @@ function extractYoutubeId(url) {
   return null;
 }
 
-// Reads media config from visual_config.media (not directly from formConfig).
-// Fallback: if image_url/youtube_url are empty in media config, resolveVisualConfig
-// already copies them from formConfig's top-level fields before this component is called.
+// Renders the media panel for a form preset.
+// For images: uses background-image so it works regardless of parent height source
+// (min-height from flex items resolves correctly for background, not for absolute children).
+// For youtube: keeps iframe with aspect-ratio wrapper.
+// className is applied directly to the root element — callers control sizing.
 export default function PresetMediaPanel({ config, formConfig, className = "" }) {
   const { media } = config;
 
@@ -25,17 +27,15 @@ export default function PresetMediaPanel({ config, formConfig, className = "" })
   const showImage = media.type === "image" && !!imageUrl;
 
   if (!showImage && !youtubeId) {
-    return (
-      <div className={`h-full w-full bg-slate-100 ${className}`} />
-    );
+    return <div className={`bg-slate-100 ${className}`} />;
   }
 
-  return (
-    <div
-      className={`relative h-full w-full overflow-hidden ${className}`}
-      style={{ borderRadius: media.radius || "0" }}
-    >
-      {youtubeId ? (
+  if (youtubeId) {
+    return (
+      <div
+        className={`relative overflow-hidden ${className}`}
+        style={{ borderRadius: media.radius || "0" }}
+      >
         <iframe
           src={`https://www.youtube.com/embed/${youtubeId}`}
           title={formConfig?.headline || "Video"}
@@ -43,21 +43,32 @@ export default function PresetMediaPanel({ config, formConfig, className = "" })
           allowFullScreen
           className="aspect-video w-full"
         />
-      ) : showImage ? (
-        <img
-          src={imageUrl}
-          alt={formConfig?.headline || ""}
-          className="absolute inset-0 h-full w-full"
-          style={{ objectFit: media.object_fit || "cover" }}
-        />
-      ) : null}
+        {media.overlay && (
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{ backgroundColor: `rgba(0,0,0,${media.overlay_opacity ?? 0.3})` }}
+          />
+        )}
+      </div>
+    );
+  }
 
-      {media.overlay && (
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ backgroundColor: `rgba(0,0,0,${media.overlay_opacity ?? 0.3})` }}
-        />
-      )}
-    </div>
+  const overlayColor = media.overlay
+    ? `rgba(0,0,0,${media.overlay_opacity ?? 0.3})`
+    : null;
+
+  return (
+    <div
+      className={className}
+      style={{
+        borderRadius: media.radius || "0",
+        backgroundImage: overlayColor
+          ? `linear-gradient(${overlayColor},${overlayColor}),url("${imageUrl}")`
+          : `url("${imageUrl}")`,
+        backgroundSize: media.object_fit === "contain" ? "contain" : "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    />
   );
 }

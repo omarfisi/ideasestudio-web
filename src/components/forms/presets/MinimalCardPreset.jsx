@@ -34,14 +34,11 @@ export default function MinimalCardPreset({ config, formConfig, placementId, onS
         <div className={gridClass}>
           {media.enabled && (
             <div className="p-5 lg:p-6">
-              <div
-                className="overflow-hidden"
-                style={{ borderRadius: media.radius || "20px", minHeight: "220px" }}
-              >
+              <div className="overflow-hidden" style={{ borderRadius: media.radius || "20px" }}>
                 <PresetMediaPanel
                   config={config}
                   formConfig={formConfig}
-                  className="h-full min-h-[220px]"
+                  className="w-full min-h-[220px]"
                 />
               </div>
             </div>

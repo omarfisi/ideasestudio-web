@@ -2,6 +2,7 @@ import FormShell from "./FormShell.jsx";
 import PresetMediaPanel from "./PresetMediaPanel.jsx";
 import FormFieldsRenderer from "../FormFieldsRenderer.jsx";
 
+
 // Welcome-offer popup layout: large split modal with form copy at left and media at right.
 export default function PopupOfferSplitPreset({ config, formConfig, placementId, onSuccess }) {
   const { colors, content, media } = config;
@@ -65,14 +66,11 @@ export default function PopupOfferSplitPreset({ config, formConfig, placementId,
   );
 
   const mediaColumn = showMedia ? (
-    <div
-      style={{ flex: `0 0 ${mediaRatio}%`, minHeight: "280px" }}
-      className="relative min-h-[280px] lg:min-h-[560px]"
-    >
+    <div style={{ flex: `0 0 ${mediaRatio}%` }} className="min-h-[280px] lg:min-h-[560px]">
       <PresetMediaPanel
         config={config}
         formConfig={formConfig}
-        className="absolute inset-0 h-full w-full"
+        className="w-full min-h-[280px] lg:min-h-[560px]"
       />
     </div>
   ) : null;

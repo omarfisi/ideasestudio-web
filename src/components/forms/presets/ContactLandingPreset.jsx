@@ -1,5 +1,4 @@
 import FormShell from "./FormShell.jsx";
-import PresetMediaPanel from "./PresetMediaPanel.jsx";
 import FormContentPanel from "./FormContentPanel.jsx";
 import FormFieldsRenderer from "../FormFieldsRenderer.jsx";
 
@@ -11,17 +10,26 @@ export default function ContactLandingPreset({ config, formConfig, placementId, 
   const mediaRatio = Number(media.width_ratio) || 60;
   const contentRatio = 100 - mediaRatio;
 
-  const mediaCol = media.enabled ? (
+  const imageUrl = media.image_url || formConfig?.image_url || "";
+  const showImage = media.enabled && media.type === "image" && !!imageUrl;
+
+  const overlayColor = media.overlay
+    ? `rgba(0,0,0,${media.overlay_opacity ?? 0.3})`
+    : null;
+
+  const mediaCol = showImage ? (
     <div
-      className="relative overflow-hidden"
-      style={{ flex: `0 0 ${mediaRatio}%`, minHeight: "480px" }}
-    >
-      <PresetMediaPanel
-        config={config}
-        formConfig={formConfig}
-        className="absolute inset-0 h-full w-full"
-      />
-    </div>
+      className="min-h-[260px] lg:min-h-[420px]"
+      style={{
+        flex: `0 0 ${mediaRatio}%`,
+        backgroundImage: overlayColor
+          ? `linear-gradient(${overlayColor},${overlayColor}),url("${imageUrl}")`
+          : `url("${imageUrl}")`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    />
   ) : null;
 
   const formCol = (
@@ -38,7 +46,7 @@ export default function ContactLandingPreset({ config, formConfig, placementId, 
 
   return (
     <FormShell config={config}>
-      <div className="flex flex-col lg:flex-row" style={{ minHeight: "480px" }}>
+      <div className="flex flex-col lg:flex-row min-h-[380px] lg:min-h-[480px]">
         {isLeft ? <>{mediaCol}{formCol}</> : <>{formCol}{mediaCol}</>}
       </div>
     </FormShell>
