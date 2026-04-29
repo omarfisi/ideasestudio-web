@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLoaderData } from "react-router-dom";
+import { Link, useLoaderData, useLocation } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
 import {
   getCardEyebrow,
@@ -158,9 +158,11 @@ function ImageLightbox({ images, index, onClose, onPrev, onNext, title }) {
 }
 
 export default function PortfolioProjectPage() {
+  const location = useLocation();
   const { project, related = [] } = useLoaderData();
   const [activeImageIndex, setActiveImageIndex] = useState(null);
   const relatedCarouselRef = useRef(null);
+  const portfolioReturn = location.state?.portfolioReturn || null;
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -185,6 +187,21 @@ export default function PortfolioProjectPage() {
     () => modalImages.findIndex((src) => src === heroImage),
     [modalImages, heroImage]
   );
+  const projectNavigationSlugs = portfolioReturn?.projectNavigationSlugs || [];
+  const navigationIndex = project ? projectNavigationSlugs.indexOf(project.slug) : -1;
+  const prevProjectSlug =
+    navigationIndex > 0 ? projectNavigationSlugs[navigationIndex - 1] : null;
+  const nextProjectSlug =
+    navigationIndex >= 0 && navigationIndex < projectNavigationSlugs.length - 1
+      ? projectNavigationSlugs[navigationIndex + 1]
+      : null;
+  const returnState = portfolioReturn ? { portfolioReturn } : undefined;
+  const relatedTitleClampStyle = {
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
+  };
 
   useEffect(() => {
     if (activeImageIndex === null || !modalImages.length) return undefined;
@@ -238,73 +255,102 @@ export default function PortfolioProjectPage() {
 
   return (
     <main className="bg-[#f5f5f3] text-neutral-950">
-      <section className="px-4 pb-12 pt-10 md:px-6 md:pb-16 md:pt-16">
-        <div className="mx-auto max-w-7xl">
-          <Link
-            to="/portafolio"
-            className="mb-6 inline-flex items-center text-sm font-semibold text-neutral-600 transition hover:text-black"
-          >
-            ← Volver al portafolio
-          </Link>
+      <section className="pb-12 pt-10 md:pb-16 md:pt-16">
+        <div className="mx-auto max-w-7xl px-4 md:px-6">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <Link
+              to="/portafolio"
+              state={returnState}
+              className="inline-flex items-center rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:border-black hover:bg-black hover:text-white"
+            >
+              ← Volver al portafolio
+            </Link>
 
-          <div className="overflow-hidden rounded-[36px] bg-black text-white shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
-            <div className="grid items-stretch lg:grid-cols-[1.05fr_0.95fr]">
-              <button
-                type="button"
-                className="group relative min-h-[380px] overflow-hidden text-left lg:min-h-[620px]"
-                onClick={() => setActiveImageIndex(heroImageIndex >= 0 ? heroImageIndex : 0)}
-                aria-label="Abrir imagen del proyecto"
-              >
-                {heroImage ? (
-                  <img
-                    src={heroImage}
-                    alt={project.title}
-                    className="absolute inset-0 h-full w-full object-cover object-top transition duration-500 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="absolute inset-0 bg-neutral-800" />
-                )}
-                <div className="absolute inset-0 bg-black/35" />
-              </button>
-
-              <div className="flex flex-col justify-center p-8 md:p-12 lg:p-14">
-                <span className="inline-flex w-fit rounded-full bg-[#f2cc3d] px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-black">
-                  {getCardEyebrow(project)}
-                </span>
-                <h1 className="mt-6 text-4xl font-semibold leading-tight text-white md:text-6xl">
-                  {getCardTitle(project)}
-                </h1>
-                <p className="mt-6 text-base leading-8 text-white/75 md:text-lg">
-                  {description}
-                </p>
-
-                {detailItems.length ? (
-                  <div className="mt-7 flex flex-wrap gap-2">
-                    {detailItems.map((item) => (
-                      <span
-                        key={item}
-                        className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold text-white/80"
-                      >
-                        {item}
-                      </span>
-                    ))}
-                  </div>
+            {prevProjectSlug || nextProjectSlug ? (
+              <div className="flex items-center gap-2">
+                {prevProjectSlug ? (
+                  <Link
+                    to={`/portafolio/${prevProjectSlug}`}
+                    state={returnState}
+                    className="inline-flex items-center rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:border-black hover:bg-black hover:text-white"
+                  >
+                    <ArrowLeftIcon />
+                    <span className="ml-2">Anterior</span>
+                  </Link>
                 ) : null}
+                {nextProjectSlug ? (
+                  <Link
+                    to={`/portafolio/${nextProjectSlug}`}
+                    state={returnState}
+                    className="inline-flex items-center rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:border-black hover:bg-black hover:text-white"
+                  >
+                    <span className="mr-2">Siguiente</span>
+                    <ArrowRightIcon />
+                  </Link>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </div>
 
-                <div className="mt-8 flex flex-wrap items-center gap-3">
-                  <Link
-                    to="/contacto?mode=proposal&cta=portfolio-project"
-                    className="inline-flex items-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-[#f2cc3d]"
-                  >
-                    Quiero algo así
-                  </Link>
-                  <Link
-                    to="/portafolio"
-                    className="inline-flex items-center rounded-full border border-white/25 px-6 py-3 text-sm font-semibold text-white transition hover:border-white hover:bg-white hover:text-black"
-                  >
-                    Ver más proyectos
-                  </Link>
+        <div className="overflow-hidden rounded-none bg-black text-white shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
+          <div className="grid items-stretch lg:grid-cols-[1.05fr_0.95fr]">
+            <button
+              type="button"
+              className="group relative min-h-[380px] overflow-hidden text-left lg:min-h-[620px]"
+              onClick={() => setActiveImageIndex(heroImageIndex >= 0 ? heroImageIndex : 0)}
+              aria-label="Abrir imagen del proyecto"
+            >
+              {heroImage ? (
+                <img
+                  src={heroImage}
+                  alt={project.title}
+                  className="absolute inset-0 h-full w-full object-cover object-top transition duration-500 group-hover:scale-105"
+                />
+              ) : (
+                <div className="absolute inset-0 bg-neutral-800" />
+              )}
+              <div className="absolute inset-0 bg-black/35" />
+            </button>
+
+            <div className="flex flex-col justify-center p-8 md:p-12 lg:p-14">
+              <span className="inline-flex w-fit rounded-full bg-[#f2cc3d] px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-black">
+                {getCardEyebrow(project)}
+              </span>
+              <h1 className="mt-6 text-4xl font-semibold leading-tight text-white md:text-6xl">
+                {getCardTitle(project)}
+              </h1>
+              <p className="mt-6 text-base leading-8 text-white/75 md:text-lg">
+                {description}
+              </p>
+
+              {detailItems.length ? (
+                <div className="mt-7 flex flex-wrap gap-2">
+                  {detailItems.map((item) => (
+                    <span
+                      key={item}
+                      className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold text-white/80"
+                    >
+                      {item}
+                    </span>
+                  ))}
                 </div>
+              ) : null}
+
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                <Link
+                  to="/contacto?mode=proposal&cta=portfolio-project"
+                  className="inline-flex items-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-[#f2cc3d]"
+                >
+                  Quiero algo así
+                </Link>
+                <Link
+                  to="/portafolio"
+                  state={returnState}
+                  className="inline-flex items-center rounded-full border border-white/25 px-6 py-3 text-sm font-semibold text-white transition hover:border-white hover:bg-white hover:text-black"
+                >
+                  Ver más proyectos
+                </Link>
               </div>
             </div>
           </div>
@@ -474,7 +520,8 @@ export default function PortfolioProjectPage() {
                     <Link
                       key={item.id}
                       to={getProjectPath(item)}
-                      className="group min-w-[86%] overflow-hidden rounded-[28px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.06)] transition duration-300 hover:-translate-y-1 md:min-w-[48%] xl:min-w-[31.7%] [scroll-snap-align:start]"
+                      state={returnState}
+                      className="group flex min-w-[86%] flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.06)] transition duration-300 hover:-translate-y-1 md:min-w-[48%] xl:min-w-[31.7%] [scroll-snap-align:start]"
                     >
                       <div className="relative aspect-[4/3] overflow-hidden">
                         {image ? (
@@ -488,11 +535,14 @@ export default function PortfolioProjectPage() {
                           <div className="h-full w-full bg-neutral-200" />
                         )}
                       </div>
-                      <div className="p-5">
+                      <div className="flex flex-1 flex-col p-5">
                         <p className="text-xs font-medium uppercase tracking-[0.18em] text-neutral-400">
                           {getCardEyebrow(item)}
                         </p>
-                        <h3 className="mt-2 text-lg font-semibold text-neutral-950">
+                        <h3
+                          className="mt-2 text-lg font-semibold leading-7 text-neutral-950"
+                          style={relatedTitleClampStyle}
+                        >
                           {getCardTitle(item)}
                         </h3>
                       </div>
@@ -508,7 +558,8 @@ export default function PortfolioProjectPage() {
                     <Link
                       key={item.id}
                       to={getProjectPath(item)}
-                      className="group overflow-hidden rounded-[28px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.06)] transition duration-300 hover:-translate-y-1"
+                      state={returnState}
+                      className="group flex h-full flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.06)] transition duration-300 hover:-translate-y-1"
                     >
                       <div className="relative aspect-[4/3] overflow-hidden">
                         {image ? (
@@ -522,11 +573,14 @@ export default function PortfolioProjectPage() {
                           <div className="h-full w-full bg-neutral-200" />
                         )}
                       </div>
-                      <div className="p-5">
+                      <div className="flex flex-1 flex-col p-5">
                         <p className="text-xs font-medium uppercase tracking-[0.18em] text-neutral-400">
                           {getCardEyebrow(item)}
                         </p>
-                        <h3 className="mt-2 text-lg font-semibold text-neutral-950">
+                        <h3
+                          className="mt-2 text-lg font-semibold leading-7 text-neutral-950"
+                          style={relatedTitleClampStyle}
+                        >
                           {getCardTitle(item)}
                         </h3>
                       </div>
@@ -555,7 +609,7 @@ export default function PortfolioProjectPage() {
               <Button to="/contacto?mode=proposal&cta=portfolio-project-final">
                 Solicitar propuesta
               </Button>
-              <Button to="/portafolio" variant="secondary">
+              <Button to="/portafolio" state={returnState} variant="secondary">
                 Volver al portafolio
               </Button>
             </div>

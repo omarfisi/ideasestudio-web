@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
 import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
 import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
@@ -30,6 +30,10 @@ function PlayIcon() {
       <path d="M8 5.14v13.72c0 .77.83 1.25 1.5.86l10-6.86a1 1 0 0 0 0-1.72l-10-6.86A1 1 0 0 0 8 5.14Z" />
     </svg>
   );
+}
+
+function getProjectHref(item) {
+  return item?.slug ? `/portafolio/${item.slug}` : "/portafolio";
 }
 
 function ArrowLeftIcon() {
@@ -266,13 +270,11 @@ function GalleryModal({ open, onClose, item }) {
 // ─── VideoCard — portada tarjeta 16:10 ───────────────────────
 // Usa portfolioCoverUrl (portfolio_cover_url || cover_url)
 // con fallback a miniatura de YouTube si no hay portada propia.
-function VideoCard({ item, onOpen }) {
+function VideoCard({ item, onOpen, projectLinkState }) {
   const thumb = item.portfolioCoverUrl || getYoutubeThumbnail(item.videoUrl);
 
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(item)}
+    <article
       className="group relative flex w-[320px] min-w-[320px] shrink-0 flex-col overflow-hidden rounded-[28px] bg-white p-0 text-left shadow-[0_15px_40px_rgba(0,0,0,0.08)] transition duration-300 hover:-translate-y-1 [scroll-snap-align:start]"
     >
       {/* aspect-[16/10] — ratio real del componente */}
@@ -290,11 +292,16 @@ function VideoCard({ item, onOpen }) {
         <div className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-neutral-900">
           {getCardEyebrow(item)}
         </div>
-        <div className="absolute inset-0 flex items-center justify-center">
+        <button
+          type="button"
+          onClick={() => onOpen(item)}
+          className="absolute inset-0 flex items-center justify-center bg-black/10"
+          aria-label={`Abrir video ${item.title}`}
+        >
           <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-white text-black shadow-lg">
             <PlayIcon />
           </span>
-        </div>
+        </button>
       </div>
 
       <div className="p-5">
@@ -308,15 +315,24 @@ function VideoCard({ item, onOpen }) {
           </p>
         )}
         <p className="mt-2 text-sm leading-6 text-neutral-600">{getItemDescription(item)}</p>
+        <div className="mt-4">
+          <Link
+            to={getProjectHref(item)}
+            state={item.slug ? projectLinkState : undefined}
+            className="inline-flex items-center rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:border-black hover:bg-black hover:text-white"
+          >
+            Ver proyecto
+          </Link>
+        </div>
       </div>
-    </button>
+    </article>
   );
 }
 
 // ─── MasonryCard — portada general, altura variable ──────────
 // Usa coverUrl (cover_url). Las alturas varían según sectionKey
 // para crear el efecto masonry natural.
-function MasonryCard({ item, onOpenGallery }) {
+function MasonryCard({ item, onOpenGallery, projectLinkState }) {
   const heightClass =
     item.sectionKey === "featured" || item.isFeatured
       ? "h-[480px]"
@@ -353,6 +369,16 @@ function MasonryCard({ item, onOpenGallery }) {
             Cliente: <span className="text-neutral-500">{item.clientName}</span>
           </p>
         )}
+        <div className="mt-4">
+          <Link
+            to={getProjectHref(item)}
+            state={item.slug ? projectLinkState : undefined}
+            onClick={(event) => event.stopPropagation()}
+            className="inline-flex items-center rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:border-black hover:bg-black hover:text-white"
+          >
+            Ver proyecto
+          </Link>
+        </div>
       </div>
     </article>
   );
@@ -360,7 +386,7 @@ function MasonryCard({ item, onOpenGallery }) {
 
 // ─── GridCard — portada tarjeta 4:3 ──────────────────────────
 // Usa portfolioCoverUrl (portfolio_cover_url || cover_url).
-function GridCard({ item, onOpenVideo, onOpenGallery }) {
+function GridCard({ item, onOpenVideo, onOpenGallery, projectLinkState }) {
   const isVideo = item.mediaKind === "video" && Boolean(item.videoUrl);
   const thumb = item.portfolioCoverUrl || (isVideo ? getYoutubeThumbnail(item.videoUrl) : "");
 
@@ -422,6 +448,16 @@ function GridCard({ item, onOpenVideo, onOpenGallery }) {
             Cliente: <span className="text-neutral-500">{item.clientName}</span>
           </p>
         )}
+        <div className="mt-4">
+          <Link
+            to={getProjectHref(item)}
+            state={item.slug ? projectLinkState : undefined}
+            onClick={(event) => event.stopPropagation()}
+            className="inline-flex items-center rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:border-black hover:bg-black hover:text-white"
+          >
+            Ver proyecto
+          </Link>
+        </div>
       </div>
     </article>
   );
@@ -489,6 +525,7 @@ function Pagination({ total, pageSize, page, onChange }) {
 
 // ─── Página principal ─────────────────────────────────────────
 export default function PortfolioPage() {
+  const location = useLocation();
   const [filtroActivo, setFiltroActivo] = useState("Todos");
   const [subcategoryActivo, setSubcategoryActivo] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -498,12 +535,45 @@ export default function PortfolioPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const carouselRef = useRef(null);
+  const hasRestoredStateRef = useRef(false);
+  const isRestoringStateRef = useRef(false);
+  const pendingScrollYRef = useRef(null);
 
   // ── Paginación por sección ─────────────────────────────────
   const PAGE_SIZE = 6;
   const [fotosPage, setFotosPage] = useState(1);
   const [gridPage, setGridPage] = useState(1);
   const [videosPage, setVideosPage] = useState(1);
+
+  // Restaurar contexto al volver desde /portafolio/:slug
+  useEffect(() => {
+    const saved = location.state?.portfolioReturn;
+    if (!saved || hasRestoredStateRef.current) return;
+
+    hasRestoredStateRef.current = true;
+    isRestoringStateRef.current = true;
+
+    if (saved.filtroActivo) setFiltroActivo(saved.filtroActivo);
+    if ("subcategoryActivo" in saved) {
+      setSubcategoryActivo(saved.subcategoryActivo || null);
+    }
+    if (Number.isInteger(saved.fotosPage) && saved.fotosPage > 0) {
+      setFotosPage(saved.fotosPage);
+    }
+    if (Number.isInteger(saved.gridPage) && saved.gridPage > 0) {
+      setGridPage(saved.gridPage);
+    }
+    if (Number.isInteger(saved.videosPage) && saved.videosPage > 0) {
+      setVideosPage(saved.videosPage);
+    }
+    if (Number.isFinite(saved.scrollY) && saved.scrollY >= 0) {
+      pendingScrollYRef.current = saved.scrollY;
+    }
+
+    setTimeout(() => {
+      isRestoringStateRef.current = false;
+    }, 0);
+  }, [location.state]);
 
   // Carga inicial
   useEffect(() => {
@@ -517,6 +587,17 @@ export default function PortfolioPage() {
     });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (loading || pendingScrollYRef.current === null) return;
+    const targetY = pendingScrollYRef.current;
+    pendingScrollYRef.current = null;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: targetY, behavior: "auto" });
+      });
+    });
+  }, [loading]);
 
   // ── Derivar colecciones a partir de los datos ──────────────
   // section_key controls placement explicitly; "general"/null falls back to category.
@@ -562,10 +643,14 @@ export default function PortfolioPage() {
   }, [filtroActivo, items]);
 
   // reset subcategory cuando cambia la categoría principal
-  useEffect(() => { setSubcategoryActivo(null); }, [filtroActivo]);
+  useEffect(() => {
+    if (isRestoringStateRef.current) return;
+    setSubcategoryActivo(null);
+  }, [filtroActivo]);
 
   // reset paginación cuando cambia filtro o subcategoría
   useEffect(() => {
+    if (isRestoringStateRef.current) return;
     setFotosPage(1);
     setGridPage(1);
     setVideosPage(1);
@@ -589,6 +674,35 @@ export default function PortfolioPage() {
     if (filtroActivo === "Todos") return grid;
     return grid.filter((i) => i.category === filtroActivo);
   }, [filtroActivo, grid]);
+
+  const projectNavigationSlugs = useMemo(() => {
+    const seen = new Set();
+    return [...videosFiltrados, ...fotosFiltradas, ...gridFiltrado]
+      .map((item) => item.slug)
+      .filter((slug) => slug && !seen.has(slug) && seen.add(slug));
+  }, [videosFiltrados, fotosFiltradas, gridFiltrado]);
+
+  const projectLinkState = useMemo(
+    () => ({
+      portfolioReturn: {
+        filtroActivo,
+        subcategoryActivo,
+        fotosPage,
+        gridPage,
+        videosPage,
+        scrollY: window.scrollY,
+        projectNavigationSlugs,
+      },
+    }),
+    [
+      filtroActivo,
+      subcategoryActivo,
+      fotosPage,
+      gridPage,
+      videosPage,
+      projectNavigationSlugs,
+    ]
+  );
 
   // ── Slider de destacados — todos los publicados con imagen ──
   const slideItems = items.filter(i => i.homeCoverUrl || i.coverUrl);
@@ -666,8 +780,8 @@ export default function PortfolioPage() {
           Contenedor: min-h-[380px] lg:min-h-[520px] sin ratio fijo
       */}
       {(loading || slideActual) ? (
-        <section className="section-split px-4 pb-12 md:px-6">
-          <div className="mx-auto max-w-7xl">
+        <section className="section-split pb-12">
+          <div className="mx-auto max-w-7xl px-4 md:px-6">
             <div className="mb-8 flex items-end justify-between">
               <div>
                 <h2 className="text-3xl font-semibold md:text-4xl">
@@ -699,66 +813,83 @@ export default function PortfolioPage() {
                 </div>
               ) : null}
             </div>
+          </div>
 
-            {loading ? (
-              <div className="overflow-hidden rounded-[36px] bg-neutral-200 animate-pulse min-h-[380px] lg:min-h-[520px]" />
-            ) : slideActual ? (
-              <div className="overflow-hidden rounded-[36px] bg-black text-white shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
-                <div className="grid items-stretch lg:grid-cols-[1.05fr_0.95fr]">
-                  {/* Imagen: homeCoverUrl — portada optimizada para home/slider */}
-                  <div className="relative flex items-center justify-center min-h-[380px] lg:min-h-[520px] overflow-hidden">
-                    {slideActual.homeCoverUrl ? (
-                      <img
-                        key={slideActual.id}
-                        src={slideActual.homeCoverUrl}
-                        alt={slideActual.title}
-                        className="absolute inset-0 h-full w-full object-cover transition-opacity duration-500"
-                        style={{ objectPosition: "50% 15%" }}
-                      />
-                    ) : (
-                      <div className="absolute inset-0 bg-neutral-800" />
-                    )}
-                    <div className="absolute inset-0 bg-black/35" />
-                    {totalSlides > 1 && (
-                      <div className="pointer-events-none absolute bottom-4 left-4 z-10">
-                        <div className="flex items-center gap-2 rounded-full bg-black/30 px-3 py-[7px] backdrop-blur-md">
-                          <div className="h-[3px] w-20 overflow-hidden rounded-full bg-white/20">
-                            <div
-                              className="h-full rounded-full bg-white transition-all duration-500 ease-out"
-                              style={{ width: `${((slideIndex + 1) / totalSlides) * 100}%` }}
-                            />
-                          </div>
-                          <span className="text-[10px] font-medium leading-none tracking-wide text-white/60">
-                            {slideIndex + 1}&thinsp;/&thinsp;{totalSlides}
-                          </span>
+          {loading ? (
+            <div className="overflow-hidden bg-neutral-200 animate-pulse min-h-[520px] lg:min-h-[760px]" />
+          ) : slideActual ? (
+            <div className="overflow-hidden bg-black text-white shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
+              <div className="grid items-stretch lg:grid-cols-[1.2fr_0.8fr]">
+                {/* Imagen: homeCoverUrl — portada optimizada para home/slider */}
+                <div className="relative flex items-center justify-center min-h-[520px] lg:min-h-[760px] overflow-hidden">
+                  {slideActual.homeCoverUrl ? (
+                    <img
+                      key={slideActual.id}
+                      src={slideActual.homeCoverUrl}
+                      alt={slideActual.title}
+                      className="absolute inset-0 h-full w-full object-cover transition-opacity duration-500"
+                      style={{ objectPosition: "50% 15%" }}
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-neutral-800" />
+                  )}
+                  <div className="absolute inset-0 bg-black/35" />
+                  {totalSlides > 1 && (
+                    <div className="pointer-events-none absolute bottom-4 left-4 z-10 hidden md:block">
+                      <div className="flex items-center gap-2 rounded-full bg-black/30 px-3 py-[7px] backdrop-blur-md">
+                        <div className="h-[3px] w-20 overflow-hidden rounded-full bg-white/20">
+                          <div
+                            className="h-full rounded-full bg-white transition-all duration-500 ease-out"
+                            style={{ width: `${((slideIndex + 1) / totalSlides) * 100}%` }}
+                          />
                         </div>
+                        <span className="text-[10px] font-medium leading-none tracking-wide text-white/60">
+                          {slideIndex + 1}&thinsp;/&thinsp;{totalSlides}
+                        </span>
                       </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col justify-center p-8 md:p-12 lg:p-14">
-                    <span className="inline-flex w-fit rounded-full bg-[#f2cc3d] px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-black">
-                      {getCardEyebrow(slideActual)}
-                    </span>
-                    <h3 className="mt-6 text-3xl font-semibold leading-tight text-white md:text-5xl">
-                      {slideActual.title}
-                    </h3>
-                    <p className="mt-6 text-base leading-8 text-white/75 md:text-lg">
-                      {getItemDescription(slideActual)}
-                    </p>
-                    <div className="mt-8 flex items-center gap-4">
-                      <Link
-                        to={slideActual.slug ? `/portafolio/${slideActual.slug}` : "/portafolio"}
-                        className="inline-flex items-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-[#f2cc3d]"
-                      >
-                        Ver proyecto
-                      </Link>
                     </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col justify-center p-8 md:p-12 lg:p-14">
+                  <span className="inline-flex w-fit rounded-full bg-[#f2cc3d] px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-black">
+                    {getCardEyebrow(slideActual)}
+                  </span>
+                  <h3 className="mt-6 text-3xl font-semibold leading-tight text-white md:text-5xl">
+                    {slideActual.title}
+                  </h3>
+                  <p className="mt-6 text-base leading-8 text-white/75 md:text-lg">
+                    {getItemDescription(slideActual)}
+                  </p>
+                  <div className="mt-8 flex items-center gap-4">
+                    <Link
+                      to={slideActual.slug ? `/portafolio/${slideActual.slug}` : "/portafolio"}
+                      state={slideActual.slug ? projectLinkState : undefined}
+                      className="inline-flex items-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-[#f2cc3d]"
+                    >
+                      Ver proyecto
+                    </Link>
                   </div>
                 </div>
               </div>
-            ) : null}
-          </div>
+
+              {totalSlides > 1 && (
+                <div className="pointer-events-none px-4 pb-4 md:hidden">
+                  <div className="mx-auto flex w-fit items-center gap-2 rounded-full bg-white/10 px-3 py-[7px] backdrop-blur-md">
+                    <div className="h-[3px] w-20 overflow-hidden rounded-full bg-white/20">
+                      <div
+                        className="h-full rounded-full bg-white transition-all duration-500 ease-out"
+                        style={{ width: `${((slideIndex + 1) / totalSlides) * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] font-medium leading-none tracking-wide text-white/70">
+                      {slideIndex + 1}&thinsp;/&thinsp;{totalSlides}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
         </section>
       ) : null}
 
@@ -941,7 +1072,12 @@ export default function PortfolioPage() {
                     </div>
                   ))
                 : videosFiltrados.slice((videosPage - 1) * PAGE_SIZE, videosPage * PAGE_SIZE).map((item) => (
-                    <VideoCard key={item.id} item={item} onOpen={setVideoAbierto} />
+                    <VideoCard
+                      key={item.id}
+                      item={item}
+                      onOpen={setVideoAbierto}
+                      projectLinkState={projectLinkState}
+                    />
                   ))}
             </div>
             {!loading && videosFiltrados.length > PAGE_SIZE && (
@@ -975,7 +1111,12 @@ export default function PortfolioPage() {
                     </div>
                   ))
                 : fotosFiltradas.slice((fotosPage - 1) * PAGE_SIZE, fotosPage * PAGE_SIZE).map((item) => (
-                    <MasonryCard key={item.id} item={item} onOpenGallery={setGalleryItem} />
+                    <MasonryCard
+                      key={item.id}
+                      item={item}
+                      onOpenGallery={setGalleryItem}
+                      projectLinkState={projectLinkState}
+                    />
                   ))}
             </div>
             {!loading && fotosFiltradas.length > PAGE_SIZE && (
@@ -1006,7 +1147,13 @@ export default function PortfolioPage() {
                     <SkeletonCard key={i} aspect="aspect-[4/3]" />
                   ))
                 : gridFiltrado.slice((gridPage - 1) * PAGE_SIZE, gridPage * PAGE_SIZE).map((item) => (
-                    <GridCard key={item.id} item={item} onOpenVideo={setVideoAbierto} onOpenGallery={setGalleryItem} />
+                    <GridCard
+                      key={item.id}
+                      item={item}
+                      onOpenVideo={setVideoAbierto}
+                      onOpenGallery={setGalleryItem}
+                      projectLinkState={projectLinkState}
+                    />
                   ))}
             </div>
             {!loading && gridFiltrado.length > PAGE_SIZE && (
