@@ -11,6 +11,7 @@ import {
   getPublicProductBySlug,
   getPublicProductCategories,
   getPublicOrderByNumber,
+  getPublicPortfolioItems,
   getPublicProducts,
   getPublicServiceCategories,
   getPublicServiceBySlug,
@@ -26,6 +27,7 @@ import ServiceDetailPage from "@/pages/ServiceDetailPage.jsx";
 import StorePage from "@/pages/StorePage.jsx";
 import ProductDetailPage from "@/pages/ProductDetailPage.jsx";
 import PortfolioPage from "@/pages/PortfolioPage.jsx";
+import PortfolioProjectPage from "@/pages/PortfolioProjectPage.jsx";
 import TeamPage from "@/pages/TeamPage.jsx";
 import BlogPage from "@/pages/BlogPage.jsx";
 import BlogPostDetailPage from "@/pages/BlogPostDetailPage.jsx";
@@ -123,6 +125,43 @@ const loadProductDetail = async ({ params }) => {
   } catch (error) {
     return {
       product: null,
+    };
+  }
+};
+
+const loadPortfolioProject = async ({ params }) => {
+  try {
+    const items = await getPublicPortfolioItems({ limit: 500 });
+    const project = items.find((item) => item.slug === params.slug) || null;
+
+    if (!project) {
+      return {
+        project: null,
+        related: [],
+      };
+    }
+
+    const candidates = items.filter(
+      (item) => item.slug && item.slug !== project.slug
+    );
+    const preferred = candidates.filter(
+      (item) =>
+        item.subcategory === project.subcategory ||
+        item.category === project.category
+    );
+    const preferredIds = new Set(preferred.map((item) => item.id));
+
+    return {
+      project,
+      related: [
+        ...preferred,
+        ...candidates.filter((item) => !preferredIds.has(item.id)),
+      ],
+    };
+  } catch {
+    return {
+      project: null,
+      related: [],
     };
   }
 };
@@ -261,6 +300,11 @@ const router = createBrowserRouter([
       {
         path: "portafolio",
         element: <PortfolioPage />,
+      },
+      {
+        path: "portafolio/:slug",
+        loader: loadPortfolioProject,
+        element: <PortfolioProjectPage />,
       },
       {
         path: "equipo",

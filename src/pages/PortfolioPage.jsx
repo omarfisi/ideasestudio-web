@@ -4,6 +4,14 @@ import Button from "@/components/shared/Button.jsx";
 import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
 import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
 import { getPublicPortfolioItems } from "@/lib/api.js";
+import {
+  getCardEyebrow,
+  getCardTitle,
+  getItemDescription,
+  getSubcategoryLabel,
+  getYoutubeEmbedUrl,
+  getYoutubeThumbnail,
+} from "@/lib/portfolioPresentation.js";
 
 // ─── Categorías de filtro — valor = slug de la API ───────────
 const CATEGORY_FILTERS = [
@@ -14,163 +22,6 @@ const CATEGORY_FILTERS = [
   { value: "web",             label: "Web" },
   { value: "marketing_digital", label: "Marketing" },
 ];
-
-// ─── Etiqueta específica de tarjeta ──────────────────────────
-const SUBCAT_LABELS = {
-  embarazo:             "Fotografía de embarazo",
-  boda:                 "Fotografía de boda",
-  love_story:           "Love Story",
-  cumpleanos:           "Fotografía de cumpleaños",
-  graduacion:           "Fotografía de graduación",
-  evento:               "Fotografía de evento",
-  exterior:             "Fotografía de exterior",
-  estudio:              "Fotografía de estudio",
-  montaje:              "Estudio y montaje",
-  retrato:              "Retrato",
-  producto:             "Fotografía de producto",
-  promocional:          "Video promocional",
-  cobertura:            "Cobertura de evento",
-  reel:                 "Reel / Short-form",
-  entrevista:           "Entrevista",
-  video_basico:         "Producción básica",
-  video_avanzado:       "Producción avanzada",
-  logo:                 "Logo",
-  identidad_visual:     "Identidad visual",
-  material_promocional: "Material promocional",
-  tarjeta:              "Tarjeta de presentación",
-  landing_page:         "Landing page",
-  web_corporativa:      "Web corporativa",
-  ecommerce:            "E-commerce",
-  redes_sociales:       "Gestión de redes sociales",
-  estrategia_contenido: "Estrategia de contenido",
-  materiales_marketing: "Materiales de marketing",
-};
-
-const CAT_LABELS = {
-  fotografia:         "Fotografía",
-  video:              "Video",
-  branding_diseno:    "Branding & Diseño",
-  web:                "Web",
-  marketing_digital:  "Marketing digital",
-};
-
-function getCardLabel(item) {
-  if (item.subcategory) {
-    return (
-      SUBCAT_LABELS[item.subcategory] ||
-      item.subcategory.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
-    );
-  }
-  const t = (item.title || "").toLowerCase();
-  if (t.includes("embarazo") || t.includes("maternidad")) return "Fotografía de embarazo";
-  if (t.includes("boda") || t.includes("matrimonio"))      return "Fotografía de boda";
-  if (t.includes("producto"))                               return "Fotografía de producto";
-  if (t.includes("evento"))                                 return "Fotografía de evento";
-  return CAT_LABELS[item.category] || item.category || "";
-}
-
-// ─── Eyebrow + título editorial de tarjeta ───────────────────
-const EYEBROW_MAP = {
-  embarazo:             "TEMÁTICA",
-  boda:                 "MOMENTOS",
-  love_story:           "AMOR",
-  cumpleanos:           "CELEBRACIÓN",
-  graduacion:           "LOGRO",
-  evento:               "MOMENTOS",
-  exterior:             "EXTERIOR",
-  estudio:              "ESTUDIO",
-  montaje:              "CREATIVO",
-  retrato:              "RETRATO",
-  producto:             "ESTILO",
-  promocional:          "VIDEO",
-  cobertura:            "EVENTOS",
-  reel:                 "REEL",
-  entrevista:           "ENTREVISTA",
-  video_basico:         "VIDEO",
-  video_avanzado:       "VIDEO",
-  logo:                 "IDENTIDAD",
-  identidad_visual:     "IDENTIDAD",
-  material_promocional: "DISEÑO",
-  tarjeta:              "DISEÑO",
-  redes_sociales:       "SOCIAL",
-  estrategia_contenido: "ESTRATEGIA",
-  materiales_marketing: "MARKETING",
-  landing_page:         "WEB",
-  web_corporativa:      "WEB",
-  ecommerce:            "E-COMMERCE",
-};
-
-const CAT_EYEBROW = {
-  fotografia:         "FOTOGRAFÍA",
-  video:              "VIDEO",
-  branding_diseno:    "DISEÑO GRÁFICO",
-  web:                "WEB",
-  marketing_digital:  "MARKETING",
-};
-
-function getCardEyebrow(item) {
-  if (item.subcategory && EYEBROW_MAP[item.subcategory]) return EYEBROW_MAP[item.subcategory];
-  const t = (item.title || "").toLowerCase();
-  if (t.includes("embarazo") || t.includes("maternidad")) return "TEMÁTICA";
-  if (t.includes("producto"))                              return "ESTILO";
-  if (t.includes("boda") || t.includes("matrimonio"))     return "MOMENTOS";
-  if (t.includes("evento"))                               return "MOMENTOS";
-  return CAT_EYEBROW[item.category] || (item.category || "").toUpperCase();
-}
-
-// Elimina prefijos verbosos del título para una lectura más editorial.
-// "Sesión Fotografía de Embarazo en un Bosque" → "Sesión fotográfica en un Bosque"
-// "Sesión de Fotografía para Producto "Barber Cape"" → "Sesión fotográfica "Barber Cape""
-const _TITLE_STRIP = /^(?:sesión\s+)?fotografía\s+(?:de\s+\w+|para\s+\w+)\s+/i;
-const _SESS_STRIP   = /^sesión\s+de\s+fotografía\s+(?:para\s+\w+|de\s+\w+)\s+/i;
-const _SESS_STRIP2  = /^sesión\s+fotografía\s+(?:de\s+\w+)\s+/i;
-
-function getCardTitle(item) {
-  const raw = (item.title || "").trim();
-  if (!raw) return "";
-  if (item.category !== "fotografia") return raw;
-
-  for (const re of [_SESS_STRIP, _SESS_STRIP2, _TITLE_STRIP]) {
-    const rest = raw.replace(re, "").trim();
-    if (rest && rest.length > 3 && rest.length < raw.length) {
-      return `Sesión fotográfica ${rest}`;
-    }
-  }
-  return raw;
-}
-
-// ─── Helpers YouTube ─────────────────────────────────────────
-function getYoutubeId(url) {
-  if (!url) return "";
-  try {
-    const parsed = new URL(url);
-    let id = "";
-    if (parsed.hostname.includes("youtu.be")) {
-      id = parsed.pathname.split("/").filter(Boolean)[0] || "";
-    } else if (parsed.pathname.startsWith("/watch")) {
-      id = parsed.searchParams.get("v") || "";
-    } else if (parsed.pathname.includes("/shorts/")) {
-      id = parsed.pathname.split("/shorts/")[1]?.split("/")[0] || "";
-    } else if (parsed.pathname.includes("/embed/")) {
-      id = parsed.pathname.split("/embed/")[1]?.split("/")[0] || "";
-    }
-    return id.split("?")[0].split("&")[0];
-  } catch {
-    return "";
-  }
-}
-
-function getYoutubeEmbedUrl(url) {
-  const id = getYoutubeId(url);
-  if (!id) return url || "";
-  return `https://www.youtube.com/embed/${id}?autoplay=1&rel=0`;
-}
-
-function getYoutubeThumbnail(url) {
-  const id = getYoutubeId(url);
-  if (!id) return "";
-  return `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
-}
 
 // ─── Iconos ──────────────────────────────────────────────────
 function PlayIcon() {
@@ -226,7 +77,7 @@ function YoutubeModal({ open, onClose, video }) {
         <div className="border-b border-neutral-200 px-6 py-5 pr-16">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-500">Video</p>
           <h3 className="mt-2 text-2xl font-semibold text-neutral-950">{video.title}</h3>
-          <p className="mt-2 text-sm text-neutral-600">{video.description}</p>
+          <p className="mt-2 text-sm text-neutral-600">{getItemDescription(video)}</p>
         </div>
 
         <div className="p-4 md:p-6">
@@ -456,9 +307,7 @@ function VideoCard({ item, onOpen }) {
             Cliente: <span className="text-neutral-500">{item.clientName}</span>
           </p>
         )}
-        {item.description && (
-          <p className="mt-2 text-sm leading-6 text-neutral-600">{item.description}</p>
-        )}
+        <p className="mt-2 text-sm leading-6 text-neutral-600">{getItemDescription(item)}</p>
       </div>
     </button>
   );
@@ -741,8 +590,8 @@ export default function PortfolioPage() {
     return grid.filter((i) => i.category === filtroActivo);
   }, [filtroActivo, grid]);
 
-  // ── Slider de destacados ───────────────────────────────────
-  const slideItems = items;
+  // ── Slider de destacados — todos los publicados con imagen ──
+  const slideItems = items.filter(i => i.homeCoverUrl || i.coverUrl);
   const totalSlides = slideItems.length;
   const slideActual = slideItems[slideIndex] ?? null;
   const irAlSlide = (i) => setSlideIndex((i + totalSlides) % totalSlides);
@@ -895,11 +744,11 @@ export default function PortfolioPage() {
                       {slideActual.title}
                     </h3>
                     <p className="mt-6 text-base leading-8 text-white/75 md:text-lg">
-                      {slideActual.description}
+                      {getItemDescription(slideActual)}
                     </p>
                     <div className="mt-8 flex items-center gap-4">
                       <Link
-                        to="/contacto?mode=proposal&cta=portfolio-destacado"
+                        to={slideActual.slug ? `/portafolio/${slideActual.slug}` : "/portafolio"}
                         className="inline-flex items-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-[#f2cc3d]"
                       >
                         Ver proyecto
@@ -970,7 +819,7 @@ export default function PortfolioPage() {
             {filtroActivo !== "Todos" && (
               <p className="mt-2 text-center text-sm text-neutral-500">
                 Filtrando por: <strong>{CATEGORY_FILTERS.find(c => c.value === filtroActivo)?.label}</strong>
-                {subcategoryActivo && <> · <strong>{SUBCAT_LABELS[subcategoryActivo] || subcategoryActivo}</strong></>}
+                {subcategoryActivo && <> · <strong>{getSubcategoryLabel(subcategoryActivo)}</strong></>}
               </p>
             )}
           </div>
@@ -1024,7 +873,7 @@ export default function PortfolioPage() {
                               activo ? "border-[#f2cc3d] bg-[#f2cc3d] text-black" : "border-neutral-300 bg-white text-neutral-600"
                             }`}
                           >
-                            {SUBCAT_LABELS[sub] || sub.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                            {getSubcategoryLabel(sub)}
                           </button>
                         );
                       })}
@@ -1049,7 +898,7 @@ export default function PortfolioPage() {
                       activo ? "border-[#f2cc3d] bg-[#f2cc3d] text-black" : "border-neutral-300 bg-white text-neutral-600 hover:border-neutral-900 hover:text-neutral-900"
                     }`}
                   >
-                    {SUBCAT_LABELS[sub] || sub.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                    {getSubcategoryLabel(sub)}
                   </button>
                 );
               })}
