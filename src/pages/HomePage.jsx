@@ -138,20 +138,26 @@ export default function HomePage() {
       : "",
   });
 
-  const portfolioSlides = useMemo(
-    () => shuffle(homePortfolioItems.filter(i => i.placements.includes("home_wide"))).map(toSlide),
-    [homePortfolioItems]
-  );
+  const portfolioSlides = useMemo(() => {
+    const withImg = homePortfolioItems.filter(i => i.homeCoverUrl || i.coverUrl);
+    const tagged = withImg.filter(i => i.placements.includes("home_wide"));
+    const pool = tagged.length > 0 ? tagged : withImg;
+    return shuffle(pool).map(toSlide);
+  }, [homePortfolioItems]);
 
-  const portfolioPortraitSlides = useMemo(
-    () => shuffle(homePortfolioItems.filter(i => i.placements.includes("home_portrait"))).map(toSlide),
-    [homePortfolioItems]
-  );
+  const portfolioPortraitSlides = useMemo(() => {
+    const withImg = homePortfolioItems.filter(i => i.homeCoverUrl || i.coverUrl);
+    const tagged = withImg.filter(i => i.placements.includes("home_portrait"));
+    const pool = tagged.length > 0 ? tagged : withImg;
+    return shuffle(pool).map(toSlide);
+  }, [homePortfolioItems]);
 
-  const portfolioCardItems = useMemo(
-    () => shuffle(homePortfolioItems.filter(i => i.placements.includes("home_cards"))).slice(0, 4),
-    [homePortfolioItems]
-  );
+  const portfolioCardItems = useMemo(() => {
+    const withImg = homePortfolioItems.filter(i => i.homeCoverUrl || i.coverUrl);
+    const tagged = withImg.filter(i => i.placements.includes("home_cards"));
+    const pool = tagged.length > 0 ? tagged : withImg;
+    return shuffle(pool).slice(0, 4);
+  }, [homePortfolioItems]);
   const [activePortfolioTopMedia, setActivePortfolioTopMedia] = useState(0);
   const [activePortfolioLeftMedia, setActivePortfolioLeftMedia] = useState(1);
   const [activePortfolioStep, setActivePortfolioStep] = useState(0);
@@ -251,15 +257,9 @@ export default function HomePage() {
   useEffect(() => {
     let cancelled = false;
     setPortfolioLoading(true);
-    getPublicPortfolioItems().then((items) => {
+    getPublicPortfolioItems({ limit: 500 }).then((all) => {
       if (cancelled) return;
-      const filtered = items.filter((item) =>
-        item.placements.includes("home_portfolio") ||
-        item.placements.includes("home_wide") ||
-        item.placements.includes("home_portrait") ||
-        item.placements.includes("home_cards")
-      ).slice(0, 24);
-      setHomePortfolioItems(filtered);
+      setHomePortfolioItems(all);
       setPortfolioLoading(false);
     });
     return () => { cancelled = true; };
