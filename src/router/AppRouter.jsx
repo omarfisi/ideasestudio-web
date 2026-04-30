@@ -6,24 +6,19 @@ import {
 } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout.jsx";
 import {
-  getPublicCatalog,
   getPublicClientRouteBundle,
   getPublicProductBySlug,
   getPublicProductCategories,
   getPublicOrderByNumber,
   getPublicPortfolioItems,
   getPublicProducts,
-  getPublicServiceCategories,
-  getPublicServiceBySlug,
 } from "@/lib/api.js";
 import HomePage from "@/pages/HomePage.jsx";
 import SmallBusinessPage from "@/pages/SmallBusinessPage.jsx";
 import EntrepreneurPage from "@/pages/EntrepreneurPage.jsx";
 import EmergingBusinessPage from "@/pages/EmergingBusinessPage.jsx";
 import WeddingsPage from "@/pages/WeddingsPage.jsx";
-import ServicesPage from "@/pages/ServicesPage.jsx";
 import ServiceNichePage from "@/pages/ServiceNichePage.jsx";
-import ServiceDetailPage from "@/pages/ServiceDetailPage.jsx";
 import StorePage from "@/pages/StorePage.jsx";
 import ProductDetailPage from "@/pages/ProductDetailPage.jsx";
 import PortfolioPage from "@/pages/PortfolioPage.jsx";
@@ -54,37 +49,6 @@ const loadClientRoute = (routeKey) => async () => {
   }
 };
 
-const loadServicesCatalog = async () => {
-  try {
-    const [catalog, categories] = await Promise.all([
-      getPublicCatalog(),
-      getPublicServiceCategories(),
-    ]);
-
-    return {
-      services: catalog.items,
-      categories,
-    };
-  } catch (error) {
-    return {
-      services: [],
-      categories: [],
-    };
-  }
-};
-
-const loadServiceDetail = async ({ params }) => {
-  try {
-    return {
-      service: await getPublicServiceBySlug(params.slug),
-    };
-  } catch (error) {
-    return {
-      service: null,
-    };
-  }
-};
-
 const loadServiceNiche = (slug) => async () => ({
   niche: getServiceNichePageBySlug(slug),
 });
@@ -93,7 +57,7 @@ const loadProductsCatalog = async ({ request }) => {
   const url = new URL(request.url);
   const filters = {
     category: url.searchParams.get("category") || "all",
-    productType: url.searchParams.get("productType") || "all",
+    productType: "service",
     search: url.searchParams.get("q") || "",
   };
 
@@ -102,9 +66,14 @@ const loadProductsCatalog = async ({ request }) => {
       getPublicProducts(filters),
       getPublicProductCategories(),
     ]);
+    const serviceItems = Array.isArray(catalog?.items)
+      ? catalog.items.filter(
+          (item) => item?.productType === "service" && item?.isActive !== false
+        )
+      : [];
 
     return {
-      products: catalog.items,
+      products: serviceItems,
       categories,
       filters,
     };
@@ -119,8 +88,13 @@ const loadProductsCatalog = async ({ request }) => {
 
 const loadProductDetail = async ({ params }) => {
   try {
+    const product = await getPublicProductBySlug(params.slug);
+    if (!product || product.productType !== "service" || !product.isActive) {
+      return { product: null };
+    }
+
     return {
-      product: await getPublicProductBySlug(params.slug),
+      product,
     };
   } catch (error) {
     return {
@@ -179,7 +153,7 @@ function RedirectLegacyStoreProduct() {
   return (
     <Navigate
       replace
-      to={`/servicios/productos/${slug}${location.search}${location.hash}`}
+      to={`/servicios/${slug}${location.search}${location.hash}`}
     />
   );
 }
@@ -228,8 +202,8 @@ const router = createBrowserRouter([
       },
       {
         path: "servicios",
-        loader: loadServicesCatalog,
-        element: <ServicesPage />,
+        loader: loadProductsCatalog,
+        element: <StorePage />,
       },
       {
         path: "servicios/marca-o-negocio",
@@ -252,14 +226,20 @@ const router = createBrowserRouter([
         element: <ServiceNichePage />,
       },
       {
+        path: "servicios/contratar",
+        element: <RedirectWithLocation to="/servicios" />,
+      },
+      {
+        path: "servicios/contratar/:slug",
+        element: <RedirectLegacyStoreProduct />,
+      },
+      {
         path: "servicios/productos",
-        loader: loadProductsCatalog,
-        element: <StorePage />,
+        element: <RedirectWithLocation to="/servicios" />,
       },
       {
         path: "servicios/productos/:slug",
-        loader: loadProductDetail,
-        element: <ProductDetailPage />,
+        element: <RedirectLegacyStoreProduct />,
       },
       {
         path: "servicios/carrito",
@@ -286,12 +266,12 @@ const router = createBrowserRouter([
       },
       {
         path: "servicios/:slug",
-        loader: loadServiceDetail,
-        element: <ServiceDetailPage />,
+        loader: loadProductDetail,
+        element: <ProductDetailPage />,
       },
       {
         path: "tienda",
-        element: <RedirectWithLocation to="/servicios/productos" />,
+        element: <RedirectWithLocation to="/servicios" />,
       },
       {
         path: "tienda/:slug",

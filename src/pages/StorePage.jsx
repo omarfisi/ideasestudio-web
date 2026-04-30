@@ -7,13 +7,6 @@ import ProductsGrid from "@/components/shared/ProductsGrid.jsx";
 import SectionTitle from "@/components/shared/SectionTitle.jsx";
 import { addProductToPublicCart } from "@/lib/api.js";
 
-const productTypeOptions = [
-  { value: "all", label: "Todos" },
-  { value: "digital", label: "Digitales" },
-  { value: "physical", label: "Físicos" },
-  { value: "service_like", label: "Servicios fijos" },
-];
-
 export default function StorePage() {
   const { products, categories, filters } = useLoaderData();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -51,7 +44,7 @@ export default function StorePage() {
 
       setCartState({
         status: "success",
-        message: `Producto agregado. Tu carrito ahora tiene ${cart.summary.totalQuantity} items.`,
+        message: `Servicio agregado. Tu resumen ahora tiene ${cart.summary.totalQuantity} servicios.`,
       });
     } catch (error) {
       setCartState({
@@ -59,7 +52,7 @@ export default function StorePage() {
         message:
           error instanceof Error
             ? error.message
-            : "No se pudo agregar el producto al carrito.",
+            : "No se pudo agregar el servicio al resumen.",
       });
     } finally {
       setAddingProductSlug(null);
@@ -70,9 +63,9 @@ export default function StorePage() {
     <>
       <PageHero
         eyebrow="Servicios"
-        title="Productos listos para comprar dentro de Servicios"
-        subtitle="Explora recursos, plantillas y paquetes creados para apoyar tu marca, tu negocio o tu próximo proyecto desde una experiencia clara y consistente."
-        primaryAction={<Button to="/servicios/carrito">Ver carrito</Button>}
+        title="Servicios listos para contratar"
+        subtitle="Explora servicios con precio definido, revísalos en tu resumen de contratación y completa el pago desde una experiencia integrada."
+        primaryAction={<Button to="/servicios/carrito">Ver resumen</Button>}
         secondaryAction={
           <Button to="/servicios" variant="secondary">
             Ver servicios consultivos
@@ -84,15 +77,15 @@ export default function StorePage() {
         <div className="container store-shell">
           <div className="store-shell__intro info-card">
             <SectionTitle
-              eyebrow="Compra directa"
-              title="Compra directa con la misma identidad visual del sitio"
-              subtitle="Selecciona productos, revísalos en tu carrito y completa tu pedido desde una experiencia integrada dentro de Servicios."
+              eyebrow="Contratación directa"
+              title="Contrata servicios con la misma identidad visual del sitio"
+              subtitle="Selecciona servicios, revísalos en tu resumen y completa tu contratación desde una experiencia integrada dentro de Servicios."
             />
 
             <div className="store-shell__stats">
               <div className="store-shell__stat">
                 <strong>{products.length}</strong>
-                <span>Productos disponibles</span>
+                <span>Servicios disponibles</span>
               </div>
               <div className="store-shell__stat">
                 <strong>{categories.length}</strong>
@@ -100,22 +93,22 @@ export default function StorePage() {
               </div>
               <div className="store-shell__stat">
                 <strong>1</strong>
-                <span>Carrito activo por visita</span>
+                <span>Resumen activo por visita</span>
               </div>
             </div>
           </div>
 
           <aside className="store-shell__sidebar info-card">
-            <p className="services-catalog-page__system-kicker">Compra directa</p>
+            <p className="services-catalog-page__system-kicker">Contratación directa</p>
             <ul className="bullet-list bullet-list--compact">
-              <li>Productos digitales, físicos o paquetes con precio fijo.</li>
-              <li>Carrito y checkout integrados dentro de Servicios.</li>
-              <li>Pedido conectado a tu contacto para seguimiento.</li>
+              <li>Servicios con precio fijo listos para contratación.</li>
+              <li>Resumen y checkout integrados dentro de Servicios.</li>
+              <li>Orden conectada a tu contacto para seguimiento.</li>
             </ul>
 
             <div className="store-shell__sidebar-actions">
               <Button to="/servicios/carrito" block>
-                Abrir carrito
+                Abrir resumen
               </Button>
             </div>
           </aside>
@@ -126,11 +119,11 @@ export default function StorePage() {
         <div className="container">
           <div className="split-heading">
             <div className="section-title">
-              <span className="eyebrow">Explorar tienda</span>
-              <h2>Explora el catálogo disponible</h2>
+              <span className="eyebrow">Explorar servicios</span>
+              <h2>Explora servicios contratables</h2>
               <p>
-                Filtra por categoría o tipo de producto y entra al detalle antes
-                de añadirlo a tu carrito.
+                Filtra por categoría y entra al detalle antes de añadir un
+                servicio a tu resumen de contratación.
               </p>
             </div>
           </div>
@@ -142,7 +135,7 @@ export default function StorePage() {
                 <input
                   type="text"
                   value={filters.search}
-                  placeholder="Buscar por nombre"
+                  placeholder="Buscar servicio por nombre"
                   onChange={(event) => updateFilter("q", event.target.value)}
                 />
               </label>
@@ -162,31 +155,16 @@ export default function StorePage() {
                 </select>
               </label>
 
-              <label className="field">
-                <span>Tipo</span>
-                <select
-                  value={filters.productType}
-                  onChange={(event) =>
-                    updateFilter("productType", event.target.value)
-                  }
-                >
-                  {productTypeOptions.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
             </div>
 
             <div className="filters-card__footer">
               <p>
                 {products.length
-                  ? `${products.length} productos visibles en esta vista.`
-                  : "No hay productos que coincidan con este filtro."}
+                  ? `${products.length} servicios visibles en esta vista.`
+                  : "No hay servicios que coincidan con este filtro."}
               </p>
               <Button to="/servicios/carrito" variant="secondary">
-                Ir al carrito
+                Ir al resumen
               </Button>
             </div>
           </div>
@@ -205,10 +183,10 @@ export default function StorePage() {
             />
           ) : (
             <div className="empty-state">
-              <h2>Pronto verás productos aquí</h2>
+              <h2>Pronto verás servicios aquí</h2>
               <p>
-                Esta sección quedará lista para mostrar productos, paquetes y
-                recursos de compra directa tan pronto estén publicados.
+                Esta sección quedará lista para mostrar servicios contratables
+                tan pronto estén publicados.
               </p>
               <Button to="/servicios">Volver a servicios</Button>
             </div>
@@ -217,9 +195,9 @@ export default function StorePage() {
       </section>
 
       <CTASection
-        title="La compra directa vive dentro de Servicios"
-        text="Explora productos, revisa tu carrito y completa tu pedido sin salir del mismo ecosistema visual de Ideas Estudio."
-        primaryLabel="Abrir carrito"
+        title="La contratación directa vive dentro de Servicios"
+        text="Explora servicios, revisa tu resumen de contratación y completa tu pago sin salir del mismo ecosistema visual de Ideas Estudio."
+        primaryLabel="Abrir resumen"
         primaryTo="/servicios/carrito"
         secondaryLabel="Ver servicios"
         secondaryTo="/servicios"

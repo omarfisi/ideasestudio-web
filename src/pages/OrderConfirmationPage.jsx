@@ -20,11 +20,11 @@ export default function OrderConfirmationPage() {
             <div className="empty-state">
               <h2>No pudimos cargar esa orden</h2>
               <p>
-                Verifica el número de orden o vuelve a productos para retomar el
-                flujo comercial.
+                Verifica el número de orden o vuelve al catálogo de servicios para
+                retomar el flujo comercial.
               </p>
               <div className="empty-state__actions">
-                <Button to="/servicios/productos">Ir a productos</Button>
+                <Button to="/servicios">Ir a servicios</Button>
                 <Button to="/servicios" variant="secondary">
                   Ver servicios
                 </Button>
@@ -41,8 +41,10 @@ export default function OrderConfirmationPage() {
       <PageHero
         eyebrow="Servicios"
         title={`Orden ${order.orderNumber}`}
-        subtitle="Aquí puedes revisar el estado actual de tu pedido y el resumen de lo comprado."
-        primaryAction={<Button to="/servicios/productos">Seguir comprando</Button>}
+        subtitle="Aquí puedes revisar el estado actual de tu pedido y el resumen de lo contratado."
+        primaryAction={
+          <Button to="/servicios">Contratar otro servicio</Button>
+        }
         secondaryAction={
           <Button to="/servicios" variant="secondary">
             Volver a servicios
@@ -120,11 +122,11 @@ export default function OrderConfirmationPage() {
             </div>
 
             <div className="detail-summary__actions">
-              <Button to="/servicios/productos" block>
-                Volver a productos
+              <Button to="/servicios" block>
+                Ver más servicios
               </Button>
               <Button to="/servicios/carrito" variant="secondary" block>
-                Revisar carrito
+                Revisar resumen
               </Button>
             </div>
           </aside>

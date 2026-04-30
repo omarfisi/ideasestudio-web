@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
 import Button from "@/components/shared/Button.jsx";
 import PageHero from "@/components/shared/PageHero.jsx";
 import {
+  createPublicStorePaymentIntent,
   getPublicCart,
+  getPublicOrderById,
   getStoredCartSessionToken,
   submitPublicLead,
   submitPublicStoreCheckout,
@@ -21,6 +25,17 @@ const submitLabels = {
   booking: "Registrar intención de reserva",
   proposal: "Registrar solicitud",
 };
+
+const stripePublishableKey = (
+  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || ""
+).trim();
+const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
 
 function ServiceIntentCheckout({
   formData,
@@ -211,9 +226,15 @@ function StoreCheckout({
   setCheckoutForm,
   submitState,
   setSubmitState,
+  createdOrder,
+  setCreatedOrder,
+  paymentIntent,
+  setPaymentIntent,
   completedOrder,
   setCompletedOrder,
 }) {
+  const canCreateOrder = !createdOrder?.id;
+
   function handleChange(event) {
     const { name, value } = event.target;
 
@@ -223,14 +244,96 @@ function StoreCheckout({
     }));
   }
 
+  async function ensurePaymentIntent(order) {
+    if (!order?.id) {
+      throw new Error("No se pudo preparar el pago porque no existe la orden.");
+    }
+
+    const intent = await createPublicStorePaymentIntent({ orderId: order.id });
+    if (!intent?.clientSecret) {
+      throw new Error("No se pudo obtener el client_secret de Stripe.");
+    }
+
+    setPaymentIntent(intent);
+    return intent;
+  }
+
+  async function ensureOrderPayable(orderId) {
+    const latest = await getPublicOrderById(orderId);
+    if (!latest?.id) {
+      throw new Error("No se pudo validar la orden antes del pago.");
+    }
+
+    const paymentStatus = String(latest.paymentStatus || "").toLowerCase();
+    const orderStatus = String(latest.status || "").toLowerCase();
+
+    if (paymentStatus === "paid" || orderStatus === "paid") {
+      throw new Error("Esta orden ya fue pagada.");
+    }
+
+    if (
+      ["cancelled", "canceled", "refunded"].includes(orderStatus) ||
+      ["cancelled", "canceled", "refunded"].includes(paymentStatus)
+    ) {
+      throw new Error("Esta orden no está disponible para pago.");
+    }
+
+    return latest;
+  }
+
+  async function handlePaymentSucceeded() {
+    if (!createdOrder?.id) {
+      return;
+    }
+
+    let latest = createdOrder;
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      try {
+        const order = await getPublicOrderById(createdOrder.id);
+        if (order) {
+          latest = order;
+        }
+        if (order?.paymentStatus === "paid") {
+          break;
+        }
+      } catch {
+        // best-effort polling
+      }
+      await wait(900);
+    }
+
+    setCompletedOrder(latest);
+    setSubmitState({
+      status: "success",
+      message:
+        latest?.paymentStatus === "paid"
+          ? "Pago confirmado y orden actualizada."
+          : "Pago confirmado en Stripe. La confirmación final puede tardar unos segundos.",
+    });
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
-    setSubmitState({
-      status: "loading",
-      message: "Creando orden y cerrando checkout...",
-    });
 
     try {
+      setSubmitState({
+        status: "loading",
+        message: canCreateOrder
+          ? "Creando orden y preparando pago..."
+          : "Preparando intento de pago...",
+      });
+
+      if (!canCreateOrder && createdOrder?.id) {
+        const latestOrder = await ensureOrderPayable(createdOrder.id);
+        setCreatedOrder(latestOrder);
+        await ensurePaymentIntent(latestOrder);
+        setSubmitState({
+          status: "success",
+          message: "Intento de pago listo. Completa los datos de tu tarjeta.",
+        });
+        return;
+      }
+
       const result = await submitPublicStoreCheckout({
         sessionToken: cart.sessionToken,
         name: checkoutForm.name,
@@ -240,12 +343,16 @@ function StoreCheckout({
         notes: checkoutForm.notes,
       });
 
-      setCompletedOrder(result.order);
+      if (!result?.order?.id) {
+        throw new Error("No se pudo crear la orden de checkout.");
+      }
+
+      const latestOrder = await ensureOrderPayable(result.order.id);
+      setCreatedOrder(latestOrder);
+      await ensurePaymentIntent(latestOrder);
       setSubmitState({
         status: "success",
-        message: result.warnings.length
-          ? result.warnings.join(" ")
-          : "Orden creada correctamente.",
+        message: "Orden creada. Completa el pago con tarjeta.",
       });
     } catch (error) {
       setSubmitState({
@@ -263,8 +370,8 @@ function StoreCheckout({
       <>
         <PageHero
           eyebrow="Servicios"
-          title="Tu pedido fue registrado"
-          subtitle="La orden quedó creada correctamente y ya está lista para seguimiento."
+          title="Pago completado"
+          subtitle="Tu pago fue confirmado y la orden quedó registrada para seguimiento."
         />
 
         <section className="section">
@@ -305,8 +412,8 @@ function StoreCheckout({
                 >
                   Ver confirmación
                 </Button>
-                <Button to="/servicios/productos" block>
-                  Volver a productos
+                <Button to="/servicios" block>
+                  Volver a servicios
                 </Button>
                 <Button to="/servicios" variant="secondary" block>
                   Ver servicios
@@ -324,7 +431,7 @@ function StoreCheckout({
       <PageHero
         eyebrow="Servicios"
         title="Finaliza tu pedido"
-        subtitle="Confirma tus datos para crear la orden y continuar con el seguimiento de tu compra."
+        subtitle="Confirma tus datos, crea la orden y completa el pago con tarjeta mediante Stripe."
       />
 
       <section className="section">
@@ -341,6 +448,7 @@ function StoreCheckout({
                   onChange={handleChange}
                   placeholder="Nombre completo"
                   required
+                  disabled={!canCreateOrder}
                 />
               </label>
 
@@ -353,6 +461,7 @@ function StoreCheckout({
                   onChange={handleChange}
                   placeholder="tu@email.com"
                   required
+                  disabled={!canCreateOrder}
                 />
               </label>
 
@@ -364,6 +473,7 @@ function StoreCheckout({
                   value={checkoutForm.phone}
                   onChange={handleChange}
                   placeholder="Teléfono de contacto"
+                  disabled={!canCreateOrder}
                 />
               </label>
 
@@ -375,6 +485,7 @@ function StoreCheckout({
                   value={checkoutForm.company}
                   onChange={handleChange}
                   placeholder="Empresa opcional"
+                  disabled={!canCreateOrder}
                 />
               </label>
 
@@ -386,6 +497,7 @@ function StoreCheckout({
                   value={checkoutForm.notes}
                   onChange={handleChange}
                   placeholder="Notas sobre entrega, acceso o cualquier detalle adicional."
+                  disabled={!canCreateOrder}
                 />
               </label>
             </div>
@@ -396,11 +508,24 @@ function StoreCheckout({
               </p>
             ) : null}
 
-            <Button type="submit" disabled={submitState.status === "loading"}>
+            <Button type="submit" disabled={submitState.status === "loading" || !canCreateOrder && Boolean(paymentIntent?.clientSecret)}>
               {submitState.status === "loading"
-                ? "Creando orden..."
-                : "Completar pedido"}
+                ? canCreateOrder
+                  ? "Creando orden..."
+                  : "Preparando pago..."
+                : canCreateOrder
+                ? "Crear orden y continuar al pago"
+                : paymentIntent?.clientSecret
+                ? "Orden lista para pagar"
+                : "Generar intento de pago"}
             </Button>
+
+            {createdOrder ? (
+              <p className="detail-summary__note">
+                Orden creada: <strong>{createdOrder.orderNumber}</strong>. Completa
+                el pago en el panel de la derecha.
+              </p>
+            ) : null}
           </form>
 
           <aside className="detail-summary">
@@ -420,7 +545,11 @@ function StoreCheckout({
             </div>
             <div className="summary-row">
               <span>Resultado</span>
-              <strong>Se creará una orden para seguimiento</strong>
+              <strong>
+                {paymentIntent?.clientSecret
+                  ? "Lista para cobro con Stripe"
+                  : "Se creará una orden para pago"}
+              </strong>
             </div>
 
             <div className="checkout-summary-list">
@@ -433,10 +562,143 @@ function StoreCheckout({
                 </div>
               ))}
             </div>
+
+            {paymentIntent?.clientSecret ? (
+              stripePromise ? (
+                <Elements stripe={stripePromise}>
+                  <StoreCardPaymentForm
+                    clientSecret={paymentIntent.clientSecret}
+                    order={createdOrder}
+                    checkoutForm={checkoutForm}
+                    submitState={submitState}
+                    setSubmitState={setSubmitState}
+                    onPaymentSucceeded={handlePaymentSucceeded}
+                  />
+                </Elements>
+              ) : (
+                <p className="form-status form-status--error">
+                  Falta `VITE_STRIPE_PUBLISHABLE_KEY` para inicializar Stripe en frontend.
+                </p>
+              )
+            ) : null}
           </aside>
         </div>
       </section>
     </>
+  );
+}
+
+function StoreCardPaymentForm({
+  clientSecret,
+  order,
+  checkoutForm,
+  submitState,
+  setSubmitState,
+  onPaymentSucceeded,
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+
+  async function handleCardPayment(event) {
+    event.preventDefault();
+
+    if (!stripe || !elements) {
+      setSubmitState({
+        status: "error",
+        message: "Stripe todavía no está listo. Intenta nuevamente en unos segundos.",
+      });
+      return;
+    }
+
+    const card = elements.getElement(CardElement);
+    if (!card) {
+      setSubmitState({
+        status: "error",
+        message: "No se pudo cargar el campo de tarjeta.",
+      });
+      return;
+    }
+
+    setSubmitState({
+      status: "loading",
+      message: "Procesando pago con tarjeta...",
+    });
+
+    try {
+      const result = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card,
+          billing_details: {
+            name: checkoutForm.name || undefined,
+            email: checkoutForm.email || undefined,
+            phone: checkoutForm.phone || undefined,
+          },
+        },
+      });
+
+      if (result.error) {
+        setSubmitState({
+          status: "error",
+          message: result.error.message || "No se pudo confirmar el pago.",
+        });
+        return;
+      }
+
+      const status = result.paymentIntent?.status;
+      if (status === "succeeded") {
+        await onPaymentSucceeded();
+        return;
+      }
+
+      if (status === "requires_action") {
+        setSubmitState({
+          status: "error",
+          message:
+            "La tarjeta requiere autenticación adicional. Completa el flujo de verificación e intenta nuevamente.",
+        });
+        return;
+      }
+
+      if (status === "processing") {
+        setSubmitState({
+          status: "success",
+          message: "Tu pago está en procesamiento. Te confirmaremos el resultado en breve.",
+        });
+        return;
+      }
+
+      setSubmitState({
+        status: "error",
+        message: `El pago no se completó. Estado actual: ${status || "desconocido"}.`,
+      });
+    } catch (error) {
+      setSubmitState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Error de conexión. Intenta nuevamente.",
+      });
+    }
+  }
+
+  return (
+    <form className="detail-panel" onSubmit={handleCardPayment}>
+      <h3>Pagar con tarjeta</h3>
+      <p className="detail-summary__note">
+        Orden: <strong>{order?.orderNumber || "pendiente"}</strong>
+      </p>
+      <div className="field field--full">
+        <span>Tarjeta</span>
+        <div className="input" style={{ padding: "12px 14px" }}>
+          <CardElement options={{ hidePostalCode: false }} />
+        </div>
+      </div>
+
+      <Button type="submit" disabled={!stripe || submitState.status === "loading"} block>
+        {submitState.status === "loading" ? "Procesando pago..." : "Pagar ahora"}
+      </Button>
+    </form>
   );
 }
 
@@ -475,6 +737,8 @@ export default function CheckoutPage() {
     status: activeSessionToken ? "loading" : "idle",
     message: "",
   });
+  const [createdOrder, setCreatedOrder] = useState(null);
+  const [paymentIntent, setPaymentIntent] = useState(null);
   const [completedOrder, setCompletedOrder] = useState(null);
 
   const isStoreCheckout = useMemo(
@@ -490,6 +754,9 @@ export default function CheckoutPage() {
     let cancelled = false;
 
     async function loadCart() {
+      setCreatedOrder(null);
+      setPaymentIntent(null);
+      setCompletedOrder(null);
       setCartState({
         status: "loading",
         message: "",
@@ -517,7 +784,7 @@ export default function CheckoutPage() {
             message:
               error instanceof Error
                 ? error.message
-                : "No se pudo cargar el carrito para checkout.",
+                : "No se pudo cargar el resumen para checkout.",
           });
         }
       }
@@ -537,12 +804,12 @@ export default function CheckoutPage() {
           <PageHero
             eyebrow="Servicios"
             title="Preparando el checkout"
-            subtitle="Estamos cargando tu carrito para que puedas completar el pedido."
+            subtitle="Estamos cargando tu resumen de contratación para que puedas completar el pedido."
           />
           <section className="section">
             <div className="container">
               <div className="empty-state">
-                <h2>Cargando carrito...</h2>
+                <h2>Cargando resumen...</h2>
               </div>
             </div>
           </section>
@@ -555,21 +822,21 @@ export default function CheckoutPage() {
         <>
           <PageHero
             eyebrow="Servicios"
-            title="No hay productos listos para comprar"
-            subtitle="Necesitas productos en tu carrito antes de continuar al checkout."
+            title="No hay servicios listos para contratar"
+            subtitle="Necesitas servicios en tu resumen antes de continuar al checkout."
           />
           <section className="section">
             <div className="container">
               <div className="empty-state">
-                <h2>Tu carrito no está listo para comprar</h2>
+                <h2>Tu resumen no está listo para checkout</h2>
                 <p>
                   {cartState.message ||
-                    "Agrega productos desde el catálogo antes de continuar."}
+                    "Agrega servicios desde el catálogo antes de continuar."}
                 </p>
                 <div className="empty-state__actions">
-                  <Button to="/servicios/productos">Ir a productos</Button>
+                  <Button to="/servicios">Ir a servicios</Button>
                   <Button to="/servicios/carrito" variant="secondary">
-                    Revisar carrito
+                    Revisar resumen
                   </Button>
                 </div>
               </div>
@@ -586,6 +853,10 @@ export default function CheckoutPage() {
         setCheckoutForm={setCheckoutForm}
         submitState={submitState}
         setSubmitState={setSubmitState}
+        createdOrder={createdOrder}
+        setCreatedOrder={setCreatedOrder}
+        paymentIntent={paymentIntent}
+        setPaymentIntent={setPaymentIntent}
         completedOrder={completedOrder}
         setCompletedOrder={setCompletedOrder}
       />

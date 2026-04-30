@@ -1,5 +1,19 @@
 import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
 import { getClientRouteByKey } from "@/data/routes.js";
+import {
+  addStoreCartItem,
+  createStoreOrder,
+  createStorePaymentIntent,
+  deleteStoreCartItem,
+  getStoreCartCurrent,
+  getStoreCategories,
+  getStoreOrderById,
+  getStoreOrderByNumber,
+  getStoreProductBySlug,
+  getStoreProducts,
+  resolveStoreCart,
+  updateStoreCartItem,
+} from "@/services/storeCheckoutApi.js";
 
 function getBaseUrl() {
   return (CRM_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "");
@@ -324,6 +338,19 @@ function normalizeServiceCategory(raw) {
 
 const STORE_CART_SESSION_KEY = "ideas_store_cart_session_token";
 
+function labelFromSlug(value) {
+  const text = String(value || "").trim();
+  if (!text) {
+    return "Categoria";
+  }
+
+  return text
+    .split(/[-_]/g)
+    .filter(Boolean)
+    .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
+    .join(" ");
+}
+
 function normalizeProductCategory(raw) {
   if (!raw) {
     return null;
@@ -331,8 +358,8 @@ function normalizeProductCategory(raw) {
 
   return {
     id: raw.id,
-    name: raw.name || raw.label || "Categoria",
-    slug: raw.slug || raw.code || null,
+    name: raw.name || raw.label || labelFromSlug(raw.slug || raw.code),
+    slug: raw.slug || raw.code || raw.category_slug || null,
     description: raw.description || "",
     isActive: raw.is_active !== false,
     sortOrder: Number(raw.sort_order ?? raw.position ?? 100),
@@ -345,24 +372,41 @@ function normalizeProduct(raw) {
     return null;
   }
 
-  const category = normalizeProductCategory(raw.category);
-  const gallery = Array.isArray(raw.gallery) ? raw.gallery.filter(Boolean) : [];
+  const category = normalizeProductCategory(
+    raw.category ||
+      (raw.category_slug
+        ? {
+            slug: raw.category_slug,
+            name: labelFromSlug(raw.category_slug),
+          }
+        : null)
+  );
+  const gallerySource = raw.gallery_json ?? raw.gallery ?? [];
+  const gallery = Array.isArray(gallerySource)
+    ? gallerySource.filter(Boolean)
+    : [];
 
   return {
     id: raw.id,
-    name: raw.name || "Producto",
+    name: raw.name || "Servicio",
     slug: raw.slug,
     categoryId: raw.category_id || category?.id || null,
     category,
-    shortDescription: raw.short_description || "",
+    shortDescription: raw.short_description || raw.description_short || "",
     longDescription:
-      raw.long_description || raw.short_description || raw.name || "",
+      raw.long_description ||
+      raw.description_long ||
+      raw.short_description ||
+      raw.description_short ||
+      raw.name ||
+      "",
     price: Number(raw.price ?? 0),
     currency: raw.currency || "USD",
     compareAtPrice:
-      raw.compare_at_price === null || raw.compare_at_price === undefined
+      (raw.compare_at_price === null || raw.compare_at_price === undefined) &&
+      (raw.compare_price === null || raw.compare_price === undefined)
         ? null
-        : Number(raw.compare_at_price),
+        : Number(raw.compare_at_price ?? raw.compare_price),
     sku: raw.sku || null,
     inventoryQty:
       raw.inventory_qty === null || raw.inventory_qty === undefined
@@ -371,10 +415,14 @@ function normalizeProduct(raw) {
     trackInventory: Boolean(raw.track_inventory),
     isActive: raw.is_active !== false,
     productType: raw.product_type || "digital",
-    coverImage: raw.cover_image || null,
+    coverImage: raw.cover_image || raw.cover_image_url || null,
     gallery,
     metadata:
-      raw.metadata && typeof raw.metadata === "object" ? raw.metadata : {},
+      raw.metadata_json && typeof raw.metadata_json === "object"
+        ? raw.metadata_json
+        : raw.metadata && typeof raw.metadata === "object"
+        ? raw.metadata
+        : {},
     createdAt: raw.created_at || null,
     updatedAt: raw.updated_at || null,
     raw,
@@ -388,17 +436,24 @@ function normalizeCartItem(raw) {
 
   return {
     id: raw.id,
-    cartSessionId: raw.cart_session_id || null,
+    cartId: raw.cart_id || null,
     productId: raw.product_id || raw.productId || null,
     quantity: Number(raw.quantity ?? 0),
-    unitPrice: Number(raw.unit_price ?? raw.unitPrice ?? 0),
+    unitPrice: Number(
+      raw.unit_price ?? raw.unitPrice ?? raw.price_snapshot ?? 0
+    ),
     lineTotal: Number(raw.line_total ?? raw.lineTotal ?? 0),
     currency: raw.currency || "USD",
-    snapshotName: raw.snapshot_name || raw.snapshotName || "Producto",
+    snapshotName:
+      raw.snapshot_name || raw.snapshotName || raw.name_snapshot || "Servicio",
     snapshotDescription:
       raw.snapshot_description || raw.snapshotDescription || "",
     metadata:
-      raw.metadata && typeof raw.metadata === "object" ? raw.metadata : {},
+      raw.metadata_json && typeof raw.metadata_json === "object"
+        ? raw.metadata_json
+        : raw.metadata && typeof raw.metadata === "object"
+        ? raw.metadata
+        : {},
     product: normalizeProduct(raw.product),
     createdAt: raw.created_at || null,
     updatedAt: raw.updated_at || null,
@@ -413,16 +468,26 @@ function normalizeCart(raw) {
   const items = Array.isArray(raw.items)
     ? raw.items.map(normalizeCartItem).filter(Boolean)
     : [];
-  const summary = raw.summary && typeof raw.summary === "object" ? raw.summary : {};
+  const summary =
+    raw.summary && typeof raw.summary === "object" ? raw.summary : {};
+  const subtotal = Number(
+    summary.subtotal ??
+      raw.subtotal ??
+      items.reduce((total, item) => total + item.lineTotal, 0)
+  );
 
   return {
     id: raw.id,
-    sessionToken: raw.session_token || raw.sessionToken || null,
+    sessionToken: raw.session_token || raw.sessionToken || raw.cart_token || null,
     contactId: raw.contact_id || raw.contactId || null,
-    email: raw.email || null,
+    email: raw.email || raw.customer_email || null,
     status: raw.status || "active",
     metadata:
-      raw.metadata && typeof raw.metadata === "object" ? raw.metadata : {},
+      raw.metadata_json && typeof raw.metadata_json === "object"
+        ? raw.metadata_json
+        : raw.metadata && typeof raw.metadata === "object"
+        ? raw.metadata
+        : {},
     createdAt: raw.created_at || null,
     updatedAt: raw.updated_at || null,
     items,
@@ -432,11 +497,8 @@ function normalizeCart(raw) {
         summary.total_quantity ??
           items.reduce((total, item) => total + item.quantity, 0)
       ),
-      subtotal: Number(
-        summary.subtotal ??
-          items.reduce((total, item) => total + item.lineTotal, 0)
-      ),
-      currency: summary.currency || items[0]?.currency || "USD",
+      subtotal,
+      currency: summary.currency || raw.currency || items[0]?.currency || "USD",
     },
   };
 }
@@ -451,9 +513,10 @@ function normalizeOrderItem(raw) {
     orderId: raw.order_id || raw.orderId || null,
     productId: raw.product_id || raw.productId || null,
     quantity: Number(raw.quantity ?? 0),
-    unitPrice: Number(raw.unit_price ?? raw.unitPrice ?? 0),
-    total: Number(raw.total ?? 0),
-    snapshotName: raw.snapshot_name || raw.snapshotName || "Producto",
+    unitPrice: Number(raw.unit_price ?? raw.unitPrice ?? raw.price_snapshot ?? 0),
+    total: Number(raw.total ?? raw.line_total ?? 0),
+    snapshotName:
+      raw.snapshot_name || raw.snapshotName || raw.name_snapshot || "Servicio",
     snapshotDescription:
       raw.snapshot_description || raw.snapshotDescription || "",
     metadata:
@@ -481,14 +544,14 @@ function normalizeOrder(raw) {
     cartSessionId: raw.cart_session_id || raw.cartSessionId || null,
     email: raw.email || null,
     status: raw.status || "pending",
-    paymentStatus: raw.payment_status || raw.paymentStatus || "pending_payment",
+    paymentStatus: raw.payment_status || raw.paymentStatus || "pending",
     fulfillmentStatus:
       raw.fulfillment_status || raw.fulfillmentStatus || "not_applicable",
     currency: raw.currency || "USD",
     subtotal: Number(raw.subtotal ?? 0),
     taxTotal: Number(raw.tax_total ?? raw.taxTotal ?? 0),
     discountTotal: Number(raw.discount_total ?? raw.discountTotal ?? 0),
-    total: Number(raw.total ?? 0),
+    total: Number(raw.total ?? raw.grand_total ?? 0),
     notes: raw.notes || "",
     source: raw.source || "",
     metadata:
@@ -541,21 +604,42 @@ function serializeCartItems(items = []) {
   return items
     .map((item) => {
       const productId = item.productId || item.product_id || item.product?.id;
-      const productSlug =
-        item.productSlug || item.product_slug || item.product?.slug;
       const quantity = Number(item.quantity ?? 0);
 
-      if (!quantity || (!productId && !productSlug)) {
+      if (!quantity || !productId) {
         return null;
       }
 
       return {
-        product_id: productId || undefined,
-        product_slug: productSlug || undefined,
+        product_id: productId,
         quantity,
       };
     })
     .filter(Boolean);
+}
+
+function normalizeStoreCartEnvelope(data) {
+  if (!data || !data.cart) {
+    return null;
+  }
+
+  const cart = {
+    ...(data.cart || {}),
+    items: Array.isArray(data.items) ? data.items : [],
+    summary: {
+      line_items: Number(data.count ?? (data.items || []).length),
+      total_quantity: Number(
+        (data.items || []).reduce(
+          (total, item) => total + Number(item.quantity ?? 0),
+          0
+        )
+      ),
+      subtotal: Number(data.cart?.subtotal ?? 0),
+      currency: data.cart?.currency || "USD",
+    },
+  };
+
+  return normalizeCart(cart);
 }
 
 function normalizeCatalogResponse(data, limit) {
@@ -586,7 +670,7 @@ export async function getPublicServiceCategories() {
     const items = Array.isArray(data?.items) ? data.items : [];
 
     return items.map(normalizeServiceCategory).filter(Boolean);
-  } catch (error) {
+  } catch {
     return [];
   }
 }
@@ -665,32 +749,17 @@ export async function getPublicServiceBySlug(slug) {
 
 export async function getPublicProductCategories() {
   try {
-    const url = buildUrl("/products/categories", { active: true });
-    const data = await apiFetch(url);
+    const data = await getStoreCategories();
     const items = Array.isArray(data?.items) ? data.items : [];
 
     return items.map(normalizeProductCategory).filter(Boolean);
-  } catch (error) {
+  } catch {
     return [];
   }
 }
 
 export async function getPublicProducts(filters = {}) {
-  const query = {
-    is_active:
-      filters.isActive === undefined ? true : filters.isActive,
-    category:
-      filters.category && filters.category !== "all" ? filters.category : null,
-    product_type:
-      filters.productType && filters.productType !== "all"
-        ? filters.productType
-        : null,
-    q: filters.search || null,
-    limit: filters.limit || 60,
-  };
-
-  const url = buildUrl("/products", query);
-  const data = await apiFetch(url);
+  const data = await getStoreProducts(filters);
   const items = Array.isArray(data?.items)
     ? data.items.map(normalizeProduct).filter(Boolean)
     : [];
@@ -702,33 +771,95 @@ export async function getPublicProducts(filters = {}) {
 }
 
 export async function getPublicProductBySlug(slug) {
-  const url = buildUrl(`/products/${slug}`);
-  const data = await apiFetch(url);
+  const data = await getStoreProductBySlug(slug);
   return normalizeProduct(data?.item);
 }
 
 export async function createOrUpdatePublicCart(payload) {
-  const url = buildUrl("/cart");
-  const body = {
-    session_token: payload.sessionToken || null,
-    email: payload.email || null,
-    contact_id: payload.contactId || null,
-    metadata: payload.metadata || {},
-    items: serializeCartItems(payload.items),
-    replace_items: payload.replaceItems !== false,
-  };
+  const seedToken =
+    payload.sessionToken || getStoredCartSessionToken() || null;
 
-  const data = await apiFetch(url, {
-    method: "POST",
-    body: JSON.stringify(body),
+  let cartEnvelope = await resolveStoreCart({
+    cartToken: seedToken,
+    sessionId: seedToken,
+    contactId: payload.contactId || null,
+    currency: "USD",
   });
+  const cartId = cartEnvelope?.cart?.id;
+  if (!cartId) {
+    throw new Error("No se pudo inicializar el resumen de servicios.");
+  }
 
-  const cart = normalizeCart(data?.item);
+  const nextItems = serializeCartItems(payload.items);
+  const replaceItems = payload.replaceItems !== false;
+
+  if (replaceItems) {
+    const desiredByProductId = new Map(
+      nextItems.map((item) => [String(item.product_id), Number(item.quantity)])
+    );
+    const currentItems = Array.isArray(cartEnvelope?.items)
+      ? cartEnvelope.items
+      : [];
+
+    for (const item of currentItems) {
+      const key = String(item.product_id || "");
+      const wantedQuantity = desiredByProductId.get(key);
+
+      if (!key) {
+        continue;
+      }
+
+      if (!wantedQuantity) {
+        cartEnvelope = await deleteStoreCartItem({ itemId: item.id });
+        continue;
+      }
+
+      if (Number(item.quantity || 0) !== Number(wantedQuantity)) {
+        cartEnvelope = await updateStoreCartItem({
+          itemId: item.id,
+          quantity: Number(wantedQuantity),
+        });
+      }
+
+      desiredByProductId.delete(key);
+    }
+
+    for (const [productId, quantity] of desiredByProductId.entries()) {
+      cartEnvelope = await addStoreCartItem({
+        cartId,
+        productId,
+        quantity,
+      });
+    }
+  } else {
+    for (const item of nextItems) {
+      cartEnvelope = await addStoreCartItem({
+        cartId,
+        productId: item.product_id,
+        quantity: item.quantity,
+      });
+    }
+  }
+
+  const cart = normalizeStoreCartEnvelope(cartEnvelope);
   if (cart?.sessionToken) {
     setStoredCartSessionToken(cart.sessionToken);
   }
 
   return cart;
+}
+
+async function resolveProductIdForCart({ productId, productSlug }) {
+  if (productId) {
+    return productId;
+  }
+
+  if (!productSlug) {
+    return null;
+  }
+
+  const product = await getPublicProductBySlug(productSlug);
+  return product?.id || null;
 }
 
 export async function getPublicCart(sessionToken = getStoredCartSessionToken()) {
@@ -737,9 +868,8 @@ export async function getPublicCart(sessionToken = getStoredCartSessionToken()) 
   }
 
   try {
-    const url = buildUrl(`/cart/${sessionToken}`);
-    const data = await apiFetch(url);
-    const cart = normalizeCart(data?.item);
+    const data = await getStoreCartCurrent({ cartToken: sessionToken });
+    const cart = normalizeStoreCartEnvelope(data);
 
     if (cart?.sessionToken) {
       setStoredCartSessionToken(cart.sessionToken);
@@ -749,6 +879,7 @@ export async function getPublicCart(sessionToken = getStoredCartSessionToken()) 
   } catch (error) {
     if (error?.status === 404) {
       clearStoredCartSessionToken();
+      return null;
     }
     throw error;
   }
@@ -759,51 +890,23 @@ export async function addProductToPublicCart({
   productSlug = null,
   quantity = 1,
 }) {
-  const sessionToken = getStoredCartSessionToken();
-  let currentCart = null;
-
-  if (sessionToken) {
-    try {
-      currentCart = await getPublicCart(sessionToken);
-    } catch (error) {
-      currentCart = null;
-    }
-  }
-
-  const itemsMap = new Map();
-
-  (currentCart?.items || []).forEach((item) => {
-    const key = item.productId || item.product?.slug;
-    if (!key) {
-      return;
-    }
-
-    itemsMap.set(key, {
-      productId: item.productId,
-      productSlug: item.product?.slug || null,
-      quantity: item.quantity,
-    });
-  });
-
-  const key = productId || productSlug;
-  const existing = itemsMap.get(key) || {
+  const resolvedProductId = await resolveProductIdForCart({
     productId,
     productSlug,
-    quantity: 0,
-  };
-
-  itemsMap.set(key, {
-    productId: existing.productId || productId || null,
-    productSlug: existing.productSlug || productSlug || null,
-    quantity: existing.quantity + Number(quantity || 1),
   });
+  if (!resolvedProductId) {
+    throw new Error("No se pudo resolver el servicio para el resumen.");
+  }
 
   return createOrUpdatePublicCart({
-    sessionToken: currentCart?.sessionToken || sessionToken || null,
-    email: currentCart?.email || null,
-    metadata: currentCart?.metadata || {},
-    items: Array.from(itemsMap.values()),
-    replaceItems: true,
+    sessionToken: getStoredCartSessionToken() || null,
+    items: [
+      {
+        productId: resolvedProductId,
+        quantity: Number(quantity || 1),
+      },
+    ],
+    replaceItems: false,
   });
 }
 
@@ -820,32 +923,29 @@ export async function setPublicCartItemQuantity({
   if (!currentCart) {
     throw new Error("No se encontro el carrito actual.");
   }
+  const currentItem = currentCart.items.find(
+    (item) => String(item.productId) === String(productId)
+  );
+  if (!currentItem) {
+    return currentCart;
+  }
 
-  const nextItems = currentCart.items
-    .map((item) => {
-      if (item.productId !== productId) {
-        return {
-          productId: item.productId,
-          productSlug: item.product?.slug || null,
-          quantity: item.quantity,
-        };
-      }
+  const nextQuantity = Number(quantity || 0);
+  const envelope =
+    nextQuantity > 0
+      ? await updateStoreCartItem({
+          itemId: currentItem.id,
+          quantity: nextQuantity,
+        })
+      : await deleteStoreCartItem({
+          itemId: currentItem.id,
+        });
 
-      return {
-        productId: item.productId,
-        productSlug: item.product?.slug || null,
-        quantity: Number(quantity || 0),
-      };
-    })
-    .filter((item) => item.quantity > 0);
-
-  return createOrUpdatePublicCart({
-    sessionToken,
-    email: currentCart.email || null,
-    metadata: currentCart.metadata || {},
-    items: nextItems,
-    replaceItems: true,
-  });
+  const cart = normalizeStoreCartEnvelope(envelope);
+  if (cart?.sessionToken) {
+    setStoredCartSessionToken(cart.sessionToken);
+  }
+  return cart;
 }
 
 export async function removePublicCartItem({
@@ -860,43 +960,77 @@ export async function removePublicCartItem({
 }
 
 export async function submitPublicStoreCheckout(payload) {
-  const url = buildUrl("/checkout");
-  const body = {
-    session_token: payload.sessionToken,
-    customer_name: payload.name,
-    email: payload.email,
-    phone: payload.phone || null,
-    company: payload.company || null,
-    notes: payload.notes || null,
-    source: payload.source || "website_store",
-    metadata: payload.metadata || {},
-  };
+  const sessionToken = payload.sessionToken || getStoredCartSessionToken();
+  const cart = await getPublicCart(sessionToken);
+  if (!cart?.id) {
+    throw new Error("No se encontró un carrito válido para checkout.");
+  }
 
-  const data = await apiFetch(url, {
-    method: "POST",
-    body: JSON.stringify(body),
+  const data = await createStoreOrder({
+    cart_id: cart.id,
+    customer_name: payload.name,
+    customer_email: payload.email,
+    customer_phone: payload.phone || null,
+    contact_id: payload.contactId || cart.contactId || null,
+    notes: payload.notes || null,
+    billing_address: {
+      line1: payload.billingAddress?.line1 || null,
+      line2: payload.billingAddress?.line2 || null,
+      city: payload.billingAddress?.city || null,
+      state: payload.billingAddress?.state || null,
+      country: payload.billingAddress?.country || null,
+      postal_code: payload.billingAddress?.postalCode || null,
+    },
+    shipping_address: payload.shippingAddress
+      ? {
+          line1: payload.shippingAddress?.line1 || null,
+          line2: payload.shippingAddress?.line2 || null,
+          city: payload.shippingAddress?.city || null,
+          state: payload.shippingAddress?.state || null,
+          country: payload.shippingAddress?.country || null,
+          postal_code: payload.shippingAddress?.postalCode || null,
+        }
+      : null,
   });
 
-  const order = normalizeOrder(data?.item);
+  const order = normalizeOrder({
+    ...(data?.order || {}),
+    email: payload.email,
+    notes: payload.notes || "",
+    source: payload.source || "website_store",
+    total: data?.order?.grand_total ?? 0,
+  });
   if (order?.id) {
     clearStoredCartSessionToken();
   }
 
   return {
     order,
-    warnings: Array.isArray(data?.warnings) ? data.warnings : [],
+    warnings: [],
+  };
+}
+
+export async function createPublicStorePaymentIntent({
+  orderId,
+  provider = "stripe",
+}) {
+  const data = await createStorePaymentIntent({ orderId, provider });
+  return {
+    id: data?.payment?.id || null,
+    provider: data?.payment?.provider || "stripe",
+    status: data?.payment?.status || "pending",
+    providerPaymentId: data?.payment?.provider_payment_id || null,
+    clientSecret: data?.payment?.client_secret || null,
   };
 }
 
 export async function getPublicOrderById(orderId) {
-  const url = buildUrl(`/orders/${orderId}`);
-  const data = await apiFetch(url);
+  const data = await getStoreOrderById(orderId);
   return normalizeOrder(data?.item);
 }
 
 export async function getPublicOrderByNumber(orderNumber) {
-  const url = buildUrl(`/orders/by-number/${orderNumber}`);
-  const data = await apiFetch(url);
+  const data = await getStoreOrderByNumber(orderNumber);
   return normalizeOrder(data?.item);
 }
 

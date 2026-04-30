@@ -94,7 +94,7 @@ export default function CartPage() {
     setPendingProductId(productId);
     setViewState({
       status: "loading",
-      message: "Quitando producto del carrito...",
+      message: "Quitando servicio del resumen...",
     });
 
     try {
@@ -102,7 +102,7 @@ export default function CartPage() {
       setCart(nextCart);
       setViewState({
         status: "success",
-        message: "Producto removido del carrito.",
+        message: "Servicio removido del resumen.",
       });
     } catch (error) {
       setViewState({
@@ -110,7 +110,7 @@ export default function CartPage() {
         message:
           error instanceof Error
             ? error.message
-            : "No se pudo remover el producto.",
+            : "No se pudo remover el servicio.",
       });
     } finally {
       setPendingProductId(null);
@@ -122,9 +122,9 @@ export default function CartPage() {
   return (
     <>
       <PageHero
-        eyebrow="Carrito"
-        title="Tu carrito dentro de Servicios"
-        subtitle="Revisa productos, ajusta cantidades y confirma tu selección antes de continuar al checkout."
+        eyebrow="Contratación"
+        title="Resumen de contratación"
+        subtitle="Revisa servicios, ajusta cantidades y confirma tu selección antes de continuar al checkout."
       />
 
       <section className="section">
@@ -137,17 +137,17 @@ export default function CartPage() {
 
           {cartIsEmpty ? (
             <div className="empty-state">
-              <h2>Tu carrito está vacío</h2>
+              <h2>Tu resumen está vacío</h2>
               <p>
-                Cuando agregues productos desde el catálogo, aquí verás tu
+                Cuando agregues servicios desde el catálogo, aquí verás tu
                 selección, cantidades y subtotal antes de continuar.
               </p>
-              <Button to="/servicios/productos">Ir a productos</Button>
+              <Button to="/servicios">Ir a servicios</Button>
             </div>
           ) : (
             <div className="detail-grid cart-layout">
               <article className="detail-panel cart-panel">
-                <h2>Items del carrito</h2>
+                <h2>Servicios seleccionados</h2>
 
                 <div className="cart-panel__list">
                   {cart.items.map((item) => (
@@ -246,8 +246,8 @@ export default function CartPage() {
                   >
                     Continuar al checkout
                   </Button>
-                  <Button to="/servicios/productos" variant="secondary" block>
-                    Seguir comprando
+                  <Button to="/servicios" variant="secondary" block>
+                    Seguir contratando
                   </Button>
                 </div>
               </aside>

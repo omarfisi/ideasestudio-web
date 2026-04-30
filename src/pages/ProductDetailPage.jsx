@@ -6,13 +6,14 @@ import { addProductToPublicCart } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
 
 const productTypeLabels = {
-  digital: "Producto digital",
-  physical: "Producto físico",
+  digital: "Servicio digital",
+  physical: "Servicio presencial",
   service_like: "Servicio con precio fijo",
+  service: "Servicio",
 };
 
 function getProductTypeLabel(productType) {
-  return productTypeLabels[productType] || "Producto";
+  return productTypeLabels[productType] || "Servicio";
 }
 
 export default function ProductDetailPage() {
@@ -28,9 +29,9 @@ export default function ProductDetailPage() {
       <section className="section">
         <div className="container">
           <div className="empty-state">
-            <h1>Producto no encontrado</h1>
-            <p>El producto solicitado no existe o aun no esta publicado.</p>
-            <Button to="/servicios/productos">Volver a productos</Button>
+            <h1>Servicio no encontrado</h1>
+            <p>El servicio solicitado no existe o aún no está publicado.</p>
+            <Button to="/servicios">Volver a servicios contratables</Button>
           </div>
         </div>
       </section>
@@ -40,7 +41,7 @@ export default function ProductDetailPage() {
   async function handleAddToCart() {
     setCartState({
       status: "loading",
-      message: "Agregando producto al carrito...",
+      message: "Agregando servicio al resumen...",
     });
 
     try {
@@ -52,7 +53,7 @@ export default function ProductDetailPage() {
 
       setCartState({
         status: "success",
-        message: `Producto agregado. Tu carrito ahora tiene ${cart.summary.totalQuantity} items.`,
+        message: `Servicio agregado. Tu resumen ahora tiene ${cart.summary.totalQuantity} servicios.`,
       });
     } catch (error) {
       setCartState({
@@ -60,7 +61,7 @@ export default function ProductDetailPage() {
         message:
           error instanceof Error
             ? error.message
-            : "No se pudo agregar el producto al carrito.",
+            : "No se pudo agregar el servicio al resumen.",
       });
     }
   }
@@ -73,7 +74,7 @@ export default function ProductDetailPage() {
     <>
       <section className="page-hero store-detail-hero">
         <div className="container store-detail-hero__inner">
-          <span className="eyebrow">Productos</span>
+          <span className="eyebrow">Servicios</span>
           <h1 className="page-title">{product.name}</h1>
           <p className="page-subtitle">
             {product.longDescription || product.shortDescription}
@@ -122,9 +123,9 @@ export default function ProductDetailPage() {
                   ))
                 ) : (
                   <>
-                    <li>Acceso claro al producto desde el hub de Servicios.</li>
+                    <li>Acceso claro al servicio desde el hub de Servicios.</li>
                     <li>Resumen organizado dentro de tu pedido.</li>
-                    <li>Seguimiento simple para continuar la compra.</li>
+                    <li>Seguimiento simple para continuar la contratación.</li>
                   </>
                 )}
               </ul>
@@ -177,10 +178,10 @@ export default function ProductDetailPage() {
               >
                 {cartState.status === "loading"
                   ? "Agregando..."
-                  : "Añadir al carrito"}
+                  : "Añadir servicio"}
               </Button>
               <Button to="/servicios/carrito" variant="secondary" block>
-                Ver carrito
+                Ver resumen
               </Button>
             </div>
           </aside>
@@ -193,10 +194,10 @@ export default function ProductDetailPage() {
             <div className="split-heading">
               <div className="section-title">
                 <span className="eyebrow">Galería</span>
-                <h2>Vista previa del producto</h2>
+                <h2>Vista previa del servicio</h2>
                 <p>
                   Explora referencias visuales, variaciones o piezas asociadas a
-                  este producto.
+                  este servicio.
                 </p>
               </div>
             </div>
@@ -223,11 +224,11 @@ export default function ProductDetailPage() {
       ) : null}
 
       <CTASection
-        title="Listo para cerrar la compra dentro de Servicios"
-        text="Revisa el detalle, ajusta la cantidad y lleva tu pedido al carrito cuando estés listo."
-        primaryLabel="Seguir en productos"
-        primaryTo="/servicios/productos"
-        secondaryLabel="Ir al carrito"
+        title="Listo para contratar este servicio"
+        text="Revisa el detalle, ajusta la cantidad y lleva tu contratación al resumen cuando estés listo."
+        primaryLabel="Seguir en servicios"
+        primaryTo="/servicios"
+        secondaryLabel="Ir al resumen"
         secondaryTo="/servicios/carrito"
       />
     </>

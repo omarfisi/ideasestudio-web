@@ -5,10 +5,11 @@ const productTypeLabels = {
   digital: "Digital",
   physical: "Físico",
   service_like: "Servicio fijo",
+  service: "Servicio",
 };
 
 function getProductTypeLabel(productType) {
-  return productTypeLabels[productType] || "Producto";
+  return productTypeLabels[productType] || "Servicio";
 }
 
 export default function ProductCard({
@@ -62,19 +63,19 @@ export default function ProductCard({
           {product.trackInventory && product.inventoryQty !== null ? (
             <small>Inventario: {product.inventoryQty}</small>
           ) : (
-            <small>Compra directa</small>
+            <small>Servicio disponible</small>
           )}
         </div>
 
         <div className="product-card__actions">
-          <Button to={`/servicios/productos/${product.slug}`} variant="secondary">
-            Ver detalle
+          <Button to={`/servicios/${product.slug}`} variant="secondary">
+            Ver servicio
           </Button>
           <Button
             onClick={() => onAddToCart(product)}
             disabled={addState === "loading"}
           >
-            {addState === "loading" ? "Agregando..." : "Añadir al carrito"}
+            {addState === "loading" ? "Agregando..." : "Añadir servicio"}
           </Button>
         </div>
       </div>
