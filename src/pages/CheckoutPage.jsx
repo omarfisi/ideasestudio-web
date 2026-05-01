@@ -4,6 +4,7 @@ import { CardElement, Elements, useElements, useStripe } from "@stripe/react-str
 import { loadStripe } from "@stripe/stripe-js";
 import Button from "@/components/shared/Button.jsx";
 import PageHero from "@/components/shared/PageHero.jsx";
+import { getFormByPlacement, submitForm } from "@/lib/publicFormsApi.js";
 import {
   createPublicStorePaymentIntent,
   getPublicCart,
@@ -30,11 +31,156 @@ const stripePublishableKey = (
   import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || ""
 ).trim();
 const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
+const storeCheckoutFormSectionKey = (
+  import.meta.env.VITE_STORE_CHECKOUT_FORM_SECTION_KEY || "contact_main_form"
+).trim();
 
 function wait(ms) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, ms);
   });
+}
+
+function normalizeToken(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function isEmptyValue(value) {
+  if (value === undefined || value === null) return true;
+  if (typeof value === "string" && !value.trim()) return true;
+  return false;
+}
+
+function parseCheckoutDataFromForm(fields, values) {
+  const payload = {
+    name: "",
+    email: "",
+    phone: "",
+    company: "",
+    notes: "",
+    details: {},
+  };
+
+  fields.forEach((field) => {
+    if (!field || field.visible === false || field.type === "hidden") return;
+    const rawValue = values[field.name];
+    if (isEmptyValue(rawValue)) return;
+
+    const value = typeof rawValue === "string" ? rawValue.trim() : rawValue;
+    const target = normalizeToken(field.map_to || field.name);
+    const label = field.label || field.name;
+
+    if (["full_name", "name", "customer_name", "nombre"].includes(target)) {
+      if (!payload.name) payload.name = String(value);
+      return;
+    }
+    if (["email", "correo", "customer_email"].includes(target)) {
+      if (!payload.email) payload.email = String(value);
+      return;
+    }
+    if (
+      ["phone", "telefono", "tel", "customer_phone", "whatsapp"].includes(target)
+    ) {
+      if (!payload.phone) payload.phone = String(value);
+      return;
+    }
+    if (["business_name", "company", "empresa"].includes(target)) {
+      if (!payload.company) payload.company = String(value);
+      return;
+    }
+    if (["message", "notes", "note", "mensaje"].includes(target)) {
+      if (!payload.notes) payload.notes = String(value);
+      return;
+    }
+
+    payload.details[label] = value;
+  });
+
+  const detailEntries = Object.entries(payload.details);
+  if (detailEntries.length) {
+    const detailText = detailEntries
+      .map(([label, value]) => `${label}: ${Array.isArray(value) ? value.join(", ") : value}`)
+      .join("\n");
+    payload.notes = payload.notes
+      ? `${payload.notes}\n\n${detailText}`
+      : detailText;
+  }
+
+  return payload;
+}
+
+function buildFormSubmissionPayload(formConfig, fields, values, cart) {
+  const payload = {
+    form_id: formConfig.form_id,
+    placement_id: formConfig.placement_id || null,
+    source: formConfig.source || "website_store_checkout",
+    segments: Array.isArray(formConfig.segments) ? formConfig.segments : [],
+    meta: {
+      channel: "store_checkout",
+      cart_session_token: cart?.sessionToken || null,
+      cart_id: cart?.id || null,
+      cart_subtotal: Number(cart?.summary?.subtotal || 0),
+      cart_currency: cart?.summary?.currency || "USD",
+      cart_line_items: Number(cart?.summary?.lineItems || 0),
+    },
+  };
+
+  fields.forEach((field) => {
+    if (!field || field.visible === false || field.type === "hidden") return;
+    const value = values[field.name];
+    if (isEmptyValue(value)) return;
+
+    const target = field.map_to || field.name;
+    payload[target] = value;
+  });
+
+  payload.submit_timestamp = Date.now();
+  return payload;
+}
+
+function validateFormFields(fields, values) {
+  const errors = {};
+  fields.forEach((field) => {
+    if (!field || field.visible === false || field.type === "hidden") return;
+
+    const value = values[field.name];
+    if (field.required && isEmptyValue(value)) {
+      errors[field.name] = "Este campo es requerido.";
+      return;
+    }
+
+    const type = normalizeToken(field.type);
+    if ((type === "email" || normalizeToken(field.map_to) === "email") && !isEmptyValue(value)) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value).trim())) {
+        errors[field.name] = "Ingresa un email válido.";
+      }
+    }
+  });
+
+  return errors;
+}
+
+function CheckoutProgress({ step = 1 }) {
+  return (
+    <ol className="cart-checkout-steps checkout-steps" aria-label="Progreso de compra">
+      <li className={step === 1 ? "is-active" : ""}>
+        <span>1</span>
+        <strong>Carrito</strong>
+      </li>
+      <li className={step === 2 ? "is-active" : ""}>
+        <span>2</span>
+        <strong>Datos de checkout</strong>
+      </li>
+      <li className={step === 3 ? "is-active" : ""}>
+        <span>3</span>
+        <strong>Orden completada</strong>
+      </li>
+    </ol>
+  );
 }
 
 function ServiceIntentCheckout({
@@ -234,14 +380,113 @@ function StoreCheckout({
   setCompletedOrder,
 }) {
   const canCreateOrder = !createdOrder?.id;
+  const [crmFormState, setCrmFormState] = useState({
+    status: storeCheckoutFormSectionKey ? "loading" : "error",
+    message: "",
+    formConfig: null,
+  });
+  const [crmFormValues, setCrmFormValues] = useState({});
+  const [crmFormErrors, setCrmFormErrors] = useState({});
 
-  function handleChange(event) {
+  const crmFields = useMemo(() => {
+    const fields = Array.isArray(crmFormState.formConfig?.fields_schema)
+      ? crmFormState.formConfig.fields_schema
+      : [];
+    return fields.filter((field) => field?.visible !== false);
+  }, [crmFormState.formConfig]);
+
+  const fallbackCanSubmit =
+    String(checkoutForm.name || "").trim() && String(checkoutForm.email || "").trim();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCheckoutForm() {
+      if (!storeCheckoutFormSectionKey) {
+        setCrmFormState({
+          status: "error",
+          message: "No hay section key para el formulario de checkout.",
+          formConfig: null,
+        });
+        return;
+      }
+
+      setCrmFormState({
+        status: "loading",
+        message: "",
+        formConfig: null,
+      });
+
+      try {
+        const formConfig = await getFormByPlacement(storeCheckoutFormSectionKey);
+        if (cancelled) return;
+
+        setCrmFormState({
+          status: "ready",
+          message: "",
+          formConfig,
+        });
+
+        const defaults = {};
+        const fields = Array.isArray(formConfig?.fields_schema)
+          ? formConfig.fields_schema
+          : [];
+
+        fields.forEach((field) => {
+          if (!field?.name) return;
+          if (field.default_value !== undefined && field.default_value !== null) {
+            defaults[field.name] = field.default_value;
+          }
+        });
+
+        setCrmFormValues((current) => ({
+          ...defaults,
+          ...current,
+          email: current.email || cart?.email || "",
+          service_interest:
+            current.service_interest ||
+            cart?.items?.[0]?.snapshotName ||
+            "",
+        }));
+      } catch (error) {
+        if (cancelled) return;
+        setCrmFormState({
+          status: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "No se pudo cargar el formulario de checkout.",
+          formConfig: null,
+        });
+      }
+    }
+
+    loadCheckoutForm();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cart?.email, cart?.items]);
+
+  function handleFallbackChange(event) {
     const { name, value } = event.target;
-
     setCheckoutForm((current) => ({
       ...current,
       [name]: value,
     }));
+  }
+
+  function handleCrmFieldChange(name, value) {
+    setCrmFormValues((current) => ({
+      ...current,
+      [name]: value,
+    }));
+    if (crmFormErrors[name]) {
+      setCrmFormErrors((current) => ({
+        ...current,
+        [name]: "",
+      }));
+    }
   }
 
   async function ensurePaymentIntent(order) {
@@ -316,6 +561,7 @@ function StoreCheckout({
     event.preventDefault();
 
     try {
+      setCrmFormErrors({});
       setSubmitState({
         status: "loading",
         message: canCreateOrder
@@ -334,14 +580,8 @@ function StoreCheckout({
         return;
       }
 
-      const result = await submitPublicStoreCheckout({
-        sessionToken: cart.sessionToken,
-        name: checkoutForm.name,
-        email: checkoutForm.email,
-        phone: checkoutForm.phone,
-        company: checkoutForm.company,
-        notes: checkoutForm.notes,
-      });
+      const checkoutPayload = await prepareStoreCheckoutPayload();
+      const result = await submitPublicStoreCheckout(checkoutPayload);
 
       if (!result?.order?.id) {
         throw new Error("No se pudo crear la orden de checkout.");
@@ -365,6 +605,67 @@ function StoreCheckout({
     }
   }
 
+  async function prepareStoreCheckoutPayload() {
+    if (crmFormState.status === "ready" && crmFields.length) {
+      const validationErrors = validateFormFields(crmFields, crmFormValues);
+      if (Object.keys(validationErrors).length) {
+        setCrmFormErrors(validationErrors);
+        throw new Error("Completa los campos requeridos del formulario.");
+      }
+
+      const checkoutPayload = parseCheckoutDataFromForm(crmFields, crmFormValues);
+      if (!checkoutPayload.name || !checkoutPayload.email) {
+        throw new Error(
+          "El formulario de checkout debe incluir nombre completo y email."
+        );
+      }
+
+      const submissionPayload = buildFormSubmissionPayload(
+        crmFormState.formConfig,
+        crmFields,
+        crmFormValues,
+        cart
+      );
+
+      const submissionResult = await submitForm(submissionPayload);
+      const source = crmFormState.formConfig?.source || "website_store_checkout";
+
+      setCheckoutForm((current) => ({
+        ...current,
+        name: checkoutPayload.name,
+        email: checkoutPayload.email,
+        phone: checkoutPayload.phone,
+        company: checkoutPayload.company,
+        notes: checkoutPayload.notes,
+      }));
+
+      return {
+        sessionToken: cart.sessionToken,
+        name: checkoutPayload.name,
+        email: checkoutPayload.email,
+        phone: checkoutPayload.phone,
+        company: checkoutPayload.company,
+        notes: checkoutPayload.notes,
+        contactId: submissionResult?.contact_id || null,
+        source,
+      };
+    }
+
+    if (!fallbackCanSubmit) {
+      throw new Error("Completa nombre y email para continuar.");
+    }
+
+    return {
+      sessionToken: cart.sessionToken,
+      name: checkoutForm.name,
+      email: checkoutForm.email,
+      phone: checkoutForm.phone || null,
+      company: checkoutForm.company || null,
+      notes: checkoutForm.notes || null,
+      source: "website_store_checkout",
+    };
+  }
+
   if (completedOrder) {
     return (
       <>
@@ -377,6 +678,7 @@ function StoreCheckout({
         <section className="section">
           <div className="container detail-grid">
             <article className="detail-panel">
+              <CheckoutProgress step={3} />
               <h2>Resumen de la orden</h2>
               <div className="summary-row">
                 <span>Número</span>
@@ -437,70 +739,200 @@ function StoreCheckout({
       <section className="section">
         <div className="container detail-grid">
           <form className="detail-panel" onSubmit={handleSubmit}>
+            <CheckoutProgress step={2} />
             <h2>Datos para tu orden</h2>
-            <div className="form-grid">
-              <label className="field">
-                <span>Nombre</span>
-                <input
-                  type="text"
-                  name="name"
-                  value={checkoutForm.name}
-                  onChange={handleChange}
-                  placeholder="Nombre completo"
-                  required
-                  disabled={!canCreateOrder}
-                />
-              </label>
+            <p className="detail-summary__note">
+              El formulario de esta etapa se administra desde el CRM.
+            </p>
 
-              <label className="field">
-                <span>Email</span>
-                <input
-                  type="email"
-                  name="email"
-                  value={checkoutForm.email}
-                  onChange={handleChange}
-                  placeholder="tu@email.com"
-                  required
-                  disabled={!canCreateOrder}
-                />
-              </label>
+            {crmFormState.status === "loading" ? (
+              <div className="checkout-crm-form__loading">
+                <div className="checkout-crm-form__spinner" />
+                <p>Cargando formulario desde CRM...</p>
+              </div>
+            ) : null}
 
-              <label className="field">
-                <span>Teléfono</span>
-                <input
-                  type="text"
-                  name="phone"
-                  value={checkoutForm.phone}
-                  onChange={handleChange}
-                  placeholder="Teléfono de contacto"
-                  disabled={!canCreateOrder}
-                />
-              </label>
+            {crmFormState.status === "ready" && crmFields.length ? (
+              <div className="form-grid checkout-crm-form-grid">
+                {crmFields.map((field) => {
+                  const value = crmFormValues[field.name] ?? "";
+                  const error = crmFormErrors[field.name];
+                  const className = `field ${
+                    field.width === "half" ? "" : "field--full"
+                  }`;
 
-              <label className="field">
-                <span>Empresa</span>
-                <input
-                  type="text"
-                  name="company"
-                  value={checkoutForm.company}
-                  onChange={handleChange}
-                  placeholder="Empresa opcional"
-                  disabled={!canCreateOrder}
-                />
-              </label>
+                  if (field.type === "hidden") {
+                    return (
+                      <input
+                        key={field.id || field.name}
+                        type="hidden"
+                        value={value}
+                        name={field.name}
+                      />
+                    );
+                  }
 
-              <label className="field field--full">
-                <span>Notas</span>
-                <textarea
-                  rows="6"
-                  name="notes"
-                  value={checkoutForm.notes}
-                  onChange={handleChange}
-                  placeholder="Notas sobre entrega, acceso o cualquier detalle adicional."
-                  disabled={!canCreateOrder}
-                />
-              </label>
-            </div>
+                  if (field.type === "select") {
+                    return (
+                      <label key={field.id || field.name} className={className}>
+                        <span>{field.label}</span>
+                        <select
+                          name={field.name}
+                          value={value}
+                          onChange={(event) =>
+                            handleCrmFieldChange(field.name, event.target.value)
+                          }
+                          required={Boolean(field.required)}
+                          disabled={!canCreateOrder}
+                        >
+                          <option value="">
+                            {field.placeholder || "Selecciona una opción"}
+                          </option>
+                          {(field.options || []).map((option) => (
+                            <option
+                              key={`${field.name}-${option.value}`}
+                              value={option.value}
+                            >
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        {error ? <small className="field__error">{error}</small> : null}
+                      </label>
+                    );
+                  }
+
+                  if (field.type === "textarea") {
+                    return (
+                      <label key={field.id || field.name} className={className}>
+                        <span>{field.label}</span>
+                        <textarea
+                          rows="5"
+                          name={field.name}
+                          value={value}
+                          onChange={(event) =>
+                            handleCrmFieldChange(field.name, event.target.value)
+                          }
+                          placeholder={field.placeholder || ""}
+                          required={Boolean(field.required)}
+                          disabled={!canCreateOrder}
+                        />
+                        {error ? <small className="field__error">{error}</small> : null}
+                      </label>
+                    );
+                  }
+
+                  if (field.type === "checkbox") {
+                    return (
+                      <label key={field.id || field.name} className={className}>
+                        <span>{field.label}</span>
+                        <input
+                          type="checkbox"
+                          name={field.name}
+                          checked={Boolean(value)}
+                          onChange={(event) =>
+                            handleCrmFieldChange(field.name, event.target.checked)
+                          }
+                          required={Boolean(field.required)}
+                          disabled={!canCreateOrder}
+                        />
+                        {error ? <small className="field__error">{error}</small> : null}
+                      </label>
+                    );
+                  }
+
+                  return (
+                    <label key={field.id || field.name} className={className}>
+                      <span>{field.label}</span>
+                      <input
+                        type={field.type || "text"}
+                        name={field.name}
+                        value={value}
+                        onChange={(event) =>
+                          handleCrmFieldChange(field.name, event.target.value)
+                        }
+                        placeholder={field.placeholder || ""}
+                        required={Boolean(field.required)}
+                        disabled={!canCreateOrder}
+                      />
+                      {error ? <small className="field__error">{error}</small> : null}
+                    </label>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            {crmFormState.status === "error" ? (
+              <>
+                <p className="form-status form-status--error">
+                  {crmFormState.message ||
+                    "No se pudo cargar el formulario desde CRM. Usa el formulario de respaldo."}
+                </p>
+                <div className="form-grid">
+                  <label className="field">
+                    <span>Nombre</span>
+                    <input
+                      type="text"
+                      name="name"
+                      value={checkoutForm.name}
+                      onChange={handleFallbackChange}
+                      placeholder="Nombre completo"
+                      required
+                      disabled={!canCreateOrder}
+                    />
+                  </label>
+
+                  <label className="field">
+                    <span>Email</span>
+                    <input
+                      type="email"
+                      name="email"
+                      value={checkoutForm.email}
+                      onChange={handleFallbackChange}
+                      placeholder="tu@email.com"
+                      required
+                      disabled={!canCreateOrder}
+                    />
+                  </label>
+
+                  <label className="field">
+                    <span>Teléfono</span>
+                    <input
+                      type="text"
+                      name="phone"
+                      value={checkoutForm.phone}
+                      onChange={handleFallbackChange}
+                      placeholder="Teléfono de contacto"
+                      disabled={!canCreateOrder}
+                    />
+                  </label>
+
+                  <label className="field">
+                    <span>Empresa</span>
+                    <input
+                      type="text"
+                      name="company"
+                      value={checkoutForm.company}
+                      onChange={handleFallbackChange}
+                      placeholder="Empresa opcional"
+                      disabled={!canCreateOrder}
+                    />
+                  </label>
+
+                  <label className="field field--full">
+                    <span>Notas</span>
+                    <textarea
+                      rows="6"
+                      name="notes"
+                      value={checkoutForm.notes}
+                      onChange={handleFallbackChange}
+                      placeholder="Notas sobre entrega, acceso o cualquier detalle adicional."
+                      disabled={!canCreateOrder}
+                    />
+                  </label>
+                </div>
+              </>
+            ) : null}
 
             {submitState.status !== "idle" ? (
               <p className={`form-status form-status--${submitState.status}`}>
@@ -508,7 +940,13 @@ function StoreCheckout({
               </p>
             ) : null}
 
-            <Button type="submit" disabled={submitState.status === "loading" || !canCreateOrder && Boolean(paymentIntent?.clientSecret)}>
+            <Button
+              type="submit"
+              disabled={
+                submitState.status === "loading" ||
+                (!canCreateOrder && Boolean(paymentIntent?.clientSecret))
+              }
+            >
               {submitState.status === "loading"
                 ? canCreateOrder
                   ? "Creando orden..."
@@ -528,7 +966,7 @@ function StoreCheckout({
             ) : null}
           </form>
 
-          <aside className="detail-summary">
+          <aside className="detail-summary cart-checkout-summary">
             <div className="summary-row">
               <span>Líneas</span>
               <strong>{cart.summary.lineItems}</strong>
