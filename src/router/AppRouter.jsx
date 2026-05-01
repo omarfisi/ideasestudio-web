@@ -8,10 +8,8 @@ import MainLayout from "@/components/layout/MainLayout.jsx";
 import {
   getPublicClientRouteBundle,
   getPublicProductBySlug,
-  getPublicProductCategories,
   getPublicOrderByNumber,
   getPublicPortfolioItems,
-  getPublicProducts,
 } from "@/lib/api.js";
 import HomePage from "@/pages/HomePage.jsx";
 import SmallBusinessPage from "@/pages/SmallBusinessPage.jsx";
@@ -53,7 +51,7 @@ const loadServiceNiche = (slug) => async () => ({
   niche: getServiceNichePageBySlug(slug),
 });
 
-const loadProductsCatalog = async ({ request }) => {
+const loadProductsCatalog = ({ request }) => {
   const url = new URL(request.url);
   const filters = {
     category: url.searchParams.get("category") || "all",
@@ -61,29 +59,7 @@ const loadProductsCatalog = async ({ request }) => {
     search: url.searchParams.get("q") || "",
   };
 
-  try {
-    const [catalog, categories] = await Promise.all([
-      getPublicProducts(filters),
-      getPublicProductCategories(),
-    ]);
-    const serviceItems = Array.isArray(catalog?.items)
-      ? catalog.items.filter(
-          (item) => item?.productType === "service" && item?.isActive !== false
-        )
-      : [];
-
-    return {
-      products: serviceItems,
-      categories,
-      filters,
-    };
-  } catch (error) {
-    return {
-      products: [],
-      categories: [],
-      filters,
-    };
-  }
+  return { filters };
 };
 
 const loadProductDetail = async ({ params }) => {

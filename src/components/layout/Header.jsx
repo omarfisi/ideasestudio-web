@@ -25,6 +25,16 @@ const CLIENT_PATHS = [
   },
 ];
 
+const SOLUTIONS_MENU_ITEMS = [
+  {
+    title: "Ver todos los servicios",
+    description: "Catálogo completo de servicios profesionales disponibles.",
+    to: "/servicios",
+    featured: true,
+  },
+  ...CLIENT_PATHS,
+];
+
 const BRAND_LOGO_URL =
   "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/logos/favicon_ideasestudio.webp";
 
@@ -823,14 +833,16 @@ export default function Header() {
               </div>
 
               <div className="ie-dropdown__grid">
-                {CLIENT_PATHS.map((item, index) => (
+                {SOLUTIONS_MENU_ITEMS.map((item, index) => (
                   <Link
                     key={item.title}
                     to={item.to}
                     className="ie-dropdown__item"
                     onClick={closeMenus}
                   >
-                    <span className="ie-dropdown__icon">{index + 1}</span>
+                    <span className="ie-dropdown__icon">
+                      {item.featured ? "★" : index}
+                    </span>
                     <span>
                       <h4 className="ie-dropdown__item-title">{item.title}</h4>
                       <p className="ie-dropdown__item-text">{item.description}</p>
@@ -859,7 +871,7 @@ export default function Header() {
 
                 {solutionsOpen && (
                   <div className="ie-mobile-submenu">
-                    {CLIENT_PATHS.map((item) => (
+                    {SOLUTIONS_MENU_ITEMS.map((item) => (
                       <Link key={item.title} to={item.to} onClick={closeMenus}>
                         <strong>{item.title}</strong>
                         <span>{item.description}</span>
