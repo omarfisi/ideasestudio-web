@@ -1,0 +1,262 @@
+FILE: src/pages/HomePage.jsx
+==================================================
+import { useEffect, useMemo, useState } from "react";
+import TestimonialsSlider from "@/components/shared/TestimonialsSlider.jsx";
+import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
+import {
+  getTestimonialsForPage,
+  TESTIMONIAL_SECTION_COPY,
+} from "@/data/testimonials.js";
+import { getPublicPortfolioItems } from "@/lib/api.js";
+import portfolioProcessHero from "../assets/quland-process/process-1.png";
+import portfolioProcessStep1 from "../assets/quland-process/process-2.png";
+import portfolioProcessStep2 from "../assets/quland-process/process-3.png";
+import portfolioProcessStep3 from "../assets/quland-process/process-4.png";
+import portfolioProcessStep4 from "../assets/quland-process/process-5.png";
+
+const PORTFOLIO_VISUAL_SLIDES = [
+  {
+    image: portfolioProcessHero,
+    eyebrow: "Ideas Estudio",
+    title: "Soluciones visuales para marcas y negocios",
+    text: "Fotografía, video, diseño y presencia digital con enfoque estratégico.",
+  },
+  {
+    image: portfolioProcessStep1,
+    eyebrow: "Dirección",
+    title: "Concepto y enfoque creativo",
+    text: "Definimos la intención visual antes de ejecutar cada pieza.",
+  },
+  {
+    image: portfolioProcessStep2,
+    eyebrow: "Diseño",
+    title: "Presencia visual profesional",
+    text: "Construimos una imagen más clara, sólida y coherente para tu proyecto.",
+  },
+  {
+    image: portfolioProcessStep3,
+    eyebrow: "Producción",
+    title: "Contenido para web y redes",
+    text: "Creamos materiales pensados para comunicar, mostrar y conectar.",
+  },
+  {
+    image: portfolioProcessStep4,
+    eyebrow: "Entrega",
+    title: "Activos listos para publicar",
+    text: "Organizamos tus piezas visuales para que salgan a tiempo y con consistencia.",
+  },
+  {
+    image:
+      "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/presencia-visual.webp",
+    eyebrow: "Marca",
+    title: "Imagen que inspira confianza",
+    text: "Desarrollamos piezas que elevan la percepción profesional de tu servicio.",
+  },
+  {
+    image:
+      "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/marca-negocio.webp",
+    eyebrow: "Negocio",
+    title: "Comunicación alineada a tu negocio",
+    text: "Cada formato responde a tus objetivos comerciales y de posicionamiento.",
+  },
+  {
+    image:
+      "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/solucion-social.webp",
+    eyebrow: "Contenido",
+    title: "Formatos pensados para compartir",
+    text: "Piezas visuales preparadas para redes, campañas y momentos clave.",
+  },
+];
+
+const OBJETIVO_WORDS = ["marca", "empresa", "crecimiento", "presencia"];
+const CAMINOS_CARDS = [
+  {
+    visualClass: "is-visual-1",
+    badge: "01. Marca / Negocio",
+    title: "Tengo una marca o negocio",
+    description:
+      "Para marcas y negocios que necesitan verse mejor, comunicar con más claridad y vender con más orden.",
+    lead: "Es para ti si:",
+    items: [
+      "Tu marca no refleja el nivel real de lo que ofreces.",
+      "No tienes una ruta clara entre presencia visual y ventas.",
+      "Publicas, pero no comunicas con criterio.",
+      "Necesitas branding, contenido, web o piezas comerciales.",
+    ],
+    chip: "Marca y negocio",
+    href: "/servicios",
+    ctaLabel: "Ver servicio",
+  },
+  {
+    visualClass: "is-visual-2",
+    badge: "02. Presencia visual",
+    title: "Necesito presencia visual profesional",
+    description:
+      "Para empresas y equipos que necesitan proyectar confianza con imagen corporativa, fotografía y materiales de presentación.",
+    lead: "Es para ti si:",
+    items: [
+      "Tu empresa no proyecta el nivel de confianza que merece.",
+      "Faltan piezas visuales para reuniones, web o propuestas.",
+      "Tu imagen se siente dispersa entre canales y materiales.",
+      "Necesitas retrato, foto institucional, video o deck.",
+    ],
+    chip: "Presencia visual",
+    href: "/servicios",
+    ctaLabel: "Ver servicio",
+  },
+  {
+    visualClass: "is-visual-3",
+    badge: "03. Momento especial",
+    title: "Quiero capturar un momento especial",
+    description:
+      "Para personas que quieren documentar una fecha, sesión o evento con calidad, intención y una experiencia bien presentada.",
+    lead: "Es para ti si:",
+    items: [
+      "No estás seguro qué tipo de sesión o cobertura necesitas.",
+      "Quieres guardar un momento importante con criterio.",
+      "Buscas una experiencia clara antes de reservar.",
+      "Necesitas foto, video o una cobertura más completa.",
+    ],
+    chip: "Momentos especiales",
+    href: "/servicios",
+    ctaLabel: "Ver servicio",
+  },
+  {
+    visualClass: "is-visual-4",
+    badge: "04. Solución a medida",
+    title: "Busco una solución creativa a mi medida",
+    description:
+      "Para proyectos que mezclan disciplinas o no encajan en un servicio estándar y necesitan una propuesta consultiva.",
+    lead: "Es para ti si:",
+    items: [
+      "Tu necesidad mezcla foto, video, diseño, web o contenido.",
+      "El proyecto primero requiere diagnóstico, luego propuesta.",
+      "No quieres un paquete fijo, sino una solución a tu medida.",
+      "Buscas criterio y ejecución integrada, no servicios sueltos.",
+    ],
+    chip: "Solución a medida",
+    href: "#contacto",
+    ctaLabel: "Quiero esta solución",
+  },
+];
+
+const PORTFOLIO_PROCESS_STEPS = [
+  {
+    number: "01",
+    title: "Descubrimiento y enfoque",
+    description:
+      "Analizamos tu idea, tus objetivos y el contexto de tu marca para definir dirección, alcance y prioridades.",
+    image: portfolioProcessStep1,
+  },
+  {
+    number: "02",
+    title: "Dirección visual",
+    description:
+      "Aterrizamos estilo, referencias, estructura y recursos para que la propuesta se vea coherente y profesional.",
+    image: portfolioProcessStep2,
+  },
+  {
+    number: "03",
+    title: "Producción y desarrollo",
+    description:
+      "Ejecutamos fotografía, video, diseño o contenido digital con una línea visual clara y consistente.",
+    image: portfolioProcessStep3,
+  },
+  {
+    number: "04",
+    title: "Entrega y optimización",
+    description:
+      "Organizamos entregables, revisiones finales y ajustes para que el proyecto quede listo para publicar o lanzar.",
+    image: portfolioProcessStep4,
+  },
+];
+
+const portfolioIntro = {
+  title: "Proyectos visuales que convierten ideas en presencia real.",
+  titleHighlight: ["visuales", "presencia real"],
+  description:
+    "Una muestra de trabajos pensados para comunicar mejor, verse mejor y construir una propuesta más clara, sólida y profesional.",
+};
+
+const SLIDESHOW_INTERVAL_MS = 20000;
+
+export default function HomePage() {
+  const [wordIndex, setWordIndex] = useState(0);
+  const [typedObjetivo, setTypedObjetivo] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [activeCamino, setActiveCamino] = useState(0);
+  const [homePortfolioItems, setHomePortfolioItems] = useState([]);
+  const [portfolioLoading, setPortfolioLoading] = useState(true);
+
+  const CAT_EYEBROW_HOME = { fotografia:"FOTOGRAFÍA", video:"VIDEO", branding_diseno:"DISEÑO GRÁFICO", web:"WEB", marketing_digital:"MARKETING" };
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  const toSlide = (item) => ({
+    image: item.homeCoverUrl || item.coverUrl || "",
+    eyebrow: CAT_EYEBROW_HOME[item.category] || (item.category || "").toUpperCase(),
+    title: item.title || "",
+    text: item.description
+      ? item.description.length > 120
+        ? item.description.slice(0, 120).trimEnd() + "…"
+        : item.description
+      : "",
+  });
+
+  const portfolioSlides = useMemo(
+    () => shuffle(homePortfolioItems.filter(i => i.placements.includes("home_wide"))).map(toSlide),
+    [homePortfolioItems]
+  );
+
+  const portfolioPortraitSlides = useMemo(
+    () => shuffle(homePortfolioItems.filter(i => i.placements.includes("home_portrait"))).map(toSlide),
+    [homePortfolioItems]
+  );
+
+  const portfolioCardItems = useMemo(
+    () => shuffle(homePortfolioItems.filter(i => i.placements.includes("home_cards"))).slice(0, 4),
+    [homePortfolioItems]
+  );
+  const [activePortfolioTopMedia, setActivePortfolioTopMedia] = useState(0);
+  const [activePortfolioLeftMedia, setActivePortfolioLeftMedia] = useState(1);
+  const [activePortfolioStep, setActivePortfolioStep] = useState(0);
+  const [isPortfolioTransitionEnabled, setIsPortfolioTransitionEnabled] = useState(true);
+  const [cardsPerView, setCardsPerView] = useState(() =>
+    typeof window !== "undefined" && window.innerWidth <= 980 ? 1 : 2
+  );
+
+  const caminoSlides = [];
+  const portfolioLoopSteps = [...PORTFOLIO_PROCESS_STEPS, ...PORTFOLIO_PROCESS_STEPS];
+
+  for (let index = 0; index < CAMINOS_CARDS.length; index += cardsPerView) {
+    caminoSlides.push(CAMINOS_CARDS.slice(index, index + cardsPerView));
+  }
+
+  useEffect(() => {
+    const currentWord = OBJETIVO_WORDS[wordIndex];
+    const typingSpeed = isDeleting ? 45 : 85;
+    const pauseBeforeDelete = 1200;
+    const pauseBeforeNext = 250;
+
+    let timeout;
+
+    if (!isDeleting && typedObjetivo === currentWord) {
+      timeout = setTimeout(() => {
+        setIsDeleting(true);
+      }, pauseBeforeDelete);
+    } else if (isDeleting && typedObjetivo === "") {
+      timeout = setTimeout(() => {
+        setIsDeleting(false);
+        setWordIndex((prev) => (prev + 1) % OBJETIVO_WORDS.length);
+      }, pauseBeforeNext);
+    } else {
+      timeout = setTimeout(() => {
+        if (!isDeleting) {
+          setTypedObjetivo(currentWord.slice(0, typedObjetivo.length + 1));

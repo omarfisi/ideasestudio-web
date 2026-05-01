@@ -1,0 +1,262 @@
+FILE: src/pages/ContactPage.jsx
+==================================================
+import { useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { submitLeadForm } from "@/lib/publicLeadForms.js";
+
+const SERVICE_OPTIONS = [
+  "Branding e identidad visual",
+  "Fotografía y video",
+  "Diseño web y presencia digital",
+  "Contenido para redes sociales",
+  "Estrategia de marca",
+  "Propuesta comercial",
+  "Otro / No estoy seguro",
+];
+
+function isValidEmail(v) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || "").trim());
+}
+
+// ─── Trust badges ─────────────────────────────────────────────────────────────
+
+const TRUST_ITEMS = [
+  { icon: "✦", label: "Respuesta personalizada" },
+  { icon: "✦", label: "Atención directa" },
+  { icon: "✦", label: "Enfoque estratégico" },
+];
+
+const CONTACT_INFO = [
+  {
+    icon: (
+      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+        <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+    label: "Correo",
+    value: "omarfisi@ideasestudiopr.com",
+    href: "mailto:omarfisi@ideasestudiopr.com",
+  },
+  {
+    icon: (
+      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+        <path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+    label: "Teléfono",
+    value: "+1 787-503-0349",
+    href: "tel:+17875030349",
+  },
+  {
+    icon: (
+      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+    label: "Tiempo de respuesta",
+    value: "Dentro de 24 horas hábiles",
+    href: null,
+  },
+];
+
+const CONTACT_MAP_EMBED_URL =
+  "https://maps.google.com/maps?q=18.0261881,-66.6123375&z=17&output=embed";
+
+// ─── Contact form ─────────────────────────────────────────────────────────────
+
+function ContactForm({ prefilledService }) {
+  const [form, setForm] = useState({
+    full_name: "",
+    email: "",
+    phone: "",
+    business_name: "",
+    service_interest: prefilledService || "",
+    message: "",
+  });
+  const [touched, setTouched] = useState({});
+  const [status, setStatus] = useState("idle"); // idle | loading | success | error
+  const [statusMsg, setStatusMsg] = useState("");
+
+  const emailValid = useMemo(() => isValidEmail(form.email), [form.email]);
+  const nameValid = form.full_name.trim().length >= 2;
+  const messageValid = form.message.trim().length >= 10;
+  const canSubmit = emailValid && nameValid && messageValid;
+
+  function field(name) {
+    return {
+      name,
+      value: form[name],
+      onChange: (e) => setForm((f) => ({ ...f, [name]: e.target.value })),
+      onBlur: () => setTouched((t) => ({ ...t, [name]: true })),
+    };
+  }
+
+  function hasError(name) {
+    if (!touched[name]) return false;
+    if (name === "email") return !emailValid;
+    if (name === "full_name") return !nameValid;
+    if (name === "message") return !messageValid;
+    return false;
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setTouched({ full_name: true, email: true, message: true });
+    if (!canSubmit) return;
+
+    setStatus("loading");
+    setStatusMsg("");
+
+    try {
+      const result = await submitLeadForm({
+        ...form,
+        source: "website_contact",
+        segment: "pagina_contacto",
+        segments: ["pagina_contacto", "nuevos_suscriptores"],
+        submission_kind: "commercial_contact",
+        meta: {
+          form_name: "contact_main_form",
+          page_url: "/contacto",
+          entry_point: "contact_page",
+          ui_context: "ideas_web_public",
+        },
+      });
+
+      setStatus("success");
+      setStatusMsg(
+        result?.message ||
+          "Gracias por escribirnos. Muy pronto estaremos en contacto contigo."
+      );
+      setForm({
+        full_name: "",
+        email: "",
+        phone: "",
+        business_name: "",
+        service_interest: prefilledService || "",
+        message: "",
+      });
+      setTouched({});
+    } catch (err) {
+      setStatus("error");
+      setStatusMsg(
+        err?.message ||
+          "No pudimos enviar tu mensaje. Por favor inténtalo nuevamente."
+      );
+    }
+  }
+
+  if (status === "success") {
+    return (
+      <div className="contact-form-success">
+        <div className="contact-form-success__icon">✓</div>
+        <h3 className="contact-form-success__title">Mensaje recibido</h3>
+        <p className="contact-form-success__text">{statusMsg}</p>
+        <button
+          className="contact-form-success__reset"
+          onClick={() => setStatus("idle")}
+        >
+          Enviar otro mensaje
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form className="contact-form" onSubmit={handleSubmit} noValidate>
+      <div className="contact-form__grid">
+        <div className={`contact-field${hasError("full_name") ? " is-error" : ""}`}>
+          <label className="contact-field__label" htmlFor="cf-name">
+            Nombre completo <span aria-hidden="true">*</span>
+          </label>
+          <input
+            id="cf-name"
+            type="text"
+            placeholder="Tu nombre"
+            autoComplete="name"
+            required
+            {...field("full_name")}
+          />
+          {hasError("full_name") && (
+            <span className="contact-field__error">Escribe tu nombre para continuar.</span>
+          )}
+        </div>
+
+        <div className={`contact-field${hasError("email") ? " is-error" : ""}`}>
+          <label className="contact-field__label" htmlFor="cf-email">
+            Email <span aria-hidden="true">*</span>
+          </label>
+          <input
+            id="cf-email"
+            type="email"
+            placeholder="tu@email.com"
+            autoComplete="email"
+            required
+            {...field("email")}
+          />
+          {hasError("email") && (
+            <span className="contact-field__error">Escribe un correo electrónico válido.</span>
+          )}
+        </div>
+
+        <div className="contact-field">
+          <label className="contact-field__label" htmlFor="cf-phone">
+            Teléfono <span className="contact-field__optional">(opcional)</span>
+          </label>
+          <input
+            id="cf-phone"
+            type="tel"
+            placeholder="+1 787-000-0000"
+            autoComplete="tel"
+            {...field("phone")}
+          />
+        </div>
+
+        <div className="contact-field">
+          <label className="contact-field__label" htmlFor="cf-business">
+            Nombre del negocio <span className="contact-field__optional">(opcional)</span>
+          </label>
+          <input
+            id="cf-business"
+            type="text"
+            placeholder="Nombre de tu empresa o proyecto"
+            autoComplete="organization"
+            {...field("business_name")}
+          />
+        </div>
+
+        <div className="contact-field contact-field--full">
+          <label className="contact-field__label" htmlFor="cf-service">
+            Servicio de interés <span className="contact-field__optional">(opcional)</span>
+          </label>
+          <select id="cf-service" {...field("service_interest")}>
+            <option value="">Selecciona una opción</option>
+            {SERVICE_OPTIONS.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className={`contact-field contact-field--full${hasError("message") ? " is-error" : ""}`}>
+          <label className="contact-field__label" htmlFor="cf-message">
+            Mensaje <span aria-hidden="true">*</span>
+          </label>
+          <textarea
+            id="cf-message"
+            rows={5}
+            placeholder="Cuéntanos qué necesitas, en qué etapa estás, si tienes una fecha o cualquier detalle relevante."
+            required
+            {...field("message")}
+          />
+          {hasError("message") && (
+            <span className="contact-field__error">Escribe un mensaje un poco más claro.</span>
+          )}
+        </div>
+      </div>
+
+      {status === "error" && (
+        <p className="contact-form__error-banner">{statusMsg}</p>
+      )}
+
+      <div className="contact-form__footer">
+        <button
+          type="submit"

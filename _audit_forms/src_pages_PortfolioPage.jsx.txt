@@ -1,0 +1,262 @@
+FILE: src/pages/PortfolioPage.jsx
+==================================================
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import Button from "@/components/shared/Button.jsx";
+import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
+import { getPublicPortfolioItems } from "@/lib/api.js";
+
+// ─── Categorías de filtro — valor = slug de la API ───────────
+const CATEGORY_FILTERS = [
+  { value: "Todos",           label: "Todos" },
+  { value: "fotografia",      label: "Fotografía" },
+  { value: "video",           label: "Video" },
+  { value: "branding_diseno", label: "Branding" },
+  { value: "web",             label: "Web" },
+  { value: "marketing_digital", label: "Marketing" },
+];
+
+// ─── Etiqueta específica de tarjeta ──────────────────────────
+const SUBCAT_LABELS = {
+  embarazo:             "Fotografía de embarazo",
+  boda:                 "Fotografía de boda",
+  love_story:           "Love Story",
+  cumpleanos:           "Fotografía de cumpleaños",
+  graduacion:           "Fotografía de graduación",
+  evento:               "Fotografía de evento",
+  exterior:             "Fotografía de exterior",
+  estudio:              "Fotografía de estudio",
+  montaje:              "Estudio y montaje",
+  retrato:              "Retrato",
+  producto:             "Fotografía de producto",
+  promocional:          "Video promocional",
+  cobertura:            "Cobertura de evento",
+  reel:                 "Reel / Short-form",
+  entrevista:           "Entrevista",
+  video_basico:         "Producción básica",
+  video_avanzado:       "Producción avanzada",
+  logo:                 "Logo",
+  identidad_visual:     "Identidad visual",
+  material_promocional: "Material promocional",
+  tarjeta:              "Tarjeta de presentación",
+  landing_page:         "Landing page",
+  web_corporativa:      "Web corporativa",
+  ecommerce:            "E-commerce",
+  redes_sociales:       "Gestión de redes sociales",
+  estrategia_contenido: "Estrategia de contenido",
+  materiales_marketing: "Materiales de marketing",
+};
+
+const CAT_LABELS = {
+  fotografia:         "Fotografía",
+  video:              "Video",
+  branding_diseno:    "Branding & Diseño",
+  web:                "Web",
+  marketing_digital:  "Marketing digital",
+};
+
+function getCardLabel(item) {
+  if (item.subcategory) {
+    return (
+      SUBCAT_LABELS[item.subcategory] ||
+      item.subcategory.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
+    );
+  }
+  const t = (item.title || "").toLowerCase();
+  if (t.includes("embarazo") || t.includes("maternidad")) return "Fotografía de embarazo";
+  if (t.includes("boda") || t.includes("matrimonio"))      return "Fotografía de boda";
+  if (t.includes("producto"))                               return "Fotografía de producto";
+  if (t.includes("evento"))                                 return "Fotografía de evento";
+  return CAT_LABELS[item.category] || item.category || "";
+}
+
+// ─── Eyebrow + título editorial de tarjeta ───────────────────
+const EYEBROW_MAP = {
+  embarazo:             "TEMÁTICA",
+  boda:                 "MOMENTOS",
+  love_story:           "AMOR",
+  cumpleanos:           "CELEBRACIÓN",
+  graduacion:           "LOGRO",
+  evento:               "MOMENTOS",
+  exterior:             "EXTERIOR",
+  estudio:              "ESTUDIO",
+  montaje:              "CREATIVO",
+  retrato:              "RETRATO",
+  producto:             "ESTILO",
+  promocional:          "VIDEO",
+  cobertura:            "EVENTOS",
+  reel:                 "REEL",
+  entrevista:           "ENTREVISTA",
+  video_basico:         "VIDEO",
+  video_avanzado:       "VIDEO",
+  logo:                 "IDENTIDAD",
+  identidad_visual:     "IDENTIDAD",
+  material_promocional: "DISEÑO",
+  tarjeta:              "DISEÑO",
+  redes_sociales:       "SOCIAL",
+  estrategia_contenido: "ESTRATEGIA",
+  materiales_marketing: "MARKETING",
+  landing_page:         "WEB",
+  web_corporativa:      "WEB",
+  ecommerce:            "E-COMMERCE",
+};
+
+const CAT_EYEBROW = {
+  fotografia:         "FOTOGRAFÍA",
+  video:              "VIDEO",
+  branding_diseno:    "DISEÑO GRÁFICO",
+  web:                "WEB",
+  marketing_digital:  "MARKETING",
+};
+
+function getCardEyebrow(item) {
+  if (item.subcategory && EYEBROW_MAP[item.subcategory]) return EYEBROW_MAP[item.subcategory];
+  const t = (item.title || "").toLowerCase();
+  if (t.includes("embarazo") || t.includes("maternidad")) return "TEMÁTICA";
+  if (t.includes("producto"))                              return "ESTILO";
+  if (t.includes("boda") || t.includes("matrimonio"))     return "MOMENTOS";
+  if (t.includes("evento"))                               return "MOMENTOS";
+  return CAT_EYEBROW[item.category] || (item.category || "").toUpperCase();
+}
+
+// Elimina prefijos verbosos del título para una lectura más editorial.
+// "Sesión Fotografía de Embarazo en un Bosque" → "Sesión fotográfica en un Bosque"
+// "Sesión de Fotografía para Producto "Barber Cape"" → "Sesión fotográfica "Barber Cape""
+const _TITLE_STRIP = /^(?:sesión\s+)?fotografía\s+(?:de\s+\w+|para\s+\w+)\s+/i;
+const _SESS_STRIP   = /^sesión\s+de\s+fotografía\s+(?:para\s+\w+|de\s+\w+)\s+/i;
+const _SESS_STRIP2  = /^sesión\s+fotografía\s+(?:de\s+\w+)\s+/i;
+
+function getCardTitle(item) {
+  const raw = (item.title || "").trim();
+  if (!raw) return "";
+  if (item.category !== "fotografia") return raw;
+
+  for (const re of [_SESS_STRIP, _SESS_STRIP2, _TITLE_STRIP]) {
+    const rest = raw.replace(re, "").trim();
+    if (rest && rest.length > 3 && rest.length < raw.length) {
+      return `Sesión fotográfica ${rest}`;
+    }
+  }
+  return raw;
+}
+
+// ─── Helpers YouTube ─────────────────────────────────────────
+function getYoutubeId(url) {
+  if (!url) return "";
+  try {
+    const parsed = new URL(url);
+    let id = "";
+    if (parsed.hostname.includes("youtu.be")) {
+      id = parsed.pathname.split("/").filter(Boolean)[0] || "";
+    } else if (parsed.pathname.startsWith("/watch")) {
+      id = parsed.searchParams.get("v") || "";
+    } else if (parsed.pathname.includes("/shorts/")) {
+      id = parsed.pathname.split("/shorts/")[1]?.split("/")[0] || "";
+    } else if (parsed.pathname.includes("/embed/")) {
+      id = parsed.pathname.split("/embed/")[1]?.split("/")[0] || "";
+    }
+    return id.split("?")[0].split("&")[0];
+  } catch {
+    return "";
+  }
+}
+
+function getYoutubeEmbedUrl(url) {
+  const id = getYoutubeId(url);
+  if (!id) return url || "";
+  return `https://www.youtube.com/embed/${id}?autoplay=1&rel=0`;
+}
+
+function getYoutubeThumbnail(url) {
+  const id = getYoutubeId(url);
+  if (!id) return "";
+  return `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
+}
+
+// ─── Iconos ──────────────────────────────────────────────────
+function PlayIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current" aria-hidden="true">
+      <path d="M8 5.14v13.72c0 .77.83 1.25 1.5.86l10-6.86a1 1 0 0 0 0-1.72l-10-6.86A1 1 0 0 0 8 5.14Z" />
+    </svg>
+  );
+}
+
+function ArrowLeftIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  );
+}
+
+function ArrowRightIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M9 18l6-6-6-6" />
+    </svg>
+  );
+}
+
+// ─── Modal de video YouTube ───────────────────────────────────
+function YoutubeModal({ open, onClose, video }) {
+  if (!open || !video) return null;
+  const embedUrl = getYoutubeEmbedUrl(video.videoUrl);
+
+  return (
+    <div
+      className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={video.title}
+    >
+      <div
+        className="relative w-full max-w-5xl rounded-3xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 z-20 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black text-white transition hover:opacity-85"
+          aria-label="Cerrar modal"
+        >
+          ×
+        </button>
+
+        <div className="border-b border-neutral-200 px-6 py-5 pr-16">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-500">Video</p>
+          <h3 className="mt-2 text-2xl font-semibold text-neutral-950">{video.title}</h3>
+          <p className="mt-2 text-sm text-neutral-600">{video.description}</p>
+        </div>
+
+        <div className="p-4 md:p-6">
+          <div className="aspect-video w-full overflow-hidden rounded-2xl bg-black">
+            <iframe
+              src={embedUrl}
+              title={video.title}
+              className="h-full w-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Slideshow automático dentro de tarjeta ──────────────────
+// Todas las imágenes en DOM; cross-fade por opacity.
+// Si solo hay 1 imagen, renderiza img normal.
+function CardSlideshow({ images, alt, className = "" }) {
+  const [idx, setIdx] = useState(0);
+  // "top" para imágenes portrait detectadas por onLoad
+  const [positions, setPositions] = useState({});
+
+  const onImgLoad = (src, e) => {
+    const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+    if (h > w) setPositions((p) => ({ ...p, [src]: "object-top" }));
+  };
+
+  useEffect(() => {
