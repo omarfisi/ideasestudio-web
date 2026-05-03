@@ -973,6 +973,7 @@ export async function submitPublicStoreCheckout(payload) {
     customer_phone: payload.phone || null,
     contact_id: payload.contactId || cart.contactId || null,
     notes: payload.notes || null,
+    document_type: payload.documentType || "invoice",
     billing_address: {
       line1: payload.billingAddress?.line1 || null,
       line2: payload.billingAddress?.line2 || null,

@@ -380,6 +380,7 @@ function StoreCheckout({
   setCompletedOrder,
 }) {
   const canCreateOrder = !createdOrder?.id;
+  const [documentType, setDocumentType] = useState("invoice");
   const [crmFormState, setCrmFormState] = useState({
     status: storeCheckoutFormSectionKey ? "loading" : "error",
     message: "",
@@ -647,6 +648,7 @@ function StoreCheckout({
         company: checkoutPayload.company,
         notes: checkoutPayload.notes,
         contactId: submissionResult?.contact_id || null,
+        documentType,
         source,
       };
     }
@@ -662,6 +664,7 @@ function StoreCheckout({
       phone: checkoutForm.phone || null,
       company: checkoutForm.company || null,
       notes: checkoutForm.notes || null,
+      documentType,
       source: "website_store_checkout",
     };
   }
@@ -932,6 +935,34 @@ function StoreCheckout({
                   </label>
                 </div>
               </>
+            ) : null}
+
+            {canCreateOrder ? (
+              <fieldset className="checkout-doc-selector" disabled={!canCreateOrder}>
+                <legend className="checkout-doc-selector__legend">Documento a generar</legend>
+                <label className="checkout-doc-selector__option">
+                  <input
+                    type="radio"
+                    name="document_type"
+                    value="invoice"
+                    checked={documentType === "invoice"}
+                    onChange={() => setDocumentType("invoice")}
+                  />
+                  <span>Factura</span>
+                  <small>Se genera automáticamente al confirmar el pago.</small>
+                </label>
+                <label className="checkout-doc-selector__option">
+                  <input
+                    type="radio"
+                    name="document_type"
+                    value="proposal"
+                    checked={documentType === "proposal"}
+                    onChange={() => setDocumentType("proposal")}
+                  />
+                  <span>Propuesta</span>
+                  <small>Útil si necesitas un documento de presupuesto para aprobación interna.</small>
+                </label>
+              </fieldset>
             ) : null}
 
             {submitState.status !== "idle" ? (
