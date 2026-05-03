@@ -30,6 +30,10 @@ import ContactPage from "@/pages/ContactPage.jsx";
 import CartPage from "@/pages/CartPage.jsx";
 import CheckoutPage from "@/pages/CheckoutPage.jsx";
 import OrderConfirmationPage from "@/pages/OrderConfirmationPage.jsx";
+import AccountLoginPage from "@/pages/AccountLoginPage.jsx";
+import AccountCallbackPage from "@/pages/AccountCallbackPage.jsx";
+import AccountPage from "@/pages/AccountPage.jsx";
+import AccountOrderDetailPage from "@/pages/AccountOrderDetailPage.jsx";
 import NotFoundPage from "@/pages/NotFoundPage.jsx";
 import RouteErrorPage from "@/pages/RouteErrorPage.jsx";
 import QulandSystemPreview from "@/pages/QulandSystemPreview.jsx";
@@ -301,6 +305,22 @@ const router = createBrowserRouter([
       {
         path: "ordenes/:orderNumber",
         element: <RedirectLegacyOrder />,
+      },
+      {
+        path: "mi-cuenta/login",
+        element: <AccountLoginPage />,
+      },
+      {
+        path: "mi-cuenta/callback",
+        element: <AccountCallbackPage />,
+      },
+      {
+        path: "mi-cuenta/ordenes/:orderId",
+        element: <AccountOrderDetailPage />,
+      },
+      {
+        path: "mi-cuenta",
+        element: <AccountPage />,
       },
       {
         path: "preview/quland-system",
