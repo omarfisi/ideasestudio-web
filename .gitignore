@@ -25,6 +25,7 @@ dist-ssr
 # local-only audit/template dumps
 .env
 _audit/
+_audit_forms/
 env_refs.txt
 estructura_dirs.txt
 estructura_src.txt
