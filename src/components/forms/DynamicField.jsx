@@ -1,7 +1,8 @@
-export default function DynamicField({ field, value, onChange, error }) {
+export default function DynamicField({ field, value, onChange, error, disabled = false }) {
   const base =
     "w-full rounded-xl border px-4 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400/30 " +
-    (error ? "border-red-400 bg-red-50" : "border-slate-300 bg-white focus:border-slate-500");
+    (error ? "border-red-400 bg-red-50" : "border-slate-300 bg-white focus:border-slate-500") +
+    (disabled ? " opacity-60 cursor-not-allowed" : "");
 
   if (field.type === "hidden") {
     return <input type="hidden" name={field.name} value={value || field.default_value || ""} />;
@@ -23,6 +24,7 @@ export default function DynamicField({ field, value, onChange, error }) {
           onChange={(e) => onChange(field.name, e.target.value)}
           placeholder={field.placeholder || ""}
           required={field.required}
+          disabled={disabled}
           rows={4}
           className={base}
         />
@@ -34,6 +36,7 @@ export default function DynamicField({ field, value, onChange, error }) {
           value={value || field.default_value || ""}
           onChange={(e) => onChange(field.name, e.target.value)}
           required={field.required}
+          disabled={disabled}
           className={base}
         >
           <option value="">{field.placeholder || "Selecciona una opción…"}</option>
@@ -53,6 +56,7 @@ export default function DynamicField({ field, value, onChange, error }) {
             checked={!!value}
             onChange={(e) => onChange(field.name, e.target.checked)}
             required={field.required}
+            disabled={disabled}
             className="mt-0.5 h-4 w-4 rounded border-slate-300 text-slate-900"
           />
           <span className="text-sm text-slate-700">{field.label}</span>
@@ -67,6 +71,7 @@ export default function DynamicField({ field, value, onChange, error }) {
           onChange={(e) => onChange(field.name, e.target.value)}
           placeholder={field.placeholder || ""}
           required={field.required}
+          disabled={disabled}
           className={base}
         />
       )}

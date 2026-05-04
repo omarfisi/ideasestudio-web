@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import Button from "@/components/shared/Button.jsx";
-import PageHero from "@/components/shared/PageHero.jsx";
+import DynamicField from "@/components/forms/DynamicField.jsx";
 import { getFormByPlacement, submitForm } from "@/lib/publicFormsApi.js";
 import {
   createPublicStorePaymentIntent,
@@ -32,7 +32,7 @@ const stripePublishableKey = (
 ).trim();
 const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
 const storeCheckoutFormSectionKey = (
-  import.meta.env.VITE_STORE_CHECKOUT_FORM_SECTION_KEY || "contact_main_form"
+  import.meta.env.VITE_STORE_CHECKOUT_FORM_SECTION_KEY || "checkout_service_form"
 ).trim();
 
 function wait(ms) {
@@ -44,7 +44,7 @@ function wait(ms) {
 function normalizeToken(value) {
   return String(value || "")
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .trim()
     .toLowerCase();
 }
@@ -82,9 +82,7 @@ function parseCheckoutDataFromForm(fields, values) {
       if (!payload.email) payload.email = String(value);
       return;
     }
-    if (
-      ["phone", "telefono", "tel", "customer_phone", "whatsapp"].includes(target)
-    ) {
+    if (["phone", "telefono", "tel", "customer_phone", "whatsapp"].includes(target)) {
       if (!payload.phone) payload.phone = String(value);
       return;
     }
@@ -105,9 +103,7 @@ function parseCheckoutDataFromForm(fields, values) {
     const detailText = detailEntries
       .map(([label, value]) => `${label}: ${Array.isArray(value) ? value.join(", ") : value}`)
       .join("\n");
-    payload.notes = payload.notes
-      ? `${payload.notes}\n\n${detailText}`
-      : detailText;
+    payload.notes = payload.notes ? `${payload.notes}\n\n${detailText}` : detailText;
   }
 
   return payload;
@@ -133,7 +129,6 @@ function buildFormSubmissionPayload(formConfig, fields, values, cart) {
     if (!field || field.visible === false || field.type === "hidden") return;
     const value = values[field.name];
     if (isEmptyValue(value)) return;
-
     const target = field.map_to || field.name;
     payload[target] = value;
   });
@@ -146,13 +141,11 @@ function validateFormFields(fields, values) {
   const errors = {};
   fields.forEach((field) => {
     if (!field || field.visible === false || field.type === "hidden") return;
-
     const value = values[field.name];
     if (field.required && isEmptyValue(value)) {
       errors[field.name] = "Este campo es requerido.";
       return;
     }
-
     const type = normalizeToken(field.type);
     if ((type === "email" || normalizeToken(field.map_to) === "email") && !isEmptyValue(value)) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value).trim())) {
@@ -160,29 +153,67 @@ function validateFormFields(fields, values) {
       }
     }
   });
-
   return errors;
 }
 
-function CheckoutProgress({ step = 1 }) {
+/* ─── Lock SVG ─────────────────────────────────────────────────────────── */
+function LockIcon() {
   return (
-    <ol className="cart-checkout-steps checkout-steps" aria-label="Progreso de compra">
-      <li className={step === 1 ? "is-active" : ""}>
-        <span>1</span>
-        <strong>Carrito</strong>
-      </li>
-      <li className={step === 2 ? "is-active" : ""}>
-        <span>2</span>
-        <strong>Datos de checkout</strong>
-      </li>
-      <li className={step === 3 ? "is-active" : ""}>
-        <span>3</span>
-        <strong>Orden completada</strong>
-      </li>
-    </ol>
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={{ flexShrink: 0, marginTop: 2 }}
+    >
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
   );
 }
 
+/* ─── Checkout stepper ──────────────────────────────────────────────────── */
+function CheckoutHero({ activeStep = 2 }) {
+  const steps = [
+    { n: 1, label: "Carrito" },
+    { n: 2, label: "Datos de checkout" },
+    { n: 3, label: "Orden completada" },
+  ];
+
+  return (
+    <div className="checkout-hero">
+      <h1>Finaliza tu pedido</h1>
+      <div className="checkout-steps">
+        {steps.map((step, idx) => (
+          <>
+            <span
+              key={step.n}
+              className={`checkout-step${step.n === activeStep ? " is-active" : ""}`}
+            >
+              <span className="checkout-step-number">{step.n}</span>
+              {step.label}
+            </span>
+            {idx < steps.length - 1 && (
+              <span key={`sep-${step.n}`} style={{ color: "#d4d4d8", fontWeight: 400 }}>→</span>
+            )}
+          </>
+        ))}
+      </div>
+      {activeStep < 3 && (
+        <Link to="/servicios/carrito" className="checkout-back-link">
+          ← Volver al carrito
+        </Link>
+      )}
+    </div>
+  );
+}
+
+/* ─── ServiceIntentCheckout ─────────────────────────────────────────────── */
 function ServiceIntentCheckout({
   formData,
   setFormData,
@@ -197,19 +228,12 @@ function ServiceIntentCheckout({
 }) {
   function handleChange(event) {
     const { name, value } = event.target;
-
-    setFormData((current) => ({
-      ...current,
-      [name]: value,
-    }));
+    setFormData((current) => ({ ...current, [name]: value }));
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
-    setSubmitState({
-      status: "loading",
-      message: "Registrando intención comercial...",
-    });
+    setSubmitState({ status: "loading", message: "Registrando intención comercial..." });
 
     try {
       const result = await submitPublicLead({
@@ -221,9 +245,7 @@ function ServiceIntentCheckout({
         pageOrigin,
         originCta,
         submitCta: "checkout_form_submit",
-        meta: {
-          payment_method: formData.method,
-        },
+        meta: { payment_method: formData.method },
       });
 
       setSubmitState({
@@ -233,139 +255,192 @@ function ServiceIntentCheckout({
           "Tu intención quedó registrada mientras terminamos la integración de pagos.",
       });
 
-      setFormData((current) => ({
-        ...current,
-        name: "",
-        email: "",
-        phone: "",
-        message: "",
-      }));
+      setFormData((current) => ({ ...current, name: "", email: "", phone: "", message: "" }));
     } catch (error) {
       setSubmitState({
         status: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudo registrar la solicitud.",
+        message: error instanceof Error ? error.message : "No se pudo registrar la solicitud.",
+      });
+    }
+  }
+
+  const isLoading = submitState.status === "loading";
+
+  return (
+    <div className="checkout-modern-page">
+      <CheckoutHero activeStep={2} />
+
+      <div className="checkout-modern-shell">
+        <section>
+          <div className="checkout-card">
+            <h2>Datos de contratación</h2>
+            <p>Completa la información necesaria para registrar tu solicitud de servicio.</p>
+
+            <form onSubmit={handleSubmit}>
+              <div className="checkout-form-grid">
+                <div className="checkout-field">
+                  <label>Nombre <span style={{ color: "#ef4444" }}>*</span></label>
+                  <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Tu nombre completo" required disabled={isLoading} />
+                </div>
+                <div className="checkout-field">
+                  <label>Email <span style={{ color: "#ef4444" }}>*</span></label>
+                  <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="tu@email.com" required disabled={isLoading} />
+                </div>
+                <div className="checkout-field">
+                  <label>Teléfono</label>
+                  <input type="text" name="phone" value={formData.phone} onChange={handleChange} placeholder="+52 55 0000 0000" disabled={isLoading} />
+                </div>
+                <div className="checkout-field">
+                  <label>Método preferido</label>
+                  <select name="method" value={formData.method} onChange={handleChange} disabled={isLoading}>
+                    <option value="card">Tarjeta</option>
+                    <option value="deposit">Depósito</option>
+                    <option value="transfer">Transferencia</option>
+                  </select>
+                </div>
+                <div className="checkout-field is-full">
+                  <label>Notas o contexto</label>
+                  <textarea rows="5" name="message" value={formData.message} onChange={handleChange} placeholder="Comparte fecha, volumen, urgencia, presupuesto o cualquier detalle importante." disabled={isLoading} />
+                </div>
+              </div>
+
+              {submitState.status !== "idle" && (
+                <p className={`form-status form-status--${submitState.status}`} style={{ marginTop: 16 }}>
+                  {submitState.message}
+                </p>
+              )}
+
+              <div className="checkout-actions">
+                <button type="submit" className="checkout-pay-button" style={{ flex: 1 }} disabled={isLoading}>
+                  {isLoading ? "Enviando..." : submitLabels[mode] || "Registrar solicitud"}
+                </button>
+                <Link to="/servicios/carrito" className="checkout-secondary-button">
+                  ← Carrito
+                </Link>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <aside>
+          <div className="checkout-summary-card">
+            <div className="checkout-summary-head">
+              <h2>Resumen</h2>
+            </div>
+            <div className="checkout-totals" style={{ marginBottom: 0 }}>
+              <div className="checkout-total-row">
+                <span>Servicio</span>
+                <strong style={{ color: "#111" }}>{service}</strong>
+              </div>
+              <div className="checkout-total-row">
+                <span>Modo</span>
+                <strong style={{ color: "#111" }}>{modeLabels[mode] || "Compra directa"}</strong>
+              </div>
+              {serviceSlug && (
+                <div className="checkout-total-row">
+                  <span>Referencia</span>
+                  <strong style={{ color: "#111" }}>{serviceSlug}</strong>
+                </div>
+              )}
+            </div>
+            <div className="checkout-secure-box">
+              <LockIcon />
+              <div>
+                <strong>Secure Checkout - SSL Encrypted</strong>
+                <p>Tus datos personales están protegidos durante toda la transacción.</p>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+/* ─── StoreCardPaymentForm ──────────────────────────────────────────────── */
+function StoreCardPaymentForm({
+  clientSecret,
+  order,
+  checkoutForm,
+  submitState,
+  setSubmitState,
+  onPaymentSucceeded,
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+
+  async function handleCardPayment(event) {
+    event.preventDefault();
+
+    if (!stripe || !elements) {
+      setSubmitState({
+        status: "error",
+        message: "Stripe todavía no está listo. Intenta nuevamente en unos segundos.",
+      });
+      return;
+    }
+
+    const card = elements.getElement(CardElement);
+    if (!card) {
+      setSubmitState({ status: "error", message: "No se pudo cargar el campo de tarjeta." });
+      return;
+    }
+
+    setSubmitState({ status: "loading", message: "Procesando pago con tarjeta..." });
+
+    try {
+      const result = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card,
+          billing_details: {
+            name: checkoutForm.name || undefined,
+            email: checkoutForm.email || undefined,
+            phone: checkoutForm.phone || undefined,
+          },
+        },
+      });
+
+      if (result.error) {
+        setSubmitState({ status: "error", message: result.error.message || "No se pudo confirmar el pago." });
+        return;
+      }
+
+      const status = result.paymentIntent?.status;
+      if (status === "succeeded") { await onPaymentSucceeded(); return; }
+      if (status === "requires_action") {
+        setSubmitState({ status: "error", message: "La tarjeta requiere autenticación adicional. Completa el flujo de verificación e intenta nuevamente." });
+        return;
+      }
+      if (status === "processing") {
+        setSubmitState({ status: "success", message: "Tu pago está en procesamiento. Te confirmaremos el resultado en breve." });
+        return;
+      }
+      setSubmitState({ status: "error", message: `El pago no se completó. Estado actual: ${status || "desconocido"}.` });
+    } catch (error) {
+      setSubmitState({
+        status: "error",
+        message: error instanceof Error ? error.message : "Error de conexión. Intenta nuevamente.",
       });
     }
   }
 
   return (
-    <>
-      <PageHero
-        eyebrow="Servicios"
-        title="Completa tu solicitud"
-        subtitle="Comparte tus datos y el contexto de tu proyecto para continuar con una propuesta, reserva o compra de servicio."
-      />
-
-      <section className="section">
-        <div className="container detail-grid">
-          <form className="detail-panel" onSubmit={handleSubmit}>
-            <h2>Datos del cliente</h2>
-            <div className="form-grid">
-              <label className="field">
-                <span>Nombre</span>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Tu nombre"
-                  required
-                />
-              </label>
-
-              <label className="field">
-                <span>Email</span>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="tu@email.com"
-                  required
-                />
-              </label>
-
-              <label className="field">
-                <span>Teléfono</span>
-                <input
-                  type="text"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  placeholder="Tu teléfono"
-                />
-              </label>
-
-              <label className="field">
-                <span>Método preferido</span>
-                <select
-                  name="method"
-                  value={formData.method}
-                  onChange={handleChange}
-                >
-                  <option value="card">Tarjeta</option>
-                  <option value="deposit">Depósito</option>
-                  <option value="transfer">Transferencia</option>
-                </select>
-              </label>
-
-              <label className="field field--full">
-                <span>Notas o contexto</span>
-                <textarea
-                  rows="6"
-                  name="message"
-                  value={formData.message}
-                  onChange={handleChange}
-                  placeholder="Comparte fecha, volumen, urgencia, presupuesto o cualquier detalle importante."
-                />
-              </label>
-            </div>
-
-            {submitState.status !== "idle" ? (
-              <p className={`form-status form-status--${submitState.status}`}>
-                {submitState.message}
-              </p>
-            ) : null}
-
-            <Button type="submit" disabled={submitState.status === "loading"}>
-              {submitState.status === "loading"
-                ? "Enviando..."
-                : submitLabels[mode] || "Registrar solicitud"}
-            </Button>
-          </form>
-
-          <aside className="detail-summary">
-            <div className="summary-row">
-              <span>Servicio</span>
-              <strong>{service}</strong>
-            </div>
-            <div className="summary-row">
-              <span>Modo</span>
-              <strong>{modeLabels[mode] || "Compra directa"}</strong>
-            </div>
-            <div className="summary-row">
-              <span>Canal</span>
-              <strong>Seguimiento comercial</strong>
-            </div>
-            <div className="summary-row">
-              <span>Referencia</span>
-              <strong>{serviceSlug || "Servicio activo"}</strong>
-            </div>
-
-            <p className="detail-summary__note">
-              Tu solicitud quedará registrada con el servicio consultado y el
-              contexto necesario para continuar el seguimiento.
-            </p>
-          </aside>
-        </div>
-      </section>
-    </>
+    <form id="checkout-stripe-form" onSubmit={handleCardPayment}>
+      <p className="checkout-order-ref" style={{ marginBottom: 12 }}>
+        Orden: <strong>{order?.orderNumber || "pendiente"}</strong>
+      </p>
+      <div className="checkout-stripe-element">
+        <CardElement options={{ hidePostalCode: false }} />
+      </div>
+      {submitState.status === "error" ? (
+        <p className="form-status form-status--error" style={{ marginTop: 12 }}>{submitState.message}</p>
+      ) : null}
+      {/* Button rendered by right column via form="checkout-stripe-form" */}
+    </form>
   );
 }
 
+/* ─── StoreCheckout ─────────────────────────────────────────────────────── */
 function StoreCheckout({
   cart,
   checkoutForm,
@@ -404,35 +479,18 @@ function StoreCheckout({
 
     async function loadCheckoutForm() {
       if (!storeCheckoutFormSectionKey) {
-        setCrmFormState({
-          status: "error",
-          message: "No hay section key para el formulario de checkout.",
-          formConfig: null,
-        });
+        setCrmFormState({ status: "error", message: "No hay section key para el formulario de checkout.", formConfig: null });
         return;
       }
-
-      setCrmFormState({
-        status: "loading",
-        message: "",
-        formConfig: null,
-      });
+      setCrmFormState({ status: "loading", message: "", formConfig: null });
 
       try {
         const formConfig = await getFormByPlacement(storeCheckoutFormSectionKey);
         if (cancelled) return;
-
-        setCrmFormState({
-          status: "ready",
-          message: "",
-          formConfig,
-        });
+        setCrmFormState({ status: "ready", message: "", formConfig });
 
         const defaults = {};
-        const fields = Array.isArray(formConfig?.fields_schema)
-          ? formConfig.fields_schema
-          : [];
-
+        const fields = Array.isArray(formConfig?.fields_schema) ? formConfig.fields_schema : [];
         fields.forEach((field) => {
           if (!field?.name) return;
           if (field.default_value !== undefined && field.default_value !== null) {
@@ -444,164 +502,104 @@ function StoreCheckout({
           ...defaults,
           ...current,
           email: current.email || cart?.email || "",
-          service_interest:
-            current.service_interest ||
-            cart?.items?.[0]?.snapshotName ||
-            "",
+          service_interest: current.service_interest || cart?.items?.[0]?.snapshotName || "",
         }));
       } catch (error) {
         if (cancelled) return;
         setCrmFormState({
           status: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "No se pudo cargar el formulario de checkout.",
+          message: error instanceof Error ? error.message : "No se pudo cargar el formulario de checkout.",
           formConfig: null,
         });
       }
     }
 
     loadCheckoutForm();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [cart?.email, cart?.items]);
 
   function handleFallbackChange(event) {
     const { name, value } = event.target;
-    setCheckoutForm((current) => ({
-      ...current,
-      [name]: value,
-    }));
+    setCheckoutForm((current) => ({ ...current, [name]: value }));
   }
 
   function handleCrmFieldChange(name, value) {
-    setCrmFormValues((current) => ({
-      ...current,
-      [name]: value,
-    }));
+    setCrmFormValues((current) => ({ ...current, [name]: value }));
     if (crmFormErrors[name]) {
-      setCrmFormErrors((current) => ({
-        ...current,
-        [name]: "",
-      }));
+      setCrmFormErrors((current) => ({ ...current, [name]: "" }));
     }
   }
 
   async function ensurePaymentIntent(order) {
-    if (!order?.id) {
-      throw new Error("No se pudo preparar el pago porque no existe la orden.");
-    }
-
+    if (!order?.id) throw new Error("No se pudo preparar el pago porque no existe la orden.");
     const intent = await createPublicStorePaymentIntent({ orderId: order.id });
-    if (!intent?.clientSecret) {
-      throw new Error("No se pudo obtener el client_secret de Stripe.");
-    }
-
+    if (!intent?.clientSecret) throw new Error("No se pudo obtener el client_secret de Stripe.");
     setPaymentIntent(intent);
     return intent;
   }
 
   async function ensureOrderPayable(orderId) {
     const latest = await getPublicOrderById(orderId);
-    if (!latest?.id) {
-      throw new Error("No se pudo validar la orden antes del pago.");
-    }
-
+    if (!latest?.id) throw new Error("No se pudo validar la orden antes del pago.");
     const paymentStatus = String(latest.paymentStatus || "").toLowerCase();
     const orderStatus = String(latest.status || "").toLowerCase();
-
-    if (paymentStatus === "paid" || orderStatus === "paid") {
-      throw new Error("Esta orden ya fue pagada.");
-    }
-
-    if (
-      ["cancelled", "canceled", "refunded"].includes(orderStatus) ||
-      ["cancelled", "canceled", "refunded"].includes(paymentStatus)
-    ) {
+    if (paymentStatus === "paid" || orderStatus === "paid") throw new Error("Esta orden ya fue pagada.");
+    if (["cancelled", "canceled", "refunded"].includes(orderStatus) ||
+        ["cancelled", "canceled", "refunded"].includes(paymentStatus)) {
       throw new Error("Esta orden no está disponible para pago.");
     }
-
     return latest;
   }
 
   async function handlePaymentSucceeded() {
-    if (!createdOrder?.id) {
-      return;
-    }
-
+    if (!createdOrder?.id) return;
     let latest = createdOrder;
     for (let attempt = 0; attempt < 6; attempt += 1) {
       try {
         const order = await getPublicOrderById(createdOrder.id);
-        if (order) {
-          latest = order;
-        }
-        if (order?.paymentStatus === "paid") {
-          break;
-        }
-      } catch {
-        // best-effort polling
-      }
+        if (order) latest = order;
+        if (order?.paymentStatus === "paid") break;
+      } catch { /* best-effort */ }
       await wait(900);
     }
-
     setCompletedOrder(latest);
     setSubmitState({
       status: "success",
-      message:
-        latest?.paymentStatus === "paid"
-          ? "Pago confirmado y orden actualizada."
-          : "Pago confirmado en Stripe. La confirmación final puede tardar unos segundos.",
+      message: latest?.paymentStatus === "paid"
+        ? "Pago confirmado y orden actualizada."
+        : "Pago confirmado en Stripe. La confirmación final puede tardar unos segundos.",
     });
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
-
     try {
       setCrmFormErrors({});
       setSubmitState({
         status: "loading",
-        message: canCreateOrder
-          ? "Creando orden y preparando pago..."
-          : "Preparando intento de pago...",
+        message: canCreateOrder ? "Creando orden y preparando pago..." : "Preparando intento de pago...",
       });
 
       if (!canCreateOrder && createdOrder?.id) {
         const latestOrder = await ensureOrderPayable(createdOrder.id);
         setCreatedOrder(latestOrder);
         await ensurePaymentIntent(latestOrder);
-        setSubmitState({
-          status: "success",
-          message: "Intento de pago listo. Completa los datos de tu tarjeta.",
-        });
+        setSubmitState({ status: "success", message: "Intento de pago listo. Completa los datos de tu tarjeta." });
         return;
       }
 
       const checkoutPayload = await prepareStoreCheckoutPayload();
       const result = await submitPublicStoreCheckout(checkoutPayload);
-
-      if (!result?.order?.id) {
-        throw new Error("No se pudo crear la orden de checkout.");
-      }
+      if (!result?.order?.id) throw new Error("No se pudo crear la orden de checkout.");
 
       const latestOrder = await ensureOrderPayable(result.order.id);
       setCreatedOrder(latestOrder);
       await ensurePaymentIntent(latestOrder);
-      setSubmitState({
-        status: "success",
-        message: "Orden creada. Completa el pago con tarjeta.",
-      });
+      setSubmitState({ status: "success", message: "Orden creada. Completa el pago con tarjeta." });
     } catch (error) {
       setSubmitState({
         status: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudo completar el checkout.",
+        message: error instanceof Error ? error.message : "No se pudo completar el checkout.",
       });
     }
   }
@@ -616,18 +614,10 @@ function StoreCheckout({
 
       const checkoutPayload = parseCheckoutDataFromForm(crmFields, crmFormValues);
       if (!checkoutPayload.name || !checkoutPayload.email) {
-        throw new Error(
-          "El formulario de checkout debe incluir nombre completo y email."
-        );
+        throw new Error("El formulario de checkout debe incluir nombre completo y email.");
       }
 
-      const submissionPayload = buildFormSubmissionPayload(
-        crmFormState.formConfig,
-        crmFields,
-        crmFormValues,
-        cart
-      );
-
+      const submissionPayload = buildFormSubmissionPayload(crmFormState.formConfig, crmFields, crmFormValues, cart);
       const submissionResult = await submitForm(submissionPayload);
       const source = crmFormState.formConfig?.source || "website_store_checkout";
 
@@ -653,9 +643,7 @@ function StoreCheckout({
       };
     }
 
-    if (!fallbackCanSubmit) {
-      throw new Error("Completa nombre y email para continuar.");
-    }
+    if (!fallbackCanSubmit) throw new Error("Completa nombre y email para continuar.");
 
     return {
       sessionToken: cart.sessionToken,
@@ -669,508 +657,313 @@ function StoreCheckout({
     };
   }
 
+  /* ── Completed order view ───────────────────────────────────────────── */
   if (completedOrder) {
     return (
-      <>
-        <PageHero
-          eyebrow="Servicios"
-          title="Pago completado"
-          subtitle="Tu pago fue confirmado y la orden quedó registrada para seguimiento."
-        />
+      <div className="checkout-modern-page">
+        <CheckoutHero activeStep={3} />
 
-        <section className="section">
-          <div className="container detail-grid">
-            <article className="detail-panel">
-              <CheckoutProgress step={3} />
-              <h2>Resumen de la orden</h2>
-              <div className="summary-row">
-                <span>Número</span>
-                <strong>{completedOrder.orderNumber}</strong>
+        <div className="checkout-modern-shell">
+          <section>
+            <div className="checkout-card">
+              <div className="checkout-success-badge" style={{ marginBottom: 20 }}>
+                Pago confirmado
               </div>
-              <div className="summary-row">
-                <span>Email</span>
-                <strong>{completedOrder.email}</strong>
-              </div>
-              <div className="summary-row">
-                <span>Total</span>
-                <strong>
-                  {formatPrice(completedOrder.total, completedOrder.currency)}
-                </strong>
-              </div>
-              <div className="summary-row">
-                <span>Estado de pago</span>
-                <strong>{completedOrder.paymentStatus}</strong>
+              <h2>Tu contratación está confirmada</h2>
+              <p>Tu pago fue procesado y la orden quedó registrada para seguimiento.</p>
+
+              <div className="checkout-totals" style={{ marginTop: 24 }}>
+                <div className="checkout-total-row">
+                  <span>Número de orden</span>
+                  <strong style={{ color: "#111" }}>{completedOrder.orderNumber}</strong>
+                </div>
+                <div className="checkout-total-row">
+                  <span>Email</span>
+                  <strong style={{ color: "#111" }}>{completedOrder.email}</strong>
+                </div>
+                <div className="checkout-total-row">
+                  <span>Estado de pago</span>
+                  <strong style={{ color: "#111" }}>{completedOrder.paymentStatus}</strong>
+                </div>
+                <div className="checkout-total-row is-total">
+                  <span>Total</span>
+                  <strong>{formatPrice(completedOrder.total, completedOrder.currency)}</strong>
+                </div>
               </div>
 
-              {submitState.status !== "idle" ? (
-                <p className={`form-status form-status--${submitState.status}`}>
+              {submitState.status !== "idle" && (
+                <p className={`form-status form-status--${submitState.status}`} style={{ marginTop: 16 }}>
                   {submitState.message}
                 </p>
-              ) : null}
-            </article>
+              )}
+            </div>
+          </section>
 
-            <aside className="detail-summary">
-              <div className="detail-summary__actions">
-                <Button
-                  to={`/servicios/ordenes/${completedOrder.orderNumber}`}
-                  block
-                >
+          <aside>
+            <div className="checkout-summary-card">
+              <div style={{ display: "grid", gap: 12 }}>
+                <Button to={`/servicios/ordenes/${completedOrder.orderNumber}`} block>
                   Ver confirmación
                 </Button>
                 <Button to="/servicios" block>
                   Volver a servicios
                 </Button>
-                <Button to="/servicios" variant="secondary" block>
-                  Ver servicios
-                </Button>
               </div>
-            </aside>
-          </div>
-        </section>
-      </>
+              <div className="checkout-secure-box" style={{ marginTop: 24 }}>
+                <LockIcon />
+                <div>
+                  <strong>Secure Checkout - SSL Encrypted</strong>
+                  <p>Tus datos personales y financieros están protegidos durante toda la transacción.</p>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
     );
   }
 
+  /* ── Main checkout view ─────────────────────────────────────────────── */
+  const isProcessing = submitState.status === "loading";
+  const paymentReady = Boolean(paymentIntent?.clientSecret);
+
   return (
-    <>
-      <PageHero
-        eyebrow="Servicios"
-        title="Finaliza tu pedido"
-        subtitle="Confirma tus datos, crea la orden y completa el pago con tarjeta mediante Stripe."
-      />
+    <div className="checkout-modern-page">
+      <CheckoutHero activeStep={2} />
 
-      <section className="section">
-        <div className="container detail-grid">
-          <form className="detail-panel" onSubmit={handleSubmit}>
-            <CheckoutProgress step={2} />
-            <h2>Datos para tu orden</h2>
-            <p className="detail-summary__note">
-              El formulario de esta etapa se administra desde el CRM.
-            </p>
+      <div className="checkout-modern-shell">
 
-            {crmFormState.status === "loading" ? (
-              <div className="checkout-crm-form__loading">
-                <div className="checkout-crm-form__spinner" />
-                <p>Cargando formulario desde CRM...</p>
-              </div>
-            ) : null}
+        {/* ── LEFT: form card ─────────────────────────────────────────── */}
+        <section>
+          <div className="checkout-card">
+            <h2>Datos de contratación</h2>
+            <p>Completa la información necesaria para preparar tu documento y procesar el pago.</p>
 
-            {crmFormState.status === "ready" && crmFields.length ? (
-              <div className="form-grid checkout-crm-form-grid">
-                {crmFields.map((field) => {
-                  const value = crmFormValues[field.name] ?? "";
-                  const error = crmFormErrors[field.name];
-                  const className = `field ${
-                    field.width === "half" ? "" : "field--full"
-                  }`;
-
-                  if (field.type === "hidden") {
-                    return (
-                      <input
-                        key={field.id || field.name}
-                        type="hidden"
-                        value={value}
-                        name={field.name}
-                      />
-                    );
-                  }
-
-                  if (field.type === "select") {
-                    return (
-                      <label key={field.id || field.name} className={className}>
-                        <span>{field.label}</span>
-                        <select
-                          name={field.name}
-                          value={value}
-                          onChange={(event) =>
-                            handleCrmFieldChange(field.name, event.target.value)
-                          }
-                          required={Boolean(field.required)}
-                          disabled={!canCreateOrder}
-                        >
-                          <option value="">
-                            {field.placeholder || "Selecciona una opción"}
-                          </option>
-                          {(field.options || []).map((option) => (
-                            <option
-                              key={`${field.name}-${option.value}`}
-                              value={option.value}
-                            >
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        {error ? <small className="field__error">{error}</small> : null}
-                      </label>
-                    );
-                  }
-
-                  if (field.type === "textarea") {
-                    return (
-                      <label key={field.id || field.name} className={className}>
-                        <span>{field.label}</span>
-                        <textarea
-                          rows="5"
-                          name={field.name}
-                          value={value}
-                          onChange={(event) =>
-                            handleCrmFieldChange(field.name, event.target.value)
-                          }
-                          placeholder={field.placeholder || ""}
-                          required={Boolean(field.required)}
-                          disabled={!canCreateOrder}
-                        />
-                        {error ? <small className="field__error">{error}</small> : null}
-                      </label>
-                    );
-                  }
-
-                  if (field.type === "checkbox") {
-                    return (
-                      <label key={field.id || field.name} className={className}>
-                        <span>{field.label}</span>
-                        <input
-                          type="checkbox"
-                          name={field.name}
-                          checked={Boolean(value)}
-                          onChange={(event) =>
-                            handleCrmFieldChange(field.name, event.target.checked)
-                          }
-                          required={Boolean(field.required)}
-                          disabled={!canCreateOrder}
-                        />
-                        {error ? <small className="field__error">{error}</small> : null}
-                      </label>
-                    );
-                  }
-
-                  return (
-                    <label key={field.id || field.name} className={className}>
-                      <span>{field.label}</span>
-                      <input
-                        type={field.type || "text"}
-                        name={field.name}
-                        value={value}
-                        onChange={(event) =>
-                          handleCrmFieldChange(field.name, event.target.value)
-                        }
-                        placeholder={field.placeholder || ""}
-                        required={Boolean(field.required)}
-                        disabled={!canCreateOrder}
-                      />
-                      {error ? <small className="field__error">{error}</small> : null}
-                    </label>
-                  );
-                })}
-              </div>
-            ) : null}
-
-            {crmFormState.status === "error" ? (
-              <>
-                <p className="form-status form-status--error">
-                  {crmFormState.message ||
-                    "No se pudo cargar el formulario desde CRM. Usa el formulario de respaldo."}
-                </p>
-                <div className="form-grid">
-                  <label className="field">
-                    <span>Nombre</span>
-                    <input
-                      type="text"
-                      name="name"
-                      value={checkoutForm.name}
-                      onChange={handleFallbackChange}
-                      placeholder="Nombre completo"
-                      required
-                      disabled={!canCreateOrder}
-                    />
-                  </label>
-
-                  <label className="field">
-                    <span>Email</span>
-                    <input
-                      type="email"
-                      name="email"
-                      value={checkoutForm.email}
-                      onChange={handleFallbackChange}
-                      placeholder="tu@email.com"
-                      required
-                      disabled={!canCreateOrder}
-                    />
-                  </label>
-
-                  <label className="field">
-                    <span>Teléfono</span>
-                    <input
-                      type="text"
-                      name="phone"
-                      value={checkoutForm.phone}
-                      onChange={handleFallbackChange}
-                      placeholder="Teléfono de contacto"
-                      disabled={!canCreateOrder}
-                    />
-                  </label>
-
-                  <label className="field">
-                    <span>Empresa</span>
-                    <input
-                      type="text"
-                      name="company"
-                      value={checkoutForm.company}
-                      onChange={handleFallbackChange}
-                      placeholder="Empresa opcional"
-                      disabled={!canCreateOrder}
-                    />
-                  </label>
-
-                  <label className="field field--full">
-                    <span>Notas</span>
-                    <textarea
-                      rows="6"
-                      name="notes"
-                      value={checkoutForm.notes}
-                      onChange={handleFallbackChange}
-                      placeholder="Notas sobre entrega, acceso o cualquier detalle adicional."
-                      disabled={!canCreateOrder}
-                    />
-                  </label>
-                </div>
-              </>
-            ) : null}
-
-            {canCreateOrder ? (
-              <fieldset className="checkout-doc-selector" disabled={!canCreateOrder}>
-                <legend className="checkout-doc-selector__legend">Documento a generar</legend>
-                <label className="checkout-doc-selector__option">
-                  <input
-                    type="radio"
-                    name="document_type"
-                    value="invoice"
-                    checked={documentType === "invoice"}
-                    onChange={() => setDocumentType("invoice")}
-                  />
-                  <span>Factura</span>
+            {/* Document type selector */}
+            <div className="checkout-choice-grid">
+              <button
+                type="button"
+                className={`checkout-choice-card${documentType === "invoice" ? " is-active" : ""}`}
+                onClick={() => setDocumentType("invoice")}
+              >
+                <span className="checkout-choice-radio" />
+                <span>
+                  <strong>Factura</strong>
                   <small>Se genera automáticamente al confirmar el pago.</small>
-                </label>
-                <label className="checkout-doc-selector__option">
-                  <input
-                    type="radio"
-                    name="document_type"
-                    value="proposal"
-                    checked={documentType === "proposal"}
-                    onChange={() => setDocumentType("proposal")}
-                  />
-                  <span>Propuesta</span>
-                  <small>Útil si necesitas un documento de presupuesto para aprobación interna.</small>
-                </label>
-              </fieldset>
-            ) : null}
-
-            {submitState.status !== "idle" ? (
-              <p className={`form-status form-status--${submitState.status}`}>
-                {submitState.message}
-              </p>
-            ) : null}
-
-            <Button
-              type="submit"
-              disabled={
-                submitState.status === "loading" ||
-                (!canCreateOrder && Boolean(paymentIntent?.clientSecret))
-              }
-            >
-              {submitState.status === "loading"
-                ? canCreateOrder
-                  ? "Creando orden..."
-                  : "Preparando pago..."
-                : canCreateOrder
-                ? "Crear orden y continuar al pago"
-                : paymentIntent?.clientSecret
-                ? "Orden lista para pagar"
-                : "Generar intento de pago"}
-            </Button>
-
-            {createdOrder ? (
-              <p className="detail-summary__note">
-                Orden creada: <strong>{createdOrder.orderNumber}</strong>. Completa
-                el pago en el panel de la derecha.
-              </p>
-            ) : null}
-          </form>
-
-          <aside className="detail-summary cart-checkout-summary">
-            <div className="summary-row">
-              <span>Líneas</span>
-              <strong>{cart.summary.lineItems}</strong>
-            </div>
-            <div className="summary-row">
-              <span>Cantidad total</span>
-              <strong>{cart.summary.totalQuantity}</strong>
-            </div>
-            <div className="summary-row">
-              <span>Total</span>
-              <strong>
-                {formatPrice(cart.summary.subtotal, cart.summary.currency)}
-              </strong>
-            </div>
-            <div className="summary-row">
-              <span>Resultado</span>
-              <strong>
-                {paymentIntent?.clientSecret
-                  ? "Lista para cobro con Stripe"
-                  : "Se creará una orden para pago"}
-              </strong>
+                </span>
+              </button>
+              <button
+                type="button"
+                className={`checkout-choice-card${documentType === "proposal" ? " is-active" : ""}`}
+                onClick={() => setDocumentType("proposal")}
+              >
+                <span className="checkout-choice-radio" />
+                <span>
+                  <strong>Propuesta</strong>
+                  <small>Documento para aprobación interna.</small>
+                </span>
+              </button>
             </div>
 
-            <div className="checkout-summary-list">
-              {cart.items.map((item) => (
-                <div key={item.id || item.productId} className="checkout-summary-list__item">
-                  <strong>{item.snapshotName}</strong>
-                  <span>
-                    {item.quantity} x {formatPrice(item.unitPrice, item.currency)}
-                  </span>
+            {/* Order form */}
+            <form id="checkout-order-form" onSubmit={handleSubmit}>
+
+              {/* Loading CRM form */}
+              {crmFormState.status === "loading" && (
+                <div className="checkout-crm-form__loading">
+                  <div className="checkout-crm-form__spinner" />
+                  <p>Cargando formulario...</p>
                 </div>
-              ))}
+              )}
+
+              {/* CRM fields via DynamicField */}
+              {crmFormState.status === "ready" && crmFields.length ? (
+                <div className="checkout-form-grid">
+                  {crmFields.map((field) => (
+                    <DynamicField
+                      key={field.id || field.name}
+                      field={field}
+                      value={crmFormValues[field.name] ?? field.default_value ?? ""}
+                      onChange={handleCrmFieldChange}
+                      error={crmFormErrors[field.name]}
+                      disabled={!canCreateOrder}
+                    />
+                  ))}
+                </div>
+              ) : null}
+
+              {/* Fallback fields */}
+              {crmFormState.status === "error" ? (
+                <>
+                  {crmFormState.message && (
+                    <p className="form-status form-status--error" style={{ marginBottom: 16 }}>
+                      {crmFormState.message}
+                    </p>
+                  )}
+                  <div className="checkout-form-grid">
+                    <div className="checkout-field">
+                      <label>Nombre completo <span style={{ color: "#ef4444" }}>*</span></label>
+                      <input type="text" name="name" value={checkoutForm.name} onChange={handleFallbackChange} placeholder="Tu nombre completo" required disabled={!canCreateOrder} />
+                    </div>
+                    <div className="checkout-field">
+                      <label>Email <span style={{ color: "#ef4444" }}>*</span></label>
+                      <input type="email" name="email" value={checkoutForm.email} onChange={handleFallbackChange} placeholder="tu@email.com" required disabled={!canCreateOrder} />
+                    </div>
+                    <div className="checkout-field">
+                      <label>Teléfono</label>
+                      <input type="text" name="phone" value={checkoutForm.phone} onChange={handleFallbackChange} placeholder="+52 55 0000 0000" disabled={!canCreateOrder} />
+                    </div>
+                    <div className="checkout-field">
+                      <label>Empresa</label>
+                      <input type="text" name="company" value={checkoutForm.company} onChange={handleFallbackChange} placeholder="Nombre de tu empresa" disabled={!canCreateOrder} />
+                    </div>
+                    <div className="checkout-field is-full">
+                      <label>Notas</label>
+                      <textarea name="notes" value={checkoutForm.notes} onChange={handleFallbackChange} placeholder="Notas sobre entrega, acceso o cualquier detalle adicional." disabled={!canCreateOrder} />
+                    </div>
+                  </div>
+                </>
+              ) : null}
+
+              {/* Status message */}
+              {submitState.status !== "idle" && !paymentReady && (
+                <p className={`form-status form-status--${submitState.status}`} style={{ marginTop: 16 }}>
+                  {submitState.message}
+                </p>
+              )}
+            </form>
+
+            {/* Stripe payment box — appears after payment intent is ready */}
+            {paymentReady && (
+              <div style={{ marginTop: 28 }}>
+                <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "0 0 6px", color: "#111" }}>
+                  Método de pago
+                </h3>
+                <p style={{ fontSize: "0.875rem", color: "#71717a", margin: "0 0 16px" }}>
+                  Ingresa los datos de tu tarjeta para completar la contratación.
+                </p>
+                {stripePromise ? (
+                  <Elements stripe={stripePromise}>
+                    <StoreCardPaymentForm
+                      clientSecret={paymentIntent.clientSecret}
+                      order={createdOrder}
+                      checkoutForm={checkoutForm}
+                      submitState={submitState}
+                      setSubmitState={setSubmitState}
+                      onPaymentSucceeded={handlePaymentSucceeded}
+                    />
+                  </Elements>
+                ) : (
+                  <p className="form-status form-status--error">
+                    Falta `VITE_STRIPE_PUBLISHABLE_KEY` para inicializar Stripe en frontend.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ── RIGHT: summary card ─────────────────────────────────────── */}
+        <aside>
+          <div className="checkout-summary-card">
+            <div className="checkout-summary-head">
+              <h2>Revisa tu orden</h2>
+              <Link to="/servicios/carrito" className="checkout-edit-link">
+                Editar carrito
+              </Link>
             </div>
 
-            {paymentIntent?.clientSecret ? (
-              stripePromise ? (
-                <Elements stripe={stripePromise}>
-                  <StoreCardPaymentForm
-                    clientSecret={paymentIntent.clientSecret}
-                    order={createdOrder}
-                    checkoutForm={checkoutForm}
-                    submitState={submitState}
-                    setSubmitState={setSubmitState}
-                    onPaymentSucceeded={handlePaymentSucceeded}
-                  />
-                </Elements>
-              ) : (
-                <p className="form-status form-status--error">
-                  Falta `VITE_STRIPE_PUBLISHABLE_KEY` para inicializar Stripe en frontend.
-                </p>
-              )
-            ) : null}
-          </aside>
-        </div>
-      </section>
-    </>
-  );
-}
+            {/* Items */}
+            <div className="checkout-summary-items">
+              {cart.items.map((item) => {
+                const thumb =
+                  item.coverImageUrl ||
+                  item.image_url ||
+                  item.product?.cover_image_url ||
+                  item.metadata?.cover_image_url ||
+                  null;
 
-function StoreCardPaymentForm({
-  clientSecret,
-  order,
-  checkoutForm,
-  submitState,
-  setSubmitState,
-  onPaymentSucceeded,
-}) {
-  const stripe = useStripe();
-  const elements = useElements();
+                return (
+                  <div className="checkout-summary-item" key={item.id || item.productId}>
+                    <div className="checkout-summary-thumb">
+                      {thumb ? (
+                        <img src={thumb} alt={item.snapshotName} />
+                      ) : (
+                        <span>{(item.snapshotName || "S").slice(0, 1).toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div>
+                      <div className="checkout-summary-name">{item.snapshotName}</div>
+                      <div className="checkout-summary-meta">
+                        {item.quantity}x &middot; {formatPrice(item.unitPrice, item.currency)}
+                      </div>
+                    </div>
+                    <strong className="checkout-summary-line-total">
+                      {formatPrice(item.unitPrice * item.quantity, item.currency)}
+                    </strong>
+                  </div>
+                );
+              })}
+            </div>
 
-  async function handleCardPayment(event) {
-    event.preventDefault();
+            {/* Coupon (visual) */}
+            <div className="checkout-coupon-row">
+              <input type="text" placeholder="Código de descuento" readOnly />
+              <button type="button">Aplicar</button>
+            </div>
 
-    if (!stripe || !elements) {
-      setSubmitState({
-        status: "error",
-        message: "Stripe todavía no está listo. Intenta nuevamente en unos segundos.",
-      });
-      return;
-    }
+            {/* Totals */}
+            <div className="checkout-totals">
+              <div className="checkout-total-row">
+                <span>
+                  Subtotal ({cart.items.length}{" "}
+                  {cart.items.length === 1 ? "item" : "items"})
+                </span>
+                <span>{formatPrice(cart.summary.subtotal, cart.summary.currency)}</span>
+              </div>
+              <div className="checkout-total-row is-total">
+                <span>Total</span>
+                <span>{formatPrice(cart.summary.subtotal, cart.summary.currency)}</span>
+              </div>
+            </div>
 
-    const card = elements.getElement(CardElement);
-    if (!card) {
-      setSubmitState({
-        status: "error",
-        message: "No se pudo cargar el campo de tarjeta.",
-      });
-      return;
-    }
+            {/* Pay button — submits left-column form via `form` attribute */}
+            <button
+              type="submit"
+              form={paymentReady ? "checkout-stripe-form" : "checkout-order-form"}
+              className="checkout-pay-button"
+              style={{ width: "100%", marginTop: 16 }}
+              disabled={isProcessing}
+            >
+              {isProcessing
+                ? "Procesando..."
+                : paymentReady
+                ? "Pagar ahora"
+                : "Crear orden y continuar al pago"}
+            </button>
 
-    setSubmitState({
-      status: "loading",
-      message: "Procesando pago con tarjeta...",
-    });
+            {createdOrder && !paymentReady && (
+              <p style={{ marginTop: 10, fontSize: "0.82rem", color: "#6b7280", textAlign: "center" }}>
+                Orden <strong>{createdOrder.orderNumber}</strong> creada. Preparando pago...
+              </p>
+            )}
 
-    try {
-      const result = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card,
-          billing_details: {
-            name: checkoutForm.name || undefined,
-            email: checkoutForm.email || undefined,
-            phone: checkoutForm.phone || undefined,
-          },
-        },
-      });
-
-      if (result.error) {
-        setSubmitState({
-          status: "error",
-          message: result.error.message || "No se pudo confirmar el pago.",
-        });
-        return;
-      }
-
-      const status = result.paymentIntent?.status;
-      if (status === "succeeded") {
-        await onPaymentSucceeded();
-        return;
-      }
-
-      if (status === "requires_action") {
-        setSubmitState({
-          status: "error",
-          message:
-            "La tarjeta requiere autenticación adicional. Completa el flujo de verificación e intenta nuevamente.",
-        });
-        return;
-      }
-
-      if (status === "processing") {
-        setSubmitState({
-          status: "success",
-          message: "Tu pago está en procesamiento. Te confirmaremos el resultado en breve.",
-        });
-        return;
-      }
-
-      setSubmitState({
-        status: "error",
-        message: `El pago no se completó. Estado actual: ${status || "desconocido"}.`,
-      });
-    } catch (error) {
-      setSubmitState({
-        status: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Error de conexión. Intenta nuevamente.",
-      });
-    }
-  }
-
-  return (
-    <form className="detail-panel" onSubmit={handleCardPayment}>
-      <h3>Pagar con tarjeta</h3>
-      <p className="detail-summary__note">
-        Orden: <strong>{order?.orderNumber || "pendiente"}</strong>
-      </p>
-      <div className="field field--full">
-        <span>Tarjeta</span>
-        <div className="input" style={{ padding: "12px 14px" }}>
-          <CardElement options={{ hidePostalCode: false }} />
-        </div>
+            {/* Security badge */}
+            <div className="checkout-secure-box">
+              <LockIcon />
+              <div>
+                <strong>Secure Checkout - SSL Encrypted</strong>
+                <p>Tus datos personales y financieros están protegidos durante toda la transacción.</p>
+              </div>
+            </div>
+          </div>
+        </aside>
       </div>
-
-      <Button type="submit" disabled={!stripe || submitState.status === "loading"} block>
-        {submitState.status === "loading" ? "Procesando pago..." : "Pagar ahora"}
-      </Button>
-    </form>
+    </div>
   );
 }
 
+/* ─── CheckoutPage (root) ───────────────────────────────────────────────── */
 export default function CheckoutPage() {
   const [searchParams] = useSearchParams();
   const service = searchParams.get("service") || "Servicio pendiente";
@@ -1180,8 +973,7 @@ export default function CheckoutPage() {
   const originCta = searchParams.get("cta") || "";
   const mode = searchParams.get("mode") || "buy";
   const querySessionToken = searchParams.get("sessionToken") || "";
-  const activeSessionToken =
-    querySessionToken || getStoredCartSessionToken() || "";
+  const activeSessionToken = querySessionToken || getStoredCartSessionToken() || "";
 
   const [formData, setFormData] = useState({
     name: "",
@@ -1190,17 +982,8 @@ export default function CheckoutPage() {
     method: mode === "booking" ? "deposit" : "card",
     message: "",
   });
-  const [checkoutForm, setCheckoutForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    company: "",
-    notes: "",
-  });
-  const [submitState, setSubmitState] = useState({
-    status: "idle",
-    message: "",
-  });
+  const [checkoutForm, setCheckoutForm] = useState({ name: "", email: "", phone: "", company: "", notes: "" });
+  const [submitState, setSubmitState] = useState({ status: "idle", message: "" });
   const [cart, setCart] = useState(null);
   const [cartState, setCartState] = useState({
     status: activeSessionToken ? "loading" : "idle",
@@ -1216,102 +999,67 @@ export default function CheckoutPage() {
   );
 
   useEffect(() => {
-    if (!isStoreCheckout) {
-      return undefined;
-    }
-
+    if (!isStoreCheckout) return undefined;
     let cancelled = false;
 
     async function loadCart() {
       setCreatedOrder(null);
       setPaymentIntent(null);
       setCompletedOrder(null);
-      setCartState({
-        status: "loading",
-        message: "",
-      });
+      setCartState({ status: "loading", message: "" });
 
       try {
         const result = await getPublicCart(activeSessionToken);
-
         if (!cancelled) {
           setCart(result);
-          setCheckoutForm((current) => ({
-            ...current,
-            email: current.email || result?.email || "",
-          }));
-          setCartState({
-            status: "idle",
-            message: "",
-          });
+          setCheckoutForm((current) => ({ ...current, email: current.email || result?.email || "" }));
+          setCartState({ status: "idle", message: "" });
         }
       } catch (error) {
         if (!cancelled) {
           setCart(null);
           setCartState({
             status: "error",
-            message:
-              error instanceof Error
-                ? error.message
-                : "No se pudo cargar el resumen para checkout.",
+            message: error instanceof Error ? error.message : "No se pudo cargar el resumen para checkout.",
           });
         }
       }
     }
 
     loadCart();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [activeSessionToken, isStoreCheckout]);
 
   if (isStoreCheckout) {
     if (cartState.status === "loading") {
       return (
-        <>
-          <PageHero
-            eyebrow="Servicios"
-            title="Preparando el checkout"
-            subtitle="Estamos cargando tu resumen de contratación para que puedas completar el pedido."
-          />
-          <section className="section">
-            <div className="container">
-              <div className="empty-state">
-                <h2>Cargando resumen...</h2>
-              </div>
+        <div className="checkout-modern-page">
+          <CheckoutHero activeStep={2} />
+          <div style={{ maxWidth: 1180, margin: "0 auto", padding: "80px 24px" }}>
+            <div className="empty-state">
+              <h2>Preparando tu checkout...</h2>
+              <p>Estamos cargando tu resumen de contratación.</p>
             </div>
-          </section>
-        </>
+          </div>
+        </div>
       );
     }
 
     if (!cart || !cart.items.length) {
       return (
-        <>
-          <PageHero
-            eyebrow="Servicios"
-            title="No hay servicios listos para contratar"
-            subtitle="Necesitas servicios en tu resumen antes de continuar al checkout."
-          />
-          <section className="section">
-            <div className="container">
-              <div className="empty-state">
-                <h2>Tu resumen no está listo para checkout</h2>
-                <p>
-                  {cartState.message ||
-                    "Agrega servicios desde el catálogo antes de continuar."}
-                </p>
-                <div className="empty-state__actions">
-                  <Button to="/servicios">Ir a servicios</Button>
-                  <Button to="/servicios/carrito" variant="secondary">
-                    Revisar resumen
-                  </Button>
-                </div>
+        <div className="checkout-modern-page">
+          <CheckoutHero activeStep={2} />
+          <div style={{ maxWidth: 1180, margin: "0 auto", padding: "40px 24px" }}>
+            <div className="empty-state">
+              <h2>Tu resumen no está listo para checkout</h2>
+              <p>{cartState.message || "Agrega servicios desde el catálogo antes de continuar."}</p>
+              <div className="empty-state__actions">
+                <Button to="/servicios">Ir a servicios</Button>
+                <Button to="/servicios/carrito" variant="secondary">Revisar resumen</Button>
               </div>
             </div>
-          </section>
-        </>
+          </div>
+        </div>
       );
     }
 
