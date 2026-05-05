@@ -164,3 +164,10 @@ export async function getStoreOrderById(orderId) {
 export async function getStoreOrderByNumber(orderNumber) {
   return storeFetch(`/orders/by-number/${orderNumber}`, { method: "GET" });
 }
+
+export async function validateStoreCoupon({ code, orderAmount, currency = "USD" }) {
+  return storeFetch("/coupons/validate", {
+    method: "POST",
+    body: JSON.stringify({ code, order_amount: orderAmount, currency }),
+  });
+}

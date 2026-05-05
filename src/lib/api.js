@@ -13,6 +13,7 @@ import {
   getStoreProducts,
   resolveStoreCart,
   updateStoreCartItem,
+  validateStoreCoupon,
 } from "@/services/storeCheckoutApi.js";
 
 function getBaseUrl() {
@@ -974,6 +975,7 @@ export async function submitPublicStoreCheckout(payload) {
     contact_id: payload.contactId || cart.contactId || null,
     notes: payload.notes || null,
     document_type: payload.documentType || "invoice",
+    coupon_code: payload.couponCode || null,
     billing_address: {
       line1: payload.billingAddress?.line1 || null,
       line2: payload.billingAddress?.line2 || null,
@@ -1236,3 +1238,5 @@ export async function getBlogCategories() {
   const url = buildUrl("/api/blog/categories");
   return apiFetch(url);
 }
+
+export { validateStoreCoupon };

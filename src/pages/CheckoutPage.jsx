@@ -12,6 +12,7 @@ import {
   getStoredCartSessionToken,
   submitPublicLead,
   submitPublicStoreCheckout,
+  validateStoreCoupon,
 } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
 
@@ -456,6 +457,9 @@ function StoreCheckout({
 }) {
   const canCreateOrder = !createdOrder?.id;
   const [documentType, setDocumentType] = useState("invoice");
+  const [couponCode, setCouponCode] = useState("");
+  const [couponState, setCouponState] = useState({ status: "idle", message: "" });
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [crmFormState, setCrmFormState] = useState({
     status: storeCheckoutFormSectionKey ? "loading" : "error",
     message: "",
@@ -527,6 +531,29 @@ function StoreCheckout({
     setCrmFormValues((current) => ({ ...current, [name]: value }));
     if (crmFormErrors[name]) {
       setCrmFormErrors((current) => ({ ...current, [name]: "" }));
+    }
+  }
+
+  async function handleApplyCoupon() {
+    const code = couponCode.trim();
+    if (!code) return;
+    setCouponState({ status: "loading", message: "" });
+    try {
+      const subtotal = Number(cart?.summary?.subtotal || 0);
+      const result = await validateStoreCoupon({ code, orderAmount: subtotal, currency: cart?.summary?.currency || "USD" });
+      setAppliedCoupon({ code, discountAmount: result.discount_amount, coupon: result.coupon });
+      setCouponState({ status: "success", message: `Cupón aplicado: -${formatPrice(result.discount_amount, cart?.summary?.currency || "USD")}` });
+    } catch (error) {
+      setAppliedCoupon(null);
+      const detail = error?.message || "Cupón inválido.";
+      const msgMap = {
+        coupon_not_found: "El código de cupón no existe.",
+        coupon_inactive: "Este cupón no está activo.",
+        coupon_expired: "Este cupón expiró.",
+        coupon_usage_limit_reached: "Este cupón alcanzó su límite de usos.",
+        coupon_min_order_not_met: "El monto mínimo para este cupón no se ha alcanzado.",
+      };
+      setCouponState({ status: "error", message: msgMap[detail] || detail });
     }
   }
 
@@ -640,6 +667,7 @@ function StoreCheckout({
         contactId: submissionResult?.contact_id || null,
         documentType,
         source,
+        couponCode: appliedCoupon?.code || null,
       };
     }
 
@@ -654,6 +682,7 @@ function StoreCheckout({
       notes: checkoutForm.notes || null,
       documentType,
       source: "website_store_checkout",
+      couponCode: appliedCoupon?.code || null,
     };
   }
 
@@ -906,11 +935,33 @@ function StoreCheckout({
               })}
             </div>
 
-            {/* Coupon (visual) */}
+            {/* Coupon */}
             <div className="checkout-coupon-row">
-              <input type="text" placeholder="Código de descuento" readOnly />
-              <button type="button">Aplicar</button>
+              <input
+                type="text"
+                placeholder="Código de descuento"
+                value={couponCode}
+                onChange={(e) => {
+                  setCouponCode(e.target.value.toUpperCase());
+                  if (appliedCoupon) setAppliedCoupon(null);
+                  if (couponState.status !== "idle") setCouponState({ status: "idle", message: "" });
+                }}
+                disabled={couponState.status === "loading" || !canCreateOrder}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleApplyCoupon(); } }}
+              />
+              <button
+                type="button"
+                onClick={handleApplyCoupon}
+                disabled={couponState.status === "loading" || !couponCode.trim() || !canCreateOrder}
+              >
+                {couponState.status === "loading" ? "..." : "Aplicar"}
+              </button>
             </div>
+            {couponState.status !== "idle" && (
+              <p className={`form-status form-status--${couponState.status === "success" ? "success" : "error"}`} style={{ margin: "4px 0 0", fontSize: "0.8rem" }}>
+                {couponState.message}
+              </p>
+            )}
 
             {/* Totals */}
             <div className="checkout-totals">
@@ -921,9 +972,20 @@ function StoreCheckout({
                 </span>
                 <span>{formatPrice(cart.summary.subtotal, cart.summary.currency)}</span>
               </div>
+              {appliedCoupon && (
+                <div className="checkout-total-row" style={{ color: "#16a34a" }}>
+                  <span>Descuento ({appliedCoupon.code})</span>
+                  <span>-{formatPrice(appliedCoupon.discountAmount, cart.summary.currency)}</span>
+                </div>
+              )}
               <div className="checkout-total-row is-total">
                 <span>Total</span>
-                <span>{formatPrice(cart.summary.subtotal, cart.summary.currency)}</span>
+                <span>
+                  {formatPrice(
+                    Math.max(0, Number(cart.summary.subtotal) - Number(appliedCoupon?.discountAmount || 0)),
+                    cart.summary.currency
+                  )}
+                </span>
               </div>
             </div>
 
