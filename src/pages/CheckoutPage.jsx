@@ -454,10 +454,11 @@ function StoreCheckout({
   setPaymentIntent,
   completedOrder,
   setCompletedOrder,
+  initialCouponCode = "",
 }) {
   const canCreateOrder = !createdOrder?.id;
   const [documentType, setDocumentType] = useState("invoice");
-  const [couponCode, setCouponCode] = useState("");
+  const [couponCode, setCouponCode] = useState(initialCouponCode);
   const [couponState, setCouponState] = useState({ status: "idle", message: "" });
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [crmFormState, setCrmFormState] = useState({
@@ -477,6 +478,30 @@ function StoreCheckout({
 
   const fallbackCanSubmit =
     String(checkoutForm.name || "").trim() && String(checkoutForm.email || "").trim();
+
+  useEffect(() => {
+    if (!initialCouponCode || !cart?.summary?.subtotal || appliedCoupon) return;
+    const code = initialCouponCode.trim();
+    if (!code) return;
+    setCouponState({ status: "loading", message: "" });
+    validateStoreCoupon({ code, orderAmount: Number(cart.summary.subtotal), currency: cart.summary.currency || "USD" })
+      .then((result) => {
+        setAppliedCoupon({ code, discountAmount: result.discount_amount });
+        setCouponState({ status: "success", message: `Cupón aplicado: -${formatPrice(result.discount_amount, cart.summary.currency || "USD")}` });
+      })
+      .catch((error) => {
+        const detail = error?.message || "Cupón inválido.";
+        const msgMap = {
+          coupon_not_found: "El código de cupón no existe.",
+          coupon_inactive: "Este cupón no está activo.",
+          coupon_expired: "Este cupón expiró.",
+          coupon_usage_limit_reached: "Este cupón alcanzó su límite de usos.",
+          coupon_min_order_not_met: "El monto mínimo para este cupón no se ha alcanzado.",
+        };
+        setCouponState({ status: "error", message: msgMap[detail] || detail });
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart?.summary?.subtotal]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1036,6 +1061,7 @@ export default function CheckoutPage() {
   const mode = searchParams.get("mode") || "buy";
   const querySessionToken = searchParams.get("sessionToken") || "";
   const activeSessionToken = querySessionToken || getStoredCartSessionToken() || "";
+  const couponCodeFromUrl = searchParams.get("couponCode") || "";
 
   const [formData, setFormData] = useState({
     name: "",
@@ -1138,6 +1164,7 @@ export default function CheckoutPage() {
         setPaymentIntent={setPaymentIntent}
         completedOrder={completedOrder}
         setCompletedOrder={setCompletedOrder}
+        initialCouponCode={couponCodeFromUrl}
       />
     );
   }

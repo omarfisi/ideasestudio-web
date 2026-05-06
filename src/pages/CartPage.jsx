@@ -5,6 +5,7 @@ import {
   getStoredCartSessionToken,
   removePublicCartItem,
   setPublicCartItemQuantity,
+  validateStoreCoupon,
 } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
 
@@ -35,6 +36,9 @@ export default function CartPage() {
   });
   const [pendingProductId, setPendingProductId] = useState(null);
   const [selectedProductIds, setSelectedProductIds] = useState([]);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponState, setCouponState] = useState({ status: "idle", message: "" });
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -208,14 +212,40 @@ export default function CartPage() {
     });
   }
 
+  async function handleApplyCoupon() {
+    const code = couponCode.trim();
+    if (!code) return;
+    setCouponState({ status: "loading", message: "" });
+    try {
+      const subtotal = Number(cart?.summary?.subtotal || 0);
+      const result = await validateStoreCoupon({ code, orderAmount: subtotal, currency: cart?.summary?.currency || "USD" });
+      setAppliedCoupon({ code, discountAmount: result.discount_amount });
+      setCouponState({ status: "success", message: `Cupón aplicado: -${formatPrice(result.discount_amount, cart?.summary?.currency || "USD")}` });
+    } catch (error) {
+      setAppliedCoupon(null);
+      const detail = error?.message || "Cupón inválido.";
+      const msgMap = {
+        coupon_not_found: "El código de cupón no existe.",
+        coupon_inactive: "Este cupón no está activo.",
+        coupon_expired: "Este cupón expiró.",
+        coupon_usage_limit_reached: "Este cupón alcanzó su límite de usos.",
+        coupon_min_order_not_met: "El monto mínimo para este cupón no se ha alcanzado.",
+      };
+      setCouponState({ status: "error", message: msgMap[detail] || detail });
+    }
+  }
+
   const cartIsEmpty = !cart || !cart.items.length;
   const cartQuantity = Number(cart?.summary?.totalQuantity || 0);
   const cartSubtotal = Number(cart?.summary?.subtotal || 0);
   const allSelected =
     !!cart?.items?.length && selectedProductIds.length === cart.items.length;
   const checkoutHref = cart?.sessionToken
-    ? `/servicios/checkout?sessionToken=${cart.sessionToken}`
+    ? `/servicios/checkout?sessionToken=${cart.sessionToken}${appliedCoupon ? `&couponCode=${encodeURIComponent(appliedCoupon.code)}` : ""}`
     : "/servicios/checkout";
+  const cartSubtotalAfterDiscount = appliedCoupon
+    ? Math.max(0, cartSubtotal - appliedCoupon.discountAmount)
+    : cartSubtotal;
 
   return (
     <>
@@ -362,11 +392,31 @@ export default function CartPage() {
               <aside className="cart-checkout-summary">
                 <h2>Resumen de orden</h2>
                 <div className="cart-checkout-summary__coupon">
-                  <input type="text" placeholder="Código de cupón" disabled />
-                  <button type="button" disabled>
-                    Aplicar
+                  <input
+                    type="text"
+                    placeholder="Código de cupón"
+                    value={couponCode}
+                    onChange={(e) => {
+                      setCouponCode(e.target.value.toUpperCase());
+                      if (appliedCoupon) setAppliedCoupon(null);
+                      if (couponState.status !== "idle") setCouponState({ status: "idle", message: "" });
+                    }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleApplyCoupon(); } }}
+                    disabled={couponState.status === "loading"}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyCoupon}
+                    disabled={couponState.status === "loading" || !couponCode.trim()}
+                  >
+                    {couponState.status === "loading" ? "..." : "Aplicar"}
                   </button>
                 </div>
+                {couponState.status !== "idle" && (
+                  <p style={{ margin: "4px 0 8px", fontSize: "0.8rem", color: couponState.status === "success" ? "#16a34a" : "#dc2626" }}>
+                    {couponState.message}
+                  </p>
+                )}
                 <div className="summary-row">
                   <span>Servicios</span>
                   <strong>{Number(cart?.summary?.lineItems || 0)}</strong>
@@ -381,6 +431,12 @@ export default function CartPage() {
                     {formatPrice(cartSubtotal, cart.summary.currency)}
                   </strong>
                 </div>
+                {appliedCoupon && (
+                  <div className="summary-row" style={{ color: "#16a34a" }}>
+                    <span>Descuento ({appliedCoupon.code})</span>
+                    <strong>-{formatPrice(appliedCoupon.discountAmount, cart.summary.currency)}</strong>
+                  </div>
+                )}
                 <div className="summary-row">
                   <span>Costo de entrega</span>
                   <strong>{formatPrice(0, cart.summary.currency)}</strong>
@@ -388,7 +444,7 @@ export default function CartPage() {
                 <div className="summary-row summary-row--total">
                   <span>Total</span>
                   <strong>
-                    {formatPrice(cartSubtotal, cart.summary.currency)}
+                    {formatPrice(cartSubtotalAfterDiscount, cart.summary.currency)}
                   </strong>
                 </div>
 
