@@ -96,6 +96,20 @@ function CrmAccessIcon() {
   );
 }
 
+function UserIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M20 21C20 17.6863 16.4183 15 12 15C7.58172 15 4 17.6863 4 21"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
 function MenuIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -192,6 +206,7 @@ function PhoneIcon() {
 
 export default function Header() {
   const [solutionsOpen, setSolutionsOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);
   const dropdownRef = useRef(null);
@@ -204,6 +219,7 @@ export default function Header() {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setSolutionsOpen(false);
+        setAccountOpen(false);
       }
     }
 
@@ -216,17 +232,15 @@ export default function Header() {
   function toggleMobileMenu() {
     setMobileOpen((prev) => {
       const next = !prev;
-
-      if (!next) {
-        setSolutionsOpen(false);
-      }
-
+      setSolutionsOpen(false);
+      setAccountOpen(false);
       return next;
     });
   }
 
   function closeMenus() {
     setSolutionsOpen(false);
+    setAccountOpen(false);
     setMobileOpen(false);
   }
 
@@ -380,6 +394,10 @@ export default function Header() {
           justify-self: end;
         }
 
+        .ie-account-menu {
+          position: relative;
+        }
+
         .ie-icon-btn {
           min-height: 42px;
           padding: 0 14px;
@@ -438,6 +456,74 @@ export default function Header() {
           transform: translateY(-1px);
           background: #111111;
           color: #ffffff;
+        }
+
+        .ie-account-trigger {
+          min-height: 42px;
+          padding: 0 12px;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          border-radius: 12px;
+          border: 1px solid rgba(17, 17, 17, 0.12);
+          background: #ffffff;
+          color: #444444;
+          font-size: 0.9rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+        }
+
+        .ie-account-trigger:hover,
+        .ie-account-trigger.is-open {
+          transform: translateY(-1px);
+          color: #111111;
+          background: #f7f7f7;
+        }
+
+        .ie-account-dropdown {
+          position: absolute;
+          top: calc(100% + 8px);
+          right: 0;
+          z-index: 30;
+          width: 220px;
+          border-radius: 14px;
+          border: 1px solid var(--ie-line);
+          background: #fff;
+          box-shadow: 0 18px 36px rgba(17, 17, 17, 0.08);
+          padding: 8px;
+          display: grid;
+          gap: 4px;
+        }
+
+        .ie-account-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+          min-height: 40px;
+          padding: 0 10px;
+          border-radius: 10px;
+          color: #1f2937;
+          text-decoration: none;
+          font-size: 0.9rem;
+          font-weight: 650;
+          transition: background 0.2s ease, color 0.2s ease;
+        }
+
+        .ie-account-link:hover {
+          background: #f7f7f7;
+          color: #111111;
+        }
+
+        .ie-account-link.is-highlight {
+          background: var(--ie-yellow-soft);
+          border: 1px solid rgba(241, 209, 70, 0.35);
+          padding-left: 9px;
+        }
+
+        .ie-account-link.is-highlight:hover {
+          background: var(--ie-yellow);
         }
 
         .ie-mobile-toggle {
@@ -760,7 +846,13 @@ export default function Header() {
               <button
                 type="button"
                 className={`ie-nav__button ${solutionsOpen ? "is-active" : ""}`}
-                onClick={() => setSolutionsOpen((prev) => !prev)}
+                onClick={() =>
+                  setSolutionsOpen((prev) => {
+                    const next = !prev;
+                    if (next) setAccountOpen(false);
+                    return next;
+                  })
+                }
                 aria-expanded={solutionsOpen}
                 aria-haspopup="true"
               >
@@ -790,22 +882,54 @@ export default function Header() {
             </nav>
 
             <div className="ie-actions">
-              <Link className="ie-icon-btn" to={cartPath} aria-label="Ordenes">
+              <Link className="ie-icon-btn" to={cartPath} aria-label="Carrito">
                 <CartIcon />
-                <span>Ordenes</span>
+                <span>Carrito</span>
               </Link>
 
-              <a
-                className="ie-crm-btn"
-                href={crmUrl}
-                target={crmIsExternal ? "_blank" : undefined}
-                rel={crmIsExternal ? "noreferrer" : undefined}
-                aria-label="Acceder CRM"
-                title="Acceder CRM"
-              >
-                <CrmAccessIcon />
-                <span>Acceder CRM</span>
-              </a>
+              <div className="ie-account-menu">
+                <button
+                  type="button"
+                  className={`ie-account-trigger ${accountOpen ? "is-open" : ""}`}
+                  onClick={() =>
+                    setAccountOpen((prev) => {
+                      const next = !prev;
+                      if (next) setSolutionsOpen(false);
+                      return next;
+                    })
+                  }
+                  aria-expanded={accountOpen}
+                  aria-haspopup="true"
+                >
+                  <UserIcon />
+                  <span>Cuenta</span>
+                  <ChevronDownIcon open={accountOpen} />
+                </button>
+
+                {accountOpen && (
+                  <div className="ie-account-dropdown" role="menu" aria-label="Menu de cuenta">
+                    <Link className="ie-account-link" to="/mi-cuenta" onClick={closeMenus}>
+                      Mi cuenta
+                    </Link>
+                    <Link className="ie-account-link" to="/mi-cuenta" onClick={closeMenus}>
+                      Mis órdenes
+                    </Link>
+                    <Link className="ie-account-link" to={cartPath} onClick={closeMenus}>
+                      Carrito
+                    </Link>
+                    <a
+                      className="ie-account-link is-highlight"
+                      href={crmUrl}
+                      target={crmIsExternal ? "_blank" : undefined}
+                      rel={crmIsExternal ? "noreferrer" : undefined}
+                      onClick={closeMenus}
+                    >
+                      <CrmAccessIcon />
+                      <span>Acceder al CRM</span>
+                    </a>
+                  </div>
+                )}
+              </div>
             </div>
 
             <button
@@ -900,7 +1024,15 @@ export default function Header() {
                   <span>Contacto</span>
                 </Link>
 
-                <Link className="ie-mobile-link" to={cartPath}>
+                <Link className="ie-mobile-link" to="/mi-cuenta" onClick={closeMenus}>
+                  <span>Mi cuenta</span>
+                </Link>
+
+                <Link className="ie-mobile-link" to="/mi-cuenta" onClick={closeMenus}>
+                  <span>Mis órdenes</span>
+                </Link>
+
+                <Link className="ie-mobile-link" to={cartPath} onClick={closeMenus}>
                   <span>Carrito</span>
                 </Link>
 
@@ -909,8 +1041,9 @@ export default function Header() {
                   href={crmUrl}
                   target={crmIsExternal ? "_blank" : undefined}
                   rel={crmIsExternal ? "noreferrer" : undefined}
+                  onClick={closeMenus}
                 >
-                  CRM App
+                  Acceder al CRM
                 </a>
               </div>
             </div>
