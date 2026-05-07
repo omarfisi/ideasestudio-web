@@ -1,84 +1,64 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate, Link } from "react-router-dom";
-import PageHero from "@/components/shared/PageHero.jsx";
-import Button from "@/components/shared/Button.jsx";
 import { useAuth } from "@/contexts/AuthContext.jsx";
 import { supabase } from "@/lib/supabaseClient.js";
 import { getMyOrders } from "@/lib/accountApi.js";
 import { formatPrice } from "@/lib/formatPrice.js";
+import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
 
-const paymentStatusLabel = {
-  paid: "Pagado",
-  pending: "Pendiente",
-  pending_payment: "Pendiente de pago",
-  failed: "Fallido",
-  refunded: "Reembolsado",
-};
+const CRM_BASE_URL = (CRM_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "") || "http://127.0.0.1:8000";
 
-const documentTypeLabel = {
-  invoice: "Factura",
-  proposal: "Propuesta",
-};
+function money(order) {
+  return formatPrice(order.grand_total ?? order.total ?? 0, order.currency || "USD");
+}
 
-function OrderRow({ order }) {
-  const total = formatPrice(order.grand_total ?? order.total ?? 0, order.currency || "USD");
-  const paymentLabel = paymentStatusLabel[order.payment_status] || order.payment_status || "—";
-  const docLabel = documentTypeLabel[order.document_type] || null;
+function formatDate(value) {
+  if (!value) return "—";
+  return new Date(value).toLocaleDateString("es-PR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
 
-  return (
-    <tr className="border-b border-slate-100 hover:bg-slate-50">
-      <td className="px-4 py-3 font-medium text-slate-800">
-        <Link
-          to={`/mi-cuenta/ordenes/${order.id}`}
-          className="text-blue-600 hover:underline"
-        >
-          {order.order_number || "—"}
-        </Link>
-      </td>
-      <td className="px-4 py-3 text-slate-600">{total}</td>
-      <td className="px-4 py-3">
-        <span
-          className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-            order.payment_status === "paid"
-              ? "bg-emerald-100 text-emerald-800"
-              : "bg-amber-100 text-amber-800"
-          }`}
-        >
-          {paymentLabel}
-        </span>
-      </td>
-      <td className="px-4 py-3 text-slate-500 text-sm">
-        {docLabel ? (
-          <span className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs">
-            {docLabel}
-          </span>
-        ) : (
-          <span className="text-slate-400">—</span>
-        )}
-      </td>
-      <td className="px-4 py-3 text-slate-500 text-sm">
-        {order.created_at ? new Date(order.created_at).toLocaleDateString("es-PR") : "—"}
-      </td>
-      <td className="px-4 py-3">
-        <Link
-          to={`/mi-cuenta/ordenes/${order.id}`}
-          className="text-sm text-blue-600 hover:underline"
-        >
-          Ver detalle
-        </Link>
-      </td>
-    </tr>
-  );
+function getDocument(order) {
+  if (order?.invoice_id) {
+    return {
+      label: "Factura",
+      url: `${CRM_BASE_URL}/invoices/${order.invoice_id}/preview`,
+      pdf: `${CRM_BASE_URL}/invoices/${order.invoice_id}/preview?format=pdf`,
+    };
+  }
+  if (order?.proposal_id) {
+    return {
+      label: "Propuesta",
+      url: `${CRM_BASE_URL}/proposals/${order.proposal_id}/preview`,
+      pdf: `${CRM_BASE_URL}/proposals/${order.proposal_id}/preview?format=pdf`,
+    };
+  }
+  return null;
+}
+
+const STEPS = ["Orden recibida", "Pago confirmado", "Documento listo", "En proceso", "Completado"];
+
+function stepIndex(order, doc) {
+  if (!order) return 0;
+  const paid = order.payment_status === "paid";
+  if (!paid) return 0;
+  if (!doc) return 1;
+  return 2;
 }
 
 export default function AccountPage() {
   const { session, loading } = useAuth();
   const [orders, setOrders] = useState([]);
   const [ordersState, setOrdersState] = useState({ status: "loading", message: "" });
+  const [filter, setFilter] = useState("all");
+  const [query, setQuery] = useState("");
+  const [activeSection, setActiveSection] = useState("orders");
 
   useEffect(() => {
     if (!session) return;
-
     let cancelled = false;
 
     async function load() {
@@ -103,13 +83,31 @@ export default function AccountPage() {
     return () => { cancelled = true; };
   }, [session]);
 
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const q = query.trim().toLowerCase();
+      const matchesQuery = !q || String(order.order_number || "").toLowerCase().includes(q);
+      const doc = getDocument(order);
+      const matchesFilter =
+        filter === "all" ||
+        (filter === "paid" && order.payment_status === "paid") ||
+        (filter === "pending" && order.payment_status !== "paid") ||
+        (filter === "invoice" && Boolean(order.invoice_id)) ||
+        (filter === "proposal" && Boolean(order.proposal_id));
+      return matchesQuery && matchesFilter;
+    });
+  }, [orders, filter, query]);
+
+  async function handleSignOut() {
+    if (supabase) await supabase.auth.signOut();
+    window.location.href = "/mi-cuenta/login";
+  }
+
   if (loading) {
     return (
-      <section className="section">
-        <div className="container">
-          <div className="empty-state"><p>Verificando sesión...</p></div>
-        </div>
-      </section>
+      <div className="account-dashboard-bg">
+        <div className="account-loading">Verificando sesión…</div>
+      </div>
     );
   }
 
@@ -119,66 +117,194 @@ export default function AccountPage() {
 
   const userEmail = session.user?.email || "";
 
-  async function handleSignOut() {
-    if (supabase) await supabase.auth.signOut();
+  if (!session) {
+    return (
+      <div className="account-dashboard-bg">
+        <div className="account-shell">
+          <div className="account-empty-card">
+            <h1>Accede a tu cuenta</h1>
+            <p>Inicia sesión para ver tus órdenes, facturas y propuestas.</p>
+            <Link to="/mi-cuenta/login">Ir al login</Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <>
-      <PageHero
-        eyebrow="Mi cuenta"
-        title="Mis órdenes"
-        subtitle="Consulta el estado de tus servicios contratados, facturas y propuestas."
-      />
+    <div className="account-dashboard-bg">
+      <section className="account-dashboard-card">
 
-      <section className="section">
-        <div className="container">
-          <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-            <p className="text-sm text-slate-500">
-              Sesión activa: <strong>{userEmail}</strong>
-            </p>
-            <Button onClick={handleSignOut} variant="secondary">
-              Cerrar sesión
-            </Button>
+        {/* Topbar */}
+        <div className="account-topbar">
+          <div className="account-breadcrumb">
+            <Link to="/">Inicio</Link>
+            <span>›</span>
+            <strong>Mi cuenta</strong>
           </div>
+          <a className="account-support-btn" href="/contacto">
+            Soporte
+          </a>
+        </div>
 
-          {ordersState.status === "loading" ? (
-            <div className="empty-state"><p>Cargando órdenes...</p></div>
-          ) : ordersState.status === "error" ? (
-            <div className="empty-state">
-              <p className="form-status form-status--error">{ordersState.message}</p>
+        {/* Grid */}
+        <div className="account-dashboard-grid">
+
+          {/* Sidebar */}
+          <aside className="account-sidebar">
+            <div className="account-user-card">
+              <p>Hola,</p>
+              <h2>{userEmail}</h2>
+              <span>Cliente Ideas Estudio</span>
+              <button onClick={handleSignOut}>Cerrar sesión</button>
             </div>
-          ) : !orders.length ? (
-            <div className="empty-state">
-              <h2>No tienes órdenes todavía</h2>
-              <p>Cuando contrates un servicio, aparecerá aquí.</p>
-              <div className="empty-state__actions">
-                <Button to="/servicios">Ver servicios</Button>
+
+            <nav className="account-menu">
+              <button
+                className={activeSection === "orders" ? "is-active" : ""}
+                onClick={() => setActiveSection("orders")}
+              >
+                Mis órdenes
+              </button>
+              <button
+                className={activeSection === "invoices" ? "is-active" : ""}
+                onClick={() => { setActiveSection("orders"); setFilter("invoice"); }}
+              >
+                Facturas
+              </button>
+              <button
+                className={activeSection === "proposals" ? "is-active" : ""}
+                onClick={() => { setActiveSection("orders"); setFilter("proposal"); }}
+              >
+                Propuestas
+              </button>
+              <button disabled style={{ opacity: 0.45, cursor: "not-allowed" }}>
+                Datos personales
+              </button>
+              <Link to="/mi-cuenta/reset-password">Cambiar contraseña</Link>
+              <button disabled style={{ opacity: 0.45, cursor: "not-allowed" }}>
+                Privacidad
+              </button>
+            </nav>
+          </aside>
+
+          {/* Main content */}
+          <section className="account-main">
+            <div className="account-main-head">
+              <div>
+                <h1>Mis órdenes</h1>
+                <p>Consulta el estado de tus servicios, facturas y propuestas.</p>
+              </div>
+              <div className="account-search">
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Buscar por número de orden"
+                />
               </div>
             </div>
-          ) : (
-            <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    <th className="px-4 py-3">Orden</th>
-                    <th className="px-4 py-3">Total</th>
-                    <th className="px-4 py-3">Pago</th>
-                    <th className="px-4 py-3">Documento</th>
-                    <th className="px-4 py-3">Fecha</th>
-                    <th className="px-4 py-3" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.map((order) => (
-                    <OrderRow key={order.id} order={order} />
-                  ))}
-                </tbody>
-              </table>
+
+            <div className="account-filters">
+              {[
+                ["all", "Todas"],
+                ["paid", "Pagadas"],
+                ["pending", "Pendientes"],
+                ["invoice", "Facturas"],
+                ["proposal", "Propuestas"],
+              ].map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setFilter(key)}
+                  className={filter === key ? "is-active" : ""}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-          )}
+
+            {ordersState.status === "loading" ? (
+              <div className="account-loading">Cargando órdenes…</div>
+            ) : ordersState.status === "error" ? (
+              <div className="account-empty-state">
+                <h3>Error al cargar</h3>
+                <p>{ordersState.message}</p>
+              </div>
+            ) : filteredOrders.length === 0 ? (
+              <div className="account-empty-state">
+                <h3>No hay órdenes para mostrar</h3>
+                <p>Cuando contrates un servicio, aparecerá aquí.</p>
+              </div>
+            ) : (
+              <div className="account-orders-list">
+                {filteredOrders.map((order) => {
+                  const doc = getDocument(order);
+                  const paid = order.payment_status === "paid";
+                  const done = stepIndex(order, doc);
+
+                  return (
+                    <article className="account-order-card" key={order.id}>
+                      <div className="account-order-summary">
+                        <div>
+                          <span>Orden</span>
+                          <strong>{order.order_number || "—"}</strong>
+                        </div>
+                        <div>
+                          <span>Estado</span>
+                          <strong className={paid ? "status-paid" : "status-pending"}>
+                            {paid ? "Pagado" : "Pendiente"}
+                          </strong>
+                        </div>
+                        <div>
+                          <span>Documento</span>
+                          <strong>{doc?.label || "En preparación"}</strong>
+                        </div>
+                        <div>
+                          <span>Total</span>
+                          <strong>{money(order)}</strong>
+                        </div>
+                      </div>
+
+                      <div className="account-progress">
+                        {STEPS.map((step, index) => (
+                          <div key={step} className={index <= done ? "is-done" : ""}>
+                            <span />
+                            <p>{step}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="account-order-footer">
+                        <div>
+                          <p>Fecha</p>
+                          <strong>{formatDate(order.created_at)}</strong>
+                        </div>
+                        <div className="account-order-actions">
+                          <Link to={`/mi-cuenta/ordenes/${order.id}`}>
+                            Ver detalle
+                          </Link>
+                          {doc ? (
+                            <>
+                              <a href={doc.url} target="_blank" rel="noreferrer">
+                                Ver {doc.label}
+                              </a>
+                              <a href={doc.pdf} target="_blank" rel="noreferrer">
+                                Descargar PDF
+                              </a>
+                            </>
+                          ) : (
+                            <span>Documento en preparación</span>
+                          )}
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
         </div>
       </section>
-    </>
+    </div>
   );
 }
