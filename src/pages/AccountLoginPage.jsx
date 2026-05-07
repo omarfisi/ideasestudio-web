@@ -48,18 +48,25 @@ export default function AccountLoginPage() {
       setErrorMsg("Ingresa tu email y contraseña.");
       return;
     }
+    if (!supabase) {
+      setStatus("error");
+      setErrorMsg("El portal no está configurado. Contacta al equipo.");
+      return;
+    }
     setStatus("loading");
     setErrorMsg("");
-    const { error } = await supabase.auth.signInWithPassword({ email: trimmed, password });
-    if (error) {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email: trimmed, password });
+      if (error) throw error;
+      // On success AuthContext picks up the session automatically
+    } catch (err) {
       setStatus("error");
       setErrorMsg(
-        error.message === "Invalid login credentials"
+        err?.message === "Invalid login credentials"
           ? "Email o contraseña incorrectos."
-          : error.message || "No se pudo iniciar sesión."
+          : err?.message || "No se pudo iniciar sesión."
       );
     }
-    // On success AuthContext picks up the session automatically
   }
 
   async function handleMagicLink(e) {
@@ -70,41 +77,65 @@ export default function AccountLoginPage() {
       setErrorMsg("Ingresa tu email para continuar.");
       return;
     }
-    setStatus("loading");
-    setErrorMsg("");
-    const { error } = await supabase.auth.signInWithOtp({
-      email: trimmed,
-      options: { emailRedirectTo: `${window.location.origin}/mi-cuenta/callback` },
-    });
-    if (error) {
+    if (!supabase) {
       setStatus("error");
-      setErrorMsg(error.message || "No se pudo enviar el enlace.");
+      setErrorMsg("El portal no está configurado. Contacta al equipo.");
       return;
     }
-    setSentEmail(trimmed);
-    setStatus("sent");
+    setStatus("loading");
+    setErrorMsg("");
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: trimmed,
+        options: { emailRedirectTo: `${window.location.origin}/mi-cuenta/callback` },
+      });
+      if (error) throw error;
+      setSentEmail(trimmed);
+      setStatus("sent");
+    } catch (err) {
+      setStatus("error");
+      setErrorMsg(err?.message || "No se pudo enviar el enlace.");
+    }
   }
 
   async function handleRecovery(e) {
     e?.preventDefault();
+    setErrorMsg("");
+
     const trimmed = email.trim().toLowerCase();
     if (!trimmed) {
       setStatus("error");
-      setErrorMsg("Ingresa tu email para continuar.");
+      setErrorMsg("Escribe tu email primero.");
       return;
     }
-    setStatus("loading");
-    setErrorMsg("");
-    const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
-      redirectTo: `${window.location.origin}/mi-cuenta/reset-password`,
-    });
-    if (error) {
+    if (!supabase) {
       setStatus("error");
-      setErrorMsg(error.message || "No se pudo enviar el enlace.");
+      setErrorMsg("El portal no está configurado. Contacta al equipo.");
       return;
     }
-    setSentEmail(trimmed);
-    setStatus("sent");
+
+    setStatus("loading");
+
+    try {
+      const redirectTo = `${window.location.origin}/mi-cuenta/reset-password`;
+      console.log("[password-reset] redirectTo", redirectTo);
+
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmed, { redirectTo });
+
+      if (error) {
+        console.error("[password-reset] error", error);
+        throw error;
+      }
+
+      setSentEmail(trimmed);
+      setStatus("sent");
+    } catch (err) {
+      console.error("[password-reset] catch", err);
+      setStatus("error");
+      setErrorMsg(
+        err?.message || "No se pudo enviar el enlace. Verifica la configuración de Supabase."
+      );
+    }
   }
 
   const isLoading = status === "loading";
