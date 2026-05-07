@@ -32,6 +32,7 @@ import CheckoutPage from "@/pages/CheckoutPage.jsx";
 import OrderConfirmationPage from "@/pages/OrderConfirmationPage.jsx";
 import AccountLoginPage from "@/pages/AccountLoginPage.jsx";
 import AccountCallbackPage from "@/pages/AccountCallbackPage.jsx";
+import AccountPasswordResetPage from "@/pages/AccountPasswordResetPage.jsx";
 import AccountPage from "@/pages/AccountPage.jsx";
 import AccountOrderDetailPage from "@/pages/AccountOrderDetailPage.jsx";
 import NotFoundPage from "@/pages/NotFoundPage.jsx";
@@ -313,6 +314,10 @@ const router = createBrowserRouter([
       {
         path: "mi-cuenta/callback",
         element: <AccountCallbackPage />,
+      },
+      {
+        path: "mi-cuenta/reset-password",
+        element: <AccountPasswordResetPage />,
       },
       {
         path: "mi-cuenta/ordenes/:orderId",
