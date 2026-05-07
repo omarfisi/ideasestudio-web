@@ -14243,13 +14243,13 @@ section[id] {
 }
 
 .account-menu .is-active {
-  background: #19915b;
-  color: #fff;
+  background: #111827;
+  color: #f1d146;
 }
 
 .account-menu .is-active:hover {
-  background: #157a4d;
-  color: #fff;
+  background: #1f2937;
+  color: #f1d146;
 }
 
 /* ── Main panel ─────────────────────────────────────────────────────────── */
@@ -14295,7 +14295,8 @@ section[id] {
 }
 
 .account-search input:focus {
-  border-color: #19915b;
+  border-color: #f1d146;
+  box-shadow: 0 0 0 3px rgba(241, 209, 70, 0.2);
 }
 
 /* ── Filters ─────────────────────────────────────────────────────────────── */
@@ -14320,14 +14321,15 @@ section[id] {
 }
 
 .account-filters button:hover {
-  border-color: #19915b;
-  color: #19915b;
+  border-color: #111827;
+  color: #111827;
+  background: rgba(241, 209, 70, 0.1);
 }
 
 .account-filters button.is-active {
-  border-color: #19915b;
-  color: #19915b;
-  background: #ecfdf5;
+  border-color: #111827;
+  color: #111827;
+  background: #f1d146;
 }
 
 /* ── Order cards ─────────────────────────────────────────────────────────── */
@@ -14339,7 +14341,7 @@ section[id] {
 .account-order-card {
   background: #fff;
   border: 1px solid #e5e7eb;
-  border-left: 4px solid #22c55e;
+  border-left: 4px solid #f1d146;
   border-radius: 18px;
   padding: 24px;
   transition: box-shadow 0.15s;
@@ -14426,15 +14428,16 @@ section[id] {
 }
 
 .account-progress .is-done {
-  color: #166534;
+  color: #111827;
+  font-weight: 800;
 }
 
 .account-progress .is-done span {
-  background: #bbf7d0;
+  background: #f1d146;
 }
 
 .account-progress .is-done::before {
-  background: #bbf7d0;
+  background: #f1d146;
 }
 
 /* ── Order footer / actions ──────────────────────────────────────────────── */
@@ -14479,12 +14482,12 @@ section[id] {
 }
 
 .account-order-actions a:first-child {
-  background: #1e1eb8;
-  color: #fff;
+  background: #111827;
+  color: #f1d146;
 }
 
 .account-order-actions a:first-child:hover {
-  background: #1a1aa0;
+  background: #1f2937;
 }
 
 /* ── Empty / loading states ──────────────────────────────────────────────── */
