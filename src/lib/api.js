@@ -1240,3 +1240,12 @@ export async function getBlogCategories() {
 }
 
 export { validateStoreCoupon };
+
+// ─────────────────────────────────────────────────────────────
+// Equipo público
+// ─────────────────────────────────────────────────────────────
+
+export async function getPublicTeam() {
+  const url = buildUrl("/public/team");
+  return apiFetch(url);
+}

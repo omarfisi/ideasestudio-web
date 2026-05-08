@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import Button from "@/components/shared/Button.jsx";
+import { getPublicTeam } from "@/lib/api.js";
 
-const equipo = [
+const EQUIPO_FALLBACK = [
   {
     id: 1,
     nombre: "Osvaldo Marfisi",
@@ -71,6 +72,24 @@ const equipo = [
     },
   },
 ];
+
+// Normaliza el formato de la API al formato que usa el componente
+function normalizeApiMember(m) {
+  return {
+    id: m.id,
+    nombre: m.nombre,
+    rol: m.rol,
+    descripcion: m.descripcion || "",
+    biografia: m.biografia || "",
+    imagen: m.imagen_url || "",
+    especialidades: m.especialidades || [],
+    redes: {
+      instagram: m.redes?.instagram || null,
+      facebook:  m.redes?.facebook  || null,
+      linkedin:  m.redes?.linkedin  || null,
+    },
+  };
+}
 
 const valores = [
   { numero: "01", titulo: "Intención", descripcion: "Cada decisión creativa está pensada para dar dirección, reforzar el mensaje y comunicar mejor." },
@@ -205,6 +224,18 @@ function BiografiaModal({ open, onClose, persona }) {
 
 export default function TeamPage() {
   const [personaActiva, setPersonaActiva] = useState(null);
+  const [equipo, setEquipo] = useState(EQUIPO_FALLBACK);
+
+  useEffect(() => {
+    getPublicTeam()
+      .then((data) => {
+        const members = data?.members || [];
+        if (members.length > 0) setEquipo(members.map(normalizeApiMember));
+      })
+      .catch(() => {
+        // Silencioso: mantiene el fallback hardcodeado
+      });
+  }, []);
 
   return (
     <main className="bg-white text-neutral-950">
