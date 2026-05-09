@@ -6,6 +6,7 @@ import Button from "@/components/shared/Button.jsx";
 import DynamicField from "@/components/forms/DynamicField.jsx";
 import { getFormByPlacement, submitForm } from "@/lib/publicFormsApi.js";
 import {
+  clearStoredCartSessionToken,
   createPublicStorePaymentIntent,
   getPublicCart,
   getPublicOrderById,
@@ -652,6 +653,7 @@ function StoreCheckout({
       await wait(900);
     }
     setCompletedOrder(latest);
+    clearStoredCartSessionToken();
     setSubmitState({
       status: "success",
       message: latest?.paymentStatus === "paid"
