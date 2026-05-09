@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
+import { CardCvcElement, CardExpiryElement, CardNumberElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import Button from "@/components/shared/Button.jsx";
 import DynamicField from "@/components/forms/DynamicField.jsx";
@@ -379,7 +379,7 @@ function StoreCardPaymentForm({
       return;
     }
 
-    const card = elements.getElement(CardElement);
+    const card = elements.getElement(CardNumberElement);
     if (!card) {
       setSubmitState({ status: "error", message: "No se pudo cargar el campo de tarjeta." });
       return;
@@ -423,16 +423,56 @@ function StoreCardPaymentForm({
     }
   }
 
+  const stripeFieldStyle = {
+    base: {
+      fontSize: "16px",
+      color: "#1a1a1a",
+      fontFamily: "inherit",
+      "::placeholder": { color: "#a0aec0" },
+    },
+    invalid: { color: "#e53e3e" },
+  };
+
   return (
     <form id="checkout-stripe-form" onSubmit={handleCardPayment}>
-      <p className="checkout-order-ref" style={{ marginBottom: 12 }}>
+      <p className="checkout-order-ref" style={{ marginBottom: 20 }}>
         Orden: <strong>{order?.orderNumber || "pendiente"}</strong>
       </p>
-      <div className="checkout-stripe-element">
-        <CardElement options={{ hidePostalCode: false }} />
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {/* Número de tarjeta */}
+        <div>
+          <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#4a5568", marginBottom: 6 }}>
+            Número de tarjeta
+          </label>
+          <div className="checkout-stripe-field">
+            <CardNumberElement options={{ style: stripeFieldStyle, showIcon: true }} />
+          </div>
+        </div>
+
+        {/* Vencimiento + CVC */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div>
+            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#4a5568", marginBottom: 6 }}>
+              Vencimiento
+            </label>
+            <div className="checkout-stripe-field">
+              <CardExpiryElement options={{ style: stripeFieldStyle }} />
+            </div>
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#4a5568", marginBottom: 6 }}>
+              CVC
+            </label>
+            <div className="checkout-stripe-field">
+              <CardCvcElement options={{ style: stripeFieldStyle }} />
+            </div>
+          </div>
+        </div>
       </div>
+
       {submitState.status === "error" ? (
-        <p className="form-status form-status--error" style={{ marginTop: 12 }}>{submitState.message}</p>
+        <p className="form-status form-status--error" style={{ marginTop: 16 }}>{submitState.message}</p>
       ) : null}
       {/* Button rendered by right column via form="checkout-stripe-form" */}
     </form>

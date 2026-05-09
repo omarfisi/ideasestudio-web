@@ -4360,6 +4360,19 @@
   box-shadow: 0 0 0 4px rgba(70, 95, 241, .12);
 }
 
+.checkout-stripe-field {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.checkout-stripe-field:focus-within {
+  border-color: #465ff1;
+  box-shadow: 0 0 0 3px rgba(70, 95, 241, .12);
+}
+
 /* Actions row */
 .checkout-actions {
   display: flex;
