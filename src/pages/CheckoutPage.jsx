@@ -19,13 +19,11 @@ import { formatPrice } from "@/lib/formatPrice.js";
 const modeLabels = {
   buy: "Compra directa",
   booking: "Reserva con depósito",
-  proposal: "Propuesta",
 };
 
 const submitLabels = {
   buy: "Registrar intención de compra",
   booking: "Registrar intención de reserva",
-  proposal: "Registrar solicitud",
 };
 
 const stripePublishableKey = (
@@ -457,7 +455,6 @@ function StoreCheckout({
   initialCouponCode = "",
 }) {
   const canCreateOrder = !createdOrder?.id;
-  const [documentType, setDocumentType] = useState("invoice");
   const [couponCode, setCouponCode] = useState(initialCouponCode);
   const [couponState, setCouponState] = useState({ status: "idle", message: "" });
   const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -690,7 +687,7 @@ function StoreCheckout({
         company: checkoutPayload.company,
         notes: checkoutPayload.notes,
         contactId: submissionResult?.contact_id || null,
-        documentType,
+        documentType: "invoice",
         source,
         couponCode: appliedCoupon?.code || null,
       };
@@ -705,7 +702,7 @@ function StoreCheckout({
       phone: checkoutForm.phone || null,
       company: checkoutForm.company || null,
       notes: checkoutForm.notes || null,
-      documentType,
+      documentType: "invoice",
       source: "website_store_checkout",
       couponCode: appliedCoupon?.code || null,
     };
@@ -793,31 +790,6 @@ function StoreCheckout({
             <h2>Datos de contratación</h2>
             <p>Completa la información necesaria para preparar tu documento y procesar el pago.</p>
 
-            {/* Document type selector */}
-            <div className="checkout-choice-grid">
-              <button
-                type="button"
-                className={`checkout-choice-card${documentType === "invoice" ? " is-active" : ""}`}
-                onClick={() => setDocumentType("invoice")}
-              >
-                <span className="checkout-choice-radio" />
-                <span>
-                  <strong>Factura</strong>
-                  <small>Se genera automáticamente al confirmar el pago.</small>
-                </span>
-              </button>
-              <button
-                type="button"
-                className={`checkout-choice-card${documentType === "proposal" ? " is-active" : ""}`}
-                onClick={() => setDocumentType("proposal")}
-              >
-                <span className="checkout-choice-radio" />
-                <span>
-                  <strong>Propuesta</strong>
-                  <small>Documento para aprobación interna.</small>
-                </span>
-              </button>
-            </div>
 
             {/* Order form */}
             <form id="checkout-order-form" onSubmit={handleSubmit}>
