@@ -1,3 +1,5 @@
+import { appendWorkspace } from "@/lib/workspace.js";
+
 const CRM_BASE =
   (typeof import.meta !== "undefined" && import.meta?.env?.VITE_CRM_BASE_URL) ||
   "https://ideasestudio-api.onrender.com";
@@ -7,7 +9,7 @@ async function _apiFetch(path, opts = {}) {
   const timeoutId = setTimeout(() => controller.abort(), 3000);
   let res;
   try {
-    res = await fetch(`${CRM_BASE}${path}`, {
+    res = await fetch(`${CRM_BASE}${appendWorkspace(path)}`, {
       headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
       signal: controller.signal,
       ...opts,

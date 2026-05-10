@@ -1,4 +1,5 @@
 import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
+import { PUBLIC_WORKSPACE_ID } from "@/lib/workspace.js";
 
 function getStoreBaseUrl() {
   const base = (CRM_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "");
@@ -57,6 +58,7 @@ export async function getStoreCategories({ includeInactive = false } = {}) {
     method: "GET",
     query: {
       include_inactive: includeInactive ? "true" : undefined,
+      workspace_id: PUBLIC_WORKSPACE_ID || undefined,
     },
   });
 }
@@ -75,12 +77,16 @@ export async function getStoreProducts(filters = {}) {
       include_inactive: filters.isActive === false ? "true" : undefined,
       limit: filters.limit || 60,
       offset: filters.offset || 0,
+      workspace_id: PUBLIC_WORKSPACE_ID || undefined,
     },
   });
 }
 
 export async function getStoreProductBySlug(slug) {
-  return storeFetch(`/products/${slug}`, { method: "GET" });
+  return storeFetch(`/products/${slug}`, {
+    method: "GET",
+    query: { workspace_id: PUBLIC_WORKSPACE_ID || undefined },
+  });
 }
 
 export async function resolveStoreCart({

@@ -1,3 +1,5 @@
+import { appendWorkspace } from "@/lib/workspace.js";
+
 export async function submitLeadForm({
   full_name = "",
   email = "",
@@ -46,7 +48,7 @@ export async function submitLeadForm({
     },
   };
 
-  const res = await fetch(`${CRM_BASE}/api/public/contact-submit`, {
+  const res = await fetch(appendWorkspace(`${CRM_BASE}/api/public/contact-submit`), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
