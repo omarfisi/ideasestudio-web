@@ -1,4 +1,5 @@
 import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
+import { PUBLIC_WORKSPACE_ID } from "@/lib/workspace.js";
 import { getClientRouteByKey } from "@/data/routes.js";
 import {
   addStoreCartItem,
@@ -1215,7 +1216,7 @@ export async function getPublicPortfolioItems(params = {}) {
 // ─────────────────────────────────────────────────────────────
 
 export async function getBlogHome() {
-  const url = buildUrl("/api/blog/home");
+  const url = buildUrl("/api/blog/home", { workspace_id: PUBLIC_WORKSPACE_ID || undefined });
   return apiFetch(url);
 }
 
@@ -1246,6 +1247,6 @@ export { validateStoreCoupon };
 // ─────────────────────────────────────────────────────────────
 
 export async function getPublicTeam() {
-  const url = buildUrl("/public/team");
+  const url = buildUrl("/public/team", { workspace_id: PUBLIC_WORKSPACE_ID || undefined });
   return apiFetch(url);
 }
