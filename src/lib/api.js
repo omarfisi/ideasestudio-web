@@ -784,10 +784,27 @@ export async function getPublicProductBySlug(slug) {
 }
 
 // Resolves product slug from a UUID productId (used when cart items don't embed the product)
+const SLUG_CACHE_PREFIX = "cart_product_slug_";
+
+export function cacheProductSlug(productId, slug) {
+  if (productId && slug) {
+    try {
+      localStorage.setItem(`${SLUG_CACHE_PREFIX}${productId}`, slug);
+    } catch {
+      // localStorage not available
+    }
+  }
+}
+
 export async function resolveProductSlugById(productId) {
   if (!productId) return null;
   try {
-    // Try UUID as path param — backend may support both slug and UUID lookup
+    const cached = localStorage.getItem(`${SLUG_CACHE_PREFIX}${productId}`);
+    if (cached) return cached;
+  } catch {
+    // localStorage not available
+  }
+  try {
     const data = await getStoreProductBySlug(productId);
     const product = normalizeProduct(data?.item || data?.product || null);
     return product?.slug || null;
@@ -918,6 +935,8 @@ export async function addProductToPublicCart({
   if (!resolvedProductId) {
     throw new Error("No se pudo resolver el servicio para el resumen.");
   }
+
+  if (productSlug) cacheProductSlug(resolvedProductId, productSlug);
 
   return createOrUpdatePublicCart({
     sessionToken: getStoredCartSessionToken() || null,
