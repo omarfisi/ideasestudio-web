@@ -805,12 +805,17 @@ export async function resolveProductSlugById(productId) {
     // localStorage not available
   }
   try {
-    const data = await getStoreProductBySlug(productId);
-    const product = normalizeProduct(data?.item || data?.product || null);
-    return product?.slug || null;
+    const data = await getStoreProducts({ limit: 200 });
+    const items = Array.isArray(data?.items) ? data.items : [];
+    const match = items.find((p) => p.id === productId || p.id === productId);
+    if (match?.slug) {
+      cacheProductSlug(productId, match.slug);
+      return match.slug;
+    }
   } catch {
-    return null;
+    // fallback failed
   }
+  return null;
 }
 
 export async function createOrUpdatePublicCart(payload) {
