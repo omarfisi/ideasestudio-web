@@ -102,6 +102,8 @@ function svcReducer(state, action) {
 
 function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
   const [s, dispatch] = useReducer(svcReducer, SVC_INIT);
+  const [openBooking, setOpenBooking] = useState(true);
+  const [openExtras, setOpenExtras] = useState(true);
 
   useEffect(() => {
     if (!slug) return;
@@ -213,78 +215,101 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
 
   return (
     <>
-      {/* Package chips */}
-      {hasPkgs && (
-        <div className="cbp-sub">
-          <p className="cbp-sub__label">Paquete</p>
-          <div className="cbp-chips">
-            {packages.map((pkg) => (
-              <button
-                key={pkg.id}
-                type="button"
-                className={`cbp-chip${s.selectedPackage === pkg.id ? " active" : ""}`}
-                onClick={() => dispatch({ type: "SET_PACKAGE", id: pkg.id })}
-              >
-                {pkg.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* ── Sub-accordion: Reserva ────────────────────────────────── */}
+      {(hasCalendar || hasPkgs) && (
+        <div className="cbp-sub-accordion">
+          <button
+            type="button"
+            className="cbp-sub-accordion__toggle"
+            onClick={() => setOpenBooking((v) => !v)}
+            aria-expanded={openBooking}
+          >
+            <span>Fecha y hora de reserva</span>
+            <ChevronDown size={14} style={{ transform: openBooking ? "rotate(180deg)" : "rotate(0deg)", transition: "transform .2s" }} />
+          </button>
 
-      {/* Calendar */}
-      {hasCalendar && (
-        <div className="cbp-sub">
-          <p className="cbp-sub__label">Fecha y hora</p>
-          <div className="cbp-cal-nav">
-            <button type="button" className="cbp-cal-nav__btn" onClick={() => dispatch({ type: "PREV_MONTH" })} aria-label="Mes anterior">
-              <ChevronLeft size={13} />
-            </button>
-            <span className="cbp-cal-nav__month">
-              {monthLabel ? monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1) : ""}
-            </span>
-            <button type="button" className="cbp-cal-nav__btn" onClick={() => dispatch({ type: "NEXT_MONTH" })} aria-label="Mes siguiente">
-              <ChevronRight size={13} />
-            </button>
-          </div>
+          {openBooking && (
+            <div className="cbp-sub-accordion__body">
+              {/* Package chips */}
+              {hasPkgs && (
+                <div className="cbp-sub">
+                  <p className="cbp-sub__label">Paquete</p>
+                  <div className="cbp-chips">
+                    {packages.map((pkg) => (
+                      <button
+                        key={pkg.id}
+                        type="button"
+                        className={`cbp-chip${s.selectedPackage === pkg.id ? " active" : ""}`}
+                        onClick={() => dispatch({ type: "SET_PACKAGE", id: pkg.id })}
+                      >
+                        {pkg.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-          <div className="cbp-cal-grid">
-            {["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"].map((d) => (
-              <div key={d} className="cbp-cal-dow">{d}</div>
-            ))}
-            {calCells.map((cell, i) => {
-              if (!cell) return <div key={`e-${i}`} />;
-              const ymd = toYMD(cell);
-              const isPast = cell < today;
-              const isAvail = slotDates.has(ymd);
-              const isSel = s.selectedDate === ymd;
-              let cls = "cbp-cal-day";
-              if (isPast) cls += " past";
-              else if (isAvail) cls += " available";
-              if (isSel) cls += " selected";
-              return (
-                <button key={ymd} type="button" className={cls} disabled={isPast || !isAvail}
-                  onClick={() => dispatch({ type: "SELECT_DATE", date: ymd })}>
-                  {cell.getDate()}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Slots expand on date click */}
-          {s.selectedDate && (
-            <div className="cbp-slots-wrap">
-              {daySlots.length === 0 ? (
-                <p className="cbp-notice">Sin horarios para esta fecha.</p>
-              ) : (
-                <div className="cbp-slots">
-                  {daySlots.map((sl) => (
-                    <button key={sl.starts_at} type="button"
-                      className={`cbp-slot${s.selectedSlot?.starts_at === sl.starts_at ? " active" : ""}`}
-                      onClick={() => dispatch({ type: "SELECT_SLOT", slot: sl })}>
-                      {sl.label}
+              {/* Calendar */}
+              {hasCalendar && (
+                <div className="cbp-sub">
+                  <div className="cbp-cal-nav">
+                    <button type="button" className="cbp-cal-nav__btn" onClick={() => dispatch({ type: "PREV_MONTH" })} aria-label="Mes anterior">
+                      <ChevronLeft size={13} />
                     </button>
-                  ))}
+                    <span className="cbp-cal-nav__month">
+                      {monthLabel ? monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1) : ""}
+                    </span>
+                    <button type="button" className="cbp-cal-nav__btn" onClick={() => dispatch({ type: "NEXT_MONTH" })} aria-label="Mes siguiente">
+                      <ChevronRight size={13} />
+                    </button>
+                  </div>
+
+                  <div className="cbp-cal-grid">
+                    {["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"].map((d) => (
+                      <div key={d} className="cbp-cal-dow">{d}</div>
+                    ))}
+                    {calCells.map((cell, i) => {
+                      if (!cell) return <div key={`e-${i}`} />;
+                      const ymd = toYMD(cell);
+                      const isPast = cell < today;
+                      const isAvail = slotDates.has(ymd);
+                      const isSel = s.selectedDate === ymd;
+                      let cls = "cbp-cal-day";
+                      if (isPast) cls += " past";
+                      else if (isAvail) cls += " available";
+                      if (isSel) cls += " selected";
+                      return (
+                        <button key={ymd} type="button" className={cls} disabled={isPast || !isAvail}
+                          onClick={() => dispatch({ type: "SELECT_DATE", date: ymd })}>
+                          {cell.getDate()}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {s.selectedDate && (
+                    <div className="cbp-slots-wrap">
+                      {daySlots.length === 0 ? (
+                        <p className="cbp-notice">Sin horarios para esta fecha.</p>
+                      ) : (
+                        <div className="cbp-slots">
+                          {daySlots.map((sl) => (
+                            <button key={sl.starts_at} type="button"
+                              className={`cbp-slot${s.selectedSlot?.starts_at === sl.starts_at ? " active" : ""}`}
+                              onClick={() => dispatch({ type: "SELECT_SLOT", slot: sl })}>
+                              {sl.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {hasCalendar && !s.selectedSlot && (
+                    <p className="cbp-required-hint">
+                      Selecciona fecha y hora para continuar con el pago.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -292,36 +317,49 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
         </div>
       )}
 
-      {/* Addons */}
+      {/* ── Sub-accordion: Extras ─────────────────────────────────── */}
       {hasAddons && (
-        <div className="cbp-sub">
-          <p className="cbp-sub__label">Extras opcionales</p>
-          {addons.map((a) => {
-            const qty = s.addonQty[a.id] ?? 0;
-            return (
-              <div key={a.id} className="cbp-addon">
-                <div className="cbp-addon__info">
-                  <span className="cbp-addon__name">{a.name}</span>
-                  {a.price > 0 && <span className="cbp-addon__price">+{formatPrice(a.price, a.currency)}</span>}
-                </div>
-                <div className="cbp-qty">
-                  <button type="button" className="cbp-qty__btn"
-                    onClick={() => handleAddon(a.id, -1, a.min_quantity, a.max_quantity)}
-                    disabled={qty <= (a.min_quantity ?? 0)}>−</button>
-                  <span className="cbp-qty__val">{qty}</span>
-                  <button type="button" className="cbp-qty__btn"
-                    onClick={() => handleAddon(a.id, 1, a.min_quantity, a.max_quantity)}
-                    disabled={qty >= (a.max_quantity ?? 99)}>+</button>
-                </div>
-              </div>
-            );
-          })}
+        <div className="cbp-sub-accordion">
+          <button
+            type="button"
+            className="cbp-sub-accordion__toggle"
+            onClick={() => setOpenExtras((v) => !v)}
+            aria-expanded={openExtras}
+          >
+            <span>Extras opcionales</span>
+            <ChevronDown size={14} style={{ transform: openExtras ? "rotate(180deg)" : "rotate(0deg)", transition: "transform .2s" }} />
+          </button>
+
+          {openExtras && (
+            <div className="cbp-sub-accordion__body">
+              {addons.map((a) => {
+                const qty = s.addonQty[a.id] ?? 0;
+                return (
+                  <div key={a.id} className="cbp-addon">
+                    <div className="cbp-addon__info">
+                      <span className="cbp-addon__name">{a.name}</span>
+                      {a.price > 0 && <span className="cbp-addon__price">+{formatPrice(a.price, a.currency)}</span>}
+                    </div>
+                    <div className="cbp-qty">
+                      <button type="button" className="cbp-qty__btn"
+                        onClick={() => handleAddon(a.id, -1, a.min_quantity, a.max_quantity)}
+                        disabled={qty <= (a.min_quantity ?? 0)}>−</button>
+                      <span className="cbp-qty__val">{qty}</span>
+                      <button type="button" className="cbp-qty__btn"
+                        onClick={() => handleAddon(a.id, 1, a.min_quantity, a.max_quantity)}
+                        disabled={qty >= (a.max_quantity ?? 99)}>+</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Resumen del servicio */}
+      {/* ── Resumen ───────────────────────────────────────────────── */}
       {(addonsTotal > 0 || depositAmount > 0 || s.selectedSlot) && (
-        <div className="cbp-sub cbp-sub--summary">
+        <div className="cbp-sub cbp-sub--summary" style={{ margin: "10px 0 0" }}>
           <p className="cbp-sub__label">Resumen del servicio</p>
           <div className="cbp-summary-rows">
             {s.selectedSlot && (
@@ -358,13 +396,6 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Validation hint */}
-      {hasCalendar && !s.selectedSlot && (
-        <p className="cbp-required-hint">
-          Selecciona fecha y hora del servicio para continuar con el pago.
-        </p>
       )}
     </>
   );
