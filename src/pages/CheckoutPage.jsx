@@ -191,18 +191,17 @@ function CheckoutHero({ activeStep = 2 }) {
       <h1>Finaliza tu pedido</h1>
       <div className="checkout-steps">
         {steps.map((step, idx) => (
-          <>
+          <span key={step.n} style={{ display: "contents" }}>
             <span
-              key={step.n}
               className={`checkout-step${step.n === activeStep ? " is-active" : ""}`}
             >
               <span className="checkout-step-number">{step.n}</span>
               {step.label}
             </span>
             {idx < steps.length - 1 && (
-              <span key={`sep-${step.n}`} style={{ color: "#d4d4d8", fontWeight: 400 }}>→</span>
+              <span style={{ color: "#d4d4d8", fontWeight: 400 }}>→</span>
             )}
-          </>
+          </span>
         ))}
       </div>
       {activeStep < 3 && (
@@ -1150,14 +1149,20 @@ export default function CheckoutPage() {
           setCartState({ status: "idle", message: "" });
           if (import.meta.env.DEV) {
             // eslint-disable-next-line no-console
-            console.log("[checkout] cart items slug debug:", (result?.items || []).map((it) => ({
-              id: it.id,
-              productId: it.productId,
-              productSlug: it.productSlug,
-              "product.slug": it.product?.slug,
-              "product.serviceTag": it.product?.serviceTag,
-              snapshotName: it.snapshotName,
-            })));
+            console.log("[checkout] cart items raw:\n" + JSON.stringify(
+              (result?.items || []).map((it) => ({
+                id: it.id,
+                productId: it.productId,
+                productSlug: it.productSlug,
+                "product.id": it.product?.id,
+                "product.slug": it.product?.slug,
+                "product.name": it.product?.name,
+                "product.serviceTag": it.product?.serviceTag,
+                snapshotName: it.snapshotName,
+                raw_keys: Object.keys(it),
+              })),
+              null, 2
+            ));
           }
         }
       } catch (error) {
