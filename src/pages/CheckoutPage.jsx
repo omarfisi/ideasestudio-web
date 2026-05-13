@@ -1148,6 +1148,17 @@ export default function CheckoutPage() {
           setCart(result);
           setCheckoutForm((current) => ({ ...current, email: current.email || result?.email || "" }));
           setCartState({ status: "idle", message: "" });
+          if (import.meta.env.DEV) {
+            // eslint-disable-next-line no-console
+            console.log("[checkout] cart items slug debug:", (result?.items || []).map((it) => ({
+              id: it.id,
+              productId: it.productId,
+              productSlug: it.productSlug,
+              "product.slug": it.product?.slug,
+              "product.serviceTag": it.product?.serviceTag,
+              snapshotName: it.snapshotName,
+            })));
+          }
         }
       } catch (error) {
         if (!cancelled) {
