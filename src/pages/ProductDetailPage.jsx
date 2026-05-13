@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Link, useLoaderData, useNavigate } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
+import ServiceBookingWidget from "@/components/services/ServiceBookingWidget.jsx";
 import { addProductToPublicCart, getPublicProducts } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
 
@@ -595,6 +596,8 @@ export default function ProductDetailPage() {
             </div>
           </article>
         </div>
+
+        <ServiceBookingWidget slug={product.slug} />
 
         {relatedState.items.length ? (
           <section className="service-detail-related">
