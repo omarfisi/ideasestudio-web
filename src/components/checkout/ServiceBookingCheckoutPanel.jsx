@@ -1,9 +1,10 @@
-import { useEffect, useReducer, useCallback } from "react";
+import { useEffect, useReducer, useCallback, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   getPublicServiceBooking,
   getPublicServiceAvailability,
 } from "@/lib/publicServicesApi.js";
+import { resolveProductSlugById } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -389,18 +390,61 @@ function getSlugFromItem(item) {
 // ─── panel wrapper ────────────────────────────────────────────────────────────
 
 export default function ServiceBookingCheckoutPanel({ cart, onSelectionChange }) {
-  const bookableItems = (cart?.items || [])
-    .map((item) => ({
-      slug: getSlugFromItem(item),
-      name: item.snapshotName || item.product?.name || "Servicio",
-    }))
-    .filter((it) => Boolean(it.slug));
+  const [resolvedItems, setResolvedItems] = useState(null); // null = resolving
 
-  if (bookableItems.length === 0) {
+  useEffect(() => {
+    const rawItems = cart?.items || [];
+    if (rawItems.length === 0) {
+      setResolvedItems([]);
+      return;
+    }
+
+    let cancelled = false;
+    async function resolve() {
+      const results = await Promise.all(
+        rawItems.map(async (item) => {
+          const name = item.snapshotName || item.product?.name || "Servicio";
+
+          // 1. Try direct slug fields
+          const directSlug = getSlugFromItem(item);
+          if (directSlug) return { slug: directSlug, name };
+
+          // 2. Check metadata fields (backend may store slug in snapshot metadata)
+          const meta = item.metadata || {};
+          const metaSlug =
+            meta.slug ||
+            meta.service_slug ||
+            meta.product_slug ||
+            meta.serviceSlug ||
+            null;
+          if (metaSlug) return { slug: metaSlug, name };
+
+          // 3. Resolve by productId via store API
+          if (item.productId) {
+            const resolved = await resolveProductSlugById(item.productId);
+            if (resolved) return { slug: resolved, name };
+          }
+
+          return null;
+        })
+      );
+      if (!cancelled) {
+        setResolvedItems(results.filter(Boolean));
+      }
+    }
+
+    resolve();
+    return () => { cancelled = true; };
+  }, [cart?.items]);
+
+  // Still resolving
+  if (resolvedItems === null) return null;
+
+  if (resolvedItems.length === 0) {
     if (import.meta.env.DEV && (cart?.items || []).length > 0) {
       return (
-        <p style={{ fontSize: "0.75rem", color: "#9b9189", marginBottom: 16 }}>
-          [DEV] No se detectó slug en los items del carrito — panel de booking oculto.
+        <p style={{ fontSize: "0.74rem", color: "#9b9189", marginBottom: 14, fontStyle: "italic" }}>
+          [DEV] No se pudo resolver el slug del servicio — panel de booking oculto.
         </p>
       );
     }
@@ -413,7 +457,7 @@ export default function ServiceBookingCheckoutPanel({ cart, onSelectionChange })
         <h3 className="cbp-header__title">Datos del servicio</h3>
         <p className="cbp-header__sub">Selecciona la fecha, hora y extras antes de completar el pago.</p>
       </div>
-      {bookableItems.map((item) => (
+      {resolvedItems.map((item) => (
         <ServiceBookingSection
           key={item.slug}
           slug={item.slug}

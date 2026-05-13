@@ -783,6 +783,19 @@ export async function getPublicProductBySlug(slug) {
   return normalizeProduct(data?.item);
 }
 
+// Resolves product slug from a UUID productId (used when cart items don't embed the product)
+export async function resolveProductSlugById(productId) {
+  if (!productId) return null;
+  try {
+    // Try UUID as path param — backend may support both slug and UUID lookup
+    const data = await getStoreProductBySlug(productId);
+    const product = normalizeProduct(data?.item || data?.product || null);
+    return product?.slug || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function createOrUpdatePublicCart(payload) {
   const seedToken =
     payload.sessionToken || getStoredCartSessionToken() || null;

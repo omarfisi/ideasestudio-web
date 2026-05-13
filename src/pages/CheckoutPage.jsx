@@ -1154,12 +1154,9 @@ export default function CheckoutPage() {
                 id: it.id,
                 productId: it.productId,
                 productSlug: it.productSlug,
-                "product.id": it.product?.id,
-                "product.slug": it.product?.slug,
-                "product.name": it.product?.name,
-                "product.serviceTag": it.product?.serviceTag,
+                "product.slug": it.product?.slug ?? "(null)",
                 snapshotName: it.snapshotName,
-                raw_keys: Object.keys(it),
+                metadata: it.metadata,
               })),
               null, 2
             ));
