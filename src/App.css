@@ -14630,3 +14630,358 @@ section[id] {
     justify-content: center;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Checkout Booking Panel  (.cbp-*)
+   Lives inside StoreCheckout, before customer form
+═══════════════════════════════════════════════════════════════ */
+
+.cbp-panel {
+  background: #fff;
+  border: 1.5px solid rgba(22,22,22,0.12);
+  border-radius: 20px;
+  padding: 24px;
+  margin-bottom: 16px;
+}
+
+.cbp-panel__heading {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #111;
+  margin: 0 0 4px;
+}
+
+.cbp-panel__sub {
+  font-size: 0.82rem;
+  color: #6b6258;
+  margin: 0 0 20px;
+}
+
+/* Section per service */
+.cbp-section + .cbp-section {
+  border-top: 1.5px solid rgba(22,22,22,0.08);
+  margin-top: 20px;
+  padding-top: 20px;
+}
+
+.cbp-section__head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.cbp-section__title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.cbp-section__selected {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #6b6258;
+  background: #fffde6;
+  border: 1px solid #f1d146;
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+
+/* Loading */
+.cbp-loading {
+  font-size: 0.82rem;
+  color: #9b9189;
+  padding: 8px 0;
+}
+
+/* Block */
+.cbp-block {
+  background: #fafafa;
+  border: 1.5px solid rgba(22,22,22,0.1);
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 10px;
+}
+
+.cbp-block__label {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9b9189;
+  margin-bottom: 10px;
+}
+
+/* Package chips */
+.cbp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cbp-chip {
+  padding: 5px 14px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(22,22,22,0.18);
+  background: #fff;
+  color: #111;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.12s;
+}
+
+.cbp-chip.active {
+  border-color: #f1d146;
+  background: #f1d146;
+  font-weight: 700;
+}
+
+/* Calendar nav */
+.cbp-cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.cbp-cal-nav__btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(22,22,22,0.15);
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  color: #111;
+  transition: background 0.1s;
+}
+
+.cbp-cal-nav__btn:hover { background: #f5f5f5; }
+
+.cbp-cal-nav__month {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #111;
+  text-transform: capitalize;
+}
+
+/* Calendar grid */
+.cbp-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.cbp-cal-dow {
+  text-align: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #9b9189;
+  padding: 2px 0 5px;
+}
+
+.cbp-cal-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 0.73rem;
+  font-weight: 400;
+  border: 1.5px solid transparent;
+  background: transparent;
+  color: #111;
+  cursor: default;
+  font-family: inherit;
+  transition: all 0.1s;
+}
+
+.cbp-cal-day.available {
+  background: #fffde6;
+  border-color: #f1d146;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cbp-cal-day.available:hover { background: #f1d146; }
+
+.cbp-cal-day.selected {
+  background: #f1d146;
+  border-color: #f1d146;
+  font-weight: 800;
+  color: #111;
+}
+
+.cbp-cal-day.past { color: #ccc; }
+
+/* Slots section (inside calendar block) */
+.cbp-slots-section {
+  border-top: 1px solid rgba(22,22,22,0.08);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.cbp-slots-section__label {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9b9189;
+  margin-bottom: 8px;
+}
+
+.cbp-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cbp-slot {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(22,22,22,0.18);
+  background: #fff;
+  color: #111;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.1s;
+}
+
+.cbp-slot:hover { border-color: #f1d146; background: #fffde6; }
+
+.cbp-slot.active {
+  border-color: #f1d146;
+  background: #f1d146;
+  font-weight: 700;
+  color: #111;
+}
+
+/* Addon row */
+.cbp-addon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(22,22,22,0.07);
+}
+
+.cbp-addon:last-child { border-bottom: none; }
+
+.cbp-addon__info { flex: 1; min-width: 0; }
+
+.cbp-addon__name {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #111;
+  display: block;
+}
+
+.cbp-addon__price {
+  font-size: 0.73rem;
+  color: #6b6258;
+}
+
+.cbp-qty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.cbp-qty__btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(22,22,22,0.18);
+  background: #fff;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  color: #111;
+  transition: all 0.1s;
+  line-height: 1;
+}
+
+.cbp-qty__btn:hover:not(:disabled) { background: #f1d146; border-color: #f1d146; }
+.cbp-qty__btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.cbp-qty__val {
+  min-width: 20px;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #111;
+}
+
+/* Mini summary */
+.cbp-mini-summary {
+  font-size: 0.83rem;
+  margin-top: 4px;
+  padding: 12px 0 0;
+  border-top: 1px solid rgba(22,22,22,0.08);
+}
+
+.cbp-mini-summary__row {
+  display: flex;
+  justify-content: space-between;
+  color: #6b6258;
+  padding: 2px 0;
+}
+
+.cbp-mini-summary__row--deposit {
+  color: #8a6020;
+  font-weight: 600;
+}
+
+.cbp-mini-summary__total {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: #111;
+  border-top: 1px solid rgba(22,22,22,0.1);
+  padding-top: 7px;
+  margin-top: 5px;
+}
+
+.cbp-mini-summary__dur {
+  font-size: 0.72rem;
+  color: #9b9189;
+  text-align: right;
+  margin-top: 3px;
+}
+
+/* Notices */
+.cbp-notice {
+  font-size: 0.76rem;
+  color: #8a6020;
+  padding: 7px 11px;
+  background: #fffbe6;
+  border: 1px solid #f1d146;
+  border-radius: 10px;
+  margin: 0;
+}
+
+.cbp-required-hint {
+  font-size: 0.78rem;
+  color: #c05;
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  background: rgba(204,0,85,0.05);
+  border-radius: 10px;
+  border: 1px solid rgba(204,0,85,0.15);
+}
