@@ -22,7 +22,7 @@ function addMonths(date, n) {
 function buildCalendarGrid(year, month) {
   const first = new Date(year, month, 1);
   const last = new Date(year, month + 1, 0);
-  const startDow = (first.getDay() + 6) % 7; // Monday=0
+  const startDow = (first.getDay() + 6) % 7;
   const cells = [];
   for (let i = 0; i < startDow; i++) cells.push(null);
   for (let d = 1; d <= last.getDate(); d++) cells.push(new Date(year, month, d));
@@ -38,13 +38,13 @@ function durationLabel(minutes) {
   return `${m}m`;
 }
 
-// ─── per-service reducer ──────────────────────────────────────────────────────
+// ─── reducer ─────────────────────────────────────────────────────────────────
 
 const SVC_INIT = {
-  loadState: "idle",   // idle | loading | ready | error
+  loadState: "idle",
   booking: null,
   calMonth: null,
-  availState: "idle",  // idle | loading | ready | error
+  availState: "idle",
   slots: [],
   selectedDate: null,
   selectedSlot: null,
@@ -97,12 +97,11 @@ function svcReducer(state, action) {
   }
 }
 
-// ─── single-service booking section ──────────────────────────────────────────
+// ─── single-service section ───────────────────────────────────────────────────
 
 function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
   const [s, dispatch] = useReducer(svcReducer, SVC_INIT);
 
-  // Load booking config
   useEffect(() => {
     if (!slug) return;
     dispatch({ type: "LOAD_START" });
@@ -111,11 +110,9 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
       .catch(() => dispatch({ type: "LOAD_ERR" }));
   }, [slug]);
 
-  // Load availability when month changes
   useEffect(() => {
     if (s.loadState !== "ready") return;
-    const settings = s.booking?.booking_settings;
-    if (!settings?.requires_calendar) return;
+    if (!s.booking?.booking_settings?.requires_calendar) return;
     if (!s.calMonth) return;
 
     const from = toYMD(s.calMonth);
@@ -128,14 +125,12 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
       .catch(() => dispatch({ type: "AVAIL_ERR" }));
   }, [slug, s.loadState, s.calMonth]);
 
-  // Notify parent of selection changes
   useEffect(() => {
     if (s.loadState !== "ready") return;
     const settings = s.booking?.booking_settings;
     const addons = s.booking?.addons || [];
 
-    const hasCalendar = settings?.requires_calendar;
-    if (hasCalendar && (!s.selectedDate || !s.selectedSlot)) {
+    if (settings?.requires_calendar && (!s.selectedDate || !s.selectedSlot)) {
       onSelectionChange(slug, null);
       return;
     }
@@ -148,9 +143,7 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
       return sum + a.duration_minutes * (s.addonQty[a.id] ?? 0);
     }, 0);
     const baseDuration = (basePkg?.duration_minutes ?? null) ?? settings?.base_duration_minutes ?? 60;
-    const totalDuration = baseDuration + addonDuration;
     const total = basePrice + addonsTotal;
-
     const depositAmount = (() => {
       if (!settings?.requires_deposit) return 0;
       if (settings.deposit_type === "percent") return Math.round(total * settings.deposit_amount / 100 * 100) / 100;
@@ -166,7 +159,7 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
         .filter(([, qty]) => qty > 0)
         .map(([addon_id, quantity]) => ({ addon_id, quantity })),
       estimated_total: total,
-      estimated_duration_minutes: totalDuration,
+      estimated_duration_minutes: baseDuration + addonDuration,
       deposit_amount: depositAmount,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -174,20 +167,11 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
 
   const handleAddon = useCallback((id, delta, min, max) => {
     const current = s.addonQty[id] ?? 0;
-    const next = Math.max(min ?? 0, Math.min(max ?? 99, current + delta));
-    dispatch({ type: "SET_ADDON", id, qty: next });
+    dispatch({ type: "SET_ADDON", id, qty: Math.max(min ?? 0, Math.min(max ?? 99, current + delta)) });
   }, [s.addonQty]);
 
-  // Loading / error states
   if (s.loadState === "idle" || s.loadState === "loading") {
-    return (
-      <div className="cbp-section">
-        <div className="cbp-section__head">
-          <span className="cbp-section__title">{serviceName}</span>
-        </div>
-        <div className="cbp-loading">Cargando disponibilidad...</div>
-      </div>
-    );
+    return <p className="cbp-loading">Cargando disponibilidad para {serviceName}...</p>;
   }
   if (s.loadState === "error") return null;
 
@@ -219,7 +203,6 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
     return sum + a.duration_minutes * (s.addonQty[a.id] ?? 0);
   }, 0);
   const baseDuration = (basePkg?.duration_minutes ?? null) ?? settings.base_duration_minutes ?? 60;
-  const totalDuration = baseDuration + addonDuration;
   const total = basePrice + addonsTotal;
   const depositAmount = (() => {
     if (!settings.requires_deposit) return 0;
@@ -228,20 +211,11 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
   })();
 
   return (
-    <div className="cbp-section">
-      <div className="cbp-section__head">
-        <span className="cbp-section__title">{serviceName}</span>
-        {hasCalendar && s.selectedSlot && (
-          <span className="cbp-section__selected">
-            {new Date(s.selectedSlot.starts_at).toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" })} · {s.selectedSlot.label}
-          </span>
-        )}
-      </div>
-
+    <>
       {/* Package chips */}
       {hasPkgs && (
-        <div className="cbp-block">
-          <span className="cbp-block__label">PAQUETE</span>
+        <div className="cbp-sub">
+          <p className="cbp-sub__label">Paquete</p>
           <div className="cbp-chips">
             {packages.map((pkg) => (
               <button
@@ -259,19 +233,20 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
 
       {/* Calendar */}
       {hasCalendar && (
-        <div className="cbp-block">
-          <span className="cbp-block__label">FECHA Y HORA</span>
+        <div className="cbp-sub">
+          <p className="cbp-sub__label">Fecha y hora</p>
           <div className="cbp-cal-nav">
             <button type="button" className="cbp-cal-nav__btn" onClick={() => dispatch({ type: "PREV_MONTH" })} aria-label="Mes anterior">
-              <ChevronLeft size={14} />
+              <ChevronLeft size={13} />
             </button>
             <span className="cbp-cal-nav__month">
               {monthLabel ? monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1) : ""}
             </span>
             <button type="button" className="cbp-cal-nav__btn" onClick={() => dispatch({ type: "NEXT_MONTH" })} aria-label="Mes siguiente">
-              <ChevronRight size={14} />
+              <ChevronRight size={13} />
             </button>
           </div>
+
           <div className="cbp-cal-grid">
             {["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"].map((d) => (
               <div key={d} className="cbp-cal-dow">{d}</div>
@@ -287,34 +262,25 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
               else if (isAvail) cls += " available";
               if (isSel) cls += " selected";
               return (
-                <button
-                  key={ymd}
-                  type="button"
-                  className={cls}
-                  disabled={isPast || !isAvail}
-                  onClick={() => dispatch({ type: "SELECT_DATE", date: ymd })}
-                >
+                <button key={ymd} type="button" className={cls} disabled={isPast || !isAvail}
+                  onClick={() => dispatch({ type: "SELECT_DATE", date: ymd })}>
                   {cell.getDate()}
                 </button>
               );
             })}
           </div>
 
-          {/* Slots expand inside calendar block */}
+          {/* Slots expand on date click */}
           {s.selectedDate && (
-            <div className="cbp-slots-section">
-              <span className="cbp-slots-section__label">HORARIO DISPONIBLE</span>
+            <div className="cbp-slots-wrap">
               {daySlots.length === 0 ? (
                 <p className="cbp-notice">Sin horarios para esta fecha.</p>
               ) : (
                 <div className="cbp-slots">
                   {daySlots.map((sl) => (
-                    <button
-                      key={sl.starts_at}
-                      type="button"
+                    <button key={sl.starts_at} type="button"
                       className={`cbp-slot${s.selectedSlot?.starts_at === sl.starts_at ? " active" : ""}`}
-                      onClick={() => dispatch({ type: "SELECT_SLOT", slot: sl })}
-                    >
+                      onClick={() => dispatch({ type: "SELECT_SLOT", slot: sl })}>
                       {sl.label}
                     </button>
                   ))}
@@ -327,32 +293,24 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
 
       {/* Addons */}
       {hasAddons && (
-        <div className="cbp-block">
-          <span className="cbp-block__label">EXTRAS OPCIONALES</span>
+        <div className="cbp-sub">
+          <p className="cbp-sub__label">Extras opcionales</p>
           {addons.map((a) => {
             const qty = s.addonQty[a.id] ?? 0;
             return (
               <div key={a.id} className="cbp-addon">
                 <div className="cbp-addon__info">
                   <span className="cbp-addon__name">{a.name}</span>
-                  {a.price > 0 && (
-                    <span className="cbp-addon__price">+{formatPrice(a.price, a.currency)}</span>
-                  )}
+                  {a.price > 0 && <span className="cbp-addon__price">+{formatPrice(a.price, a.currency)}</span>}
                 </div>
                 <div className="cbp-qty">
-                  <button
-                    type="button"
-                    className="cbp-qty__btn"
+                  <button type="button" className="cbp-qty__btn"
                     onClick={() => handleAddon(a.id, -1, a.min_quantity, a.max_quantity)}
-                    disabled={qty <= (a.min_quantity ?? 0)}
-                  >−</button>
+                    disabled={qty <= (a.min_quantity ?? 0)}>−</button>
                   <span className="cbp-qty__val">{qty}</span>
-                  <button
-                    type="button"
-                    className="cbp-qty__btn"
+                  <button type="button" className="cbp-qty__btn"
                     onClick={() => handleAddon(a.id, 1, a.min_quantity, a.max_quantity)}
-                    disabled={qty >= (a.max_quantity ?? 99)}
-                  >+</button>
+                    disabled={qty >= (a.max_quantity ?? 99)}>+</button>
                 </div>
               </div>
             );
@@ -360,47 +318,60 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
         </div>
       )}
 
-      {/* Mini summary */}
-      <div className="cbp-mini-summary">
-        <div className="cbp-mini-summary__row">
-          <span>Servicio base</span>
-          <span>{formatPrice(basePrice, currency)}</span>
-        </div>
-        {addonsTotal > 0 && (
-          <div className="cbp-mini-summary__row">
-            <span>Extras</span>
-            <span>+{formatPrice(addonsTotal, currency)}</span>
+      {/* Resumen del servicio */}
+      {(addonsTotal > 0 || depositAmount > 0 || s.selectedSlot) && (
+        <div className="cbp-sub cbp-sub--summary">
+          <p className="cbp-sub__label">Resumen del servicio</p>
+          <div className="cbp-summary-rows">
+            {s.selectedSlot && (
+              <div className="cbp-summary-row">
+                <span>Fecha y hora</span>
+                <span>
+                  {new Date(s.selectedSlot.starts_at).toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" })} · {s.selectedSlot.label}
+                </span>
+              </div>
+            )}
+            <div className="cbp-summary-row">
+              <span>Servicio base</span>
+              <span>{formatPrice(basePrice, currency)}</span>
+            </div>
+            {addonsTotal > 0 && (
+              <div className="cbp-summary-row">
+                <span>Extras</span>
+                <span>+{formatPrice(addonsTotal, currency)}</span>
+              </div>
+            )}
+            {depositAmount > 0 && (
+              <div className="cbp-summary-row cbp-summary-row--deposit">
+                <span>Depósito requerido</span>
+                <span>{formatPrice(depositAmount, currency)}</span>
+              </div>
+            )}
+            <div className="cbp-summary-row cbp-summary-row--total">
+              <span>Total estimado</span>
+              <span>{formatPrice(total, currency)}</span>
+            </div>
+            <div className="cbp-summary-row cbp-summary-row--dur">
+              <span>Duración estimada</span>
+              <span>{durationLabel(baseDuration + addonDuration)}</span>
+            </div>
           </div>
-        )}
-        {depositAmount > 0 && (
-          <div className="cbp-mini-summary__row cbp-mini-summary__row--deposit">
-            <span>Depósito requerido</span>
-            <span>{formatPrice(depositAmount, currency)}</span>
-          </div>
-        )}
-        <div className="cbp-mini-summary__total">
-          <span>Total estimado</span>
-          <span>{formatPrice(total, currency)}</span>
         </div>
-        <div className="cbp-mini-summary__dur">
-          Duración estimada: {durationLabel(totalDuration)}
-        </div>
-      </div>
+      )}
 
-      {/* Validation message */}
+      {/* Validation hint */}
       {hasCalendar && !s.selectedSlot && (
         <p className="cbp-required-hint">
-          Selecciona una fecha y horario para continuar con el pago.
+          Selecciona fecha y hora del servicio para continuar con el pago.
         </p>
       )}
-    </div>
+    </>
   );
 }
 
-// ─── main panel ──────────────────────────────────────────────────────────────
+// ─── panel wrapper ────────────────────────────────────────────────────────────
 
-export default function ServiceBookingCheckoutPanel({ cart, onSelectionChange, onRequiredChange }) {
-  // Find cart items that have a service slug
+export default function ServiceBookingCheckoutPanel({ cart, onSelectionChange }) {
   const bookableItems = (cart?.items || [])
     .map((item) => ({
       slug: item.product?.slug || null,
@@ -411,9 +382,11 @@ export default function ServiceBookingCheckoutPanel({ cart, onSelectionChange, o
   if (bookableItems.length === 0) return null;
 
   return (
-    <div className="cbp-panel">
-      <h3 className="cbp-panel__heading">Fecha y detalles del servicio</h3>
-      <p className="cbp-panel__sub">Selecciona la fecha, horario y extras antes de pagar.</p>
+    <div className="cbp-wrapper">
+      <div className="cbp-header">
+        <h3 className="cbp-header__title">Datos del servicio</h3>
+        <p className="cbp-header__sub">Selecciona la fecha, hora y extras antes de completar el pago.</p>
+      </div>
       {bookableItems.map((item) => (
         <ServiceBookingSection
           key={item.slug}

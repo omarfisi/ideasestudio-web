@@ -14633,101 +14633,75 @@ section[id] {
 
 /* ═══════════════════════════════════════════════════════════════
    Checkout Booking Panel  (.cbp-*)
-   Lives inside StoreCheckout, before customer form
+   Integrated inside checkout-card, before customer fields
 ═══════════════════════════════════════════════════════════════ */
 
-.cbp-panel {
-  background: #fff;
-  border: 1.5px solid rgba(22,22,22,0.12);
-  border-radius: 20px;
-  padding: 24px;
+/* Wrapper — no card of its own, divider only */
+.cbp-wrapper {
+  border-bottom: 1.5px solid rgba(22,22,22,0.08);
+  margin-bottom: 22px;
+  padding-bottom: 4px;
+}
+
+.cbp-header {
   margin-bottom: 16px;
 }
 
-.cbp-panel__heading {
-  font-size: 1.05rem;
-  font-weight: 800;
-  color: #111;
-  margin: 0 0 4px;
-}
-
-.cbp-panel__sub {
-  font-size: 0.82rem;
-  color: #6b6258;
-  margin: 0 0 20px;
-}
-
-/* Section per service */
-.cbp-section + .cbp-section {
-  border-top: 1.5px solid rgba(22,22,22,0.08);
-  margin-top: 20px;
-  padding-top: 20px;
-}
-
-.cbp-section__head {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin-bottom: 14px;
-  flex-wrap: wrap;
-}
-
-.cbp-section__title {
-  font-size: 0.92rem;
+.cbp-header__title {
+  font-size: 0.95rem;
   font-weight: 700;
   color: #111;
+  margin: 0 0 3px;
 }
 
-.cbp-section__selected {
+.cbp-header__sub {
   font-size: 0.78rem;
-  font-weight: 600;
   color: #6b6258;
-  background: #fffde6;
-  border: 1px solid #f1d146;
-  border-radius: 999px;
-  padding: 2px 10px;
+  margin: 0;
 }
 
 /* Loading */
 .cbp-loading {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   color: #9b9189;
-  padding: 8px 0;
+  padding: 6px 0 14px;
 }
 
-/* Block */
-.cbp-block {
-  background: #fafafa;
-  border: 1.5px solid rgba(22,22,22,0.1);
-  border-radius: 14px;
-  padding: 14px;
-  margin-bottom: 10px;
+/* Subsection (fecha/extras/resumen) */
+.cbp-sub {
+  margin-bottom: 14px;
 }
 
-.cbp-block__label {
-  display: block;
-  font-size: 0.62rem;
-  font-weight: 800;
+.cbp-sub__label {
+  font-size: 0.68rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.07em;
   color: #9b9189;
-  margin-bottom: 10px;
+  margin: 0 0 8px;
+}
+
+.cbp-sub--summary {
+  background: #fafafa;
+  border: 1px solid rgba(22,22,22,0.08);
+  border-radius: 12px;
+  padding: 12px 14px;
 }
 
 /* Package chips */
 .cbp-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
 }
 
 .cbp-chip {
-  padding: 5px 14px;
+  padding: 4px 13px;
   border-radius: 999px;
   border: 1.5px solid rgba(22,22,22,0.18);
   background: #fff;
   color: #111;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 500;
   cursor: pointer;
   font-family: inherit;
@@ -14745,12 +14719,12 @@ section[id] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .cbp-cal-nav__btn {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: 1.5px solid rgba(22,22,22,0.15);
   background: #fff;
@@ -14766,7 +14740,7 @@ section[id] {
 .cbp-cal-nav__btn:hover { background: #f5f5f5; }
 
 .cbp-cal-nav__month {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: #111;
   text-transform: capitalize;
@@ -14781,10 +14755,10 @@ section[id] {
 
 .cbp-cal-dow {
   text-align: center;
-  font-size: 0.6rem;
+  font-size: 0.58rem;
   font-weight: 700;
   color: #9b9189;
-  padding: 2px 0 5px;
+  padding: 1px 0 4px;
 }
 
 .cbp-cal-day {
@@ -14793,7 +14767,7 @@ section[id] {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  font-size: 0.73rem;
+  font-size: 0.7rem;
   font-weight: 400;
   border: 1.5px solid transparent;
   background: transparent;
@@ -14816,41 +14790,30 @@ section[id] {
   background: #f1d146;
   border-color: #f1d146;
   font-weight: 800;
-  color: #111;
 }
 
 .cbp-cal-day.past { color: #ccc; }
 
-/* Slots section (inside calendar block) */
-.cbp-slots-section {
-  border-top: 1px solid rgba(22,22,22,0.08);
-  margin-top: 12px;
-  padding-top: 12px;
-}
-
-.cbp-slots-section__label {
-  display: block;
-  font-size: 0.62rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #9b9189;
-  margin-bottom: 8px;
+/* Slots expand after date click */
+.cbp-slots-wrap {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(22,22,22,0.07);
 }
 
 .cbp-slots {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
 }
 
 .cbp-slot {
-  padding: 6px 14px;
+  padding: 5px 12px;
   border-radius: 999px;
   border: 1.5px solid rgba(22,22,22,0.18);
   background: #fff;
   color: #111;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 500;
   cursor: pointer;
   font-family: inherit;
@@ -14863,7 +14826,6 @@ section[id] {
   border-color: #f1d146;
   background: #f1d146;
   font-weight: 700;
-  color: #111;
 }
 
 /* Addon row */
@@ -14871,8 +14833,8 @@ section[id] {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 0;
-  border-bottom: 1px solid rgba(22,22,22,0.07);
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(22,22,22,0.06);
 }
 
 .cbp-addon:last-child { border-bottom: none; }
@@ -14880,32 +14842,32 @@ section[id] {
 .cbp-addon__info { flex: 1; min-width: 0; }
 
 .cbp-addon__name {
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   font-weight: 600;
   color: #111;
   display: block;
 }
 
 .cbp-addon__price {
-  font-size: 0.73rem;
+  font-size: 0.72rem;
   color: #6b6258;
 }
 
 .cbp-qty {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   flex-shrink: 0;
 }
 
 .cbp-qty__btn {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: 1.5px solid rgba(22,22,22,0.18);
   background: #fff;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -14920,68 +14882,61 @@ section[id] {
 .cbp-qty__btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .cbp-qty__val {
-  min-width: 20px;
+  min-width: 18px;
   text-align: center;
-  font-size: 0.9rem;
+  font-size: 0.87rem;
   font-weight: 700;
   color: #111;
 }
 
-/* Mini summary */
-.cbp-mini-summary {
-  font-size: 0.83rem;
-  margin-top: 4px;
-  padding: 12px 0 0;
-  border-top: 1px solid rgba(22,22,22,0.08);
-}
+/* Summary rows */
+.cbp-summary-rows { font-size: 0.8rem; }
 
-.cbp-mini-summary__row {
+.cbp-summary-row {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
   color: #6b6258;
-  padding: 2px 0;
 }
 
-.cbp-mini-summary__row--deposit {
+.cbp-summary-row--deposit {
   color: #8a6020;
   font-weight: 600;
 }
 
-.cbp-mini-summary__total {
-  display: flex;
-  justify-content: space-between;
-  font-weight: 800;
-  font-size: 0.95rem;
+.cbp-summary-row--total {
   color: #111;
+  font-weight: 800;
+  font-size: 0.88rem;
   border-top: 1px solid rgba(22,22,22,0.1);
-  padding-top: 7px;
-  margin-top: 5px;
+  margin-top: 4px;
+  padding-top: 6px;
 }
 
-.cbp-mini-summary__dur {
-  font-size: 0.72rem;
+.cbp-summary-row--dur {
   color: #9b9189;
-  text-align: right;
-  margin-top: 3px;
+  font-size: 0.74rem;
 }
 
 /* Notices */
 .cbp-notice {
-  font-size: 0.76rem;
+  font-size: 0.75rem;
   color: #8a6020;
-  padding: 7px 11px;
+  padding: 6px 10px;
   background: #fffbe6;
   border: 1px solid #f1d146;
-  border-radius: 10px;
+  border-radius: 9px;
   margin: 0;
 }
 
 .cbp-required-hint {
-  font-size: 0.78rem;
-  color: #c05;
-  margin: 10px 0 0;
-  padding: 8px 12px;
-  background: rgba(204,0,85,0.05);
-  border-radius: 10px;
-  border: 1px solid rgba(204,0,85,0.15);
+  font-size: 0.77rem;
+  color: #b03030;
+  margin: 8px 0 12px;
+  padding: 7px 11px;
+  background: rgba(176,48,48,0.05);
+  border-radius: 9px;
+  border: 1px solid rgba(176,48,48,0.15);
 }

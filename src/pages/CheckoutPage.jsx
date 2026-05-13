@@ -855,16 +855,15 @@ function StoreCheckout({
 
         {/* ── LEFT: form card ─────────────────────────────────────────── */}
         <section>
-          {/* Booking panel — appears when cart has services with calendar/extras */}
-          <ServiceBookingCheckoutPanel
-            cart={cart}
-            onSelectionChange={handleBookingSelectionChange}
-          />
-
           <div className="checkout-card">
             <h2>Datos de contratación</h2>
             <p>Completa la información necesaria para preparar tu documento y procesar el pago.</p>
 
+            {/* Booking panel — integrated before customer fields */}
+            <ServiceBookingCheckoutPanel
+              cart={cart}
+              onSelectionChange={handleBookingSelectionChange}
+            />
 
             {/* Order form */}
             <form id="checkout-order-form" onSubmit={handleSubmit}>
