@@ -390,7 +390,8 @@ function getSlugFromItem(item) {
 // ─── panel wrapper ────────────────────────────────────────────────────────────
 
 export default function ServiceBookingCheckoutPanel({ cart, onSelectionChange }) {
-  const [resolvedItems, setResolvedItems] = useState(null); // null = resolving
+  const [resolvedItems, setResolvedItems] = useState(null);
+  const [open, setOpen] = useState(true);
 
   useEffect(() => {
     const rawItems = cart?.items || [];
@@ -450,8 +451,6 @@ export default function ServiceBookingCheckoutPanel({ cart, onSelectionChange })
     }
     return null;
   }
-
-  const [open, setOpen] = useState(true);
 
   return (
     <div className="cbp-wrapper">
