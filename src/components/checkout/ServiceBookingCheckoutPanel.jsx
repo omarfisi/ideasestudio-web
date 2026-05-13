@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useCallback, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import {
   getPublicServiceBooking,
   getPublicServiceAvailability,
@@ -451,20 +451,40 @@ export default function ServiceBookingCheckoutPanel({ cart, onSelectionChange })
     return null;
   }
 
+  const [open, setOpen] = useState(true);
+
   return (
     <div className="cbp-wrapper">
-      <div className="cbp-header">
-        <h3 className="cbp-header__title">Datos del servicio</h3>
-        <p className="cbp-header__sub">Selecciona la fecha, hora y extras antes de completar el pago.</p>
-      </div>
-      {resolvedItems.map((item) => (
-        <ServiceBookingSection
-          key={item.slug}
-          slug={item.slug}
-          serviceName={item.name}
-          onSelectionChange={onSelectionChange}
+      <button
+        type="button"
+        className="cbp-accordion-toggle"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <span className="cbp-accordion-toggle__left">
+          <span className="cbp-accordion-toggle__dot" />
+          <span className="cbp-accordion-toggle__title">Datos del servicio</span>
+        </span>
+        <ChevronDown
+          size={16}
+          className="cbp-accordion-toggle__chevron"
+          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
         />
-      ))}
+      </button>
+
+      {open && (
+        <div className="cbp-accordion-body">
+          <p className="cbp-header__sub">Selecciona la fecha, hora y extras antes de completar el pago.</p>
+          {resolvedItems.map((item) => (
+            <ServiceBookingSection
+              key={item.slug}
+              slug={item.slug}
+              serviceName={item.name}
+              onSelectionChange={onSelectionChange}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
