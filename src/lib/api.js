@@ -440,6 +440,12 @@ function normalizeCartItem(raw) {
     id: raw.id,
     cartId: raw.cart_id || null,
     productId: raw.product_id || raw.productId || null,
+    productSlug:
+      raw.product_slug ||
+      raw.productSlug ||
+      raw.product?.slug ||
+      raw.slug ||
+      null,
     quantity: Number(raw.quantity ?? 0),
     unitPrice: Number(
       raw.unit_price ?? raw.unitPrice ?? raw.price_snapshot ?? 0

@@ -369,17 +369,43 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
   );
 }
 
+// ─── slug detection (robust — covers all backend response shapes) ────────────
+
+function getSlugFromItem(item) {
+  return (
+    item?.productSlug ||
+    item?.product?.slug ||
+    item?.product?.raw?.slug ||
+    item?.product?.serviceTag ||
+    item?.product_slug ||
+    item?.snapshotSlug ||
+    item?.snapshot_slug ||
+    item?.service_slug ||
+    item?.slug ||
+    null
+  );
+}
+
 // ─── panel wrapper ────────────────────────────────────────────────────────────
 
 export default function ServiceBookingCheckoutPanel({ cart, onSelectionChange }) {
   const bookableItems = (cart?.items || [])
     .map((item) => ({
-      slug: item.product?.slug || null,
+      slug: getSlugFromItem(item),
       name: item.snapshotName || item.product?.name || "Servicio",
     }))
     .filter((it) => Boolean(it.slug));
 
-  if (bookableItems.length === 0) return null;
+  if (bookableItems.length === 0) {
+    if (import.meta.env.DEV && (cart?.items || []).length > 0) {
+      return (
+        <p style={{ fontSize: "0.75rem", color: "#9b9189", marginBottom: 16 }}>
+          [DEV] No se detectó slug en los items del carrito — panel de booking oculto.
+        </p>
+      );
+    }
+    return null;
+  }
 
   return (
     <div className="cbp-wrapper">
