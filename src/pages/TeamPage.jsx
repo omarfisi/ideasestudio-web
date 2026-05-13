@@ -222,18 +222,142 @@ function BiografiaModal({ open, onClose, persona }) {
   );
 }
 
+function ChevronLeftIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 18l6-6-6-6" />
+    </svg>
+  );
+}
+
+function TeamGallery({ items }) {
+  const [idx, setIdx] = useState(0);
+
+  if (!items || items.length === 0) return null;
+
+  const current = items[idx];
+  const hasPrev = items.length > 1;
+
+  function prev() { setIdx((i) => (i - 1 + items.length) % items.length); }
+  function next() { setIdx((i) => (i + 1) % items.length); }
+
+  const dateLabel = current.event_date
+    ? new Date(current.event_date + "T00:00:00").toLocaleDateString("es-PR", { year: "numeric", month: "long" })
+    : null;
+
+  return (
+    <section className="section-split px-4 pb-16 md:px-6">
+      <div className="mx-auto max-w-7xl">
+
+        <div className="mb-10 text-center">
+          <h2 className="text-3xl font-semibold md:text-4xl">
+            Ideas Estudio <span className="highlight-box-glow">en acción.</span>
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-neutral-500">
+            Una mirada a los proyectos, eventos y espacios donde nuestro equipo ha trabajado.
+          </p>
+        </div>
+
+        <div className="relative">
+          {/* Imagen principal */}
+          <div className="relative overflow-hidden rounded-[28px] shadow-[0_16px_48px_rgba(0,0,0,0.10)]" style={{ aspectRatio: "16/9" }}>
+            <img
+              key={current.id}
+              src={current.image_url}
+              alt={current.alt_text || current.title}
+              className="absolute inset-0 h-full w-full object-cover transition-opacity duration-300"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+
+            {/* Info overlay */}
+            <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
+              {(current.event_name || current.location) && (
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/60">
+                  {[current.event_name, current.location].filter(Boolean).join(" — ")}
+                  {dateLabel && <span className="ml-3 normal-case tracking-normal font-normal">· {dateLabel}</span>}
+                </p>
+              )}
+              {current.title && (
+                <h3 className="mt-1 text-xl font-bold text-white md:text-2xl">{current.title}</h3>
+              )}
+              {current.description && (
+                <p className="mt-1 text-sm leading-6 text-white/75 max-w-2xl">{current.description}</p>
+              )}
+            </div>
+
+            {/* Flechas */}
+            {hasPrev && (
+              <>
+                <button
+                  type="button"
+                  onClick={prev}
+                  aria-label="Anterior"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition hover:bg-black/70"
+                >
+                  <ChevronLeftIcon />
+                </button>
+                <button
+                  type="button"
+                  onClick={next}
+                  aria-label="Siguiente"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition hover:bg-black/70"
+                >
+                  <ChevronRightIcon />
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Dots */}
+          {items.length > 1 && (
+            <div className="mt-5 flex justify-center gap-2">
+              {items.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setIdx(i)}
+                  aria-label={`Foto ${i + 1}`}
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    i === idx ? "w-6 bg-black" : "w-2 bg-neutral-300 hover:bg-neutral-400"
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function TeamPage() {
   const [personaActiva, setPersonaActiva] = useState(null);
-  const [equipo, setEquipo] = useState(EQUIPO_FALLBACK);
+  const [equipo, setEquipo] = useState([]);
+  const [groupPhoto, setGroupPhoto] = useState(null);
+  const [gallery, setGallery] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getPublicTeam()
       .then((data) => {
         const members = data?.members || [];
-        if (members.length > 0) setEquipo(members.map(normalizeApiMember));
+        setEquipo(members.length > 0 ? members.map(normalizeApiMember) : EQUIPO_FALLBACK);
+        if (data?.group_photo?.image_url) setGroupPhoto(data.group_photo);
+        if (data?.gallery?.length > 0) setGallery(data.gallery);
       })
       .catch(() => {
-        // Silencioso: mantiene el fallback hardcodeado
+        setEquipo(EQUIPO_FALLBACK);
+      })
+      .finally(() => {
+        setLoading(false);
       });
   }, []);
 
@@ -257,11 +381,39 @@ export default function TeamPage() {
         </div>
       </section>
 
+      {/* ── FOTO GRUPAL ── */}
+      {groupPhoto && (
+        <section className="pb-10">
+          <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16/9" }}>
+            <img
+              src={groupPhoto.image_url}
+              alt={groupPhoto.alt_text || "El equipo creativo detrás de Ideas Estudio"}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+            <p className="absolute bottom-5 left-6 text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
+              {groupPhoto.title || "El equipo creativo detrás de Ideas Estudio"}
+            </p>
+          </div>
+        </section>
+      )}
+
       {/* ── EQUIPO ── */}
       <section className="section-split px-4 pb-16 md:px-6">
         <div className="mx-auto max-w-7xl">
           <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-            {equipo.map((persona) => (
+            {loading
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="overflow-hidden rounded-[28px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.05]">
+                    <div className="aspect-[3/4] animate-pulse bg-neutral-200" />
+                    <div className="p-5 space-y-3">
+                      <div className="h-3 w-2/3 animate-pulse rounded-full bg-neutral-200" />
+                      <div className="h-3 w-full animate-pulse rounded-full bg-neutral-200" />
+                      <div className="h-3 w-4/5 animate-pulse rounded-full bg-neutral-200" />
+                    </div>
+                  </div>
+                ))
+              : equipo.map((persona) => (
               <article
                 key={persona.id}
                 className="group overflow-hidden rounded-[28px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.05]"
@@ -333,6 +485,9 @@ export default function TeamPage() {
           </div>
         </div>
       </section>
+
+      {/* ── GALERÍA ── */}
+      <TeamGallery items={gallery} />
 
       {/* ── VALORES ── */}
       <section className="section-split px-4 pb-16 md:px-6">
