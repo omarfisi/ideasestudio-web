@@ -95,7 +95,7 @@ export default function QulandHeroShell({
   imageUrl,
   imageAlt = "",
 }) {
-  const sectionClassName = ["quland-hero", className].filter(Boolean).join(" ");
+  const sectionClassName = ["quland-hero", className, imageUrl ? "quland-hero--has-image" : ""].filter(Boolean).join(" ");
 
   return (
     <section id={sectionId} className={sectionClassName}>
