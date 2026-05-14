@@ -37,9 +37,32 @@ function getIconSet(slug) {
   return ICON_SET_BY_NICHE[slug] || DEFAULT_ICON_SET;
 }
 
-export default function ServiceNicheTemplate({ niche }) {
+export default function ServiceNicheTemplate({ niche, segment, apiServices }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const baseId = useId();
+
+  // Merge API segment data into niche when available
+  const mergedNiche = segment
+    ? {
+        ...niche,
+        heroTitle: segment.hero_title || niche.heroTitle,
+        heroSubtitle: segment.hero_subtitle || niche.heroSubtitle,
+        heroImageUrl: segment.hero_image_url || niche.heroImageUrl,
+      }
+    : niche;
+
+  // Use API services if available and non-empty, else fall back to local data
+  const liveServices =
+    apiServices?.length > 0
+      ? apiServices.map((s) => ({
+          title: s.name,
+          description: s.description,
+          image: s.image_url,
+          slug: s.slug,
+          href: s.slug ? `/servicios/contratar/${s.slug}` : null,
+          ctaLabel: s.cta_label || "Ver servicio",
+        }))
+      : null;
 
   const segmentSelector = niche.segmentSelector || {};
   const catalogSection = niche.catalogSection || {};
@@ -52,7 +75,7 @@ export default function ServiceNicheTemplate({ niche }) {
     <div
       className={`service-segment-template service-segment-template--${niche.tone || "default"}`}
     >
-      <ServiceNicheHero niche={niche} />
+      <ServiceNicheHero niche={mergedNiche} />
 
       <section id="rutas-principales" className="section section-split">
         <div className="container">
@@ -85,9 +108,9 @@ export default function ServiceNicheTemplate({ niche }) {
             ) : null}
           </div>
 
-          {niche.segmentServices?.length ? (
+          {(liveServices || niche.segmentServices)?.length ? (
             <div className="niche-services-grid">
-              {niche.segmentServices.map((service, index) => {
+              {(liveServices || niche.segmentServices).map((service, index) => {
                 const routeNumber = String(index + 1).padStart(2, "0");
                 const isReadyRoute = Boolean(service.slug);
 

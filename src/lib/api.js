@@ -1250,3 +1250,12 @@ export async function getPublicTeam() {
   const url = buildUrl("/public/team", { workspace_id: PUBLIC_WORKSPACE_ID || undefined });
   return apiFetch(url);
 }
+
+// ─────────────────────────────────────────────────────────────
+// Service segments público
+// ─────────────────────────────────────────────────────────────
+
+export async function getPublicServiceSegment(slug) {
+  const url = buildUrl(`/public/service-segments/${slug}`);
+  return apiFetch(url);
+}
