@@ -92,6 +92,8 @@ export default function QulandHeroShell({
   meta,
   actions,
   floatingTags = [],
+  imageUrl,
+  imageAlt = "",
 }) {
   const sectionClassName = ["quland-hero", className].filter(Boolean).join(" ");
 
@@ -138,7 +140,11 @@ export default function QulandHeroShell({
               ))}
 
               <div className="quland-hero__image-wrap">
-                <img className="quland-hero__image" src={heroMainImage} alt="" />
+                <img
+                  className="quland-hero__image"
+                  src={imageUrl || heroMainImage}
+                  alt={imageUrl ? imageAlt : ""}
+                />
               </div>
 
               <img className="quland-hero__shadow" src={heroCircleShadow} alt="" />

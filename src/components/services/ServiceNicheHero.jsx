@@ -91,6 +91,8 @@ export default function ServiceNicheHero({ niche }) {
         </>
       }
       floatingTags={floatingTags}
+      imageUrl={niche.heroImageUrl || niche.hero_image_url || undefined}
+      imageAlt={niche.hero_alt_text || niche.heroTitle || ""}
     />
   );
 }
