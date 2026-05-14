@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { APP_CRM_URL } from "@/lib/constants.js";
 
 const CLIENT_PATHS = [
@@ -204,12 +204,20 @@ function PhoneIcon() {
   );
 }
 
+const navLinkClass = ({ isActive }) =>
+  `ie-nav__link${isActive ? " is-active" : ""}`;
+
+const mobileLinkClass = ({ isActive }) =>
+  `ie-mobile-link${isActive ? " is-active" : ""}`;
+
 export default function Header() {
   const [solutionsOpen, setSolutionsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);
   const dropdownRef = useRef(null);
+  const { pathname } = useLocation();
+  const solutionsActive = pathname.startsWith("/servicios/");
 
   const crmUrl = APP_CRM_URL;
 
@@ -377,6 +385,23 @@ export default function Header() {
         .ie-nav__button.is-active {
           color: var(--ie-text);
           transform: translateY(-1px);
+        }
+
+        .ie-nav__link.is-active {
+          color: var(--ie-text);
+          font-weight: 750;
+          position: relative;
+        }
+
+        .ie-nav__link.is-active::after {
+          content: "";
+          position: absolute;
+          bottom: 3px;
+          left: 0;
+          right: 0;
+          height: 2px;
+          border-radius: 999px;
+          background: var(--ie-yellow);
         }
 
         .ie-header-chevron {
@@ -705,6 +730,12 @@ export default function Header() {
           border: 1px solid rgba(17,17,17,0.06);
         }
 
+        .ie-mobile-link.is-active {
+          background: var(--ie-yellow-soft);
+          border-color: rgba(241, 209, 70, 0.45);
+          color: #111;
+        }
+
         .ie-mobile-submenu strong {
           display: block;
           font-size: 0.96rem;
@@ -839,13 +870,13 @@ export default function Header() {
             </Link>
 
             <nav className="ie-nav" aria-label="Navegacion principal">
-              <Link className="ie-nav__link" to="/">
+              <NavLink className={navLinkClass} to="/" end>
                 Inicio
-              </Link>
+              </NavLink>
 
               <button
                 type="button"
-                className={`ie-nav__button ${solutionsOpen ? "is-active" : ""}`}
+                className={`ie-nav__button ${solutionsOpen || solutionsActive ? "is-active" : ""}`}
                 onClick={() =>
                   setSolutionsOpen((prev) => {
                     const next = !prev;
@@ -860,25 +891,25 @@ export default function Header() {
                 <ChevronDownIcon open={solutionsOpen} />
               </button>
 
-              <Link className="ie-nav__link" to="/servicios">
+              <NavLink className={navLinkClass} to="/servicios" end>
                 Servicios
-              </Link>
+              </NavLink>
 
-              <Link className="ie-nav__link" to="/portafolio">
+              <NavLink className={navLinkClass} to="/portafolio">
                 Portafolio
-              </Link>
+              </NavLink>
 
-              <Link className="ie-nav__link" to="/equipo">
+              <NavLink className={navLinkClass} to="/equipo">
                 Equipo
-              </Link>
+              </NavLink>
 
-              <Link className="ie-nav__link" to="/blog">
+              <NavLink className={navLinkClass} to="/blog">
                 Blog
-              </Link>
+              </NavLink>
 
-              <Link className="ie-nav__link" to="/contacto" onClick={closeMenus}>
+              <NavLink className={navLinkClass} to="/contacto" onClick={closeMenus}>
                 Contacto
-              </Link>
+              </NavLink>
             </nav>
 
             <div className="ie-actions">
@@ -980,13 +1011,13 @@ export default function Header() {
           {mobileOpen && (
             <div className="ie-mobile-panel">
               <div className="ie-mobile-list">
-                <Link className="ie-mobile-link" to="/">
+                <NavLink className={mobileLinkClass} to="/" end onClick={closeMenus}>
                   <span>Inicio</span>
-                </Link>
+                </NavLink>
 
                 <button
                   type="button"
-                  className="ie-mobile-button"
+                  className={`ie-mobile-button${solutionsActive ? " is-active" : ""}`}
                   onClick={() => setSolutionsOpen((prev) => !prev)}
                 >
                   <span>Soluciones</span>
@@ -1004,37 +1035,37 @@ export default function Header() {
                   </div>
                 )}
 
-                <Link className="ie-mobile-link" to="/servicios">
+                <NavLink className={mobileLinkClass} to="/servicios" end onClick={closeMenus}>
                   <span>Servicios</span>
-                </Link>
+                </NavLink>
 
-                <Link className="ie-mobile-link" to="/portafolio">
+                <NavLink className={mobileLinkClass} to="/portafolio" onClick={closeMenus}>
                   <span>Portafolio</span>
-                </Link>
+                </NavLink>
 
-                <Link className="ie-mobile-link" to="/equipo">
+                <NavLink className={mobileLinkClass} to="/equipo" onClick={closeMenus}>
                   <span>Equipo</span>
-                </Link>
+                </NavLink>
 
-                <Link className="ie-mobile-link" to="/blog">
+                <NavLink className={mobileLinkClass} to="/blog" onClick={closeMenus}>
                   <span>Blog</span>
-                </Link>
+                </NavLink>
 
-                <Link className="ie-mobile-link" to="/contacto" onClick={closeMenus}>
+                <NavLink className={mobileLinkClass} to="/contacto" onClick={closeMenus}>
                   <span>Contacto</span>
-                </Link>
+                </NavLink>
 
-                <Link className="ie-mobile-link" to="/mi-cuenta" onClick={closeMenus}>
+                <NavLink className={mobileLinkClass} to="/mi-cuenta" onClick={closeMenus}>
                   <span>Mi cuenta</span>
-                </Link>
+                </NavLink>
 
                 <Link className="ie-mobile-link" to="/mi-cuenta" onClick={closeMenus}>
                   <span>Mis órdenes</span>
                 </Link>
 
-                <Link className="ie-mobile-link" to={cartPath} onClick={closeMenus}>
+                <NavLink className={mobileLinkClass} to={cartPath} onClick={closeMenus}>
                   <span>Carrito</span>
-                </Link>
+                </NavLink>
 
                 <a
                   className="ie-mobile-crm"
