@@ -48,6 +48,10 @@ export default function ServiceNicheTemplate({ niche, segment, apiServices }) {
         heroTitle: segment.hero_title || niche.heroTitle,
         heroSubtitle: segment.hero_subtitle || niche.heroSubtitle,
         heroImageUrl: segment.hero_image_url || niche.heroImageUrl,
+        heroFocalX: segment.hero_focal_x ?? 50,
+        heroFocalY: segment.hero_focal_y ?? 50,
+        heroFitMode: segment.hero_fit_mode || "cover",
+        hero_alt_text: segment.hero_alt_text || "",
       }
     : niche;
 

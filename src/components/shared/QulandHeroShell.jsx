@@ -94,6 +94,9 @@ export default function QulandHeroShell({
   floatingTags = [],
   imageUrl,
   imageAlt = "",
+  imageFocalX = 50,
+  imageFocalY = 50,
+  imageFitMode = "cover",
 }) {
   const sectionClassName = ["quland-hero", className, imageUrl ? "quland-hero--has-image" : ""].filter(Boolean).join(" ");
 
@@ -144,6 +147,10 @@ export default function QulandHeroShell({
                   className="quland-hero__image"
                   src={imageUrl || heroMainImage}
                   alt={imageUrl ? imageAlt : ""}
+                  style={imageUrl ? {
+                    objectFit: imageFitMode,
+                    objectPosition: `${imageFocalX}% ${imageFocalY}%`,
+                  } : undefined}
                 />
               </div>
 
