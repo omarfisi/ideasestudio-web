@@ -3,7 +3,7 @@ import Button from "@/components/shared/Button.jsx";
 import ServiceNicheTemplate from "@/components/services/ServiceNicheTemplate.jsx";
 
 export default function ServiceNichePage() {
-  const { niche } = useLoaderData();
+  const { niche, segment, services } = useLoaderData();
 
   if (!niche) {
     return (
@@ -21,5 +21,5 @@ export default function ServiceNichePage() {
     );
   }
 
-  return <ServiceNicheTemplate niche={niche} />;
+  return <ServiceNicheTemplate niche={niche} segment={segment} apiServices={services} />;
 }

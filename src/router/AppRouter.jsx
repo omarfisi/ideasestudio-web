@@ -10,6 +10,7 @@ import {
   getPublicProductBySlug,
   getPublicOrderByNumber,
   getPublicPortfolioItems,
+  getPublicServiceSegment,
 } from "@/lib/api.js";
 import HomePage from "@/pages/HomePage.jsx";
 import SmallBusinessPage from "@/pages/SmallBusinessPage.jsx";
@@ -52,9 +53,17 @@ const loadClientRoute = (routeKey) => async () => {
   }
 };
 
-const loadServiceNiche = (slug) => async () => ({
-  niche: getServiceNichePageBySlug(slug),
-});
+const loadServiceNiche = (slug) => async () => {
+  try {
+    const data = await getPublicServiceSegment(slug);
+    if (data?.segment) {
+      return { niche: getServiceNichePageBySlug(slug), segment: data.segment, services: data.services ?? [] };
+    }
+  } catch {
+    // fall through to local data
+  }
+  return { niche: getServiceNichePageBySlug(slug), segment: null, services: [] };
+};
 
 const loadProductsCatalog = ({ request }) => {
   const url = new URL(request.url);

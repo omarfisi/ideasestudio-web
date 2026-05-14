@@ -7239,6 +7239,45 @@
   filter: grayscale(1) brightness(0);
 }
 
+/* ── Hero con imagen dinámica desde CRM ────────────────────────────────────── */
+.quland-hero--has-image .quland-hero__media-shell {
+  display: none;
+}
+
+.quland-hero--has-image .quland-hero__shadow {
+  display: none;
+}
+
+.quland-hero--has-image .quland-hero__image-wrap {
+  top: 0;
+  animation: none;
+  overflow: hidden;
+  border-radius: 20px;
+}
+
+.quland-hero--has-image .quland-hero__image {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  display: block;
+  border-radius: 20px;
+  transform: scale(1.04);
+  animation: qulandSegmentHeroFloat 8s ease-in-out infinite;
+  transform-origin: center center;
+}
+
+@keyframes qulandSegmentHeroFloat {
+  0%, 100% { transform: scale(1.04) translateY(0);    }
+  50%       { transform: scale(1.04) translateY(-6px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quland-hero--has-image .quland-hero__image {
+    animation: none;
+    transform: none;
+  }
+}
+
 .quland-hero--service .quland-hero__button--primary {
   background: linear-gradient(90deg, #f1d146 0%, #ffd84d 100%);
   color: #111111;

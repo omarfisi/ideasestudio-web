@@ -92,8 +92,13 @@ export default function QulandHeroShell({
   meta,
   actions,
   floatingTags = [],
+  imageUrl,
+  imageAlt = "",
+  imageFocalX = 50,
+  imageFocalY = 50,
+  imageFitMode = "contain",
 }) {
-  const sectionClassName = ["quland-hero", className].filter(Boolean).join(" ");
+  const sectionClassName = ["quland-hero", className, imageUrl ? "quland-hero--has-image" : ""].filter(Boolean).join(" ");
 
   return (
     <section id={sectionId} className={sectionClassName}>
@@ -138,7 +143,15 @@ export default function QulandHeroShell({
               ))}
 
               <div className="quland-hero__image-wrap">
-                <img className="quland-hero__image" src={heroMainImage} alt="" />
+                <img
+                  className="quland-hero__image"
+                  src={imageUrl || heroMainImage}
+                  alt={imageUrl ? imageAlt : ""}
+                  style={imageUrl ? {
+                    objectFit: imageFitMode,
+                    objectPosition: `${imageFocalX}% ${imageFocalY}%`,
+                  } : undefined}
+                />
               </div>
 
               <img className="quland-hero__shadow" src={heroCircleShadow} alt="" />

@@ -274,6 +274,7 @@ function TeamGallery({ items }) {
               src={current.image_url}
               alt={current.alt_text || current.title}
               className="absolute inset-0 h-full w-full object-cover transition-opacity duration-300"
+              style={{ objectPosition: current.object_position || "center" }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
 
