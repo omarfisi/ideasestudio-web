@@ -96,7 +96,7 @@ export default function QulandHeroShell({
   imageAlt = "",
   imageFocalX = 50,
   imageFocalY = 50,
-  imageFitMode = "cover",
+  imageFitMode = "contain",
 }) {
   const sectionClassName = ["quland-hero", className, imageUrl ? "quland-hero--has-image" : ""].filter(Boolean).join(" ");
 

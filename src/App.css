@@ -7249,20 +7249,21 @@
 }
 
 .quland-hero--has-image .quland-hero__image-wrap {
-  /* contenedor de recorte — nunca animado, nunca desborda */
+  /* cubre todo el área visual: top + bottom = inset completo */
+  top: 0;
   animation: none;
   overflow: hidden;
   border-radius: 20px;
-  bottom: 0;
 }
 
 .quland-hero--has-image .quland-hero__image {
+  /* llena el contenedor de arriba a abajo */
   width: 100%;
+  height: 100%;
   max-width: 100%;
-  aspect-ratio: 4 / 3;
   display: block;
   border-radius: 20px;
-  /* escala mínima para que la animación interna no revele bordes */
+  /* scale buffer para que el float no revele bordes */
   transform: scale(1.04);
   animation: qulandSegmentHeroFloat 8s ease-in-out infinite;
   transform-origin: center center;
@@ -7270,7 +7271,7 @@
 
 @keyframes qulandSegmentHeroFloat {
   0%, 100% { transform: scale(1.04) translateY(0);    }
-  50%       { transform: scale(1.04) translateY(-5px); }
+  50%       { transform: scale(1.04) translateY(-6px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
