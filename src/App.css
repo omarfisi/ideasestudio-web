@@ -7248,38 +7248,33 @@
   display: none;
 }
 
-.quland-hero--has-image .quland-hero__visual {
-  overflow: visible;
-}
-
 .quland-hero--has-image .quland-hero__image-wrap {
-  /* breakout: la imagen desborda hacia arriba */
-  top: -100px;
-  bottom: 0;
-  overflow: visible;
-  border-radius: 0;
+  top: 0;
   animation: none;
-  z-index: 5;
+  overflow: hidden;
+  border-radius: 20px;
 }
 
 .quland-hero--has-image .quland-hero__image {
   width: 100%;
-  height: calc(100% + 100px);
+  height: 100%;
   max-width: 100%;
   display: block;
-  border-radius: 0;
+  border-radius: 20px;
+  transform: scale(1.04);
   animation: qulandSegmentHeroFloat 8s ease-in-out infinite;
-  transform-origin: center bottom;
+  transform-origin: center center;
 }
 
 @keyframes qulandSegmentHeroFloat {
-  0%, 100% { transform: translateY(0);    }
-  50%       { transform: translateY(-8px); }
+  0%, 100% { transform: scale(1.04) translateY(0);    }
+  50%       { transform: scale(1.04) translateY(-6px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .quland-hero--has-image .quland-hero__image {
     animation: none;
+    transform: none;
   }
 }
 
