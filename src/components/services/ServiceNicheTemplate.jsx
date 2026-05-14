@@ -63,7 +63,7 @@ export default function ServiceNicheTemplate({ niche, segment, apiServices }) {
           description: s.description,
           image: s.image_url,
           slug: s.slug,
-          href: s.slug ? `/servicios/contratar/${s.slug}` : null,
+          href: s.slug ? `/servicios/contratar/${s.slug}` : "/contacto",
           ctaLabel: s.cta_label || "Ver servicio",
         }))
       : null;
