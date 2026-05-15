@@ -858,6 +858,12 @@ function StoreCheckout({
             <h2>Datos de contratación</h2>
             <p>Completa la información necesaria para preparar tu documento y procesar el pago.</p>
 
+            {/* Booking panel — before customer fields so user picks date/extras first */}
+            <ServiceBookingCheckoutPanel
+              cart={cart}
+              onSelectionChange={handleBookingSelectionChange}
+            />
+
             {/* Order form */}
             <form id="checkout-order-form" onSubmit={handleSubmit}>
 
@@ -925,12 +931,6 @@ function StoreCheckout({
                 </p>
               )}
             </form>
-
-            {/* Booking panel — after customer fields */}
-            <ServiceBookingCheckoutPanel
-              cart={cart}
-              onSelectionChange={handleBookingSelectionChange}
-            />
 
             {/* Stripe payment box — appears after payment intent is ready */}
             {paymentReady && (
