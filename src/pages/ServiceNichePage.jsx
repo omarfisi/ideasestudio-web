@@ -1,11 +1,9 @@
-import { useLoaderData, useLocation } from "react-router-dom";
+import { useLoaderData } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
 import ServiceNicheTemplate from "@/components/services/ServiceNicheTemplate.jsx";
-import SEOHead from "@/components/seo/SEOHead.jsx";
 
 export default function ServiceNichePage() {
   const { niche } = useLoaderData();
-  const { pathname } = useLocation();
 
   if (!niche) {
     return (
@@ -23,14 +21,5 @@ export default function ServiceNichePage() {
     );
   }
 
-  return (
-    <>
-      <SEOHead
-        title={`${niche.title} | Ideas Estudio`}
-        description={niche.description || niche.hero?.description || undefined}
-        canonical={`https://ideasestudio.com${pathname}`}
-      />
-      <ServiceNicheTemplate niche={niche} />
-    </>
-  );
+  return <ServiceNicheTemplate niche={niche} />;
 }

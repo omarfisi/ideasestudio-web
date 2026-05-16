@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import SEOHead from "@/components/seo/SEOHead.jsx";
-import { buildOrganizationSchema } from "@/components/seo/schema.js";
 import TestimonialsSlider from "@/components/shared/TestimonialsSlider.jsx";
 import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
 import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
@@ -310,12 +308,6 @@ export default function HomePage() {
 
   return (
     <main>
-      <SEOHead
-        title="Ideas Estudio | La idea que tu negocio necesita"
-        description="Fotografía profesional, diseño, video y branding en Puerto Rico. La agencia creativa que impulsa tu marca, negocio o evento especial."
-        canonical="https://ideasestudio.com"
-        jsonLd={buildOrganizationSchema()}
-      />
       <section id="hero">
         <div className="container">
           <div className="hero-editorial">

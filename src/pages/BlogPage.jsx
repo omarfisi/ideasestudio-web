@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getBlogHome } from "@/lib/api.js";
-import SEOHead from "@/components/seo/SEOHead.jsx";
 import NewsletterSplitBlock from "@/components/forms/NewsletterSplitBlock.jsx";
 import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
 
@@ -248,11 +247,6 @@ export default function BlogPage() {
 
   return (
     <main className="bg-white text-neutral-950">
-      <SEOHead
-        title="Blog | Ideas Estudio"
-        description="Artículos sobre fotografía, diseño, branding y creatividad para marcas y negocios en Puerto Rico."
-        canonical="https://ideasestudio.com/blog"
-      />
       <div className="mx-auto max-w-[1220px] px-4 pb-20 pt-10 md:px-6 md:pb-28 md:pt-16">
 
         {/* ── HERO ── */}
