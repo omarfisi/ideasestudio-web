@@ -114,7 +114,7 @@ export default function SegmentHeroSection() {
                 </p>
                 <Link
                   to={activeSegment.href}
-                  className="mt-4 inline-flex items-center gap-2 rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+                  className="mt-4 hidden lg:inline-flex items-center gap-2 rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
                 >
                   {activeSegment.ctaLabel} <span aria-hidden="true">→</span>
                 </Link>
@@ -133,7 +133,7 @@ export default function SegmentHeroSection() {
           </div>
         </div>
 
-        <div className="hidden lg:grid lg:gap-4 lg:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {SEGMENT_ITEMS.map((item) => {
             const isActive = item.id === activeId;
             return (
