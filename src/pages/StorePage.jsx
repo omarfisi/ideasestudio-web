@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import SEOHead from "@/components/seo/SEOHead.jsx";
+import { usePageSeo } from "@/hooks/usePageSeo.js";
 import { Link, useLoaderData, useSearchParams } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
 import ProductsGrid from "@/components/shared/ProductsGrid.jsx";
@@ -73,6 +74,7 @@ function getSaleModeLabel(product) {
 }
 
 export default function StorePage() {
+  const pageSeo = usePageSeo();
   const loaderData = useLoaderData();
   const loaderFilters = loaderData?.filters || {};
   const [searchParams, setSearchParams] = useSearchParams();
@@ -432,6 +434,7 @@ export default function StorePage() {
         title="Servicios Creativos | Ideas Estudio"
         description="Explora fotografía, video, diseño gráfico y branding profesional para tu marca, negocio o evento en Puerto Rico."
         canonical="https://ideasestudio.com/servicios"
+        seoEntry={pageSeo}
       />
       <div className="container services-market__container">
         <nav className="services-market__breadcrumb" aria-label="Breadcrumb">

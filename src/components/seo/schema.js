@@ -54,6 +54,19 @@ export function buildBreadcrumbSchema(items) {
   };
 }
 
+export function buildCreativeWorkSchema(project) {
+  if (!project) return null;
+  return {
+    "@context": "https://schema.org",
+    "@type": "CreativeWork",
+    name: project.title || "",
+    description: project.description || "",
+    image: project.homeCoverUrl || project.portfolioCoverUrl || project.coverUrl || project.mediaUrls?.[0] || "",
+    url: `${SITE_URL}/portafolio/${project.slug}`,
+    creator: { "@type": "Organization", name: "Ideas Estudio", url: SITE_URL },
+  };
+}
+
 export function buildArticleSchema(post) {
   if (!post) return null;
   return {

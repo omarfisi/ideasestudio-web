@@ -16,6 +16,7 @@ import { addProductToPublicCart, getPublicProducts } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { buildServiceSchema, buildBreadcrumbSchema } from "@/components/seo/schema.js";
+import { usePageSeo } from "@/hooks/usePageSeo.js";
 
 const MAX_ADDITIONAL_GALLERY_IMAGES = 3;
 
@@ -143,6 +144,7 @@ function getPriceLabel(product) {
 }
 
 export default function ProductDetailPage() {
+  const pageSeo = usePageSeo();
   const { product } = useLoaderData();
   const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
@@ -396,6 +398,7 @@ export default function ProductDetailPage() {
             { name: product.name, url: `https://ideasestudio.com/servicios/${product.slug}` },
           ]),
         ].filter(Boolean)}
+        seoEntry={pageSeo}
       />
       <div className="container service-detail-page__container">
         <nav className="service-detail-breadcrumb" aria-label="Breadcrumb">

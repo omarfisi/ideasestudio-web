@@ -10,6 +10,9 @@ import {
   getYoutubeEmbedUrl,
   getYoutubeThumbnail,
 } from "@/lib/portfolioPresentation.js";
+import SEOHead from "@/components/seo/SEOHead.jsx";
+import { buildCreativeWorkSchema, buildBreadcrumbSchema } from "@/components/seo/schema.js";
+import { usePageSeo } from "@/hooks/usePageSeo.js";
 
 function uniqueUrls(urls) {
   return Array.from(new Set(urls.filter(Boolean)));
@@ -159,6 +162,7 @@ function ImageLightbox({ images, index, onClose, onPrev, onNext, title }) {
 
 export default function PortfolioProjectPage() {
   const location = useLocation();
+  const pageSeo = usePageSeo();
   const { project, related = [] } = useLoaderData();
   const [activeImageIndex, setActiveImageIndex] = useState(null);
   const relatedCarouselRef = useRef(null);
@@ -253,7 +257,26 @@ export default function PortfolioProjectPage() {
     );
   }
 
+  const projectCanonical = `https://ideasestudio.com/portafolio/${project.slug}`;
+
   return (
+    <>
+      <SEOHead
+        title={`${project.title} | Portafolio`}
+        description={description || `Proyecto creativo realizado por Ideas Estudio en Puerto Rico.`}
+        canonical={projectCanonical}
+        ogImage={heroImage || undefined}
+        ogType="article"
+        jsonLd={[
+          buildCreativeWorkSchema(project),
+          buildBreadcrumbSchema([
+            { name: "Inicio", url: "https://ideasestudio.com" },
+            { name: "Portafolio", url: "https://ideasestudio.com/portafolio" },
+            { name: project.title, url: projectCanonical },
+          ]),
+        ].filter(Boolean)}
+        seoEntry={pageSeo}
+      />
     <main className="bg-[#f5f5f3] text-neutral-950">
       <section className="pb-12 pt-10 md:pb-16 md:pt-16">
         <div className="mx-auto max-w-7xl px-4 md:px-6">
@@ -630,5 +653,6 @@ export default function PortfolioProjectPage() {
         title={project.title}
       />
     </main>
+    </>
   );
 }

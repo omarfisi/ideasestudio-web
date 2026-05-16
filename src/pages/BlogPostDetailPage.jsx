@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { getBlogPostBySlug, getBlogRelated } from "@/lib/api.js";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { buildArticleSchema, buildBreadcrumbSchema } from "@/components/seo/schema.js";
+import { usePageSeo } from "@/hooks/usePageSeo.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -534,6 +535,7 @@ function RelatedCard({ post }) {
 // ─── BlogPostDetailPage ───────────────────────────────────────────────────────
 
 export default function BlogPostDetailPage({ initialPost = null, initialRelated = null }) {
+  const pageSeo = usePageSeo();
   const { slug } = useParams();
   const navigate = useNavigate();
   const [post, setPost] = useState(initialPost);
@@ -648,6 +650,7 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
             { name: post.title, url: `https://ideasestudio.com/blog/${post.slug}` },
           ]),
         ].filter(Boolean)}
+        seoEntry={pageSeo}
       />
 
       {/* ── A. HERO ── */}
