@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import Button from "@/components/shared/Button.jsx";
 import { getPublicTeam } from "@/lib/api.js";
+import SEOHead from "@/components/seo/SEOHead.jsx";
+import { usePageSeo } from "@/hooks/usePageSeo.js";
 
 const EQUIPO_FALLBACK = [
   {
@@ -340,6 +342,7 @@ function TeamGallery({ items }) {
 }
 
 export default function TeamPage() {
+  const pageSeo = usePageSeo();
   const [personaActiva, setPersonaActiva] = useState(null);
   const [equipo, setEquipo] = useState([]);
   const [groupPhoto, setGroupPhoto] = useState(null);
@@ -364,6 +367,12 @@ export default function TeamPage() {
 
   return (
     <main className="bg-white text-neutral-950">
+      <SEOHead
+        title="Nuestro Equipo | Ideas Estudio"
+        description="Conoce al equipo de Ideas Estudio: fotógrafos, diseñadores y creativos comprometidos con tu proyecto en Puerto Rico."
+        canonical="https://ideasestudio.com/equipo"
+        seoEntry={pageSeo}
+      />
 
       {/* ── HERO ── */}
       <section className="px-4 pb-10 pt-16 md:px-6 md:pb-14 md:pt-24">

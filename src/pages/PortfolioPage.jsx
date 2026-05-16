@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import SEOHead from "@/components/seo/SEOHead.jsx";
+import { usePageSeo } from "@/hooks/usePageSeo.js";
 import Button from "@/components/shared/Button.jsx";
 import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
 import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
@@ -525,6 +527,7 @@ function Pagination({ total, pageSize, page, onChange }) {
 
 // ─── Página principal ─────────────────────────────────────────
 export default function PortfolioPage() {
+  const pageSeo = usePageSeo();
   const location = useLocation();
   const [filtroActivo, setFiltroActivo] = useState("Todos");
   const [subcategoryActivo, setSubcategoryActivo] = useState(null);
@@ -760,6 +763,12 @@ export default function PortfolioPage() {
 
   return (
     <main className="bg-[#f5f5f3] text-neutral-950">
+      <SEOHead
+        title="Portafolio | Ideas Estudio"
+        description="Galería de proyectos de fotografía, video y diseño. Trabajos reales para marcas y eventos en Puerto Rico."
+        canonical="https://ideasestudio.com/portafolio"
+        seoEntry={pageSeo}
+      />
       {/* ── HERO ── */}
       <section className="px-4 pb-10 pt-16 md:px-6 md:pb-14 md:pt-24">
         <div className="mx-auto max-w-7xl">

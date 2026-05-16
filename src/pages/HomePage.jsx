@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import SEOHead from "@/components/seo/SEOHead.jsx";
+import { buildOrganizationSchema } from "@/components/seo/schema.js";
+import { usePageSeo } from "@/hooks/usePageSeo.js";
 import TestimonialsSlider from "@/components/shared/TestimonialsSlider.jsx";
 import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
 import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
@@ -110,6 +113,7 @@ const portfolioIntro = {
 const SLIDESHOW_INTERVAL_MS = 20000;
 
 export default function HomePage() {
+  const pageSeo = usePageSeo();
   const [wordIndex, setWordIndex] = useState(0);
   const [typedObjetivo, setTypedObjetivo] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -308,6 +312,13 @@ export default function HomePage() {
 
   return (
     <main>
+      <SEOHead
+        title="Ideas Estudio | La idea que tu negocio necesita"
+        description="Fotografía profesional, diseño, video y branding en Puerto Rico. La agencia creativa que impulsa tu marca, negocio o evento especial."
+        canonical="https://ideasestudio.com"
+        jsonLd={buildOrganizationSchema()}
+        seoEntry={pageSeo}
+      />
       <section id="hero">
         <div className="container">
           <div className="hero-editorial">

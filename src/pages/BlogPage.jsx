@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getBlogHome } from "@/lib/api.js";
+import SEOHead from "@/components/seo/SEOHead.jsx";
+import { usePageSeo } from "@/hooks/usePageSeo.js";
 import NewsletterSplitBlock from "@/components/forms/NewsletterSplitBlock.jsx";
 import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
 
@@ -209,6 +211,7 @@ function Divider() {
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 export default function BlogPage() {
+  const pageSeo = usePageSeo();
   const navigate = useNavigate();
   const [layout, setLayout] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -247,6 +250,12 @@ export default function BlogPage() {
 
   return (
     <main className="bg-white text-neutral-950">
+      <SEOHead
+        title="Blog | Ideas Estudio"
+        description="Artículos sobre fotografía, diseño, branding y creatividad para marcas y negocios en Puerto Rico."
+        canonical="https://ideasestudio.com/blog"
+        seoEntry={pageSeo}
+      />
       <div className="mx-auto max-w-[1220px] px-4 pb-20 pt-10 md:px-6 md:pb-28 md:pt-16">
 
         {/* ── HERO ── */}
