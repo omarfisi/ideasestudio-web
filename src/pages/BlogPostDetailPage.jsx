@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { getBlogPostBySlug, getBlogRelated } from "@/lib/api.js";
+import SEOHead from "@/components/seo/SEOHead.jsx";
+import { buildArticleSchema, buildBreadcrumbSchema } from "@/components/seo/schema.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -563,13 +565,7 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
     return () => { cancelled = true; };
   }, [slug, initialPost]);
 
-  useEffect(() => {
-    if (!post) return;
-    const title = post.meta_title || post.title;
-    const desc = post.meta_description || post.excerpt || "";
-    document.title = title ? `${title} | Ideas Estudio` : "Ideas Estudio Blog";
-    document.querySelector('meta[name="description"]')?.setAttribute("content", desc);
-  }, [post]);
+  // SEO is now handled declaratively via SEOHead below — no DOM mutation needed.
 
   const articleDate = useMemo(
     () => formatDate(post?.published_at || post?.publish_at || post?.created_at),
@@ -638,6 +634,21 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
 
   return (
     <main className="bg-white text-neutral-950">
+      <SEOHead
+        title={post.meta_title || post.title}
+        description={post.meta_description || post.excerpt || undefined}
+        ogImage={post.og_image_url || post.featured_image_url || undefined}
+        ogType="article"
+        canonical={`https://ideasestudio.com/blog/${post.slug}`}
+        jsonLd={[
+          buildArticleSchema(post),
+          buildBreadcrumbSchema([
+            { name: "Inicio", url: "https://ideasestudio.com" },
+            { name: "Blog", url: "https://ideasestudio.com/blog" },
+            { name: post.title, url: `https://ideasestudio.com/blog/${post.slug}` },
+          ]),
+        ].filter(Boolean)}
+      />
 
       {/* ── A. HERO ── */}
       <section className="mx-auto max-w-6xl px-4 pb-12 pt-12 md:px-6 md:pb-16 md:pt-16">

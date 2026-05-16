@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import SEOHead from "@/components/seo/SEOHead.jsx";
 import Button from "@/components/shared/Button.jsx";
 import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
 import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
@@ -760,6 +761,11 @@ export default function PortfolioPage() {
 
   return (
     <main className="bg-[#f5f5f3] text-neutral-950">
+      <SEOHead
+        title="Portafolio | Ideas Estudio"
+        description="Galería de proyectos de fotografía, video y diseño. Trabajos reales para marcas y eventos en Puerto Rico."
+        canonical="https://ideasestudio.com/portafolio"
+      />
       {/* ── HERO ── */}
       <section className="px-4 pb-10 pt-16 md:px-6 md:pb-14 md:pt-24">
         <div className="mx-auto max-w-7xl">

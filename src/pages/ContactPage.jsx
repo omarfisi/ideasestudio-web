@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import SEOHead from "@/components/seo/SEOHead.jsx";
 import { submitLeadForm } from "@/lib/publicLeadForms.js";
 import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
 
@@ -281,6 +282,11 @@ export default function ContactPage() {
 
   return (
     <div className="contact-page">
+      <SEOHead
+        title="Contacto | Ideas Estudio"
+        description="Contáctanos para servicios de fotografía, diseño y branding en Puerto Rico. Respuesta rápida garantizada."
+        canonical="https://ideasestudio.com/contacto"
+      />
 
       {/* ── HERO ── */}
       <section className="contact-hero">
