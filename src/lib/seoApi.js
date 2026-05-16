@@ -17,3 +17,17 @@ export async function getPublicSeo(path) {
     return null;
   }
 }
+
+export async function getPublicPage(path) {
+  const base = getBaseUrl();
+  if (!base || !path) return null;
+  try {
+    const url = `${base}/public/pages/by-path?path=${encodeURIComponent(path)}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => null);
+    return data?.page || null;
+  } catch {
+    return null;
+  }
+}
