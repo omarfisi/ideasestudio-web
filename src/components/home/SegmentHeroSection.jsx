@@ -121,7 +121,7 @@ export default function SegmentHeroSection() {
               </div>
             </div>
 
-            <div className="relative min-h-[320px] lg:min-h-full">
+            <div className="hidden lg:block lg:relative lg:min-h-full">
               <img
                 src={activeSegment.image}
                 alt={activeSegment.title}
@@ -133,7 +133,7 @@ export default function SegmentHeroSection() {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="hidden lg:grid lg:gap-4 lg:grid-cols-2 xl:grid-cols-4">
           {SEGMENT_ITEMS.map((item) => {
             const isActive = item.id === activeId;
             return (
