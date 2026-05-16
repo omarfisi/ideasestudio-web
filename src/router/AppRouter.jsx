@@ -37,6 +37,7 @@ import AccountPasswordResetPage from "@/pages/AccountPasswordResetPage.jsx";
 import AccountPage from "@/pages/AccountPage.jsx";
 import AccountOrderDetailPage from "@/pages/AccountOrderDetailPage.jsx";
 import NotFoundPage from "@/pages/NotFoundPage.jsx";
+import CmsPage from "@/pages/CmsPage.jsx";
 import RouteErrorPage from "@/pages/RouteErrorPage.jsx";
 import QulandSystemPreview from "@/pages/QulandSystemPreview.jsx";
 import { getClientRouteByKey } from "@/data/routes.js";
@@ -342,7 +343,7 @@ const router = createBrowserRouter([
       },
       {
         path: "*",
-        element: <NotFoundPage />,
+        element: <CmsPage />,
       },
     ],
   },
