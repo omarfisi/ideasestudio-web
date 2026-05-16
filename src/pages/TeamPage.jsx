@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Button from "@/components/shared/Button.jsx";
 import { getPublicTeam } from "@/lib/api.js";
+import SEOHead from "@/components/seo/SEOHead.jsx";
 
 const EQUIPO_FALLBACK = [
   {
@@ -363,6 +364,11 @@ export default function TeamPage() {
 
   return (
     <main className="bg-white text-neutral-950">
+      <SEOHead
+        title="Nuestro Equipo | Ideas Estudio"
+        description="Conoce al equipo de Ideas Estudio: fotógrafos, diseñadores y creativos comprometidos con tu proyecto en Puerto Rico."
+        canonical="https://ideasestudio.com/equipo"
+      />
 
       {/* ── HERO ── */}
       <section className="px-4 pb-10 pt-16 md:px-6 md:pb-14 md:pt-24">
