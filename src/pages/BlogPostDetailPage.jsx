@@ -266,11 +266,36 @@ function ContentBlock({ block }) {
 
 // ─── GallerySlideshow — main image + nav arrows + dot indicators + thumbnails ──
 
+function normalizeGalleryImages(images) {
+  if (!Array.isArray(images)) return [];
+  return images
+    .filter(Boolean)
+    .map((img) => ({
+      ...img,
+      url: img.url || img.src || img.image_url || "",
+      alt: img.alt || "",
+      caption: img.caption || "",
+    }))
+    .filter((img) => img.url);
+}
+
 function GallerySlideshow({ images, title, description, variant = "slideshow" }) {
   const [current, setCurrent] = useState(0);
-  if (!images?.length) return null;
-  const prev = () => setCurrent((i) => (i - 1 + images.length) % images.length);
-  const next = () => setCurrent((i) => (i + 1) % images.length);
+
+  const safeImages = normalizeGalleryImages(images);
+
+  useEffect(() => {
+    if (safeImages.length > 0 && current >= safeImages.length) {
+      setCurrent(0);
+    }
+  }, [current, safeImages.length]); // eslint-disable-line
+
+  if (!safeImages.length) return null;
+
+  const currentImage = safeImages[current] ?? safeImages[0];
+
+  const prev = () => setCurrent((i) => (i - 1 + safeImages.length) % safeImages.length);
+  const next = () => setCurrent((i) => (i + 1) % safeImages.length);
 
   // Grid variant
   if (variant === "grid") {
@@ -283,8 +308,8 @@ function GallerySlideshow({ images, title, description, variant = "slideshow" })
           </div>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {images.map((img, i) => (
-            <div key={i} className="rounded-2xl overflow-hidden bg-slate-100">
+          {safeImages.map((img, i) => (
+            <div key={img.url + i} className="rounded-2xl overflow-hidden bg-slate-100">
               <div className="aspect-square overflow-hidden">
                 <img src={img.url} alt={img.alt || ""} className="h-full w-full object-cover" />
               </div>
@@ -308,11 +333,11 @@ function GallerySlideshow({ images, title, description, variant = "slideshow" })
       {/* Main image */}
       <div className="relative aspect-[16/10] overflow-hidden bg-slate-100">
         <img
-          src={images[current].url}
-          alt={images[current].alt || ""}
+          src={currentImage.url}
+          alt={currentImage.alt || ""}
           className="w-full h-full object-cover transition-opacity duration-300"
         />
-        {images.length > 1 && (
+        {safeImages.length > 1 && (
           <>
             <button onClick={prev}
               className="absolute left-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-white/80 backdrop-blur flex items-center justify-center shadow hover:bg-white transition-colors text-slate-700 font-bold">
@@ -323,7 +348,7 @@ function GallerySlideshow({ images, title, description, variant = "slideshow" })
               ›
             </button>
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-              {images.map((_, i) => (
+              {safeImages.map((_, i) => (
                 <button key={i} onClick={() => setCurrent(i)}
                   className={`h-1.5 rounded-full transition-all ${i === current ? "w-5 bg-white" : "w-1.5 bg-white/50"}`} />
               ))}
@@ -332,14 +357,14 @@ function GallerySlideshow({ images, title, description, variant = "slideshow" })
         )}
       </div>
       {/* Caption for current image */}
-      {images[current]?.caption && (
-        <p className="px-5 py-2 text-xs text-slate-500 italic text-center">{images[current].caption}</p>
+      {currentImage.caption && (
+        <p className="px-5 py-2 text-xs text-slate-500 italic text-center">{currentImage.caption}</p>
       )}
       {/* Thumbnails */}
-      {images.length > 1 && (
+      {safeImages.length > 1 && (
         <div className="flex gap-2 p-3 overflow-x-auto">
-          {images.map((img, i) => (
-            <button key={i} onClick={() => setCurrent(i)}
+          {safeImages.map((img, i) => (
+            <button key={img.url + i} onClick={() => setCurrent(i)}
               className={`shrink-0 rounded-lg overflow-hidden border-2 transition-all ${i === current ? "border-blue-500" : "border-transparent opacity-60 hover:opacity-100"}`}>
               <img src={img.url} alt={img.alt || ""} className="h-16 w-16 object-cover" />
             </button>
