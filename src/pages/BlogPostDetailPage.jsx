@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { getBlogPostBySlug, getBlogRelated } from "@/lib/api.js";
+import { getBlogPostBySlug, getBlogRelated, getBlogComments, submitBlogComment } from "@/lib/api.js";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { buildArticleSchema, buildBreadcrumbSchema } from "@/components/seo/schema.js";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
@@ -540,6 +540,166 @@ function RelatedCard({ post }) {
   );
 }
 
+// ─── BlogComments ─────────────────────────────────────────────────────────────
+
+function BlogComments({ slug }) {
+  const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ name: "", email: "", website: "", content: "", honeypot: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    getBlogComments(slug)
+      .then((res) => setComments(res?.items || []))
+      .catch(() => setComments([]))
+      .finally(() => setLoading(false));
+  }, [slug]);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (form.honeypot) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      await submitBlogComment(slug, {
+        name: form.name,
+        email: form.email,
+        website: form.website,
+        content: form.content,
+        honeypot: form.honeypot,
+      });
+      setSubmitted(true);
+      setForm({ name: "", email: "", website: "", content: "", honeypot: "" });
+    } catch (err) {
+      setError(err?.message || "Ocurrió un error al enviar el comentario. Intenta de nuevo.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <section className="mt-16 border-t border-slate-100 pt-12">
+      <h2 className="text-xl font-bold text-slate-900 mb-8">Comentarios</h2>
+
+      {/* Comment list */}
+      {comments.length > 0 && (
+        <div className="space-y-6 mb-12">
+          {comments.map((c) => (
+            <div key={c.id} className="flex gap-4">
+              <div className="h-9 w-9 shrink-0 rounded-full bg-[#f2cc3d] flex items-center justify-center text-sm font-bold text-black">
+                {c.author_name?.[0]?.toUpperCase() || "?"}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-baseline gap-2 mb-1">
+                  <span className="text-sm font-semibold text-slate-800">{c.author_name}</span>
+                  <span className="text-xs text-slate-400">
+                    {c.created_at
+                      ? new Date(c.created_at).toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" })
+                      : ""}
+                  </span>
+                </div>
+                <p className="text-sm text-slate-600 leading-relaxed">{c.content}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {comments.length === 0 && !loading && (
+        <p className="text-sm text-slate-400 mb-10">Sé el primero en comentar.</p>
+      )}
+
+      {/* Success message */}
+      {submitted && (
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4 text-sm text-emerald-700 mb-8">
+          Tu comentario fue enviado y está pendiente de aprobación. ¡Gracias!
+        </div>
+      )}
+
+      {/* Form / post-submit action */}
+      {!submitted ? (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Honeypot — hidden from users, visible to bots */}
+          <input
+            type="text"
+            name="honeypot"
+            value={form.honeypot}
+            onChange={(e) => setForm((f) => ({ ...f, honeypot: e.target.value }))}
+            className="hidden"
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden="true"
+          />
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">
+                Nombre <span className="text-rose-400">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Tu nombre"
+                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-slate-400 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">Email</label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="Tu email (no se publica)"
+                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-slate-400 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">
+              Comentario <span className="text-rose-400">*</span>
+            </label>
+            <textarea
+              required
+              rows={4}
+              maxLength={2000}
+              value={form.content}
+              onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
+              placeholder="Escribe tu comentario aquí…"
+              className="w-full resize-none rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-slate-400 focus:outline-none"
+            />
+            <p className="mt-1 text-right text-[11px] text-slate-400">{form.content.length}/2000</p>
+          </div>
+
+          {error && <p className="text-sm text-rose-500">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rounded-xl bg-[#f2cc3d] px-6 py-2.5 text-sm font-bold text-black hover:bg-[#e6bd2a] disabled:opacity-50 transition-colors"
+          >
+            {submitting ? "Enviando…" : "Enviar comentario"}
+          </button>
+        </form>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setSubmitted(false)}
+          className="text-sm font-medium text-slate-500 underline hover:text-slate-700 transition-colors"
+        >
+          Añadir otro comentario
+        </button>
+      )}
+    </section>
+  );
+}
+
 // ─── BlogPostDetailPage ───────────────────────────────────────────────────────
 
 export default function BlogPostDetailPage({ initialPost = null, initialRelated = null }) {
@@ -723,6 +883,7 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
           <article>
             <div className="mx-auto max-w-3xl">
               <ArticleContent post={post} />
+              <BlogComments slug={slug} />
             </div>
           </article>
         </div>

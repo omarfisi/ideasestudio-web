@@ -1282,6 +1282,19 @@ export async function getBlogCategories() {
   return apiFetch(url);
 }
 
+export async function getBlogComments(slug) {
+  const url = buildUrl(`/api/blog/posts/${slug}/comments`);
+  return apiFetch(url);
+}
+
+export async function submitBlogComment(slug, payload) {
+  const url = buildUrl(`/api/blog/posts/${slug}/comments`);
+  return apiFetch(url, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export { validateStoreCoupon };
 
 // ─────────────────────────────────────────────────────────────
