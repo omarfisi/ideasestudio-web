@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { getBlogPostBySlug, getBlogRelated, getBlogComments, submitBlogComment } from "@/lib/api.js";
+import { getBlogPostBySlug, getBlogRelated, getBlogComments, submitBlogComment, getBlogCategories, getBlogPosts } from "@/lib/api.js";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { buildArticleSchema, buildBreadcrumbSchema } from "@/components/seo/schema.js";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
@@ -700,6 +700,103 @@ function BlogComments({ slug }) {
   );
 }
 
+// ─── BlogArticleWidgets ───────────────────────────────────────────────────────
+
+function BlogArticleWidgets({ currentSlug, categorySlug, categoryName }) {
+  const [categories, setCategories] = useState([]);
+  const [topPosts, setTopPosts] = useState([]);
+
+  useEffect(() => {
+    // Load categories
+    getBlogCategories()
+      .then((res) => setCategories(res?.items || []))
+      .catch(() => {});
+
+    // Load featured/recent posts (exclude current article)
+    getBlogPosts({ limit: 5 })
+      .then((res) => {
+        const items = (res?.items || []).filter((p) => p.slug !== currentSlug);
+        setTopPosts(items.slice(0, 4));
+      })
+      .catch(() => {});
+  }, [currentSlug]); // eslint-disable-line
+
+  if (categories.length === 0 && topPosts.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 my-10">
+
+      {/* Widget 1 — Categorías */}
+      {categories.length > 0 && (
+        <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+          <h3 className="text-xs font-bold tracking-widest text-slate-400 uppercase mb-4">
+            Categorías
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {categories.map((cat) => (
+              <a
+                key={cat.id}
+                href={`/blog?category=${cat.slug}`}
+                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                  cat.slug === categorySlug
+                    ? "bg-[#f2cc3d] text-black"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {cat.name}
+                {cat.post_count > 0 && (
+                  <span className="ml-1.5 text-[10px] opacity-60">{cat.post_count}</span>
+                )}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Widget 2 — Artículos destacados */}
+      {topPosts.length > 0 && (
+        <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm sm:col-span-1 lg:col-span-2">
+          <h3 className="text-xs font-bold tracking-widest text-slate-400 uppercase mb-4">
+            Artículos destacados
+          </h3>
+          <div className="space-y-3">
+            {topPosts.map((p) => (
+              <a
+                key={p.id || p.slug}
+                href={`/blog/${p.slug}`}
+                className="flex items-center gap-3 group"
+              >
+                {p.featured_image_url ? (
+                  <div className="h-12 w-12 shrink-0 rounded-lg overflow-hidden bg-slate-100">
+                    <img
+                      src={p.featured_image_url}
+                      alt={p.featured_image_alt || p.title || ""}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="h-12 w-12 shrink-0 rounded-lg bg-[#f2cc3d]/20 flex items-center justify-center text-lg">
+                    📝
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-800 leading-snug line-clamp-2 group-hover:text-black transition-colors">
+                    {p.title}
+                  </p>
+                  {p.category_name && (
+                    <p className="text-xs text-slate-400 mt-0.5">{p.category_name}</p>
+                  )}
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
 // ─── BlogPostDetailPage ───────────────────────────────────────────────────────
 
 export default function BlogPostDetailPage({ initialPost = null, initialRelated = null }) {
@@ -860,6 +957,15 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
             className="h-full w-full object-cover"
           />
         </div>
+
+        {/* ── B2. WIDGETS (categorías + artículos destacados) ── */}
+        {post && (
+          <BlogArticleWidgets
+            currentSlug={slug}
+            categorySlug={post.category_slug || post.category?.slug}
+            categoryName={post.category_name || post.category?.name}
+          />
+        )}
       </section>
 
       {/* ── C. AUTOR LATERAL + CONTENIDO ── */}
