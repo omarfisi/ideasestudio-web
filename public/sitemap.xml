@@ -50,9 +50,4 @@
     <priority>0.6</priority>
     <changefreq>monthly</changefreq>
   </url>
-  <url>
-    <loc>https://ideasestudio.com/sobre-nosotros</loc>
-    <priority>0.6</priority>
-    <changefreq>monthly</changefreq>
-  </url>
 </urlset>

@@ -26,7 +26,6 @@ import TeamPage from "@/pages/TeamPage.jsx";
 import BlogPage from "@/pages/BlogPage.jsx";
 import BlogPostDetailPage from "@/pages/BlogPostDetailPage.jsx";
 import BlogPostPreviewPage from "@/pages/BlogPostPreviewPage.jsx";
-import AboutPage from "@/pages/AboutPage.jsx";
 import ContactPage from "@/pages/ContactPage.jsx";
 import CartPage from "@/pages/CartPage.jsx";
 import CheckoutPage from "@/pages/CheckoutPage.jsx";
@@ -292,14 +291,6 @@ const router = createBrowserRouter([
       {
         path: "blog/:slug",
         element: <BlogPostDetailPage />,
-      },
-      {
-        path: "sobre-nosotros",
-        element: <AboutPage />,
-      },
-      {
-        path: "nosotros",
-        element: <Navigate replace to="/sobre-nosotros" />,
       },
       {
         path: "contacto",
