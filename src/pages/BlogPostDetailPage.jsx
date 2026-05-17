@@ -701,6 +701,7 @@ function BlogComments({ slug }) {
 }
 
 // ─── BlogArticleWidgets ───────────────────────────────────────────────────────
+// Component definition preserved — sidebar now covers this data on desktop.
 
 function BlogArticleWidgets({ currentSlug, categorySlug, categoryName }) {
   const [categories, setCategories] = useState([]);
@@ -808,6 +809,12 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
   const [loading, setLoading] = useState(!initialPost);
   const [notFound, setNotFound] = useState(false);
 
+  // ── Sidebar & prev/next state ──
+  const [sidebarCategories, setSidebarCategories] = useState([]);
+  const [sidebarPosts, setSidebarPosts] = useState([]);
+  const [prevPost, setPrevPost] = useState(null);
+  const [nextPost, setNextPost] = useState(null);
+
   useEffect(() => {
     // Si se pasan datos estáticos (modo preview), no llamar al API
     if (initialPost) return;
@@ -831,6 +838,24 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
 
     return () => { cancelled = true; };
   }, [slug, initialPost]);
+
+  // ── Load sidebar data + prev/next ──
+  useEffect(() => {
+    if (!slug) return;
+    Promise.all([
+      getBlogCategories().catch(() => ({ items: [] })),
+      getBlogPosts({ limit: 50 }).catch(() => ({ items: [] })),
+    ]).then(([cats, posts]) => {
+      setSidebarCategories(cats?.items || []);
+      const allPosts = posts?.items || [];
+      // Recent posts for sidebar (exclude current)
+      setSidebarPosts(allPosts.filter((p) => p.slug !== slug).slice(0, 3));
+      // Prev/Next
+      const idx = allPosts.findIndex((p) => p.slug === slug);
+      if (idx > 0) setPrevPost(allPosts[idx - 1]);
+      if (idx >= 0 && idx < allPosts.length - 1) setNextPost(allPosts[idx + 1]);
+    });
+  }, [slug]); // eslint-disable-line
 
   // SEO is now handled declaratively via SEOHead below — no DOM mutation needed.
 
@@ -918,106 +943,237 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
         seoEntry={pageSeo}
       />
 
-      {/* ── A. HERO ── */}
-      <section className="mx-auto max-w-6xl px-4 pb-12 pt-12 md:px-6 md:pb-16 md:pt-16">
+      {/* ── A. HERO BREADCRUMB / META ── */}
+      <section className="mx-auto max-w-6xl px-4 pb-8 pt-12 md:px-6 md:pt-16">
         <div className="mx-auto max-w-4xl text-center">
           <MetaLine items={[categoryLabel, articleDate, readingTime]} />
-
-          <h1 className="mt-6 text-5xl font-semibold leading-[0.95] tracking-[-0.03em] text-neutral-950 md:text-7xl">
-            {post.title}
-          </h1>
-
           {post.excerpt && (
-            <p className="mx-auto mt-6 max-w-3xl text-[16px] leading-9 text-neutral-600 md:text-[18px]">
+            <p className="mx-auto mt-4 max-w-3xl text-[15px] leading-8 text-neutral-500 md:text-[16px]">
               {post.excerpt}
             </p>
-          )}
-
-          {tags.length > 0 && (
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-              {tags.map((tag) => (
-                <span
-                  key={tag.slug}
-                  className="rounded-full border border-[#ddd4c7] px-4 py-2 text-xs font-medium uppercase tracking-[0.16em] text-neutral-700"
-                >
-                  {tag.name}
-                </span>
-              ))}
-            </div>
           )}
         </div>
       </section>
 
-      {/* ── B. IMAGEN DESTACADA ── */}
-      <section className="mx-auto max-w-6xl px-4 pb-14 md:px-6">
-        <div className="aspect-square w-full max-w-[680px] mx-auto overflow-hidden rounded-2xl bg-slate-100">
+      {/* ── B. HERO IMAGE — landscape 16:9 with category badge ── */}
+      <section className="mx-auto max-w-6xl px-4 pb-10 md:px-6">
+        <div className="relative w-full overflow-hidden rounded-2xl bg-slate-100 aspect-[16/9]">
           <img
             src={featuredImage}
             alt={post.featured_image_alt || post.title || ""}
             className="h-full w-full object-cover"
           />
-        </div>
-
-        {/* ── B2. WIDGETS (categorías + artículos destacados) ── */}
-        {post && (
-          <BlogArticleWidgets
-            currentSlug={slug}
-            categorySlug={post.category_slug || post.category?.slug}
-            categoryName={post.category_name || post.category?.name}
-          />
-        )}
-      </section>
-
-      {/* ── C. AUTOR LATERAL + CONTENIDO ── */}
-      <section className="mx-auto max-w-6xl px-4 pb-16 md:px-6 md:pb-20">
-        <div className="grid gap-10 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-16">
-
-          {/* Autor sticky */}
-          <div className="lg:sticky lg:top-28 lg:self-start">
-            <AuthorSidebarCard author={post.author} authorName={post.author_name} />
-            <div className="mt-6">
-              <Link
-                to="/blog"
-                className="inline-flex text-sm font-medium text-neutral-600 transition hover:text-black"
-              >
-                ← Volver al blog
-              </Link>
-            </div>
-          </div>
-
-          {/* Contenido editorial */}
-          <article>
-            <div className="mx-auto max-w-3xl">
-              <ArticleContent post={post} />
-              <BlogComments slug={slug} />
-            </div>
-          </article>
+          {post.category_name && (
+            <span className="absolute top-3 left-3 z-10 rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-slate-700 shadow-sm backdrop-blur-sm">
+              {post.category_name}
+            </span>
+          )}
         </div>
       </section>
 
-      {/* ── D. AUTOR FINAL ── */}
-      <section className="mx-auto max-w-6xl px-4 pb-14 md:px-6">
-        <AuthorFooterCard author={post.author} authorName={post.author_name} />
-      </section>
+      {/* ── C. TWO-COLUMN LAYOUT ── */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-10">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-10 items-start">
 
-      {/* ── E. ARTÍCULOS RELACIONADOS ── */}
-      {related.length > 0 && (
-        <section className="mx-auto max-w-6xl px-4 pb-14 pt-4 md:px-6 md:pb-20">
-          <div className="border-t border-[#e7dfd5] pt-14">
-            <div className="text-center">
-              <p className="text-[11px] uppercase tracking-[0.22em] text-neutral-500">Sigue leyendo</p>
-              <h2 className="mt-3 text-4xl font-semibold tracking-[-0.02em] text-neutral-950">
-                Artículos relacionados
-              </h2>
+          {/* LEFT — Article content */}
+          <div className="min-w-0">
+
+            {/* C1. Article header */}
+            <div className="mb-6">
+              <h1 className="text-3xl font-bold text-slate-900 leading-tight mb-3">{post.title}</h1>
+              <div className="flex flex-wrap items-center gap-3 text-sm text-slate-400">
+                {post.published_at && (
+                  <span>{new Date(post.published_at).toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" })}</span>
+                )}
+                {post.author_name && (
+                  <><span>·</span><span>{post.author_name}</span></>
+                )}
+                {post.reading_time_minutes > 0 && (
+                  <><span>·</span><span>{post.reading_time_minutes} min de lectura</span></>
+                )}
+              </div>
             </div>
-            <div className="mt-10 grid gap-8 md:grid-cols-2 xl:grid-cols-3">
-              {related.map((item) => (
-                <RelatedCard key={item.id || item.slug} post={item} />
+
+            {/* C2. Article body */}
+            <ArticleContent post={post} />
+
+            {/* C3. Tags */}
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-8 pt-6 border-t border-slate-100">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1 self-center">Tags</span>
+                {tags.map((tag) => (
+                  <a key={tag.slug} href={`/blog?tag=${tag.slug}`}
+                    className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200 transition-colors">
+                    {tag.name}
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {/* C4. Social share */}
+            <div className="flex items-center gap-3 mt-6">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Compartir</span>
+              {[
+                { label: "Facebook", href: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : "")}`, bg: "bg-[#1877f2]" },
+                { label: "Twitter", href: `https://twitter.com/intent/tweet?url=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : "")}&text=${encodeURIComponent(post.title || "")}`, bg: "bg-[#1da1f2]" },
+              ].map((s) => (
+                <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer"
+                  className={`${s.bg} text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:opacity-90 transition-opacity`}>
+                  {s.label}
+                </a>
               ))}
             </div>
+
+            {/* C5. Author card */}
+            {post.author_name && (
+              <div className="mt-10 flex gap-5 items-start p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="h-16 w-16 shrink-0 rounded-full overflow-hidden bg-[#f2cc3d]">
+                  {post.author_avatar
+                    ? <img src={post.author_avatar} alt={post.author_name} className="h-full w-full object-cover" />
+                    : <div className="h-full w-full flex items-center justify-center text-xl font-bold text-black">{post.author_name?.[0]}</div>
+                  }
+                </div>
+                <div>
+                  <p className="font-bold text-slate-900 mb-1">{post.author_name}</p>
+                  {post.author_short_description && (
+                    <p className="text-sm text-slate-500 leading-relaxed">{post.author_short_description}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* C6. Prev/Next navigation */}
+            <div className="mt-8 grid grid-cols-2 gap-4 border-t border-slate-100 pt-6">
+              {prevPost && (
+                <a href={`/blog/${prevPost.slug}`} className="group">
+                  <p className="text-xs text-slate-400 mb-1">Artículo anterior</p>
+                  <p className="text-sm font-semibold text-slate-700 group-hover:text-black transition-colors line-clamp-2">{prevPost.title}</p>
+                </a>
+              )}
+              {nextPost && (
+                <a href={`/blog/${nextPost.slug}`} className="group text-right ml-auto col-start-2">
+                  <p className="text-xs text-slate-400 mb-1">Siguiente artículo</p>
+                  <p className="text-sm font-semibold text-slate-700 group-hover:text-black transition-colors line-clamp-2">{nextPost.title}</p>
+                </a>
+              )}
+            </div>
+
           </div>
-        </section>
+
+          {/* RIGHT — Sticky sidebar */}
+          <aside className="hidden lg:block space-y-6 sticky top-8">
+
+            {/* Sidebar: Author widget */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm text-center">
+              <p className="text-xs font-bold tracking-widest text-slate-400 uppercase mb-4">Acerca del autor</p>
+              <div className="h-16 w-16 rounded-full overflow-hidden bg-[#f2cc3d] mx-auto mb-3">
+                {post.author_avatar
+                  ? <img src={post.author_avatar} alt={post.author_name} className="h-full w-full object-cover" />
+                  : <div className="h-full w-full flex items-center justify-center text-xl font-bold text-black">{post.author_name?.[0]}</div>
+                }
+              </div>
+              <p className="font-bold text-slate-900 mb-2">{post.author_name || (post.author?.name) || "Ideas Estudio"}</p>
+              {(post.author_short_description || post.author?.short_description) && (
+                <p className="text-xs text-slate-500 leading-relaxed">{post.author_short_description || post.author?.short_description}</p>
+              )}
+            </div>
+
+            {/* Sidebar: Categories */}
+            {sidebarCategories.length > 0 && (
+              <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+                <p className="text-xs font-bold tracking-widest text-slate-400 uppercase mb-4">Categorías</p>
+                <div className="space-y-2">
+                  {sidebarCategories.map((cat) => (
+                    <a key={cat.id} href={`/blog?category=${cat.slug}`}
+                      className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0 group">
+                      <span className="text-sm text-slate-700 group-hover:text-black transition-colors">{cat.name}</span>
+                      <span className="text-xs text-slate-400">({cat.post_count || 0})</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Sidebar: Recent posts */}
+            {sidebarPosts.length > 0 && (
+              <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+                <p className="text-xs font-bold tracking-widest text-slate-400 uppercase mb-4">Artículos recientes</p>
+                <div className="space-y-4">
+                  {sidebarPosts.map((p) => (
+                    <a key={p.slug} href={`/blog/${p.slug}`} className="flex gap-3 group">
+                      <div className="h-16 w-16 shrink-0 rounded-lg overflow-hidden bg-slate-100">
+                        {p.featured_image_url
+                          ? <img src={p.featured_image_url} alt={p.title} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                          : <div className="h-full w-full bg-[#f2cc3d]/30" />
+                        }
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 leading-snug line-clamp-2 group-hover:text-black transition-colors">{p.title}</p>
+                        {p.author_name && <p className="text-xs text-slate-400 mt-1">{p.author_name}</p>}
+                        {p.published_at && (
+                          <p className="text-xs text-slate-400">{new Date(p.published_at).toLocaleDateString("es", { month: "short", day: "numeric", year: "numeric" })}</p>
+                        )}
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Sidebar: Tags cloud */}
+            {tags.length > 0 && (
+              <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+                <p className="text-xs font-bold tracking-widest text-slate-400 uppercase mb-4">Tags</p>
+                <div className="flex flex-wrap gap-2">
+                  {tags.map((tag) => (
+                    <a key={tag.slug} href={`/blog?tag=${tag.slug}`}
+                      className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-[#f2cc3d] hover:text-black transition-colors">
+                      {tag.name}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          </aside>
+
+        </div>
+      </div>
+
+      {/* ── D. RELATED ARTICLES — full width ── */}
+      {related?.length > 0 && (
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-16">
+          <h2 className="text-xl font-bold text-slate-900 mb-6">También te puede interesar</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {related.map((p) => (
+              <a key={p.slug} href={`/blog/${p.slug}`} className="group block bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                <div className="aspect-[16/9] overflow-hidden bg-slate-100">
+                  {p.featured_image_url
+                    ? <img src={p.featured_image_url} alt={p.title} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    : <div className="h-full w-full bg-[#f2cc3d]/20" />
+                  }
+                </div>
+                {p.category_name && (
+                  <div className="px-4 pt-4">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{p.category_name}</span>
+                  </div>
+                )}
+                <div className="p-4 pt-2">
+                  <p className="font-bold text-slate-900 leading-snug line-clamp-2 group-hover:text-black mb-1">{p.title}</p>
+                  {p.author_name && (
+                    <p className="text-xs text-slate-400">{p.author_name} · {p.published_at ? new Date(p.published_at).toLocaleDateString("es", { month: "short", day: "numeric", year: "numeric" }) : ""}</p>
+                  )}
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
       )}
+
+      {/* ── E. COMMENTS — full width, narrowed ── */}
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 mt-16 mb-16">
+        <BlogComments slug={slug} />
+      </div>
 
       {/* ── F. CTA FINAL ── */}
       <section className="mx-auto max-w-6xl px-4 pb-20 md:px-6 md:pb-24">
