@@ -348,6 +348,41 @@ function GallerySlideshow({ images, title, description, variant = "slideshow" })
   );
 }
 
+// ─── Gallery grouping ─────────────────────────────────────────────────────────
+
+function groupConsecutiveImagesAsGalleries(blocks = []) {
+  const result = [];
+  let buffer = [];
+
+  function flush() {
+    if (buffer.length >= 2) {
+      result.push({
+        type: "gallery",
+        variant: "slideshow",
+        images: buffer.map((block) => ({
+          url: block.url || block.src || block.image_url || "",
+          alt: block.alt || "",
+          caption: block.caption || undefined,
+        })).filter((img) => img.url),
+      });
+    } else if (buffer.length === 1) {
+      result.push(buffer[0]);
+    }
+    buffer = [];
+  }
+
+  for (const block of blocks) {
+    if (block?.type === "image" && (block.url || block.src || block.image_url)) {
+      buffer.push(block);
+    } else {
+      flush();
+      result.push(block);
+    }
+  }
+  flush();
+  return result;
+}
+
 // ─── Legacy block normalizers ─────────────────────────────────────────────────
 
 function isBreakOnlyParagraph(block) {
@@ -426,7 +461,8 @@ function normalizeLegacyBlocks(input = []) {
 
 function ArticleContent({ post }) {
   const rawBlocks = Array.isArray(post?.content_json) ? post.content_json : [];
-  const blocks = normalizeLegacyBlocks(rawBlocks);
+  const normalizedBlocks = normalizeLegacyBlocks(rawBlocks);
+  const blocks = groupConsecutiveImagesAsGalleries(normalizedBlocks);
   const hasBlocks = blocks.length > 0;
   const videoEnabled = Boolean(post?.show_youtube_embed) && Boolean(post?.youtube_url);
   const videoPosition = post?.youtube_position || "bottom";
