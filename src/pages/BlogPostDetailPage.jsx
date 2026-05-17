@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { getBlogPostBySlug, getBlogRelated } from "@/lib/api.js";
+import { getBlogPostBySlug, getBlogRelated, getBlogComments, submitBlogComment, getBlogCategories, getBlogPosts } from "@/lib/api.js";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { buildArticleSchema, buildBreadcrumbSchema } from "@/components/seo/schema.js";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
@@ -230,7 +230,14 @@ function ContentBlock({ block }) {
       );
 
     case "gallery":
-      return <GallerySlideshow images={block.images || []} />;
+      return (
+        <GallerySlideshow
+          images={block.images || []}
+          title={block.title}
+          description={block.description}
+          variant={block.variant || "slideshow"}
+        />
+      );
 
     case "cta":
       return (
@@ -259,21 +266,78 @@ function ContentBlock({ block }) {
 
 // ─── GallerySlideshow — main image + nav arrows + dot indicators + thumbnails ──
 
-function GallerySlideshow({ images }) {
+function normalizeGalleryImages(images) {
+  if (!Array.isArray(images)) return [];
+  return images
+    .filter(Boolean)
+    .map((img) => ({
+      ...img,
+      url: img.url || img.src || img.image_url || "",
+      alt: img.alt || "",
+      caption: img.caption || "",
+    }))
+    .filter((img) => img.url);
+}
+
+function GallerySlideshow({ images, title, description, variant = "slideshow" }) {
   const [current, setCurrent] = useState(0);
-  if (!images?.length) return null;
-  const prev = () => setCurrent((i) => (i - 1 + images.length) % images.length);
-  const next = () => setCurrent((i) => (i + 1) % images.length);
+
+  const safeImages = normalizeGalleryImages(images);
+
+  useEffect(() => {
+    if (safeImages.length > 0 && current >= safeImages.length) {
+      setCurrent(0);
+    }
+  }, [current, safeImages.length]); // eslint-disable-line
+
+  if (!safeImages.length) return null;
+
+  const currentImage = safeImages[current] ?? safeImages[0];
+
+  const prev = () => setCurrent((i) => (i - 1 + safeImages.length) % safeImages.length);
+  const next = () => setCurrent((i) => (i + 1) % safeImages.length);
+
+  // Grid variant
+  if (variant === "grid") {
+    return (
+      <div className="my-8">
+        {(title || description) && (
+          <div className="mb-4">
+            {title && <h3 className="text-lg font-semibold text-slate-800">{title}</h3>}
+            {description && <p className="text-sm text-slate-500 mt-1">{description}</p>}
+          </div>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {safeImages.map((img, i) => (
+            <div key={img.url + i} className="rounded-2xl overflow-hidden bg-slate-100">
+              <div className="aspect-square overflow-hidden">
+                <img src={img.url} alt={img.alt || ""} className="h-full w-full object-cover" />
+              </div>
+              {img.caption && <p className="px-3 py-2 text-xs text-slate-500 italic">{img.caption}</p>}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Slideshow / carousel variant
   return (
     <div className="my-8 rounded-2xl overflow-hidden shadow-md bg-slate-50">
+      {(title || description) && (
+        <div className="px-5 pt-5 pb-3">
+          {title && <h3 className="text-base font-semibold text-slate-800">{title}</h3>}
+          {description && <p className="text-sm text-slate-500 mt-0.5">{description}</p>}
+        </div>
+      )}
       {/* Main image */}
       <div className="relative aspect-[16/10] overflow-hidden bg-slate-100">
         <img
-          src={images[current].url}
-          alt={images[current].alt || ""}
+          src={currentImage.url}
+          alt={currentImage.alt || ""}
           className="w-full h-full object-cover transition-opacity duration-300"
         />
-        {images.length > 1 && (
+        {safeImages.length > 1 && (
           <>
             <button onClick={prev}
               className="absolute left-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-white/80 backdrop-blur flex items-center justify-center shadow hover:bg-white transition-colors text-slate-700 font-bold">
@@ -284,7 +348,7 @@ function GallerySlideshow({ images }) {
               ›
             </button>
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-              {images.map((_, i) => (
+              {safeImages.map((_, i) => (
                 <button key={i} onClick={() => setCurrent(i)}
                   className={`h-1.5 rounded-full transition-all ${i === current ? "w-5 bg-white" : "w-1.5 bg-white/50"}`} />
               ))}
@@ -292,19 +356,58 @@ function GallerySlideshow({ images }) {
           </>
         )}
       </div>
+      {/* Caption for current image */}
+      {currentImage.caption && (
+        <p className="px-5 py-2 text-xs text-slate-500 italic text-center">{currentImage.caption}</p>
+      )}
       {/* Thumbnails */}
-      {images.length > 1 && (
+      {safeImages.length > 1 && (
         <div className="flex gap-2 p-3 overflow-x-auto">
-          {images.map((img, i) => (
-            <button key={i} onClick={() => setCurrent(i)}
+          {safeImages.map((img, i) => (
+            <button key={img.url + i} onClick={() => setCurrent(i)}
               className={`shrink-0 rounded-lg overflow-hidden border-2 transition-all ${i === current ? "border-blue-500" : "border-transparent opacity-60 hover:opacity-100"}`}>
-              <img src={img.url} alt={img.alt || ""} className="h-14 w-20 object-cover" />
+              <img src={img.url} alt={img.alt || ""} className="h-16 w-16 object-cover" />
             </button>
           ))}
         </div>
       )}
     </div>
   );
+}
+
+// ─── Gallery grouping ─────────────────────────────────────────────────────────
+
+function groupConsecutiveImagesAsGalleries(blocks = []) {
+  const result = [];
+  let buffer = [];
+
+  function flush() {
+    if (buffer.length >= 2) {
+      result.push({
+        type: "gallery",
+        variant: "slideshow",
+        images: buffer.map((block) => ({
+          url: block.url || block.src || block.image_url || "",
+          alt: block.alt || "",
+          caption: block.caption || undefined,
+        })).filter((img) => img.url),
+      });
+    } else if (buffer.length === 1) {
+      result.push(buffer[0]);
+    }
+    buffer = [];
+  }
+
+  for (const block of blocks) {
+    if (block?.type === "image" && (block.url || block.src || block.image_url)) {
+      buffer.push(block);
+    } else {
+      flush();
+      result.push(block);
+    }
+  }
+  flush();
+  return result;
 }
 
 // ─── Legacy block normalizers ─────────────────────────────────────────────────
@@ -385,7 +488,8 @@ function normalizeLegacyBlocks(input = []) {
 
 function ArticleContent({ post }) {
   const rawBlocks = Array.isArray(post?.content_json) ? post.content_json : [];
-  const blocks = normalizeLegacyBlocks(rawBlocks);
+  const normalizedBlocks = normalizeLegacyBlocks(rawBlocks);
+  const blocks = groupConsecutiveImagesAsGalleries(normalizedBlocks);
   const hasBlocks = blocks.length > 0;
   const videoEnabled = Boolean(post?.show_youtube_embed) && Boolean(post?.youtube_url);
   const videoPosition = post?.youtube_position || "bottom";
@@ -438,11 +542,11 @@ function RelatedCard({ post }) {
   return (
     <article className="group">
       <Link to={`/blog/${post.slug}`} className="block">
-        <div className="overflow-hidden rounded-[24px] bg-white">
+        <div className="aspect-square overflow-hidden rounded-[24px] bg-slate-100">
           <img
             src={image}
             alt={post?.featured_image_alt || post?.title || "Artículo"}
-            className="h-[220px] w-full object-cover transition duration-500 group-hover:scale-105"
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
           />
         </div>
         <div className="pt-4">
@@ -461,6 +565,264 @@ function RelatedCard({ post }) {
   );
 }
 
+// ─── BlogComments ─────────────────────────────────────────────────────────────
+
+function BlogComments({ slug }) {
+  const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ name: "", email: "", website: "", content: "", honeypot: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    getBlogComments(slug)
+      .then((res) => setComments(res?.items || []))
+      .catch(() => setComments([]))
+      .finally(() => setLoading(false));
+  }, [slug]);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (form.honeypot) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      await submitBlogComment(slug, {
+        name: form.name,
+        email: form.email,
+        website: form.website,
+        content: form.content,
+        honeypot: form.honeypot,
+      });
+      setSubmitted(true);
+      setForm({ name: "", email: "", website: "", content: "", honeypot: "" });
+    } catch (err) {
+      setError(err?.message || "Ocurrió un error al enviar el comentario. Intenta de nuevo.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <section className="mt-16 border-t border-slate-100 pt-12">
+      <h2 className="text-xl font-bold text-slate-900 mb-8">Comentarios</h2>
+
+      {/* Comment list */}
+      {comments.length > 0 && (
+        <div className="space-y-6 mb-12">
+          {comments.map((c) => (
+            <div key={c.id} className="flex gap-4">
+              <div className="h-9 w-9 shrink-0 rounded-full bg-[#f2cc3d] flex items-center justify-center text-sm font-bold text-black">
+                {c.author_name?.[0]?.toUpperCase() || "?"}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-baseline gap-2 mb-1">
+                  <span className="text-sm font-semibold text-slate-800">{c.author_name}</span>
+                  <span className="text-xs text-slate-400">
+                    {c.created_at
+                      ? new Date(c.created_at).toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" })
+                      : ""}
+                  </span>
+                </div>
+                <p className="text-sm text-slate-600 leading-relaxed">{c.content}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {comments.length === 0 && !loading && (
+        <p className="text-sm text-slate-400 mb-10">Sé el primero en comentar.</p>
+      )}
+
+      {/* Success message */}
+      {submitted && (
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4 text-sm text-emerald-700 mb-8">
+          Tu comentario fue enviado y está pendiente de aprobación. ¡Gracias!
+        </div>
+      )}
+
+      {/* Form / post-submit action */}
+      {!submitted ? (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Honeypot — hidden from users, visible to bots */}
+          <input
+            type="text"
+            name="honeypot"
+            value={form.honeypot}
+            onChange={(e) => setForm((f) => ({ ...f, honeypot: e.target.value }))}
+            className="hidden"
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden="true"
+          />
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">
+                Nombre <span className="text-rose-400">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Tu nombre"
+                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-slate-400 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 mb-1">Email</label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="Tu email (no se publica)"
+                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-slate-400 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">
+              Comentario <span className="text-rose-400">*</span>
+            </label>
+            <textarea
+              required
+              rows={4}
+              maxLength={2000}
+              value={form.content}
+              onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
+              placeholder="Escribe tu comentario aquí…"
+              className="w-full resize-none rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-slate-400 focus:outline-none"
+            />
+            <p className="mt-1 text-right text-[11px] text-slate-400">{form.content.length}/2000</p>
+          </div>
+
+          {error && <p className="text-sm text-rose-500">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rounded-xl bg-[#f2cc3d] px-6 py-2.5 text-sm font-bold text-black hover:bg-[#e6bd2a] disabled:opacity-50 transition-colors"
+          >
+            {submitting ? "Enviando…" : "Enviar comentario"}
+          </button>
+        </form>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setSubmitted(false)}
+          className="text-sm font-medium text-slate-500 underline hover:text-slate-700 transition-colors"
+        >
+          Añadir otro comentario
+        </button>
+      )}
+    </section>
+  );
+}
+
+// ─── BlogArticleWidgets ───────────────────────────────────────────────────────
+// Component definition preserved — sidebar now covers this data on desktop.
+
+function BlogArticleWidgets({ currentSlug, categorySlug, categoryName }) {
+  const [categories, setCategories] = useState([]);
+  const [topPosts, setTopPosts] = useState([]);
+
+  useEffect(() => {
+    // Load categories
+    getBlogCategories()
+      .then((res) => setCategories(res?.items || []))
+      .catch(() => {});
+
+    // Load featured/recent posts (exclude current article)
+    getBlogPosts({ limit: 5 })
+      .then((res) => {
+        const items = (res?.items || []).filter((p) => p.slug !== currentSlug);
+        setTopPosts(items.slice(0, 4));
+      })
+      .catch(() => {});
+  }, [currentSlug]); // eslint-disable-line
+
+  if (categories.length === 0 && topPosts.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 my-10">
+
+      {/* Widget 1 — Categorías */}
+      {categories.length > 0 && (
+        <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+          <h3 className="text-xs font-bold tracking-widest text-slate-400 uppercase mb-4">
+            Categorías
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {categories.map((cat) => (
+              <a
+                key={cat.id}
+                href={`/blog?category=${cat.slug}`}
+                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                  cat.slug === categorySlug
+                    ? "bg-[#f2cc3d] text-black"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {cat.name}
+                {cat.post_count > 0 && (
+                  <span className="ml-1.5 text-[10px] opacity-60">{cat.post_count}</span>
+                )}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Widget 2 — Artículos destacados */}
+      {topPosts.length > 0 && (
+        <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm sm:col-span-1 lg:col-span-2">
+          <h3 className="text-xs font-bold tracking-widest text-slate-400 uppercase mb-4">
+            Artículos destacados
+          </h3>
+          <div className="space-y-3">
+            {topPosts.map((p) => (
+              <a
+                key={p.id || p.slug}
+                href={`/blog/${p.slug}`}
+                className="flex items-center gap-3 group"
+              >
+                {p.featured_image_url ? (
+                  <div className="h-12 w-12 shrink-0 rounded-lg overflow-hidden bg-slate-100">
+                    <img
+                      src={p.featured_image_url}
+                      alt={p.featured_image_alt || p.title || ""}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="h-12 w-12 shrink-0 rounded-lg bg-[#f2cc3d]/20 flex items-center justify-center text-lg">
+                    📝
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-800 leading-snug line-clamp-2 group-hover:text-black transition-colors">
+                    {p.title}
+                  </p>
+                  {p.category_name && (
+                    <p className="text-xs text-slate-400 mt-0.5">{p.category_name}</p>
+                  )}
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
 // ─── BlogPostDetailPage ───────────────────────────────────────────────────────
 
 export default function BlogPostDetailPage({ initialPost = null, initialRelated = null }) {
@@ -471,6 +833,12 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
   const [related, setRelated] = useState(initialRelated || []);
   const [loading, setLoading] = useState(!initialPost);
   const [notFound, setNotFound] = useState(false);
+
+  // ── Sidebar & prev/next state ──
+  const [sidebarCategories, setSidebarCategories] = useState([]);
+  const [sidebarPosts, setSidebarPosts] = useState([]);
+  const [prevPost, setPrevPost] = useState(null);
+  const [nextPost, setNextPost] = useState(null);
 
   useEffect(() => {
     // Si se pasan datos estáticos (modo preview), no llamar al API
@@ -495,6 +863,24 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
 
     return () => { cancelled = true; };
   }, [slug, initialPost]);
+
+  // ── Load sidebar data + prev/next ──
+  useEffect(() => {
+    if (!slug) return;
+    Promise.all([
+      getBlogCategories().catch(() => ({ items: [] })),
+      getBlogPosts({ limit: 50 }).catch(() => ({ items: [] })),
+    ]).then(([cats, posts]) => {
+      setSidebarCategories(cats?.items || []);
+      const allPosts = posts?.items || [];
+      // Recent posts for sidebar (exclude current)
+      setSidebarPosts(allPosts.filter((p) => p.slug !== slug).slice(0, 3));
+      // Prev/Next
+      const idx = allPosts.findIndex((p) => p.slug === slug);
+      if (idx > 0) setPrevPost(allPosts[idx - 1]);
+      if (idx >= 0 && idx < allPosts.length - 1) setNextPost(allPosts[idx + 1]);
+    });
+  }, [slug]); // eslint-disable-line
 
   // SEO is now handled declaratively via SEOHead below — no DOM mutation needed.
 
@@ -582,96 +968,237 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
         seoEntry={pageSeo}
       />
 
-      {/* ── A. HERO ── */}
-      <section className="mx-auto max-w-6xl px-4 pb-12 pt-12 md:px-6 md:pb-16 md:pt-16">
+      {/* ── A. HERO BREADCRUMB / META ── */}
+      <section className="mx-auto max-w-6xl px-4 pb-8 pt-12 md:px-6 md:pt-16">
         <div className="mx-auto max-w-4xl text-center">
           <MetaLine items={[categoryLabel, articleDate, readingTime]} />
-
-          <h1 className="mt-6 text-5xl font-semibold leading-[0.95] tracking-[-0.03em] text-neutral-950 md:text-7xl">
-            {post.title}
-          </h1>
-
           {post.excerpt && (
-            <p className="mx-auto mt-6 max-w-3xl text-[16px] leading-9 text-neutral-600 md:text-[18px]">
+            <p className="mx-auto mt-4 max-w-3xl text-[15px] leading-8 text-neutral-500 md:text-[16px]">
               {post.excerpt}
             </p>
           )}
+        </div>
+      </section>
 
-          {tags.length > 0 && (
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-              {tags.map((tag) => (
-                <span
-                  key={tag.slug}
-                  className="rounded-full border border-[#ddd4c7] px-4 py-2 text-xs font-medium uppercase tracking-[0.16em] text-neutral-700"
-                >
-                  {tag.name}
-                </span>
-              ))}
-            </div>
+      {/* ── B. HERO IMAGE — landscape 16:9 with category badge ── */}
+      <section className="mx-auto max-w-6xl px-4 pb-10 md:px-6">
+        <div className="relative w-full overflow-hidden rounded-2xl bg-slate-100 aspect-[16/9]">
+          <img
+            src={featuredImage}
+            alt={post.featured_image_alt || post.title || ""}
+            className="h-full w-full object-cover"
+          />
+          {post.category_name && (
+            <span className="absolute top-3 left-3 z-10 rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-slate-700 shadow-sm backdrop-blur-sm">
+              {post.category_name}
+            </span>
           )}
         </div>
       </section>
 
-      {/* ── B. IMAGEN DESTACADA ── */}
-      <section className="mx-auto max-w-6xl px-4 pb-14 md:px-6">
-        <div className="overflow-hidden rounded-[30px] bg-white shadow-[0_18px_50px_rgba(0,0,0,0.06)]">
-          <img
-            src={featuredImage}
-            alt={post.featured_image_alt || post.title}
-            className="max-h-[680px] w-full object-cover"
-          />
-        </div>
-      </section>
+      {/* ── C. TWO-COLUMN LAYOUT ── */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-10">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-10 items-start">
 
-      {/* ── C. AUTOR LATERAL + CONTENIDO ── */}
-      <section className="mx-auto max-w-6xl px-4 pb-16 md:px-6 md:pb-20">
-        <div className="grid gap-10 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-16">
+          {/* LEFT — Article content */}
+          <div className="min-w-0">
 
-          {/* Autor sticky */}
-          <div className="lg:sticky lg:top-28 lg:self-start">
-            <AuthorSidebarCard author={post.author} authorName={post.author_name} />
-            <div className="mt-6">
-              <Link
-                to="/blog"
-                className="inline-flex text-sm font-medium text-neutral-600 transition hover:text-black"
-              >
-                ← Volver al blog
-              </Link>
+            {/* C1. Article header */}
+            <div className="mb-6">
+              <h1 className="text-3xl font-bold text-slate-900 leading-tight mb-3">{post.title}</h1>
+              <div className="flex flex-wrap items-center gap-3 text-sm text-slate-400">
+                {post.published_at && (
+                  <span>{new Date(post.published_at).toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" })}</span>
+                )}
+                {post.author_name && (
+                  <><span>·</span><span>{post.author_name}</span></>
+                )}
+                {post.reading_time_minutes > 0 && (
+                  <><span>·</span><span>{post.reading_time_minutes} min de lectura</span></>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Contenido editorial */}
-          <article>
-            <div className="mx-auto max-w-3xl">
-              <ArticleContent post={post} />
-            </div>
-          </article>
-        </div>
-      </section>
+            {/* C2. Article body */}
+            <ArticleContent post={post} />
 
-      {/* ── D. AUTOR FINAL ── */}
-      <section className="mx-auto max-w-6xl px-4 pb-14 md:px-6">
-        <AuthorFooterCard author={post.author} authorName={post.author_name} />
-      </section>
+            {/* C3. Tags */}
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-8 pt-6 border-t border-slate-100">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1 self-center">Tags</span>
+                {tags.map((tag) => (
+                  <a key={tag.slug} href={`/blog?tag=${tag.slug}`}
+                    className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200 transition-colors">
+                    {tag.name}
+                  </a>
+                ))}
+              </div>
+            )}
 
-      {/* ── E. ARTÍCULOS RELACIONADOS ── */}
-      {related.length > 0 && (
-        <section className="mx-auto max-w-6xl px-4 pb-14 pt-4 md:px-6 md:pb-20">
-          <div className="border-t border-[#e7dfd5] pt-14">
-            <div className="text-center">
-              <p className="text-[11px] uppercase tracking-[0.22em] text-neutral-500">Sigue leyendo</p>
-              <h2 className="mt-3 text-4xl font-semibold tracking-[-0.02em] text-neutral-950">
-                Artículos relacionados
-              </h2>
-            </div>
-            <div className="mt-10 grid gap-8 md:grid-cols-2 xl:grid-cols-3">
-              {related.map((item) => (
-                <RelatedCard key={item.id || item.slug} post={item} />
+            {/* C4. Social share */}
+            <div className="flex items-center gap-3 mt-6">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Compartir</span>
+              {[
+                { label: "Facebook", href: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : "")}`, bg: "bg-[#1877f2]" },
+                { label: "Twitter", href: `https://twitter.com/intent/tweet?url=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : "")}&text=${encodeURIComponent(post.title || "")}`, bg: "bg-[#1da1f2]" },
+              ].map((s) => (
+                <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer"
+                  className={`${s.bg} text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:opacity-90 transition-opacity`}>
+                  {s.label}
+                </a>
               ))}
             </div>
+
+            {/* C5. Author card */}
+            {post.author_name && (
+              <div className="mt-10 flex gap-5 items-start p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="h-16 w-16 shrink-0 rounded-full overflow-hidden bg-[#f2cc3d]">
+                  {post.author_avatar
+                    ? <img src={post.author_avatar} alt={post.author_name} className="h-full w-full object-cover" />
+                    : <div className="h-full w-full flex items-center justify-center text-xl font-bold text-black">{post.author_name?.[0]}</div>
+                  }
+                </div>
+                <div>
+                  <p className="font-bold text-slate-900 mb-1">{post.author_name}</p>
+                  {post.author_short_description && (
+                    <p className="text-sm text-slate-500 leading-relaxed">{post.author_short_description}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* C6. Prev/Next navigation */}
+            <div className="mt-8 grid grid-cols-2 gap-4 border-t border-slate-100 pt-6">
+              {prevPost && (
+                <a href={`/blog/${prevPost.slug}`} className="group">
+                  <p className="text-xs text-slate-400 mb-1">Artículo anterior</p>
+                  <p className="text-sm font-semibold text-slate-700 group-hover:text-black transition-colors line-clamp-2">{prevPost.title}</p>
+                </a>
+              )}
+              {nextPost && (
+                <a href={`/blog/${nextPost.slug}`} className="group text-right ml-auto col-start-2">
+                  <p className="text-xs text-slate-400 mb-1">Siguiente artículo</p>
+                  <p className="text-sm font-semibold text-slate-700 group-hover:text-black transition-colors line-clamp-2">{nextPost.title}</p>
+                </a>
+              )}
+            </div>
+
           </div>
-        </section>
+
+          {/* RIGHT — Sticky sidebar */}
+          <aside className="hidden lg:block space-y-6 sticky top-8">
+
+            {/* Sidebar: Author widget */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm text-center">
+              <p className="text-xs font-bold tracking-widest text-slate-400 uppercase mb-4">Acerca del autor</p>
+              <div className="h-16 w-16 rounded-full overflow-hidden bg-[#f2cc3d] mx-auto mb-3">
+                {post.author_avatar
+                  ? <img src={post.author_avatar} alt={post.author_name} className="h-full w-full object-cover" />
+                  : <div className="h-full w-full flex items-center justify-center text-xl font-bold text-black">{post.author_name?.[0]}</div>
+                }
+              </div>
+              <p className="font-bold text-slate-900 mb-2">{post.author_name || (post.author?.name) || "Ideas Estudio"}</p>
+              {(post.author_short_description || post.author?.short_description) && (
+                <p className="text-xs text-slate-500 leading-relaxed">{post.author_short_description || post.author?.short_description}</p>
+              )}
+            </div>
+
+            {/* Sidebar: Categories */}
+            {sidebarCategories.length > 0 && (
+              <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+                <p className="text-xs font-bold tracking-widest text-slate-400 uppercase mb-4">Categorías</p>
+                <div className="space-y-2">
+                  {sidebarCategories.map((cat) => (
+                    <a key={cat.id} href={`/blog?category=${cat.slug}`}
+                      className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0 group">
+                      <span className="text-sm text-slate-700 group-hover:text-black transition-colors">{cat.name}</span>
+                      <span className="text-xs text-slate-400">({cat.post_count || 0})</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Sidebar: Recent posts */}
+            {sidebarPosts.length > 0 && (
+              <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+                <p className="text-xs font-bold tracking-widest text-slate-400 uppercase mb-4">Artículos recientes</p>
+                <div className="space-y-4">
+                  {sidebarPosts.map((p) => (
+                    <a key={p.slug} href={`/blog/${p.slug}`} className="flex gap-3 group">
+                      <div className="h-16 w-16 shrink-0 rounded-lg overflow-hidden bg-slate-100">
+                        {p.featured_image_url
+                          ? <img src={p.featured_image_url} alt={p.title} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                          : <div className="h-full w-full bg-[#f2cc3d]/30" />
+                        }
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 leading-snug line-clamp-2 group-hover:text-black transition-colors">{p.title}</p>
+                        {p.author_name && <p className="text-xs text-slate-400 mt-1">{p.author_name}</p>}
+                        {p.published_at && (
+                          <p className="text-xs text-slate-400">{new Date(p.published_at).toLocaleDateString("es", { month: "short", day: "numeric", year: "numeric" })}</p>
+                        )}
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Sidebar: Tags cloud */}
+            {tags.length > 0 && (
+              <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+                <p className="text-xs font-bold tracking-widest text-slate-400 uppercase mb-4">Tags</p>
+                <div className="flex flex-wrap gap-2">
+                  {tags.map((tag) => (
+                    <a key={tag.slug} href={`/blog?tag=${tag.slug}`}
+                      className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-[#f2cc3d] hover:text-black transition-colors">
+                      {tag.name}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          </aside>
+
+        </div>
+      </div>
+
+      {/* ── D. RELATED ARTICLES — full width ── */}
+      {related?.length > 0 && (
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-16">
+          <h2 className="text-xl font-bold text-slate-900 mb-6">También te puede interesar</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {related.map((p) => (
+              <a key={p.slug} href={`/blog/${p.slug}`} className="group block bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                <div className="aspect-[16/9] overflow-hidden bg-slate-100">
+                  {p.featured_image_url
+                    ? <img src={p.featured_image_url} alt={p.title} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    : <div className="h-full w-full bg-[#f2cc3d]/20" />
+                  }
+                </div>
+                {p.category_name && (
+                  <div className="px-4 pt-4">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{p.category_name}</span>
+                  </div>
+                )}
+                <div className="p-4 pt-2">
+                  <p className="font-bold text-slate-900 leading-snug line-clamp-2 group-hover:text-black mb-1">{p.title}</p>
+                  {p.author_name && (
+                    <p className="text-xs text-slate-400">{p.author_name} · {p.published_at ? new Date(p.published_at).toLocaleDateString("es", { month: "short", day: "numeric", year: "numeric" }) : ""}</p>
+                  )}
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
       )}
+
+      {/* ── E. COMMENTS — full width, narrowed ── */}
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 mt-16 mb-16">
+        <BlogComments slug={slug} />
+      </div>
 
       {/* ── F. CTA FINAL ── */}
       <section className="mx-auto max-w-6xl px-4 pb-20 md:px-6 md:pb-24">
