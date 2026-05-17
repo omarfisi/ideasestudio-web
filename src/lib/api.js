@@ -440,6 +440,12 @@ function normalizeCartItem(raw) {
     id: raw.id,
     cartId: raw.cart_id || null,
     productId: raw.product_id || raw.productId || null,
+    productSlug:
+      raw.product_slug ||
+      raw.productSlug ||
+      raw.product?.slug ||
+      raw.slug ||
+      null,
     quantity: Number(raw.quantity ?? 0),
     unitPrice: Number(
       raw.unit_price ?? raw.unitPrice ?? raw.price_snapshot ?? 0
@@ -777,6 +783,40 @@ export async function getPublicProductBySlug(slug) {
   return normalizeProduct(data?.item);
 }
 
+const SLUG_CACHE_PREFIX = "cart_product_slug_";
+
+export function cacheProductSlug(productId, slug) {
+  if (productId && slug) {
+    try {
+      localStorage.setItem(`${SLUG_CACHE_PREFIX}${productId}`, slug);
+    } catch {
+      // localStorage not available
+    }
+  }
+}
+
+export async function resolveProductSlugById(productId) {
+  if (!productId) return null;
+  try {
+    const cached = localStorage.getItem(`${SLUG_CACHE_PREFIX}${productId}`);
+    if (cached) return cached;
+  } catch {
+    // localStorage not available
+  }
+  try {
+    const data = await getStoreProducts({ limit: 200 });
+    const items = Array.isArray(data?.items) ? data.items : [];
+    const match = items.find((p) => p.id === productId);
+    if (match?.slug) {
+      cacheProductSlug(productId, match.slug);
+      return match.slug;
+    }
+  } catch {
+    // fallback failed
+  }
+  return null;
+}
+
 export async function createOrUpdatePublicCart(payload) {
   const seedToken =
     payload.sessionToken || getStoredCartSessionToken() || null;
@@ -899,6 +939,8 @@ export async function addProductToPublicCart({
   if (!resolvedProductId) {
     throw new Error("No se pudo resolver el servicio para el resumen.");
   }
+
+  if (productSlug) cacheProductSlug(resolvedProductId, productSlug);
 
   return createOrUpdatePublicCart({
     sessionToken: getStoredCartSessionToken() || null,

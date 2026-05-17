@@ -11,12 +11,9 @@ import {
 } from "lucide-react";
 import { Link, useLoaderData, useNavigate } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
-import ServiceBookingWidget from "@/components/services/ServiceBookingWidget.jsx";
+
 import { addProductToPublicCart, getPublicProducts } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
-import SEOHead from "@/components/seo/SEOHead.jsx";
-import { buildServiceSchema, buildBreadcrumbSchema } from "@/components/seo/schema.js";
-import { usePageSeo } from "@/hooks/usePageSeo.js";
 
 const MAX_ADDITIONAL_GALLERY_IMAGES = 3;
 
@@ -144,7 +141,6 @@ function getPriceLabel(product) {
 }
 
 export default function ProductDetailPage() {
-  const pageSeo = usePageSeo();
   const { product } = useLoaderData();
   const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
@@ -385,21 +381,6 @@ export default function ProductDetailPage() {
 
   return (
     <section className="section service-detail-page">
-      <SEOHead
-        title={`${product.name} | Ideas Estudio`}
-        description={product.shortDescription || product.longDescription || undefined}
-        ogImage={product.coverImage || undefined}
-        canonical={`https://ideasestudio.com/servicios/${product.slug}`}
-        jsonLd={[
-          buildServiceSchema(product),
-          buildBreadcrumbSchema([
-            { name: "Inicio", url: "https://ideasestudio.com" },
-            { name: "Servicios", url: "https://ideasestudio.com/servicios" },
-            { name: product.name, url: `https://ideasestudio.com/servicios/${product.slug}` },
-          ]),
-        ].filter(Boolean)}
-        seoEntry={pageSeo}
-      />
       <div className="container service-detail-page__container">
         <nav className="service-detail-breadcrumb" aria-label="Breadcrumb">
           <Link to="/">Inicio</Link>
@@ -615,8 +596,6 @@ export default function ProductDetailPage() {
             </div>
           </article>
         </div>
-
-        <ServiceBookingWidget slug={product.slug} />
 
         {relatedState.items.length ? (
           <section className="service-detail-related">
