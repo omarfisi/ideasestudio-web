@@ -93,7 +93,7 @@ export default function SegmentHeroSection() {
         <p className="mt-4 text-base leading-7 text-slate-500 md:text-lg">
           Elige el camino que mejor describe lo que necesitas y descubre cómo podemos ayudarte a construir una presencia visual que comunique, conecte y convierta.
         </p>
-        <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
+        <div className="hidden lg:block overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
           <div className="grid gap-0 lg:grid-cols-[1fr_1.05fr]">
             <div className="p-8 md:p-10 lg:p-12 xl:pr-10">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
@@ -114,7 +114,7 @@ export default function SegmentHeroSection() {
                 </p>
                 <Link
                   to={activeSegment.href}
-                  className="mt-4 inline-flex items-center gap-2 rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+                  className="mt-4 hidden lg:inline-flex items-center gap-2 rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
                 >
                   {activeSegment.ctaLabel} <span aria-hidden="true">→</span>
                 </Link>
@@ -133,7 +133,7 @@ export default function SegmentHeroSection() {
           </div>
         </div>
 
-        <div className="hidden lg:grid lg:gap-4 lg:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {SEGMENT_ITEMS.map((item) => {
             const isActive = item.id === activeId;
             return (
