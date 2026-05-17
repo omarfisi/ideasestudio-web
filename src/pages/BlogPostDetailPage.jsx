@@ -1,9 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import DOMPurify from "dompurify";
 import { getBlogPostBySlug, getBlogRelated } from "@/lib/api.js";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { buildArticleSchema, buildBreadcrumbSchema } from "@/components/seo/schema.js";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
+
+function sanitizeBlogHtml(html = "") {
+  return DOMPurify.sanitize(html, {
+    USE_PROFILES: { html: true },
+    ADD_TAGS: ["iframe"],
+    ADD_ATTR: ["allow", "allowfullscreen", "frameborder", "scrolling", "target", "rel", "loading"],
+    FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover"],
+  });
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -194,7 +204,7 @@ function ContentBlock({ block }) {
       return (
         <div
           className="mt-6 text-[16px] leading-8 text-neutral-700"
-          dangerouslySetInnerHTML={{ __html: html }}
+          dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(html) }}
         />
       );
     }
@@ -466,7 +476,7 @@ function ArticleContent({ post }) {
     return (
       <div
         className="prose prose-lg max-w-none prose-headings:text-neutral-950 prose-p:text-neutral-700 prose-p:leading-9 prose-li:text-neutral-700 prose-blockquote:border-l-[#f0d24a] prose-blockquote:text-neutral-700 prose-img:rounded-[24px]"
-        dangerouslySetInnerHTML={{ __html: post.content_html }}
+        dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(post.content_html) }}
       />
     );
   }
