@@ -230,7 +230,14 @@ function ContentBlock({ block }) {
       );
 
     case "gallery":
-      return <GallerySlideshow images={block.images || []} />;
+      return (
+        <GallerySlideshow
+          images={block.images || []}
+          title={block.title}
+          description={block.description}
+          variant={block.variant || "slideshow"}
+        />
+      );
 
     case "cta":
       return (
@@ -259,13 +266,43 @@ function ContentBlock({ block }) {
 
 // ─── GallerySlideshow — main image + nav arrows + dot indicators + thumbnails ──
 
-function GallerySlideshow({ images }) {
+function GallerySlideshow({ images, title, description, variant = "slideshow" }) {
   const [current, setCurrent] = useState(0);
   if (!images?.length) return null;
   const prev = () => setCurrent((i) => (i - 1 + images.length) % images.length);
   const next = () => setCurrent((i) => (i + 1) % images.length);
+
+  // Grid variant
+  if (variant === "grid") {
+    return (
+      <div className="my-8">
+        {(title || description) && (
+          <div className="mb-4">
+            {title && <h3 className="text-lg font-semibold text-slate-800">{title}</h3>}
+            {description && <p className="text-sm text-slate-500 mt-1">{description}</p>}
+          </div>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {images.map((img, i) => (
+            <div key={i} className="rounded-2xl overflow-hidden bg-slate-100">
+              <img src={img.url} alt={img.alt || ""} className="w-full aspect-[4/3] object-cover" />
+              {img.caption && <p className="px-3 py-2 text-xs text-slate-500 italic">{img.caption}</p>}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Slideshow / carousel variant
   return (
     <div className="my-8 rounded-2xl overflow-hidden shadow-md bg-slate-50">
+      {(title || description) && (
+        <div className="px-5 pt-5 pb-3">
+          {title && <h3 className="text-base font-semibold text-slate-800">{title}</h3>}
+          {description && <p className="text-sm text-slate-500 mt-0.5">{description}</p>}
+        </div>
+      )}
       {/* Main image */}
       <div className="relative aspect-[16/10] overflow-hidden bg-slate-100">
         <img
@@ -292,6 +329,10 @@ function GallerySlideshow({ images }) {
           </>
         )}
       </div>
+      {/* Caption for current image */}
+      {images[current]?.caption && (
+        <p className="px-5 py-2 text-xs text-slate-500 italic text-center">{images[current].caption}</p>
+      )}
       {/* Thumbnails */}
       {images.length > 1 && (
         <div className="flex gap-2 p-3 overflow-x-auto">
