@@ -230,7 +230,7 @@ function ContentBlock({ block }) {
       );
 
     case "gallery":
-      return <GalleryBlock images={block.images} />;
+      return <GallerySlideshow images={block.images || []} />;
 
     case "cta":
       return (
@@ -257,124 +257,53 @@ function ContentBlock({ block }) {
   }
 }
 
-// ─── GalleryBlock — grid con lightbox modal ───────────────────────────────────
+// ─── GallerySlideshow — main image + nav arrows + dot indicators + thumbnails ──
 
-function GalleryBlock({ images = [] }) {
-  const validImages = Array.isArray(images) ? images.filter((img) => img?.url) : [];
-  const [activeIndex, setActiveIndex] = useState(null);
-
-  const hasModal = activeIndex !== null && validImages[activeIndex];
-  const activeImage = hasModal ? validImages[activeIndex] : null;
-
-  function closeModal() { setActiveIndex(null); }
-
-  function showPrev(e) {
-    e?.stopPropagation?.();
-    setActiveIndex((prev) =>
-      prev === null ? 0 : prev === 0 ? validImages.length - 1 : prev - 1
-    );
-  }
-
-  function showNext(e) {
-    e?.stopPropagation?.();
-    setActiveIndex((prev) =>
-      prev === null ? 0 : prev === validImages.length - 1 ? 0 : prev + 1
-    );
-  }
-
-  useEffect(() => {
-    if (!hasModal) return;
-    function onKeyDown(e) {
-      if (e.key === "Escape") closeModal();
-      if (e.key === "ArrowLeft" && validImages.length > 1) showPrev(e);
-      if (e.key === "ArrowRight" && validImages.length > 1) showNext(e);
-    }
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [hasModal, validImages.length]);
-
-  if (!validImages.length) return null;
-
+function GallerySlideshow({ images }) {
+  const [current, setCurrent] = useState(0);
+  if (!images?.length) return null;
+  const prev = () => setCurrent((i) => (i - 1 + images.length) % images.length);
+  const next = () => setCurrent((i) => (i + 1) % images.length);
   return (
-    <>
-      <section className="my-10">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          {validImages.map((img, i) => (
-            <button
-              key={`${img.url}-${i}`}
-              type="button"
-              onClick={() => setActiveIndex(i)}
-              className="group relative overflow-hidden rounded-[24px] bg-white text-left"
-              aria-label={`Abrir imagen ${i + 1} de la galería`}
-            >
-              <img
-                src={img.url}
-                alt={img.alt || `Galería ${i + 1}`}
-                className="h-[180px] w-full object-cover transition duration-300 group-hover:scale-[1.03] md:h-[220px]"
-              />
-              <div className="pointer-events-none absolute inset-0 bg-black/0 transition duration-300 group-hover:bg-black/10" />
+    <div className="my-8 rounded-2xl overflow-hidden shadow-md bg-slate-50">
+      {/* Main image */}
+      <div className="relative aspect-[16/10] overflow-hidden bg-slate-100">
+        <img
+          src={images[current].url}
+          alt={images[current].alt || ""}
+          className="w-full h-full object-cover transition-opacity duration-300"
+        />
+        {images.length > 1 && (
+          <>
+            <button onClick={prev}
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-white/80 backdrop-blur flex items-center justify-center shadow hover:bg-white transition-colors text-slate-700 font-bold">
+              ‹
+            </button>
+            <button onClick={next}
+              className="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-white/80 backdrop-blur flex items-center justify-center shadow hover:bg-white transition-colors text-slate-700 font-bold">
+              ›
+            </button>
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+              {images.map((_, i) => (
+                <button key={i} onClick={() => setCurrent(i)}
+                  className={`h-1.5 rounded-full transition-all ${i === current ? "w-5 bg-white" : "w-1.5 bg-white/50"}`} />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+      {/* Thumbnails */}
+      {images.length > 1 && (
+        <div className="flex gap-2 p-3 overflow-x-auto">
+          {images.map((img, i) => (
+            <button key={i} onClick={() => setCurrent(i)}
+              className={`shrink-0 rounded-lg overflow-hidden border-2 transition-all ${i === current ? "border-blue-500" : "border-transparent opacity-60 hover:opacity-100"}`}>
+              <img src={img.url} alt={img.alt || ""} className="h-14 w-20 object-cover" />
             </button>
           ))}
         </div>
-      </section>
-
-      {hasModal && (
-        <div
-          className="fixed inset-0 z-[120] bg-black/80 px-4 py-6 md:px-8"
-          onClick={closeModal}
-        >
-          <div
-            className="relative mx-auto flex h-full w-full max-w-6xl items-center justify-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              onClick={closeModal}
-              className="absolute right-0 top-0 z-10 rounded-full bg-white/90 px-3 py-2 text-xs font-semibold text-black shadow hover:bg-white"
-            >
-              Cerrar
-            </button>
-
-            {validImages.length > 1 && (
-              <>
-                <button
-                  type="button"
-                  onClick={showPrev}
-                  className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-black shadow hover:bg-white"
-                  aria-label="Imagen anterior"
-                >
-                  ‹
-                </button>
-                <button
-                  type="button"
-                  onClick={showNext}
-                  className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-black shadow hover:bg-white"
-                  aria-label="Siguiente imagen"
-                >
-                  ›
-                </button>
-              </>
-            )}
-
-            <div className="w-full text-center">
-              <img
-                src={activeImage.url}
-                alt={activeImage.alt || "Imagen ampliada"}
-                className="mx-auto max-h-[82vh] max-w-full rounded-[28px] object-contain shadow-2xl"
-              />
-              {activeImage.alt && (
-                <p className="mt-4 text-sm text-white/85">{activeImage.alt}</p>
-              )}
-            </div>
-          </div>
-        </div>
       )}
-    </>
+    </div>
   );
 }
 
