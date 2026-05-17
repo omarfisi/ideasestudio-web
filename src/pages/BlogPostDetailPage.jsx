@@ -285,7 +285,9 @@ function GallerySlideshow({ images, title, description, variant = "slideshow" })
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {images.map((img, i) => (
             <div key={i} className="rounded-2xl overflow-hidden bg-slate-100">
-              <img src={img.url} alt={img.alt || ""} className="w-full aspect-[4/3] object-cover" />
+              <div className="aspect-square overflow-hidden">
+                <img src={img.url} alt={img.alt || ""} className="h-full w-full object-cover" />
+              </div>
               {img.caption && <p className="px-3 py-2 text-xs text-slate-500 italic">{img.caption}</p>}
             </div>
           ))}
@@ -339,7 +341,7 @@ function GallerySlideshow({ images, title, description, variant = "slideshow" })
           {images.map((img, i) => (
             <button key={i} onClick={() => setCurrent(i)}
               className={`shrink-0 rounded-lg overflow-hidden border-2 transition-all ${i === current ? "border-blue-500" : "border-transparent opacity-60 hover:opacity-100"}`}>
-              <img src={img.url} alt={img.alt || ""} className="h-14 w-20 object-cover" />
+              <img src={img.url} alt={img.alt || ""} className="h-16 w-16 object-cover" />
             </button>
           ))}
         </div>
@@ -515,11 +517,11 @@ function RelatedCard({ post }) {
   return (
     <article className="group">
       <Link to={`/blog/${post.slug}`} className="block">
-        <div className="overflow-hidden rounded-[24px] bg-white">
+        <div className="aspect-square overflow-hidden rounded-[24px] bg-slate-100">
           <img
             src={image}
             alt={post?.featured_image_alt || post?.title || "Artículo"}
-            className="h-[220px] w-full object-cover transition duration-500 group-hover:scale-105"
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
           />
         </div>
         <div className="pt-4">
@@ -691,11 +693,11 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
 
       {/* ── B. IMAGEN DESTACADA ── */}
       <section className="mx-auto max-w-6xl px-4 pb-14 md:px-6">
-        <div className="overflow-hidden rounded-[30px] bg-white shadow-[0_18px_50px_rgba(0,0,0,0.06)]">
+        <div className="aspect-square w-full max-w-[680px] mx-auto overflow-hidden rounded-2xl bg-slate-100">
           <img
             src={featuredImage}
-            alt={post.featured_image_alt || post.title}
-            className="max-h-[680px] w-full object-cover"
+            alt={post.featured_image_alt || post.title || ""}
+            className="h-full w-full object-cover"
           />
         </div>
       </section>
