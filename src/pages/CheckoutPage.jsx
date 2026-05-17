@@ -4,6 +4,7 @@ import { CardCvcElement, CardExpiryElement, CardNumberElement, Elements, useElem
 import { loadStripe } from "@stripe/stripe-js";
 import Button from "@/components/shared/Button.jsx";
 import DynamicField from "@/components/forms/DynamicField.jsx";
+import ServiceBookingCheckoutPanel from "@/components/checkout/ServiceBookingCheckoutPanel.jsx";
 import { getFormByPlacement, submitForm } from "@/lib/publicFormsApi.js";
 import {
   clearStoredCartSessionToken,
@@ -190,18 +191,17 @@ function CheckoutHero({ activeStep = 2 }) {
       <h1>Finaliza tu pedido</h1>
       <div className="checkout-steps">
         {steps.map((step, idx) => (
-          <>
+          <span key={step.n} style={{ display: "contents" }}>
             <span
-              key={step.n}
               className={`checkout-step${step.n === activeStep ? " is-active" : ""}`}
             >
               <span className="checkout-step-number">{step.n}</span>
               {step.label}
             </span>
             {idx < steps.length - 1 && (
-              <span key={`sep-${step.n}`} style={{ color: "#d4d4d8", fontWeight: 400 }}>→</span>
+              <span style={{ color: "#d4d4d8", fontWeight: 400 }}>→</span>
             )}
-          </>
+          </span>
         ))}
       </div>
       {activeStep < 3 && (
@@ -496,6 +496,7 @@ function StoreCheckout({
   initialCouponCode = "",
 }) {
   const canCreateOrder = !createdOrder?.id;
+  const [bookingSelections, setBookingSelections] = useState({});
   const [couponCode, setCouponCode] = useState(initialCouponCode);
   const [couponState, setCouponState] = useState({ status: "idle", message: "" });
   const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -516,6 +517,14 @@ function StoreCheckout({
 
   const fallbackCanSubmit =
     String(checkoutForm.name || "").trim() && String(checkoutForm.email || "").trim();
+
+  function handleBookingSelectionChange(slug, selection) {
+    setBookingSelections((prev) => ({ ...prev, [slug]: selection }));
+  }
+
+  // A service requires calendar if its panel returned a non-null selection at least once,
+  // meaning the panel is visible. Block submit only if it's visible but incomplete (null).
+  const bookingBlocked = Object.values(bookingSelections).some((v) => v === null);
 
   useEffect(() => {
     if (!initialCouponCode || !cart?.summary?.subtotal || appliedCoupon) return;
@@ -664,6 +673,10 @@ function StoreCheckout({
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (bookingBlocked) {
+      setSubmitState({ status: "error", message: "Selecciona fecha y horario para todos los servicios antes de continuar." });
+      return;
+    }
     try {
       setCrmFormErrors({});
       setSubmitState({
@@ -721,6 +734,7 @@ function StoreCheckout({
         notes: checkoutPayload.notes,
       }));
 
+      const bookingSelectionsArr = Object.values(bookingSelections).filter(Boolean);
       return {
         sessionToken: cart.sessionToken,
         name: checkoutPayload.name,
@@ -732,11 +746,18 @@ function StoreCheckout({
         documentType: "invoice",
         source,
         couponCode: appliedCoupon?.code || null,
+        // booking_selection: forwarded to backend when it supports it
+        booking_selection: bookingSelectionsArr.length === 1
+          ? bookingSelectionsArr[0]
+          : bookingSelectionsArr.length > 1
+          ? bookingSelectionsArr
+          : null,
       };
     }
 
     if (!fallbackCanSubmit) throw new Error("Completa nombre y email para continuar.");
 
+    const bookingSelectionsArr = Object.values(bookingSelections).filter(Boolean);
     return {
       sessionToken: cart.sessionToken,
       name: checkoutForm.name,
@@ -747,6 +768,11 @@ function StoreCheckout({
       documentType: "invoice",
       source: "website_store_checkout",
       couponCode: appliedCoupon?.code || null,
+      booking_selection: bookingSelectionsArr.length === 1
+        ? bookingSelectionsArr[0]
+        : bookingSelectionsArr.length > 1
+        ? bookingSelectionsArr
+        : null,
     };
   }
 
@@ -832,6 +858,11 @@ function StoreCheckout({
             <h2>Datos de contratación</h2>
             <p>Completa la información necesaria para preparar tu documento y procesar el pago.</p>
 
+            {/* Booking panel — before customer fields so user picks date/extras first */}
+            <ServiceBookingCheckoutPanel
+              cart={cart}
+              onSelectionChange={handleBookingSelectionChange}
+            />
 
             {/* Order form */}
             <form id="checkout-order-form" onSubmit={handleSubmit}>
@@ -1116,6 +1147,20 @@ export default function CheckoutPage() {
           setCart(result);
           setCheckoutForm((current) => ({ ...current, email: current.email || result?.email || "" }));
           setCartState({ status: "idle", message: "" });
+          if (import.meta.env.DEV) {
+            // eslint-disable-next-line no-console
+            console.log("[checkout] cart items raw:\n" + JSON.stringify(
+              (result?.items || []).map((it) => ({
+                id: it.id,
+                productId: it.productId,
+                productSlug: it.productSlug,
+                "product.slug": it.product?.slug ?? "(null)",
+                snapshotName: it.snapshotName,
+                metadata: it.metadata,
+              })),
+              null, 2
+            ));
+          }
         }
       } catch (error) {
         if (!cancelled) {
