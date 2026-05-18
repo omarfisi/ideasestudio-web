@@ -724,6 +724,88 @@ function RelatedCard({ post }) {
   );
 }
 
+// ─── RelatedPostsSection ─────────────────────────────────────────────────────
+
+function RelatedPostsSection({ posts = [] }) {
+  const visiblePosts = Array.isArray(posts)
+    ? posts.filter((post) => post?.slug).slice(0, 3)
+    : [];
+
+  if (!visiblePosts.length) return null;
+
+  return (
+    <section className="mx-auto mt-20 max-w-6xl border-t border-slate-100 px-4 pt-12 sm:px-6 lg:px-8">
+      <div className="mb-8">
+        <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-950">
+          Sigue leyendo
+        </p>
+        <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
+          Artículos relacionados
+        </h2>
+      </div>
+
+      <div className="grid gap-7 sm:grid-cols-2 md:grid-cols-3">
+        {visiblePosts.map((post) => {
+          const image =
+            post.featured_image_url ||
+            post.cover_url ||
+            post.image_url ||
+            post.og_image_url ||
+            "";
+          const title = post.title || "Artículo";
+          const href = `/blog/${post.slug}`;
+          const date = post.published_at || post.created_at || "";
+          const formattedDate = date
+            ? new Date(date).toLocaleDateString("es-PR", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })
+            : "";
+          const category = post.category_name || post.category?.name || "Blog";
+
+          return (
+            <article
+              key={post.slug}
+              className="group overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(15,23,42,0.1)]"
+            >
+              <a href={href} className="block">
+                <div className="aspect-[16/10] overflow-hidden bg-slate-100">
+                  {image ? (
+                    <img
+                      src={image}
+                      alt={title}
+                      loading="lazy"
+                      className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-slate-100 text-sm font-semibold text-slate-400">
+                      Ideas Estudio
+                    </div>
+                  )}
+                </div>
+                <div className="p-6">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-950">
+                    {category}
+                  </p>
+                  <h3 className="mt-3 line-clamp-2 text-xl font-black leading-tight tracking-tight text-slate-950">
+                    {title}
+                  </h3>
+                  <div className="mt-4 flex flex-wrap items-center gap-2 text-sm font-medium text-slate-400">
+                    {post.author_name && <span>{post.author_name}</span>}
+                    {post.author_name && formattedDate && <span>·</span>}
+                    {formattedDate && <span>{formattedDate}</span>}
+                  </div>
+                </div>
+              </a>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 // ─── BlogComments ─────────────────────────────────────────────────────────────
 
 function getCommentErrorMessage(err) {
@@ -1363,32 +1445,6 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
               </div>
             )}
 
-            {/* Sidebar: Recent posts */}
-            {sidebarPosts.length > 0 && (
-              <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
-                <p className="text-xs font-bold tracking-widest text-slate-400 uppercase mb-4">Artículos recientes</p>
-                <div className="space-y-4">
-                  {sidebarPosts.map((p) => (
-                    <a key={p.slug} href={`/blog/${p.slug}`} className="flex gap-3 group">
-                      <div className="h-16 w-16 shrink-0 rounded-lg overflow-hidden bg-slate-100">
-                        {p.featured_image_url
-                          ? <img src={p.featured_image_url} alt={p.title} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                          : <div className="h-full w-full bg-[#f2cc3d]/30" />
-                        }
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-800 leading-snug line-clamp-2 group-hover:text-black transition-colors">{p.title}</p>
-                        {p.author_name && <p className="text-xs text-slate-400 mt-1">{p.author_name}</p>}
-                        {p.published_at && (
-                          <p className="text-xs text-slate-400">{new Date(p.published_at).toLocaleDateString("es", { month: "short", day: "numeric", year: "numeric" })}</p>
-                        )}
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Sidebar: Tags cloud */}
             {tags.length > 0 && (
               <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
@@ -1410,34 +1466,11 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
       </div>
 
       {/* ── D. RELATED ARTICLES — full width ── */}
-      {related?.length > 0 && (
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-16">
-          <h2 className="text-xl font-bold text-slate-900 mb-6">También te puede interesar</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {related.map((p) => (
-              <a key={p.slug} href={`/blog/${p.slug}`} className="group block bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                <div className="aspect-[16/9] overflow-hidden bg-slate-100">
-                  {p.featured_image_url
-                    ? <img src={p.featured_image_url} alt={p.title} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    : <div className="h-full w-full bg-[#f2cc3d]/20" />
-                  }
-                </div>
-                {p.category_name && (
-                  <div className="px-4 pt-4">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{p.category_name}</span>
-                  </div>
-                )}
-                <div className="p-4 pt-2">
-                  <p className="font-bold text-slate-900 leading-snug line-clamp-2 group-hover:text-black mb-1">{p.title}</p>
-                  {p.author_name && (
-                    <p className="text-xs text-slate-400">{p.author_name} · {p.published_at ? new Date(p.published_at).toLocaleDateString("es", { month: "short", day: "numeric", year: "numeric" }) : ""}</p>
-                  )}
-                </div>
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
+      <RelatedPostsSection
+        posts={(related?.length ? related : sidebarPosts || []).filter(
+          (item) => item?.slug && item.slug !== slug
+        )}
+      />
 
       {/* ── E. COMMENTS — full width, outside grid ── */}
       <div className="mx-auto mt-16 w-full max-w-6xl px-4 sm:px-6 mb-16">
