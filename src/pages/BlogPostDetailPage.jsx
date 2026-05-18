@@ -1177,10 +1177,28 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
             {post.author_name && (
               <div className="mt-10 flex gap-5 items-start p-6 bg-slate-50 rounded-2xl border border-slate-100">
                 <AuthorAvatar author={post.author || {}} post={post} />
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="font-bold text-slate-900 mb-1">{post.author_name}</p>
                   {post.author_short_description && (
-                    <p className="text-sm text-slate-500 leading-relaxed">{post.author_short_description}</p>
+                    <p className="text-sm font-medium text-slate-600 leading-relaxed">{post.author_short_description}</p>
+                  )}
+                  {(post.author?.bio || post.author_bio) && (
+                    <p className="mt-1.5 text-sm text-slate-500 leading-relaxed">{post.author?.bio || post.author_bio}</p>
+                  )}
+                  {post.author && normalizeAuthorSocialLinks(post.author).length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {normalizeAuthorSocialLinks(post.author).map((item) => (
+                        <a
+                          key={item.key}
+                          href={item.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded-full border border-slate-200 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-[#f2cc3d] hover:bg-[#f2cc3d] hover:text-black transition"
+                        >
+                          {item.label}
+                        </a>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
@@ -1215,7 +1233,10 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
               </div>
               <p className="font-bold text-slate-900 mb-2">{post.author_name || post.author?.name || "Ideas Estudio"}</p>
               {(post.author_short_description || post.author?.short_description) && (
-                <p className="text-xs text-slate-500 leading-relaxed">{post.author_short_description || post.author?.short_description}</p>
+                <p className="text-xs font-medium text-slate-600 leading-relaxed">{post.author_short_description || post.author?.short_description}</p>
+              )}
+              {(post.author?.bio || post.author_bio) && (
+                <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">{post.author?.bio || post.author_bio}</p>
               )}
               {post.author && normalizeAuthorSocialLinks(post.author).length > 0 && (
                 <div className="mt-3 flex flex-wrap justify-center gap-1.5">
