@@ -69,9 +69,15 @@ async function apiFetch(url, options = {}) {
   const data = await response.json().catch(() => null);
 
   if (!response.ok || data?.ok === false) {
+    const detail = data?.detail;
+    const detailText = Array.isArray(detail)
+      ? detail.map((d) => d?.msg || d?.message || String(d)).filter(Boolean).join(" ")
+      : typeof detail === "string"
+      ? detail
+      : null;
     const message =
       data?.message ||
-      data?.detail ||
+      detailText ||
       data?.error ||
       `Request failed with status ${response.status}`;
 

@@ -567,6 +567,18 @@ function RelatedCard({ post }) {
 
 // ─── BlogComments ─────────────────────────────────────────────────────────────
 
+function getCommentErrorMessage(err) {
+  if (!err) return "No se pudo enviar el comentario. Inténtalo nuevamente.";
+  if (typeof err === "string") return err;
+  if (err.message && typeof err.message === "string" && err.message !== "[object Object]") return err.message;
+  if (Array.isArray(err.detail))
+    return err.detail.map((d) => d?.msg || d?.message || String(d)).filter(Boolean).join(" ") ||
+      "No se pudo enviar el comentario.";
+  if (typeof err.detail === "string") return err.detail;
+  if (err.error && typeof err.error === "string") return err.error;
+  return "No se pudo enviar el comentario. Revisa la información e inténtalo nuevamente.";
+}
+
 function BlogComments({ slug }) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -599,7 +611,7 @@ function BlogComments({ slug }) {
       setSubmitted(true);
       setForm({ name: "", email: "", website: "", content: "", honeypot: "" });
     } catch (err) {
-      setError(err?.message || "Ocurrió un error al enviar el comentario. Intenta de nuevo.");
+      setError(getCommentErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -758,7 +770,9 @@ function BlogComments({ slug }) {
 
           {/* Error */}
           {error && (
-            <p className="text-sm font-medium text-rose-500">{error}</p>
+            <p className="text-sm font-medium text-rose-500">
+              {typeof error === "string" ? error : getCommentErrorMessage(error)}
+            </p>
           )}
 
           {/* Submit button */}
