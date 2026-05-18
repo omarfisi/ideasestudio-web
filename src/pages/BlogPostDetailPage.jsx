@@ -262,6 +262,51 @@ function YoutubeEmbed({ url, title }) {
   );
 }
 
+// ─── BlogQuoteBlock ───────────────────────────────────────────────────────────
+
+function BlogQuoteBlock({ block }) {
+  const text = block?.text || "";
+  if (!text) return null;
+
+  const author  = block?.author  || "";
+  const source  = block?.source  || "";
+  const variant = block?.variant || "editorial";
+  const align   = block?.align   || "center";
+
+  const isMinimal = variant === "minimal";
+  const footer = [author, source].filter(Boolean).join(" · ");
+
+  if (isMinimal) {
+    return (
+      <aside className={`relative my-10 border-l-4 border-[#f2cc3d] py-2 pl-6 ${align === "center" ? "" : ""}`}>
+        <blockquote>
+          <p className="text-xl leading-[1.5] text-slate-700 sm:text-2xl">{text}</p>
+          {footer && (
+            <footer className="mt-3 text-xs font-bold uppercase tracking-[0.2em] text-slate-400">{footer}</footer>
+          )}
+        </blockquote>
+      </aside>
+    );
+  }
+
+  return (
+    <aside className="relative my-12 overflow-hidden rounded-[28px] border border-slate-100 bg-white px-6 py-10 shadow-sm sm:px-10 lg:px-14">
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-3 top-0 select-none font-serif text-[9rem] leading-none text-slate-100"
+      >
+        &ldquo;
+      </span>
+      <blockquote className={`relative mx-auto ${align === "center" ? "max-w-3xl text-center" : "max-w-4xl text-left"}`}>
+        <p className="text-2xl leading-[1.45] text-slate-800 sm:text-3xl lg:text-[2.1rem]">{text}</p>
+        {footer && (
+          <footer className="mt-6 text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">{footer}</footer>
+        )}
+      </blockquote>
+    </aside>
+  );
+}
+
 // ─── ContentBlock ─────────────────────────────────────────────────────────────
 
 function ContentBlock({ block }) {
@@ -297,11 +342,7 @@ function ContentBlock({ block }) {
     }
 
     case "quote":
-      return (
-        <blockquote className="my-10 border-l-4 border-[#f0d24a] pl-6 text-lg leading-9 text-neutral-700 md:pl-8">
-          {block.text}
-        </blockquote>
-      );
+      return <BlogQuoteBlock block={block} />;
 
     case "list":
       if (!Array.isArray(block.items) || !block.items.length) return null;
@@ -1162,24 +1203,11 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
           {/* LEFT — Article content */}
           <div className="min-w-0">
 
-            {/* C1. Editorial intro quote */}
-            {post.excerpt && (
-              <aside className="relative mb-10 overflow-hidden rounded-[28px] border border-slate-100 bg-white px-6 py-10 text-center shadow-sm sm:px-10">
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute -left-3 top-0 select-none font-serif text-[9rem] leading-none text-slate-100"
-                >
-                  &ldquo;
-                </span>
-                <blockquote className="relative mx-auto max-w-3xl">
-                  <p className="text-xl leading-[1.5] text-slate-700 sm:text-2xl lg:text-[1.75rem]">
-                    {post.excerpt}
-                  </p>
-                  <footer className="mt-5 text-xs font-bold uppercase tracking-[0.22em] text-slate-400">
-                    Ideas Estudio
-                  </footer>
-                </blockquote>
-              </aside>
+            {/* C1. Editorial intro quote — omit if article already has a quote block */}
+            {post.excerpt && !(Array.isArray(post.content_json) && post.content_json.some((b) => b?.type === "quote")) && (
+              <BlogQuoteBlock
+                block={{ text: post.excerpt, author: "Ideas Estudio", variant: "editorial", align: "center" }}
+              />
             )}
 
             {/* C2. Article body */}
