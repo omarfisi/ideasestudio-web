@@ -80,28 +80,80 @@ function MetaLine({ items = [] }) {
   );
 }
 
+// ─── Author helpers ───────────────────────────────────────────────────────────
+
+function getAuthorAvatar(author = {}, post = {}) {
+  return (
+    author.avatar_url ||
+    author.image_url ||
+    author.photo_url ||
+    post.author_avatar_url ||
+    post.author_image_url ||
+    post.author_avatar ||
+    ""
+  );
+}
+
+function normalizeAuthorSocialLinks(author = {}) {
+  const links = author.social_links || {};
+  return [
+    { key: "website",   label: "Web",       href: links.website },
+    { key: "instagram", label: "Instagram",  href: links.instagram },
+    { key: "facebook",  label: "Facebook",   href: links.facebook },
+    { key: "linkedin",  label: "LinkedIn",   href: links.linkedin },
+    { key: "youtube",   label: "YouTube",    href: links.youtube },
+    { key: "tiktok",    label: "TikTok",     href: links.tiktok },
+    { key: "x",         label: "X",          href: links.x },
+  ].filter((item) => item.href);
+}
+
+function AuthorAvatar({ author = {}, post = {}, size = "md" }) {
+  const avatar = getAuthorAvatar(author, post);
+  const name = author.name || post.author_name || "A";
+  const dim = size === "lg" ? "h-24 w-24" : size === "sm" ? "h-10 w-10" : "h-16 w-16";
+  const text = size === "lg" ? "text-2xl" : size === "sm" ? "text-sm" : "text-xl";
+  if (avatar) {
+    return (
+      <div className={`${dim} overflow-hidden rounded-full bg-[#f2cc3d] shrink-0`}>
+        <img src={avatar} alt={author.avatar_alt || name} className="h-full w-full object-cover" />
+      </div>
+    );
+  }
+  return (
+    <div className={`${dim} flex items-center justify-center rounded-full bg-[#f2cc3d] shrink-0 ${text} font-bold text-black`}>
+      {name?.[0]?.toUpperCase() || "A"}
+    </div>
+  );
+}
+
 // ─── AuthorSidebarCard ────────────────────────────────────────────────────────
 
 function AuthorSidebarCard({ author, authorName }) {
   const name = author?.name || authorName || "Ideas Estudio";
-  const avatar =
-    author?.avatar_url ||
-    "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/logos/favicon_ideasestudio.webp";
+  const socialLinks = normalizeAuthorSocialLinks(author || {});
 
   return (
     <aside className="rounded-[28px] border border-[#e8e1d8] bg-white p-6 shadow-[0_12px_40px_rgba(0,0,0,0.04)]">
       <div className="flex flex-col items-center text-center">
-        <div className="h-20 w-20 overflow-hidden rounded-full bg-[#f2cc3d]">
-          <img
-            src={avatar}
-            alt={author?.avatar_alt || name}
-            className="h-full w-full object-cover"
-            onError={(e) => { e.currentTarget.style.display = "none"; }}
-          />
-        </div>
+        <AuthorAvatar author={author || {}} />
         <h3 className="mt-4 text-xl font-semibold text-neutral-950">{name}</h3>
         {author?.short_description && (
           <p className="mt-2 text-sm leading-7 text-neutral-600">{author.short_description}</p>
+        )}
+        {socialLinks.length > 0 && (
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {socialLinks.map((item) => (
+              <a
+                key={item.key}
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-[#f2cc3d] hover:bg-[#f2cc3d] hover:text-black transition"
+              >
+                {item.label}
+              </a>
+            ))}
+          </div>
         )}
       </div>
     </aside>
@@ -112,21 +164,12 @@ function AuthorSidebarCard({ author, authorName }) {
 
 function AuthorFooterCard({ author, authorName }) {
   const name = author?.name || authorName || "Ideas Estudio";
-  const avatar =
-    author?.avatar_url ||
-    "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/logos/favicon_ideasestudio.webp";
+  const socialLinks = normalizeAuthorSocialLinks(author || {});
 
   return (
     <section className="rounded-[30px] border border-[#e8e1d8] bg-white p-6 md:p-8">
       <div className="grid gap-6 md:grid-cols-[96px_1fr] md:items-center">
-        <div className="h-24 w-24 overflow-hidden rounded-full bg-[#f2cc3d]">
-          <img
-            src={avatar}
-            alt={author?.avatar_alt || name}
-            className="h-full w-full object-cover"
-            onError={(e) => { e.currentTarget.style.display = "none"; }}
-          />
-        </div>
+        <AuthorAvatar author={author || {}} size="lg" />
         <div>
           <p className="text-[11px] uppercase tracking-[0.22em] text-neutral-500">Autor del artículo</p>
           <h3 className="mt-2 text-2xl font-semibold text-neutral-950">{name}</h3>
@@ -135,6 +178,21 @@ function AuthorFooterCard({ author, authorName }) {
           )}
           {author?.bio && (
             <p className="mt-4 max-w-3xl text-[15px] leading-8 text-neutral-600">{author.bio}</p>
+          )}
+          {socialLinks.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {socialLinks.map((item) => (
+                <a
+                  key={item.key}
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-[#f2cc3d] hover:bg-[#f2cc3d] hover:text-black transition"
+                >
+                  {item.label}
+                </a>
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -1118,12 +1176,7 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
             {/* C5. Author card */}
             {post.author_name && (
               <div className="mt-10 flex gap-5 items-start p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                <div className="h-16 w-16 shrink-0 rounded-full overflow-hidden bg-[#f2cc3d]">
-                  {post.author_avatar
-                    ? <img src={post.author_avatar} alt={post.author_name} className="h-full w-full object-cover" />
-                    : <div className="h-full w-full flex items-center justify-center text-xl font-bold text-black">{post.author_name?.[0]}</div>
-                  }
-                </div>
+                <AuthorAvatar author={post.author || {}} post={post} />
                 <div>
                   <p className="font-bold text-slate-900 mb-1">{post.author_name}</p>
                   {post.author_short_description && (
@@ -1157,15 +1210,27 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
             {/* Sidebar: Author widget */}
             <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm text-center">
               <p className="text-xs font-bold tracking-widest text-slate-400 uppercase mb-4">Acerca del autor</p>
-              <div className="h-16 w-16 rounded-full overflow-hidden bg-[#f2cc3d] mx-auto mb-3">
-                {post.author_avatar
-                  ? <img src={post.author_avatar} alt={post.author_name} className="h-full w-full object-cover" />
-                  : <div className="h-full w-full flex items-center justify-center text-xl font-bold text-black">{post.author_name?.[0]}</div>
-                }
+              <div className="flex justify-center mb-3">
+                <AuthorAvatar author={post.author || {}} post={post} />
               </div>
-              <p className="font-bold text-slate-900 mb-2">{post.author_name || (post.author?.name) || "Ideas Estudio"}</p>
+              <p className="font-bold text-slate-900 mb-2">{post.author_name || post.author?.name || "Ideas Estudio"}</p>
               {(post.author_short_description || post.author?.short_description) && (
                 <p className="text-xs text-slate-500 leading-relaxed">{post.author_short_description || post.author?.short_description}</p>
+              )}
+              {post.author && normalizeAuthorSocialLinks(post.author).length > 0 && (
+                <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+                  {normalizeAuthorSocialLinks(post.author).map((item) => (
+                    <a
+                      key={item.key}
+                      href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-full border border-slate-200 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600 hover:border-[#f2cc3d] hover:bg-[#f2cc3d] hover:text-black transition"
+                    >
+                      {item.label}
+                    </a>
+                  ))}
+                </div>
               )}
             </div>
 
