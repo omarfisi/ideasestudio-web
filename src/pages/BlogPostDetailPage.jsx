@@ -606,49 +606,82 @@ function BlogComments({ slug }) {
   }
 
   return (
-    <section className="mt-16 border-t border-slate-100 pt-12">
-      <h2 className="text-xl font-bold text-slate-900 mb-8">Comentarios</h2>
+    <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm md:p-10 lg:p-12">
 
-      {/* Comment list */}
-      {comments.length > 0 && (
-        <div className="space-y-6 mb-12">
+      {/* ── Header ────────────────────────────────────────────────── */}
+      <div className="mb-10 border-b border-slate-100 pb-6">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+          Conversación
+        </p>
+        <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
+          Deja tu comentario
+        </h2>
+        <div className="mt-3 h-1 w-14 rounded-full bg-slate-900" />
+        <p className="mt-4 text-sm text-slate-400">
+          Tu correo no se publicará. Los campos marcados con{" "}
+          <span className="text-rose-400">*</span> son requeridos.
+        </p>
+      </div>
+
+      {/* ── Approved comments ─────────────────────────────────────── */}
+      {loading && (
+        <p className="mb-8 text-sm text-slate-400">Cargando comentarios…</p>
+      )}
+
+      {!loading && comments.length === 0 && (
+        <p className="mb-10 text-sm text-slate-400">
+          Aún no hay comentarios. Sé la primera persona en compartir tu opinión.
+        </p>
+      )}
+
+      {!loading && comments.length > 0 && (
+        <div className="mb-10 space-y-4">
           {comments.map((c) => (
-            <div key={c.id} className="flex gap-4">
-              <div className="h-9 w-9 shrink-0 rounded-full bg-[#f2cc3d] flex items-center justify-center text-sm font-bold text-black">
-                {c.author_name?.[0]?.toUpperCase() || "?"}
+            <div key={c.id} className="flex gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f2cc3d] text-sm font-bold text-black">
+                {(c.author_name || "?")?.[0]?.toUpperCase()}
               </div>
-              <div className="flex-1">
-                <div className="flex items-baseline gap-2 mb-1">
-                  <span className="text-sm font-semibold text-slate-800">{c.author_name}</span>
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 flex flex-wrap items-baseline gap-2">
+                  <span className="text-sm font-semibold text-slate-800">
+                    {c.author_name || "Anónimo"}
+                  </span>
                   <span className="text-xs text-slate-400">
                     {c.created_at
-                      ? new Date(c.created_at).toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" })
+                      ? new Date(c.created_at).toLocaleDateString("es", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        })
                       : ""}
                   </span>
                 </div>
-                <p className="text-sm text-slate-600 leading-relaxed">{c.content}</p>
+                <p className="text-sm leading-relaxed text-slate-600">{c.content}</p>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Empty state */}
-      {comments.length === 0 && !loading && (
-        <p className="text-sm text-slate-400 mb-10">Sé el primero en comentar.</p>
-      )}
-
-      {/* Success message */}
-      {submitted && (
-        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4 text-sm text-emerald-700 mb-8">
-          Tu comentario fue enviado y está pendiente de aprobación. ¡Gracias!
+      {/* ── Success state ─────────────────────────────────────────── */}
+      {submitted ? (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-6 py-5 text-sm text-emerald-700">
+            Tu comentario fue enviado y está pendiente de aprobación. ¡Gracias por participar!
+          </div>
+          <button
+            type="button"
+            onClick={() => setSubmitted(false)}
+            className="text-sm font-medium text-slate-500 underline underline-offset-4 hover:text-slate-800 transition-colors"
+          >
+            Añadir otro comentario
+          </button>
         </div>
-      )}
+      ) : (
+        /* ── Comment form ─────────────────────────────────────────── */
+        <form onSubmit={handleSubmit} className="space-y-6">
 
-      {/* Form / post-submit action */}
-      {!submitted ? (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Honeypot — hidden from users, visible to bots */}
+          {/* Honeypot — hidden from users */}
           <input
             type="text"
             name="honeypot"
@@ -660,9 +693,28 @@ function BlogComments({ slug }) {
             aria-hidden="true"
           />
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          {/* Textarea — main comment field */}
+          <div>
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Comentario <span className="text-rose-400">*</span>
+            </label>
+            <textarea
+              required
+              rows={7}
+              value={form.content}
+              onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
+              placeholder="Escribe tu comentario…"
+              className="min-h-[200px] w-full resize-none rounded-[20px] border border-slate-200 bg-white px-6 py-5 text-base text-slate-900 placeholder:text-slate-400 focus:border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800/10 transition-colors"
+            />
+            <p className="mt-1.5 text-right text-[11px] text-slate-400">
+              {form.content.length}/2000
+            </p>
+          </div>
+
+          {/* Name + Email row */}
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1">
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Nombre <span className="text-rose-400">*</span>
               </label>
               <input
@@ -671,55 +723,55 @@ function BlogComments({ slug }) {
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder="Tu nombre"
-                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-slate-400 focus:outline-none"
+                className="h-14 w-full rounded-full border border-slate-200 bg-white px-6 text-base text-slate-900 placeholder:text-slate-400 focus:border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800/10 transition-colors"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1">Email</label>
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Email
+              </label>
               <input
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 placeholder="Tu email (no se publica)"
-                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-slate-400 focus:outline-none"
+                className="h-14 w-full rounded-full border border-slate-200 bg-white px-6 text-base text-slate-900 placeholder:text-slate-400 focus:border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800/10 transition-colors"
               />
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1">
-              Comentario <span className="text-rose-400">*</span>
-            </label>
-            <textarea
-              required
-              rows={4}
-              maxLength={2000}
-              value={form.content}
-              onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
-              placeholder="Escribe tu comentario aquí…"
-              className="w-full resize-none rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-slate-400 focus:outline-none"
-            />
-            <p className="mt-1 text-right text-[11px] text-slate-400">{form.content.length}/2000</p>
+          {/* Website — only render if the form state includes it */}
+          {"website" in form && (
+            <div>
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Sitio web
+              </label>
+              <input
+                type="url"
+                value={form.website}
+                onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))}
+                placeholder="Tu sitio web (opcional)"
+                className="h-14 w-full rounded-full border border-slate-200 bg-white px-6 text-base text-slate-900 placeholder:text-slate-400 focus:border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800/10 transition-colors"
+              />
+            </div>
+          )}
+
+          {/* Error */}
+          {error && (
+            <p className="text-sm font-medium text-rose-500">{error}</p>
+          )}
+
+          {/* Submit button */}
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="inline-flex min-h-[56px] items-center justify-center rounded-full bg-[#f2cc3d] px-10 text-base font-bold text-black transition hover:bg-[#f0d24a] focus:outline-none focus:ring-2 focus:ring-[#f2cc3d]/40 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {submitting ? "Enviando…" : "Enviar comentario"}
+            </button>
           </div>
-
-          {error && <p className="text-sm text-rose-500">{error}</p>}
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded-xl bg-[#f2cc3d] px-6 py-2.5 text-sm font-bold text-black hover:bg-[#e6bd2a] disabled:opacity-50 transition-colors"
-          >
-            {submitting ? "Enviando…" : "Enviar comentario"}
-          </button>
         </form>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setSubmitted(false)}
-          className="text-sm font-medium text-slate-500 underline hover:text-slate-700 transition-colors"
-        >
-          Añadir otro comentario
-        </button>
       )}
     </section>
   );
@@ -877,8 +929,8 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
       setSidebarPosts(allPosts.filter((p) => p.slug !== slug).slice(0, 3));
       // Prev/Next
       const idx = allPosts.findIndex((p) => p.slug === slug);
-      if (idx > 0) setPrevPost(allPosts[idx - 1]);
-      if (idx >= 0 && idx < allPosts.length - 1) setNextPost(allPosts[idx + 1]);
+      setPrevPost(idx > 0 ? allPosts[idx - 1] : null);
+      setNextPost(idx >= 0 && idx < allPosts.length - 1 ? allPosts[idx + 1] : null);
     });
   }, [slug]); // eslint-disable-line
 
@@ -1195,34 +1247,10 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
         </div>
       )}
 
-      {/* ── E. COMMENTS — full width, narrowed ── */}
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 mt-16 mb-16">
+      {/* ── E. COMMENTS — full width, outside grid ── */}
+      <div className="mx-auto mt-16 w-full max-w-6xl px-4 sm:px-6 mb-16">
         <BlogComments slug={slug} />
       </div>
-
-      {/* ── F. CTA FINAL ── */}
-      <section className="mx-auto max-w-6xl px-4 pb-20 md:px-6 md:pb-24">
-        <div className="rounded-[34px] bg-black px-8 py-12 text-center text-white md:px-12 md:py-16">
-          <p className="text-[11px] uppercase tracking-[0.22em] text-white/55">Ideas Estudio</p>
-          <h2 className="mx-auto mt-4 max-w-3xl text-3xl font-semibold leading-tight text-white md:text-5xl">
-            Si este contenido conecta con lo que quieres construir, podemos ayudarte a llevarlo a tu marca o negocio.
-          </h2>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-            <Link
-              to="/servicios"
-              className="rounded-full bg-[#f0d24a] px-6 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-black transition hover:opacity-90"
-            >
-              Ver servicios
-            </Link>
-            <Link
-              to="/contacto"
-              className="rounded-full border border-white/20 px-6 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-white transition hover:border-white/50"
-            >
-              Contactar
-            </Link>
-          </div>
-        </div>
-      </section>
 
     </main>
   );
