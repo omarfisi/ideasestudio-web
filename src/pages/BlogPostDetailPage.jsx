@@ -1131,17 +1131,13 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
         seoEntry={pageSeo}
       />
 
-      {/* ── A. HERO BREADCRUMB / META ── */}
-      <section className="mx-auto max-w-6xl px-4 pb-8 pt-12 md:px-6 md:pt-16">
-        <div className="mx-auto max-w-4xl text-center">
-          <MetaLine items={[categoryLabel, articleDate, readingTime]} />
-          {post.excerpt && (
-            <p className="mx-auto mt-4 max-w-3xl text-[15px] leading-8 text-neutral-500 md:text-[16px]">
-              {post.excerpt}
-            </p>
-          )}
-        </div>
-      </section>
+      {/* ── A. EDITORIAL HEADER ── */}
+      <header className="mx-auto max-w-5xl px-4 pb-8 pt-14 text-center sm:px-6 md:pt-20">
+        <MetaLine items={[categoryLabel, articleDate, readingTime]} />
+        <h1 className="mx-auto mt-6 max-w-4xl text-balance text-[clamp(2.1rem,5vw,4.25rem)] font-black leading-[1.02] tracking-[-0.04em] text-slate-950">
+          {post.title}
+        </h1>
+      </header>
 
       {/* ── B. HERO IMAGE — landscape 16:9 with category badge ── */}
       <section className="mx-auto max-w-6xl px-4 pb-10 md:px-6">
@@ -1166,21 +1162,25 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
           {/* LEFT — Article content */}
           <div className="min-w-0">
 
-            {/* C1. Article header */}
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold text-slate-900 leading-tight mb-3">{post.title}</h1>
-              <div className="flex flex-wrap items-center gap-3 text-sm text-slate-400">
-                {post.published_at && (
-                  <span>{new Date(post.published_at).toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" })}</span>
-                )}
-                {post.author_name && (
-                  <><span>·</span><span>{post.author_name}</span></>
-                )}
-                {post.reading_time_minutes > 0 && (
-                  <><span>·</span><span>{post.reading_time_minutes} min de lectura</span></>
-                )}
-              </div>
-            </div>
+            {/* C1. Editorial intro quote */}
+            {post.excerpt && (
+              <aside className="relative mb-10 overflow-hidden rounded-[28px] border border-slate-100 bg-white px-6 py-10 text-center shadow-sm sm:px-10">
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -left-3 top-0 select-none font-serif text-[9rem] leading-none text-slate-100"
+                >
+                  &ldquo;
+                </span>
+                <blockquote className="relative mx-auto max-w-3xl">
+                  <p className="text-xl leading-[1.5] text-slate-700 sm:text-2xl lg:text-[1.75rem]">
+                    {post.excerpt}
+                  </p>
+                  <footer className="mt-5 text-xs font-bold uppercase tracking-[0.22em] text-slate-400">
+                    Ideas Estudio
+                  </footer>
+                </blockquote>
+              </aside>
+            )}
 
             {/* C2. Article body */}
             <ArticleContent post={post} />
