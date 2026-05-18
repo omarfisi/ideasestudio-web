@@ -4,6 +4,7 @@ import { getBlogPostBySlug, getBlogRelated, getBlogComments, submitBlogComment, 
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { buildArticleSchema, buildBreadcrumbSchema } from "@/components/seo/schema.js";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
+import BlogVisualBlock from "@/components/blog/ArticleVisualBlocks.jsx";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -335,7 +336,7 @@ function ContentBlock({ block }) {
 
       return (
         <div
-          className="mt-6 text-[16px] leading-8 text-neutral-700"
+          className="mt-4 text-[16px] leading-7 text-neutral-700"
           dangerouslySetInnerHTML={{ __html: html }}
         />
       );
@@ -380,6 +381,9 @@ function ContentBlock({ block }) {
           variant={block.variant || "slideshow"}
         />
       );
+
+    case "visual_block":
+      return <BlogVisualBlock block={block} />;
 
     case "cta":
       return (
