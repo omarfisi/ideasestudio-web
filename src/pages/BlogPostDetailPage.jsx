@@ -5,6 +5,7 @@ import SEOHead from "@/components/seo/SEOHead.jsx";
 import { buildArticleSchema, buildBreadcrumbSchema } from "@/components/seo/schema.js";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
 import BlogVisualBlock from "@/components/blog/ArticleVisualBlocks.jsx";
+import BlogNewsletterSection from "@/components/blog/BlogNewsletterSection.jsx";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -1465,7 +1466,13 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
         </div>
       </div>
 
-      {/* ── D. RELATED ARTICLES — full width ── */}
+      {/* ── D. NEWSLETTER ── */}
+      <BlogNewsletterSection
+        title="¿Quieres recibir más ideas como esta?"
+        description="Suscríbete para recibir estrategias de marca, contenido y presencia digital para impulsar tu negocio."
+      />
+
+      {/* ── E. RELATED ARTICLES — full width ── */}
       <RelatedPostsSection
         posts={(related?.length ? related : sidebarPosts || []).filter(
           (item) => item?.slug && item.slug !== slug

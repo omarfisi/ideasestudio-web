@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { getBlogHome, getBlogPosts } from "@/lib/api.js";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
-import NewsletterSplitBlock from "@/components/forms/NewsletterSplitBlock.jsx";
-import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
+import BlogNewsletterSection from "@/components/blog/BlogNewsletterSection.jsx";
 
 
 const instagramPosts = [
@@ -399,26 +398,10 @@ export default function BlogPage() {
         <Divider />
 
         {/* ── NEWSLETTER ── */}
-        <section className="mt-0">
-          <FormPlacementRenderer
-            sectionKey="blog_newsletter_split"
-            fallback={
-              <NewsletterSplitBlock
-                eyebrow="Newsletter · Ideas Estudio"
-                title="Deja de improvisar tu marca. Recibe contenido que te ayude a comunicar mejor."
-                description="Suscríbete para recibir artículos, ideas y recursos prácticos sobre diseño, branding y crecimiento digital."
-                imageSrc="https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=900&q=80"
-                imageAlt="Newsletter de Ideas Estudio"
-                buttonLabel="Recibir contenido"
-                successMessage="Gracias por suscribirte. Muy pronto recibirás nuevos artículos y recursos."
-                source="website_blog"
-                segment="blog_subscribers"
-                segments={["blog_subscribers", "newsletter"]}
-                meta={{ page_url: "/blog", form_name: "blog_newsletter_split_block", entry_point: "blog_page", ui_context: "ideas_web_public", ab_variant: "blog_v1" }}
-              />
-            }
-          />
-        </section>
+        <BlogNewsletterSection
+          title="Recibe ideas para hacer crecer tu marca."
+          description="Contenido práctico sobre branding, páginas web, contenido visual y estrategias digitales para negocios."
+        />
 
         <Divider />
 
