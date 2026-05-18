@@ -4,6 +4,7 @@ import { getBlogPostBySlug, getBlogRelated, getBlogComments, submitBlogComment, 
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { buildArticleSchema, buildBreadcrumbSchema } from "@/components/seo/schema.js";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
+import BlogVisualBlock from "@/components/blog/ArticleVisualBlocks.jsx";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -315,11 +316,11 @@ function ContentBlock({ block }) {
   switch (block.type) {
     case "heading":
       return block.level === 3 ? (
-        <h3 className="mt-10 text-2xl font-semibold leading-tight text-neutral-950 md:text-3xl">
+        <h3 className="mt-10 mb-2 text-xl font-bold leading-snug text-neutral-900 md:text-2xl">
           {block.text}
         </h3>
       ) : (
-        <h2 className="mt-12 text-3xl font-semibold leading-tight text-neutral-950 md:text-4xl">
+        <h2 className="mt-12 mb-3 text-2xl font-bold leading-snug text-neutral-950 md:text-3xl">
           {block.text}
         </h2>
       );
@@ -335,7 +336,7 @@ function ContentBlock({ block }) {
 
       return (
         <div
-          className="mt-6 text-[16px] leading-8 text-neutral-700"
+          className="mt-4 text-[16px] leading-7 text-neutral-700"
           dangerouslySetInnerHTML={{ __html: html }}
         />
       );
@@ -347,12 +348,16 @@ function ContentBlock({ block }) {
     case "list":
       if (!Array.isArray(block.items) || !block.items.length) return null;
       return block.style === "ordered" ? (
-        <ol className="mt-6 list-decimal space-y-3 pl-6 text-[16px] leading-8 text-neutral-700">
-          {block.items.map((item, i) => <li key={i}>{item}</li>)}
+        <ol className="mt-6 list-decimal space-y-2.5 pl-7 text-[16px] leading-8 text-neutral-700 marker:text-[#f2cc3d] marker:font-bold">
+          {block.items.map((item, i) => (
+            <li key={i} dangerouslySetInnerHTML={{ __html: item }} />
+          ))}
         </ol>
       ) : (
-        <ul className="mt-6 list-disc space-y-3 pl-6 text-[16px] leading-8 text-neutral-700">
-          {block.items.map((item, i) => <li key={i}>{item}</li>)}
+        <ul className="mt-6 list-disc space-y-2.5 pl-7 text-[16px] leading-8 text-neutral-700 marker:text-[#f2cc3d]">
+          {block.items.map((item, i) => (
+            <li key={i} dangerouslySetInnerHTML={{ __html: item }} />
+          ))}
         </ul>
       );
 
@@ -376,6 +381,9 @@ function ContentBlock({ block }) {
           variant={block.variant || "slideshow"}
         />
       );
+
+    case "visual_block":
+      return <BlogVisualBlock block={block} />;
 
     case "cta":
       return (
@@ -636,7 +644,20 @@ function ArticleContent({ post }) {
   if (!hasBlocks && post?.content_html) {
     return (
       <div
-        className="prose prose-lg max-w-none prose-headings:text-neutral-950 prose-p:text-neutral-700 prose-p:leading-9 prose-li:text-neutral-700 prose-blockquote:border-l-[#f0d24a] prose-blockquote:text-neutral-700 prose-img:rounded-[24px]"
+        className={[
+          "prose prose-lg max-w-none",
+          "prose-headings:font-bold prose-headings:text-neutral-950 prose-headings:leading-snug",
+          "prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-3 md:prose-h2:text-3xl",
+          "prose-h3:text-xl prose-h3:mt-10 prose-h3:mb-2 md:prose-h3:text-2xl",
+          "prose-p:text-neutral-700 prose-p:leading-8 prose-p:mt-5",
+          "prose-li:text-neutral-700 prose-li:leading-8",
+          "prose-ul:marker:text-[#f2cc3d] prose-ol:marker:text-[#f2cc3d] prose-ol:marker:font-bold",
+          "prose-a:text-[#b38f00] prose-a:underline hover:prose-a:text-black",
+          "prose-strong:text-neutral-900",
+          "prose-blockquote:border-l-4 prose-blockquote:border-[#f2cc3d] prose-blockquote:text-neutral-700",
+          "prose-blockquote:bg-white prose-blockquote:rounded-r-2xl prose-blockquote:py-3 prose-blockquote:pr-4",
+          "prose-img:rounded-[24px] prose-img:shadow-sm",
+        ].join(" ")}
         dangerouslySetInnerHTML={{ __html: post.content_html }}
       />
     );
