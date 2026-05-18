@@ -9,7 +9,7 @@ function EditorialNumberCards({ block }) {
       {(eyebrow || title || description) && (
         <div className="mb-8 md:mb-10">
           {eyebrow && (
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#b38f00]">{eyebrow}</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-950">{eyebrow}</p>
           )}
           {title && (
             <h2 className="text-2xl font-black leading-tight tracking-tight text-slate-950 sm:text-3xl">
@@ -55,7 +55,7 @@ function EditorialSteps({ block }) {
       {(eyebrow || title || description) && (
         <div className="mb-8">
           {eyebrow && (
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#b38f00]">{eyebrow}</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-950">{eyebrow}</p>
           )}
           {title && (
             <h2 className="text-2xl font-black leading-tight tracking-tight text-slate-950 sm:text-3xl">
@@ -94,7 +94,7 @@ function VisualBulletGrid({ block }) {
       {(eyebrow || title || description) && (
         <div className="mb-8">
           {eyebrow && (
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#b38f00]">{eyebrow}</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-950">{eyebrow}</p>
           )}
           {title && (
             <h2 className="text-2xl font-black leading-tight tracking-tight text-slate-950 sm:text-3xl">
@@ -147,12 +147,95 @@ function VisualBulletGrid({ block }) {
   );
 }
 
+// ── EditorialNumberCardsCarousel ──────────────────────────────────────────────
+function EditorialNumberCardsCarousel({ block }) {
+  const { eyebrow, title, description, items = [] } = block;
+  return (
+    <section className="my-14 md:my-16">
+      {(eyebrow || title || description) && (
+        <div className="mb-8 md:mb-10">
+          {eyebrow && (
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-950">{eyebrow}</p>
+          )}
+          {title && (
+            <h2 className="text-2xl font-black leading-tight tracking-tight text-slate-950 sm:text-3xl">
+              {title}
+            </h2>
+          )}
+          {description && (
+            <p className="mt-3 text-base leading-relaxed text-slate-500">{description}</p>
+          )}
+        </div>
+      )}
+      <div className="-mx-4 overflow-x-auto px-4 pb-6 [scrollbar-width:thin]">
+        <div className="flex snap-x snap-mandatory gap-5" style={{ width: "max-content" }}>
+          {items.map((item, idx) => {
+            const number = String(idx + 1).padStart(2, "0");
+            return (
+              <article
+                key={idx}
+                className="flex min-h-[380px] w-[280px] snap-start flex-col rounded-[20px] border border-slate-200 bg-white shadow-[0_8px_32px_rgba(15,23,42,0.07)]"
+              >
+                {/* Top area: image or icon+badge row */}
+                {item.image_url ? (
+                  <div className="relative h-40 w-full shrink-0 overflow-hidden rounded-t-[20px] bg-slate-100">
+                    <img
+                      src={item.image_url}
+                      alt={item.image_alt || item.title || ""}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                    <div className="absolute bottom-3 left-4 flex h-9 w-9 items-center justify-center rounded-full bg-[#f2cc3d] text-sm font-black text-slate-950 shadow-md">
+                      {number}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex shrink-0 items-center gap-3 px-5 pt-6">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f2cc3d] text-sm font-black text-slate-950">
+                      {number}
+                    </div>
+                    {item.icon && (
+                      <span className="text-2xl leading-none">{item.icon}</span>
+                    )}
+                  </div>
+                )}
+
+                {/* Content */}
+                <div className="flex flex-1 flex-col px-5 pb-5 pt-4">
+                  <h3 className="text-[15px] font-black leading-snug text-slate-950">{item.title}</h3>
+                  {item.subtitle && (
+                    <p className="mt-1 text-xs font-semibold text-slate-950">{item.subtitle}</p>
+                  )}
+                  {item.description && (
+                    <p className="mt-2.5 text-sm leading-relaxed text-slate-600">{item.description}</p>
+                  )}
+                  <div className="mt-auto pt-5">
+                    <div className="h-0.5 w-7 rounded-full bg-[#f2cc3d]" />
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+      {items.length > 2 && (
+        <p className="mt-1 text-right text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+          Desliza para ver más →
+        </p>
+      )}
+    </section>
+  );
+}
+
 // ── BlogVisualBlock — dispatcher ──────────────────────────────────────────────
 export default function BlogVisualBlock({ block }) {
   if (!block) return null;
 
   switch (block.blockType) {
     case "number_cards":
+      if (block.variant === "carousel_cards") {
+        return <EditorialNumberCardsCarousel block={block} />;
+      }
       return <EditorialNumberCards block={block} />;
     case "steps":
       return <EditorialSteps block={block} />;
