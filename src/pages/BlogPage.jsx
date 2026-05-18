@@ -1,22 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getBlogHome } from "@/lib/api.js";
+import { getBlogHome, getBlogPosts } from "@/lib/api.js";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
 import NewsletterSplitBlock from "@/components/forms/NewsletterSplitBlock.jsx";
 import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
 
-// ─── Fallback mock (se usa solo cuando no hay artículos en la API) ───────────
-const FALLBACK_HERO = {
-  category: "Blog / Destacado",
-  readTime: "5 min de lectura",
-  title: "Contenido que conecta, posiciona y convierte mejor.",
-  excerpt:
-    "Explora artículos sobre diseño web, redes sociales, branding, contenido y estrategias digitales pensadas para negocios que quieren crecer con claridad.",
-  author: "Ideas Estudio",
-  image:
-    "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=1400&q=80",
-};
 
 const instagramPosts = [
   "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=600&q=80",
@@ -214,16 +203,27 @@ export default function BlogPage() {
   const pageSeo = usePageSeo();
   const navigate = useNavigate();
   const [layout, setLayout] = useState(null);
+  const [fallbackPosts, setFallbackPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("");
 
   useEffect(() => {
-    let cancelled = false;
-    getBlogHome()
-      .then((res) => { if (!cancelled) setLayout(res); })
-      .catch((err) => { console.error("[BlogPage] getBlogHome error:", err); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+    let alive = true;
+    async function load() {
+      try {
+        const [homeRes, postsRes] = await Promise.all([
+          getBlogHome().catch(() => null),
+          getBlogPosts({ limit: 10 }).catch(() => null),
+        ]);
+        if (!alive) return;
+        setLayout(homeRes || null);
+        setFallbackPosts(postsRes?.items || []);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
+    load();
+    return () => { alive = false; };
   }, []);
 
   function goPost(slug) {
@@ -245,8 +245,8 @@ export default function BlogPage() {
     ? categories
     : ["Branding", "Diseño Web", "Contenido", "Fotografía", "Video", "SEO", "Marketing Digital"];
 
-  // Hero: solo usa fallback si no hay datos del API después de cargar
-  const displayHero = heroMain || (!loading ? FALLBACK_HERO : null);
+  const firstFallback = fallbackPosts.find((p) => p?.slug) || null;
+  const displayHero = heroMain || (firstFallback ? postToCard(firstFallback) : null);
 
   return (
     <main className="bg-white text-neutral-950">
@@ -291,7 +291,7 @@ export default function BlogPage() {
           ) : displayHero ? (
             <article
               className="group mt-10 cursor-pointer overflow-hidden rounded-[28px] bg-neutral-50 shadow-[0_12px_40px_rgba(0,0,0,0.06)] lg:grid lg:grid-cols-[1.1fr_0.9fr]"
-              onClick={() => heroMain && goPost(heroMain.slug)}
+              onClick={() => goPost(displayHero.slug)}
             >
               <div className="overflow-hidden">
                 <img
@@ -318,13 +318,19 @@ export default function BlogPage() {
                       date={displayHero.date}
                     />
                   </div>
-                  {heroMain && (
-                    <ReadButton onClick={() => goPost(heroMain.slug)} className="mt-7" />
-                  )}
+                  <ReadButton onClick={() => goPost(displayHero.slug)} className="mt-7" />
                 </div>
               </div>
             </article>
-          ) : null}
+          ) : (
+            <div className="mt-10 rounded-[28px] border border-dashed border-neutral-200 py-20 text-center">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-neutral-400">Blog</p>
+              <h2 className="mt-3 text-2xl font-semibold text-neutral-700">No hay artículos publicados todavía.</h2>
+              <p className="mt-3 text-[15px] text-neutral-400">
+                Cuando publiques artículos desde el sistema editorial, aparecerán aquí.
+              </p>
+            </div>
+          )}
         </section>
 
         <Divider />
