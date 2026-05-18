@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getBlogHome } from "@/lib/api.js";
+import { getBlogHome, getBlogPosts } from "@/lib/api.js";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
 import NewsletterSplitBlock from "@/components/forms/NewsletterSplitBlock.jsx";
@@ -203,16 +203,27 @@ export default function BlogPage() {
   const pageSeo = usePageSeo();
   const navigate = useNavigate();
   const [layout, setLayout] = useState(null);
+  const [fallbackPosts, setFallbackPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("");
 
   useEffect(() => {
-    let cancelled = false;
-    getBlogHome()
-      .then((res) => { if (!cancelled) setLayout(res); })
-      .catch((err) => { console.error("[BlogPage] getBlogHome error:", err); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+    let alive = true;
+    async function load() {
+      try {
+        const [homeRes, postsRes] = await Promise.all([
+          getBlogHome().catch(() => null),
+          getBlogPosts({ limit: 10 }).catch(() => null),
+        ]);
+        if (!alive) return;
+        setLayout(homeRes || null);
+        setFallbackPosts(postsRes?.items || []);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
+    load();
+    return () => { alive = false; };
   }, []);
 
   function goPost(slug) {
@@ -234,7 +245,8 @@ export default function BlogPage() {
     ? categories
     : ["Branding", "Diseño Web", "Contenido", "Fotografía", "Video", "SEO", "Marketing Digital"];
 
-  const displayHero = heroMain;
+  const firstFallback = fallbackPosts.find((p) => p?.slug) || null;
+  const displayHero = heroMain || (firstFallback ? postToCard(firstFallback) : null);
 
   return (
     <main className="bg-white text-neutral-950">
