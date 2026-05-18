@@ -9,7 +9,7 @@ function EditorialNumberCards({ block }) {
       {(eyebrow || title || description) && (
         <div className="mb-8 md:mb-10">
           {eyebrow && (
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#b38f00]">{eyebrow}</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-950">{eyebrow}</p>
           )}
           {title && (
             <h2 className="text-2xl font-black leading-tight tracking-tight text-slate-950 sm:text-3xl">
@@ -55,7 +55,7 @@ function EditorialSteps({ block }) {
       {(eyebrow || title || description) && (
         <div className="mb-8">
           {eyebrow && (
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#b38f00]">{eyebrow}</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-950">{eyebrow}</p>
           )}
           {title && (
             <h2 className="text-2xl font-black leading-tight tracking-tight text-slate-950 sm:text-3xl">
@@ -94,7 +94,7 @@ function VisualBulletGrid({ block }) {
       {(eyebrow || title || description) && (
         <div className="mb-8">
           {eyebrow && (
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#b38f00]">{eyebrow}</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-950">{eyebrow}</p>
           )}
           {title && (
             <h2 className="text-2xl font-black leading-tight tracking-tight text-slate-950 sm:text-3xl">
@@ -155,7 +155,7 @@ function EditorialNumberCardsCarousel({ block }) {
       {(eyebrow || title || description) && (
         <div className="mb-8 md:mb-10">
           {eyebrow && (
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#b38f00]">{eyebrow}</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-950">{eyebrow}</p>
           )}
           {title && (
             <h2 className="text-2xl font-black leading-tight tracking-tight text-slate-950 sm:text-3xl">
@@ -204,7 +204,7 @@ function EditorialNumberCardsCarousel({ block }) {
                 <div className="flex flex-1 flex-col px-5 pb-5 pt-4">
                   <h3 className="text-[15px] font-black leading-snug text-slate-950">{item.title}</h3>
                   {item.subtitle && (
-                    <p className="mt-1 text-xs font-semibold text-[#b38f00]">{item.subtitle}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-950">{item.subtitle}</p>
                   )}
                   {item.description && (
                     <p className="mt-2.5 text-sm leading-relaxed text-slate-600">{item.description}</p>
