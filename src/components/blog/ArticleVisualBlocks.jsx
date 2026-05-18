@@ -168,46 +168,49 @@ function EditorialNumberCardsCarousel({ block }) {
         </div>
       )}
       <div className="-mx-4 overflow-x-auto px-4 pb-6 [scrollbar-width:thin]">
-        <div className="flex snap-x snap-mandatory gap-6" style={{ width: "max-content" }}>
+        <div className="flex snap-x snap-mandatory gap-5" style={{ width: "max-content" }}>
           {items.map((item, idx) => {
             const number = String(idx + 1).padStart(2, "0");
             return (
               <article
                 key={idx}
-                className="relative flex min-h-[400px] w-[300px] snap-start flex-col overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_20px_55px_rgba(15,23,42,0.08)]"
+                className="flex min-h-[380px] w-[280px] snap-start flex-col rounded-[20px] border border-slate-200 bg-white shadow-[0_8px_32px_rgba(15,23,42,0.07)]"
               >
+                {/* Top area: image or icon+badge row */}
                 {item.image_url ? (
-                  <div className="relative h-44 w-full shrink-0 overflow-hidden bg-slate-100">
+                  <div className="relative h-40 w-full shrink-0 overflow-hidden rounded-t-[20px] bg-slate-100">
                     <img
                       src={item.image_url}
                       alt={item.image_alt || item.title || ""}
                       className="h-full w-full object-cover"
                       loading="lazy"
                     />
-                    <div className="absolute left-5 top-0 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-[#f2cc3d] text-base font-black text-slate-950 shadow-[0_8px_20px_rgba(242,204,61,0.4)]">
+                    <div className="absolute bottom-3 left-4 flex h-9 w-9 items-center justify-center rounded-full bg-[#f2cc3d] text-sm font-black text-slate-950 shadow-md">
                       {number}
                     </div>
                   </div>
                 ) : (
-                  <div className="relative flex h-20 w-full shrink-0 items-end px-6 pb-0">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-3xl">
-                      {item.icon || "✦"}
-                    </div>
-                    <div className="absolute left-5 top-0 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-[#f2cc3d] text-base font-black text-slate-950 shadow-[0_8px_20px_rgba(242,204,61,0.4)]">
+                  <div className="flex shrink-0 items-center gap-3 px-5 pt-6">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f2cc3d] text-sm font-black text-slate-950">
                       {number}
                     </div>
+                    {item.icon && (
+                      <span className="text-2xl leading-none">{item.icon}</span>
+                    )}
                   </div>
                 )}
-                <div className="flex flex-1 flex-col p-6 pt-4">
-                  <h3 className="text-base font-black text-slate-950">{item.title}</h3>
+
+                {/* Content */}
+                <div className="flex flex-1 flex-col px-5 pb-5 pt-4">
+                  <h3 className="text-[15px] font-black leading-snug text-slate-950">{item.title}</h3>
                   {item.subtitle && (
-                    <p className="mt-0.5 text-xs font-semibold uppercase tracking-wide text-slate-400">{item.subtitle}</p>
+                    <p className="mt-1 text-xs font-semibold text-[#b38f00]">{item.subtitle}</p>
                   )}
                   {item.description && (
-                    <p className="mt-3 text-sm leading-relaxed text-slate-600">{item.description}</p>
+                    <p className="mt-2.5 text-sm leading-relaxed text-slate-600">{item.description}</p>
                   )}
                   <div className="mt-auto pt-5">
-                    <div className="h-0.5 w-8 rounded-full bg-[#f2cc3d]" />
+                    <div className="h-0.5 w-7 rounded-full bg-[#f2cc3d]" />
                   </div>
                 </div>
               </article>
