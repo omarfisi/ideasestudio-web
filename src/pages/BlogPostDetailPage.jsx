@@ -929,8 +929,8 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
       setSidebarPosts(allPosts.filter((p) => p.slug !== slug).slice(0, 3));
       // Prev/Next
       const idx = allPosts.findIndex((p) => p.slug === slug);
-      if (idx > 0) setPrevPost(allPosts[idx - 1]);
-      if (idx >= 0 && idx < allPosts.length - 1) setNextPost(allPosts[idx + 1]);
+      setPrevPost(idx > 0 ? allPosts[idx - 1] : null);
+      setNextPost(idx >= 0 && idx < allPosts.length - 1 ? allPosts[idx + 1] : null);
     });
   }, [slug]); // eslint-disable-line
 
