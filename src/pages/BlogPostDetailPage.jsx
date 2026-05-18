@@ -606,7 +606,7 @@ function BlogComments({ slug }) {
   }
 
   return (
-    <section className="mt-16 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm md:p-10">
+    <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm md:p-10 lg:p-12">
 
       {/* ── Header ────────────────────────────────────────────────── */}
       <div className="mb-10 border-b border-slate-100 pb-6">
@@ -1247,34 +1247,10 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
         </div>
       )}
 
-      {/* ── E. COMMENTS — full width, narrowed ── */}
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 mt-16 mb-16">
+      {/* ── E. COMMENTS — full width, outside grid ── */}
+      <div className="mx-auto mt-16 w-full max-w-6xl px-4 sm:px-6 mb-16">
         <BlogComments slug={slug} />
       </div>
-
-      {/* ── F. CTA FINAL ── */}
-      <section className="mx-auto max-w-6xl px-4 pb-20 md:px-6 md:pb-24">
-        <div className="rounded-[34px] bg-black px-8 py-12 text-center text-white md:px-12 md:py-16">
-          <p className="text-[11px] uppercase tracking-[0.22em] text-white/55">Ideas Estudio</p>
-          <h2 className="mx-auto mt-4 max-w-3xl text-3xl font-semibold leading-tight text-white md:text-5xl">
-            Si este contenido conecta con lo que quieres construir, podemos ayudarte a llevarlo a tu marca o negocio.
-          </h2>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-            <Link
-              to="/servicios"
-              className="rounded-full bg-[#f0d24a] px-6 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-black transition hover:opacity-90"
-            >
-              Ver servicios
-            </Link>
-            <Link
-              to="/contacto"
-              className="rounded-full border border-white/20 px-6 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-white transition hover:border-white/50"
-            >
-              Contactar
-            </Link>
-          </div>
-        </div>
-      </section>
 
     </main>
   );
