@@ -165,7 +165,7 @@ function EditorialFeature({ post, onClick }) {
             <p className="mt-5 text-[15px] leading-8 text-neutral-600">{post.excerpt}</p>
           )}
           <div className="mt-8">
-            <AuthorRow author={post.author} date={post.date} />
+            <AuthorRow author={post.author} avatarUrl={post.author_avatar} date={post.date} />
           </div>
           <ReadButton onClick={onClick} />
         </div>
@@ -190,7 +190,7 @@ function LatestPostCard({ post, onClick }) {
           {post.title}
         </h3>
         <div className="mt-4">
-          <AuthorRow author={post.author} date={post.date} />
+          <AuthorRow author={post.author} avatarUrl={post.author_avatar} date={post.date} />
         </div>
         <ReadButton onClick={onClick} />
       </div>
@@ -454,7 +454,7 @@ export default function BlogPage() {
                     </p>
                   )}
                   <div className="mt-7">
-                    <AuthorRow author={magazineCenter.author} date={magazineCenter.date} />
+                    <AuthorRow author={magazineCenter.author} avatarUrl={magazineCenter.author_avatar} date={magazineCenter.date} />
                   </div>
                   <ReadButton onClick={() => goPost(magazineCenter.slug)} />
                 </div>
