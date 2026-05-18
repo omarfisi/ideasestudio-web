@@ -67,16 +67,18 @@ function EditorialSteps({ block }) {
           )}
         </div>
       )}
-      <ol className="relative space-y-0 border-l-2 border-[#f2cc3d] pl-6">
+      <ol className="relative space-y-0 border-l-2 border-[#f2cc3d] pl-10">
         {items.map((item, idx) => (
-          <li key={idx} className="relative pb-8 last:pb-0">
-            <span className="absolute -left-[1.65rem] flex h-7 w-7 items-center justify-center rounded-full bg-[#f2cc3d] text-xs font-black text-black ring-4 ring-white">
+          <li key={idx} className="relative flex items-start gap-4 pb-8 last:pb-0">
+            <span className="absolute -left-[1.1rem] top-0 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f2cc3d] text-xs font-black text-black ring-4 ring-white">
               {idx + 1}
             </span>
-            <h3 className="text-base font-bold text-slate-900">{item.title}</h3>
-            {item.description && (
-              <p className="mt-1 text-sm leading-relaxed text-slate-600">{item.description}</p>
-            )}
+            <div>
+              <h3 className="text-base font-bold text-slate-900">{item.title}</h3>
+              {item.description && (
+                <p className="mt-1 text-sm leading-relaxed text-slate-600">{item.description}</p>
+              )}
+            </div>
           </li>
         ))}
       </ol>
