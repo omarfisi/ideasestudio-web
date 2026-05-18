@@ -766,7 +766,7 @@ function BlogComments({ slug }) {
             <button
               type="submit"
               disabled={submitting}
-              className="inline-flex min-h-[56px] items-center justify-center rounded-full bg-[#E4C34A] px-10 text-base font-bold text-white transition hover:bg-[#d4b33a] focus:outline-none focus:ring-2 focus:ring-[#E4C34A]/40 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-[56px] items-center justify-center rounded-full bg-[#f2cc3d] px-10 text-base font-bold text-black transition hover:bg-[#f0d24a] focus:outline-none focus:ring-2 focus:ring-[#f2cc3d]/40 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? "Enviando…" : "Enviar comentario"}
             </button>
