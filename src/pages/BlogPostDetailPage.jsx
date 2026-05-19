@@ -864,14 +864,14 @@ function BlogComments({ slug }) {
 
       {/* ── Header ────────────────────────────────────────────────── */}
       <div className="mb-10 border-b border-slate-100 pb-6">
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
           Conversación
         </p>
         <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
           Deja tu comentario
         </h2>
         <div className="mt-3 h-1 w-14 rounded-full bg-slate-900" />
-        <p className="mt-4 text-sm text-slate-400">
+        <p className="mt-4 text-sm text-slate-600">
           Tu correo no se publicará. Los campos marcados con{" "}
           <span className="text-rose-400">*</span> son requeridos.
         </p>
@@ -879,11 +879,11 @@ function BlogComments({ slug }) {
 
       {/* ── Approved comments ─────────────────────────────────────── */}
       {loading && (
-        <p className="mb-8 text-sm text-slate-400">Cargando comentarios…</p>
+        <p className="mb-8 text-base text-slate-600">Cargando comentarios…</p>
       )}
 
       {!loading && comments.length === 0 && (
-        <p className="mb-10 text-sm text-slate-400">
+        <p className="mb-10 text-lg font-medium text-slate-700">
           Aún no hay comentarios. Sé la primera persona en compartir tu opinión.
         </p>
       )}
@@ -949,7 +949,7 @@ function BlogComments({ slug }) {
 
           {/* Textarea — main comment field */}
           <div>
-            <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <label className="mb-2 block text-sm font-black uppercase tracking-[0.14em] text-slate-700">
               Comentario <span className="text-rose-400">*</span>
             </label>
             <textarea
@@ -958,9 +958,9 @@ function BlogComments({ slug }) {
               value={form.content}
               onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
               placeholder="Escribe tu comentario…"
-              className="min-h-[200px] w-full resize-none rounded-[20px] border border-slate-200 bg-white px-6 py-5 text-base text-slate-900 placeholder:text-slate-400 focus:border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800/10 transition-colors"
+              className="min-h-[260px] w-full resize-none rounded-[28px] border border-slate-200 bg-white px-7 py-6 text-lg leading-8 text-slate-900 placeholder:text-slate-500 focus:border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800/10 transition-colors"
             />
-            <p className="mt-1.5 text-right text-[11px] text-slate-400">
+            <p className="mt-1.5 text-right text-sm font-semibold text-slate-500">
               {form.content.length}/2000
             </p>
           </div>
@@ -968,7 +968,7 @@ function BlogComments({ slug }) {
           {/* Name + Email row */}
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <div>
-              <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+              <label className="mb-2 block text-sm font-black uppercase tracking-[0.14em] text-slate-700">
                 Nombre <span className="text-rose-400">*</span>
               </label>
               <input
@@ -977,11 +977,11 @@ function BlogComments({ slug }) {
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder="Tu nombre"
-                className="h-14 w-full rounded-full border border-slate-200 bg-white px-6 text-base text-slate-900 placeholder:text-slate-400 focus:border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800/10 transition-colors"
+                className="h-16 w-full rounded-full border border-slate-200 bg-white px-7 text-lg font-semibold text-slate-900 placeholder:text-slate-500 focus:border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800/10 transition-colors"
               />
             </div>
             <div>
-              <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+              <label className="mb-2 block text-sm font-black uppercase tracking-[0.14em] text-slate-700">
                 Email
               </label>
               <input
@@ -989,7 +989,7 @@ function BlogComments({ slug }) {
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 placeholder="Tu email (no se publica)"
-                className="h-14 w-full rounded-full border border-slate-200 bg-white px-6 text-base text-slate-900 placeholder:text-slate-400 focus:border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800/10 transition-colors"
+                className="h-16 w-full rounded-full border border-slate-200 bg-white px-7 text-lg font-semibold text-slate-900 placeholder:text-slate-500 focus:border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800/10 transition-colors"
               />
             </div>
           </div>
@@ -997,7 +997,7 @@ function BlogComments({ slug }) {
           {/* Website — only render if the form state includes it */}
           {"website" in form && (
             <div>
-              <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+              <label className="mb-2 block text-sm font-black uppercase tracking-[0.14em] text-slate-700">
                 Sitio web
               </label>
               <input
@@ -1005,7 +1005,7 @@ function BlogComments({ slug }) {
                 value={form.website}
                 onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))}
                 placeholder="Tu sitio web (opcional)"
-                className="h-14 w-full rounded-full border border-slate-200 bg-white px-6 text-base text-slate-900 placeholder:text-slate-400 focus:border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800/10 transition-colors"
+                className="h-16 w-full rounded-full border border-slate-200 bg-white px-7 text-lg font-semibold text-slate-900 placeholder:text-slate-500 focus:border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800/10 transition-colors"
               />
             </div>
           )}
