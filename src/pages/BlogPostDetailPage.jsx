@@ -413,6 +413,26 @@ function ContentBlock({ block }) {
 
 // ─── GallerySlideshow — main image + nav arrows + dot indicators + thumbnails ──
 
+function GallerySlideshowImageFrame({ src, alt = "", className = "" }) {
+  if (!src) {
+    return (
+      <div className={`flex h-full w-full items-center justify-center bg-slate-100 text-sm font-bold text-slate-400 ${className}`}>
+        Sin imagen
+      </div>
+    );
+  }
+  return (
+    <div className={`relative overflow-hidden bg-slate-950 ${className}`}>
+      <img src={src} alt="" aria-hidden="true"
+        className="absolute inset-0 h-full w-full scale-110 object-cover object-center opacity-35 blur-2xl" />
+      <div className="absolute inset-0 bg-gradient-to-br from-black/30 via-black/10 to-black/30" />
+      <div className="absolute inset-0 z-10 flex items-center justify-center p-4">
+        <img src={src} alt={alt} className="max-h-full max-w-full object-contain object-center" />
+      </div>
+    </div>
+  );
+}
+
 function normalizeGalleryImages(images) {
   if (!Array.isArray(images)) return [];
   return images
@@ -478,26 +498,26 @@ function GallerySlideshow({ images, title, description, variant = "slideshow" })
         </div>
       )}
       {/* Main image */}
-      <div className="relative aspect-[16/10] overflow-hidden bg-slate-100">
-        <img
+      <div className="relative aspect-[4/3] overflow-hidden sm:aspect-[16/10]">
+        <GallerySlideshowImageFrame
           src={currentImage.url}
           alt={currentImage.alt || ""}
-          className="w-full h-full object-cover transition-opacity duration-300"
+          className="h-full w-full"
         />
         {safeImages.length > 1 && (
           <>
             <button onClick={prev}
-              className="absolute left-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-white/80 backdrop-blur flex items-center justify-center shadow hover:bg-white transition-colors text-slate-700 font-bold">
+              className="absolute left-3 top-1/2 z-20 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow backdrop-blur hover:bg-white transition-colors text-slate-800 font-bold">
               ‹
             </button>
             <button onClick={next}
-              className="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-white/80 backdrop-blur flex items-center justify-center shadow hover:bg-white transition-colors text-slate-700 font-bold">
+              className="absolute right-3 top-1/2 z-20 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow backdrop-blur hover:bg-white transition-colors text-slate-800 font-bold">
               ›
             </button>
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+            <div className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2 flex items-center gap-1.5">
               {safeImages.map((_, i) => (
                 <button key={i} onClick={() => setCurrent(i)}
-                  className={`h-1.5 rounded-full transition-all ${i === current ? "w-5 bg-white" : "w-1.5 bg-white/50"}`} />
+                  className={`rounded-full transition-all ${i === current ? "h-2.5 w-7 bg-white" : "h-2.5 w-2.5 bg-white/50"}`} />
               ))}
             </div>
           </>
@@ -509,11 +529,13 @@ function GallerySlideshow({ images, title, description, variant = "slideshow" })
       )}
       {/* Thumbnails */}
       {safeImages.length > 1 && (
-        <div className="flex gap-2 p-3 overflow-x-auto">
+        <div className="flex gap-2.5 overflow-x-auto border-t border-slate-100 bg-white px-4 py-4">
           {safeImages.map((img, i) => (
-            <button key={img.url + i} onClick={() => setCurrent(i)}
-              className={`shrink-0 rounded-lg overflow-hidden border-2 transition-all ${i === current ? "border-blue-500" : "border-transparent opacity-60 hover:opacity-100"}`}>
-              <img src={img.url} alt={img.alt || ""} className="h-16 w-16 object-cover" />
+            <button key={img.url + i} type="button" onClick={() => setCurrent(i)}
+              className={`h-16 w-24 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
+                i === current ? "border-blue-500 shadow-md" : "border-transparent opacity-60 hover:opacity-100 hover:border-slate-300"
+              }`}>
+              <img src={img.url} alt={img.alt || `Miniatura ${i + 1}`} className="h-full w-full object-cover object-top" />
             </button>
           ))}
         </div>
