@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { getBlogHome, getBlogPosts } from "@/lib/api.js";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
 import BlogNewsletterSection from "@/components/blog/BlogNewsletterSection.jsx";
 
+
+const POSTS_PER_PAGE = 9;
 
 const instagramPosts = [
   "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=600&q=80",
@@ -197,6 +199,54 @@ function LatestPostCard({ post, onClick }) {
   );
 }
 
+function BlogPagination({ page, totalPages, onPage }) {
+  if (totalPages <= 1) return null;
+
+  const raw = [];
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || (i >= page - 2 && i <= page + 2)) raw.push(i);
+  }
+  const items = [];
+  let prev = 0;
+  for (const p of raw) {
+    if (prev && p - prev > 1) items.push("…");
+    items.push(p);
+    prev = p;
+  }
+
+  const btnBase =
+    "inline-flex items-center gap-1.5 rounded-full border border-black/15 bg-white px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-black transition hover:border-[#f2cc3d] hover:bg-[#f2cc3d] disabled:pointer-events-none disabled:opacity-30";
+
+  return (
+    <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
+      <button type="button" disabled={page === 1} onClick={() => onPage(page - 1)} className={btnBase}>
+        <span>←</span> Anterior
+      </button>
+      {items.map((item, i) =>
+        item === "…" ? (
+          <span key={i} className="px-1 text-sm text-neutral-400">…</span>
+        ) : (
+          <button
+            key={item}
+            type="button"
+            onClick={() => onPage(item)}
+            className={`h-9 w-9 rounded-full text-sm font-bold transition ${
+              item === page
+                ? "bg-[#f2cc3d] text-black"
+                : "border border-black/15 bg-white text-neutral-600 hover:border-[#f2cc3d] hover:bg-[#f2cc3d] hover:text-black"
+            }`}
+          >
+            {item}
+          </button>
+        )
+      )}
+      <button type="button" disabled={page === totalPages} onClick={() => onPage(page + 1)} className={btnBase}>
+        Siguiente <span>→</span>
+      </button>
+    </div>
+  );
+}
+
 function Divider() {
   return (
     <div
@@ -214,10 +264,17 @@ function Divider() {
 export default function BlogPage() {
   const pageSeo = usePageSeo();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const allPage = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+
   const [layout, setLayout] = useState(null);
   const [fallbackPosts, setFallbackPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("");
+
+  const [allPosts, setAllPosts] = useState([]);
+  const [allTotal, setAllTotal] = useState(0);
+  const [allLoading, setAllLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -237,6 +294,27 @@ export default function BlogPage() {
     load();
     return () => { alive = false; };
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+    setAllLoading(true);
+    getBlogPosts({ limit: POSTS_PER_PAGE, offset: (allPage - 1) * POSTS_PER_PAGE })
+      .then((res) => {
+        if (!alive) return;
+        setAllPosts((res?.items || []).map(postToCard).filter(Boolean));
+        setAllTotal(res?.total || 0);
+      })
+      .catch(() => {})
+      .finally(() => { if (alive) setAllLoading(false); });
+    return () => { alive = false; };
+  }, [allPage]);
+
+  const totalPages = Math.max(1, Math.ceil(allTotal / POSTS_PER_PAGE));
+
+  function handlePageChange(n) {
+    setSearchParams(n <= 1 ? {} : { page: String(n) });
+    document.getElementById("todos-articulos")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   function goPost(slug) {
     if (slug) navigate(`/blog/${slug}`);
@@ -394,6 +472,46 @@ export default function BlogPage() {
             />
           </section>
         )}
+
+        <Divider />
+
+        {/* ── TODOS LOS ARTÍCULOS ── */}
+        <section id="todos-articulos" className="mt-0 scroll-mt-10">
+          <div className="mb-10 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.25em] text-neutral-500">Archivo</p>
+              <h2 className="mt-2 text-4xl font-semibold tracking-[-0.02em]">
+                Todos los artículos
+              </h2>
+            </div>
+            {allTotal > 0 && (
+              <p className="shrink-0 text-sm text-neutral-500">{allTotal} artículos</p>
+            )}
+          </div>
+
+          {allLoading ? (
+            <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="animate-pulse space-y-3">
+                  <div className="h-[220px] w-full rounded-[20px] bg-neutral-100" />
+                  <div className="h-3 w-1/3 rounded bg-neutral-100" />
+                  <div className="h-5 w-full rounded bg-neutral-100" />
+                  <div className="h-4 w-2/3 rounded bg-neutral-100" />
+                </div>
+              ))}
+            </div>
+          ) : allPosts.length === 0 ? (
+            <p className="py-10 text-center text-sm text-neutral-400">No hay artículos publicados.</p>
+          ) : (
+            <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
+              {allPosts.map((post) => (
+                <LatestPostCard key={post.id} post={post} onClick={() => goPost(post.slug)} />
+              ))}
+            </div>
+          )}
+
+          <BlogPagination page={allPage} totalPages={totalPages} onPage={handlePageChange} />
+        </section>
 
         <Divider />
 
