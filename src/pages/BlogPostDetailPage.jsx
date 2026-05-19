@@ -532,7 +532,7 @@ function GallerySlideshow({ images, title, description, variant = "slideshow" })
         <div className="flex gap-2 overflow-x-auto border-t border-slate-100 bg-slate-50 px-4 py-3">
           {safeImages.map((img, i) => (
             <button key={img.url + i} type="button" onClick={() => setCurrent(i)}
-              className={`h-14 w-20 shrink-0 overflow-hidden rounded-lg border-2 transition-all ${
+              className={`h-14 w-20 shrink-0 overflow-hidden rounded-none border-2 transition-all ${
                 i === current
                   ? "border-slate-900 opacity-100 shadow-sm"
                   : "border-transparent opacity-55 hover:opacity-90 hover:border-slate-300"
