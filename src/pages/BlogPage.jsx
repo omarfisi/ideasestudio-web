@@ -46,6 +46,24 @@ function postToCard(post) {
   };
 }
 
+// ─── Frame de imagen editorial (blur bg + object-contain) ────────────────────
+function EditorialImageFrame({ src, alt = "", className = "", imageClassName = "" }) {
+  if (!src) {
+    return (
+      <div className={`flex h-full w-full items-center justify-center bg-neutral-100 text-sm font-bold uppercase tracking-[0.18em] text-neutral-400 ${className}`}>
+        Ideas Estudio
+      </div>
+    );
+  }
+  return (
+    <div className={`relative overflow-hidden bg-neutral-950 ${className}`}>
+      <img src={src} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-30 blur-2xl" />
+      <div className="absolute inset-0 bg-gradient-to-br from-black/20 via-transparent to-black/20" />
+      <img src={src} alt={alt} className={`relative z-10 h-full w-full object-contain ${imageClassName}`} />
+    </div>
+  );
+}
+
 // ─── Componentes visuales ─────────────────────────────────────────────────────
 function MetaLine({ category, meta }) {
   return (
@@ -103,12 +121,12 @@ function ReadButton({ onClick, className = "" }) {
 function SmallPostCard({ post, onClick }) {
   return (
     <article className="group cursor-pointer" onClick={onClick}>
-      <div className="relative overflow-hidden rounded-[20px] bg-white">
+      <div className="relative overflow-hidden rounded-[20px]">
         {post.is_featured && <Badge text="Destacado" />}
-        <img
+        <EditorialImageFrame
           src={post.image}
           alt={post.title}
-          className="h-[230px] w-full object-cover transition duration-500 group-hover:scale-105"
+          className="h-[230px] transition duration-500 group-hover:scale-[1.03]"
         />
       </div>
       <div className="pt-4">
@@ -125,11 +143,11 @@ function SmallPostCard({ post, onClick }) {
 function MiniPostCard({ post, onClick }) {
   return (
     <article className="group cursor-pointer" onClick={onClick}>
-      <div className="relative overflow-hidden rounded-[16px] bg-white">
-        <img
+      <div className="overflow-hidden rounded-[16px]">
+        <EditorialImageFrame
           src={post.image}
           alt={post.title}
-          className="h-[200px] w-full object-cover transition duration-500 group-hover:scale-105"
+          className="h-[200px] transition duration-500 group-hover:scale-[1.03]"
         />
       </div>
       <div className="pt-4">
@@ -149,13 +167,12 @@ function EditorialFeature({ post, onClick }) {
       className="group cursor-pointer overflow-hidden rounded-[24px] bg-white shadow-[0_12px_40px_rgba(0,0,0,0.06)] lg:grid lg:grid-cols-[1.05fr_0.95fr]"
       onClick={onClick}
     >
-      <div className="overflow-hidden">
-        <img
-          src={post.image}
-          alt={post.title}
-          className="h-full min-h-[340px] w-full object-cover transition duration-500 group-hover:scale-105"
-        />
-      </div>
+      <EditorialImageFrame
+        src={post.image}
+        alt={post.title}
+        className="min-h-[340px]"
+        imageClassName="transition duration-500 group-hover:scale-[1.02]"
+      />
       <div className="flex items-center p-8 lg:p-10">
         <div>
           <MetaLine category={post.category} meta={post.meta} />
@@ -178,11 +195,11 @@ function EditorialFeature({ post, onClick }) {
 function LatestPostCard({ post, onClick }) {
   return (
     <article className="group cursor-pointer" onClick={onClick}>
-      <div className="relative overflow-hidden rounded-[20px] bg-white">
-        <img
+      <div className="overflow-hidden rounded-[20px]">
+        <EditorialImageFrame
           src={post.image}
           alt={post.title}
-          className="h-[220px] w-full object-cover transition duration-500 group-hover:scale-105"
+          className="h-[220px] transition duration-500 group-hover:scale-[1.03]"
         />
       </div>
       <div className="pt-4">
@@ -196,6 +213,104 @@ function LatestPostCard({ post, onClick }) {
         <ReadButton onClick={onClick} />
       </div>
     </article>
+  );
+}
+
+function BlogHeroSlideshow({ posts = [], onNavigate }) {
+  const slides = posts.filter((p) => p?.slug).slice(0, 6);
+  const [current, setCurrent] = useState(0);
+
+  if (!slides.length) return null;
+
+  const idx = Math.min(current, slides.length - 1);
+  const post = slides[idx];
+
+  function goPrev() { setCurrent((i) => (i === 0 ? slides.length - 1 : i - 1)); }
+  function goNext() { setCurrent((i) => (i === slides.length - 1 ? 0 : i + 1)); }
+
+  return (
+    <div className="mt-10 overflow-hidden rounded-[36px] border border-neutral-200 bg-white shadow-[0_28px_80px_rgba(0,0,0,0.07)]">
+      <div className="grid lg:grid-cols-[1.08fr_0.92fr]">
+        {/* Image column */}
+        <button type="button" className="block w-full text-left" onClick={() => onNavigate?.(post.slug)}>
+          <EditorialImageFrame
+            src={post.image}
+            alt={post.title}
+            className="aspect-[16/11] h-full min-h-[360px] w-full lg:aspect-auto lg:min-h-[540px]"
+            imageClassName="transition duration-500 hover:scale-[1.015]"
+          />
+        </button>
+
+        {/* Text column */}
+        <div className="flex min-h-[420px] flex-col justify-center p-8 md:p-12">
+          <div className="mb-5 flex flex-wrap items-center gap-3 text-[11px] font-bold uppercase tracking-[0.22em] text-neutral-500">
+            <span>{post.category}</span>
+            <span className="h-1 w-1 rounded-full bg-neutral-400" />
+            <span>{post.meta}</span>
+          </div>
+
+          <h2
+            className="max-w-lg cursor-pointer text-3xl font-semibold leading-[1.05] tracking-[-0.025em] text-neutral-950 transition hover:text-neutral-600 md:text-4xl"
+            onClick={() => onNavigate?.(post.slug)}
+          >
+            {post.title}
+          </h2>
+
+          {post.excerpt && (
+            <p className="mt-5 max-w-lg text-[15px] leading-7 text-neutral-600">{post.excerpt}</p>
+          )}
+
+          <div className="mt-7">
+            <AuthorRow author={post.author} avatarUrl={post.author_avatar} date={post.date} />
+          </div>
+
+          <div className="mt-7 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => onNavigate?.(post.slug)}
+              className="inline-flex items-center gap-2 rounded-full bg-[#f2cc3d] px-6 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-black transition hover:bg-black hover:text-white"
+            >
+              Leer artículo <span>→</span>
+            </button>
+
+            {slides.length > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={goPrev}
+                  aria-label="Artículo anterior"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-black/15 bg-white text-base text-neutral-600 transition hover:border-[#f2cc3d] hover:bg-[#f2cc3d]"
+                >←</button>
+                <button
+                  type="button"
+                  onClick={goNext}
+                  aria-label="Artículo siguiente"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-black/15 bg-white text-base text-neutral-600 transition hover:border-[#f2cc3d] hover:bg-[#f2cc3d]"
+                >→</button>
+              </div>
+            )}
+          </div>
+
+          {slides.length > 1 && (
+            <div className="mt-6 flex items-center gap-2">
+              {slides.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setCurrent(i)}
+                  aria-label={`Ver artículo ${i + 1}`}
+                  className={
+                    i === idx
+                      ? "h-2 w-8 rounded-full bg-[#f2cc3d] transition-all duration-300"
+                      : "h-2 w-2 rounded-full bg-neutral-300 transition-all duration-300 hover:bg-neutral-500"
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -331,6 +446,15 @@ export default function BlogPage() {
   const recentPosts = (layout?.recent_posts || []).map(postToCard).filter(Boolean);
   const categories = (layout?.categories || []).map((c) => c.name);
 
+  const heroSlides = (() => {
+    const seen = new Set();
+    return [heroMain, heroSide, ...topGrid, featureMain, ...recentPosts].filter((post) => {
+      if (!post?.slug || seen.has(post.slug)) return false;
+      seen.add(post.slug);
+      return true;
+    });
+  })();
+
   const topicsDisplay = categories.length > 0
     ? categories
     : ["Branding", "Diseño Web", "Contenido", "Fotografía", "Video", "SEO", "Marketing Digital"];
@@ -364,10 +488,10 @@ export default function BlogPage() {
 
           <Divider />
 
-          {/* Artículo hero principal */}
+          {/* Slideshow hero principal */}
           {loading ? (
-            <div className="mt-10 animate-pulse overflow-hidden rounded-[28px] bg-neutral-100 lg:grid lg:grid-cols-[1.1fr_0.9fr]">
-              <div className="min-h-[360px] bg-neutral-200" />
+            <div className="mt-10 animate-pulse overflow-hidden rounded-[36px] bg-neutral-100 lg:grid lg:grid-cols-[1.08fr_0.92fr]">
+              <div className="min-h-[360px] bg-neutral-200 lg:min-h-[540px]" />
               <div className="flex items-center p-8 lg:p-12">
                 <div className="w-full space-y-4">
                   <div className="h-3 w-24 rounded bg-neutral-200" />
@@ -378,41 +502,8 @@ export default function BlogPage() {
                 </div>
               </div>
             </div>
-          ) : displayHero ? (
-            <article
-              className="group mt-10 cursor-pointer overflow-hidden rounded-[28px] bg-neutral-50 shadow-[0_12px_40px_rgba(0,0,0,0.06)] lg:grid lg:grid-cols-[1.1fr_0.9fr]"
-              onClick={() => goPost(displayHero.slug)}
-            >
-              <div className="overflow-hidden">
-                <img
-                  src={displayHero.image}
-                  alt={displayHero.title}
-                  className="h-full min-h-[360px] w-full object-cover transition duration-500 group-hover:scale-105"
-                />
-              </div>
-              <div className="flex items-center p-8 lg:p-12">
-                <div>
-                  <MetaLine
-                    category={displayHero.category || "Blog"}
-                    meta={displayHero.meta || "Lectura"}
-                  />
-                  <h2 className="mt-4 text-3xl font-semibold leading-[1.05] text-neutral-950 lg:text-4xl">
-                    {displayHero.title}
-                  </h2>
-                  <p className="mt-5 text-[15px] leading-7 text-neutral-600">
-                    {displayHero.excerpt}
-                  </p>
-                  <div className="mt-8">
-                    <AuthorRow
-                      author={displayHero.author}
-                      avatarUrl={displayHero.author_avatar}
-                      date={displayHero.date}
-                    />
-                  </div>
-                  <ReadButton onClick={() => goPost(displayHero.slug)} className="mt-7" />
-                </div>
-              </div>
-            </article>
+          ) : heroSlides.length > 0 ? (
+            <BlogHeroSlideshow posts={heroSlides} onNavigate={goPost} />
           ) : (
             <div className="mt-10 rounded-[28px] border border-dashed border-neutral-200 py-20 text-center">
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-neutral-400">Blog</p>
@@ -537,13 +628,11 @@ export default function BlogPage() {
                 className="group cursor-pointer overflow-hidden rounded-[24px] bg-white shadow-[0_12px_40px_rgba(0,0,0,0.06)]"
                 onClick={() => goPost(magazineCenter.slug)}
               >
-                <div className="overflow-hidden">
-                  <img
-                    src={magazineCenter.image}
-                    alt={magazineCenter.title}
-                    className="h-[340px] w-full object-cover transition duration-500 group-hover:scale-105 md:h-[420px]"
-                  />
-                </div>
+                <EditorialImageFrame
+                  src={magazineCenter.image}
+                  alt={magazineCenter.title}
+                  className="h-[340px] transition duration-500 group-hover:scale-[1.02] md:h-[420px]"
+                />
                 <div className="p-8 lg:p-10">
                   <MetaLine category={magazineCenter.category} meta={magazineCenter.meta} />
                   <h2 className="mt-4 text-3xl font-semibold leading-[1.05] text-neutral-950 lg:text-4xl">
