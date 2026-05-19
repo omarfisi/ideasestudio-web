@@ -287,52 +287,52 @@ function BlogHeroSlideshow({ posts = [], onNavigate }) {
   function goNext() { setCurrent((i) => (i === slides.length - 1 ? 0 : i + 1)); }
 
   return (
-    <div className="mt-10 overflow-hidden rounded-[36px] border border-neutral-200 bg-white shadow-[0_28px_80px_rgba(0,0,0,0.07)]">
-      <div className="grid lg:grid-cols-[1.08fr_0.92fr]">
+    <div className="mt-10 w-full overflow-hidden rounded-[28px] border border-neutral-200 bg-white shadow-[0_28px_80px_rgba(0,0,0,0.07)] md:rounded-[36px]">
+      <div className="grid w-full grid-cols-1 lg:grid-cols-[1.08fr_0.92fr]">
         {/* Image column */}
         <button type="button" className="block w-full text-left" onClick={() => onNavigate?.(post.slug)}>
           <EditorialImageFrame
             src={post.image}
             alt={post.title}
-            className="aspect-[16/11] h-full min-h-[360px] w-full lg:aspect-auto lg:min-h-[540px]"
+            className="aspect-[4/3] w-full min-h-0 sm:aspect-[16/11] lg:aspect-auto lg:min-h-[540px]"
             imageClassName="transition duration-500 hover:scale-[1.015]"
           />
         </button>
 
         {/* Text column */}
-        <div className="flex min-h-[420px] flex-col justify-center p-8 md:p-12">
-          <div className="mb-5 flex flex-wrap items-center gap-3 text-[11px] font-bold uppercase tracking-[0.22em] text-neutral-500">
+        <div className="flex w-full min-w-0 flex-col justify-center p-6 sm:p-8 md:p-10 lg:min-h-[540px] lg:p-12">
+          <div className="mb-4 flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-neutral-500 sm:gap-3">
             <span>{post.category}</span>
             <span className="h-1 w-1 rounded-full bg-neutral-400" />
             <span>{post.meta}</span>
           </div>
 
           <h2
-            className="max-w-lg cursor-pointer text-3xl font-semibold leading-[1.05] tracking-[-0.025em] text-neutral-950 transition hover:text-neutral-600 md:text-4xl"
+            className="max-w-full min-w-0 cursor-pointer break-words text-2xl font-semibold leading-[1.1] tracking-[-0.025em] text-neutral-950 transition hover:text-neutral-600 sm:text-3xl md:text-4xl lg:max-w-lg"
             onClick={() => onNavigate?.(post.slug)}
           >
             {post.title}
           </h2>
 
           {post.excerpt && (
-            <p className="mt-5 max-w-lg text-[15px] leading-7 text-neutral-600">{post.excerpt}</p>
+            <p className="mt-4 max-w-full text-sm leading-7 text-neutral-600 sm:mt-5 sm:text-[15px] lg:max-w-lg">{post.excerpt}</p>
           )}
 
-          <div className="mt-7">
+          <div className="mt-6">
             <AuthorRow author={post.author} avatarUrl={post.author_avatar} date={post.date} />
           </div>
 
-          <div className="mt-7 flex flex-wrap items-center gap-3">
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <button
               type="button"
               onClick={() => onNavigate?.(post.slug)}
-              className="inline-flex items-center gap-2 rounded-full bg-[#f2cc3d] px-6 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-black transition hover:bg-black hover:text-white"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#f2cc3d] px-6 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-black transition hover:bg-black hover:text-white sm:w-auto"
             >
               Leer artículo <span>→</span>
             </button>
 
             {slides.length > 1 && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center gap-2 sm:justify-start">
                 <button
                   type="button"
                   onClick={goPrev}
@@ -350,7 +350,7 @@ function BlogHeroSlideshow({ posts = [], onNavigate }) {
           </div>
 
           {slides.length > 1 && (
-            <div className="mt-6 flex items-center gap-2">
+            <div className="mt-5 flex flex-wrap items-center gap-2">
               {slides.map((_, i) => (
                 <button
                   key={i}
