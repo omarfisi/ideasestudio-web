@@ -780,21 +780,21 @@ export default function BlogPage() {
 
         <Divider />
 
-        {/* ── ÚLTIMOS ARTÍCULOS ── */}
-        {recentPosts.length > 0 && (
+        {/* ── ARTÍCULOS RECIENTES ── */}
+        {(recentPosts.length > 0 || (!allLoading && allPosts.length > 0)) && (
           <section className="mt-0">
             <div className="mb-10 flex items-end justify-between gap-4">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.25em] text-neutral-500">
-                  Últimos artículos
+                  Recientes
                 </p>
                 <h2 className="mt-2 text-4xl font-semibold tracking-[-0.02em]">
-                  Publicaciones recientes
+                  Artículos recientes
                 </h2>
               </div>
             </div>
-            <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-4">
-              {recentPosts.map((post) => (
+            <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
+              {(recentPosts.length > 0 ? recentPosts : allPosts).slice(0, 6).map((post) => (
                 <LatestPostCard key={post.id} post={post} onClick={() => goPost(post.slug)} />
               ))}
             </div>
