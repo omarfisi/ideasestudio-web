@@ -8,14 +8,6 @@ import BlogNewsletterSection from "@/components/blog/BlogNewsletterSection.jsx";
 
 const POSTS_PER_PAGE = 9;
 
-const instagramPosts = [
-  "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=600&q=80",
-  "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=600&q=80",
-  "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=600&q=80",
-  "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=600&q=80",
-  "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=600&q=80",
-  "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=600&q=80",
-];
 
 // ─── Helpers para normalizar artículos del API ───────────────────────────────
 function getAuthorAvatar(post = {}) {
@@ -809,28 +801,6 @@ export default function BlogPage() {
           </section>
         )}
 
-        <Divider />
-
-        {/* ── INSTAGRAM ── */}
-        <section className="mt-0">
-          <div className="mb-8 text-center">
-            <p className="text-[11px] uppercase tracking-[0.25em] text-neutral-500">Redes</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.02em]">
-              @ideasestudio en <span className="highlight-box-glow">Instagram</span>
-            </h2>
-          </div>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-            {instagramPosts.map((image, index) => (
-              <div key={index} className="group overflow-hidden rounded-[16px]">
-                <img
-                  src={image}
-                  alt={`Instagram ${index + 1}`}
-                  className="h-[170px] w-full object-cover transition duration-500 group-hover:scale-105"
-                />
-              </div>
-            ))}
-          </div>
-        </section>
 
       </div>
     </main>
