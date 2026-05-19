@@ -48,7 +48,7 @@ function postToCard(post) {
 }
 
 // ─── Frame de imagen editorial (blur bg + object-contain) ────────────────────
-function EditorialImageFrame({ src, alt = "", className = "", imageClassName = "" }) {
+function EditorialImageFrame({ src, alt = "", className = "", imageClassName = "", centerImage = false }) {
   if (!src) {
     return (
       <div className={`flex h-full w-full items-center justify-center bg-neutral-100 text-sm font-bold uppercase tracking-[0.18em] text-neutral-400 ${className}`}>
@@ -60,7 +60,13 @@ function EditorialImageFrame({ src, alt = "", className = "", imageClassName = "
     <div className={`relative overflow-hidden bg-neutral-950 ${className}`}>
       <img src={src} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-30 blur-2xl" />
       <div className="absolute inset-0 bg-gradient-to-br from-black/20 via-transparent to-black/20" />
-      <img src={src} alt={alt} className={`relative z-10 h-full w-full object-contain ${imageClassName}`} />
+      {centerImage ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center">
+          <img src={src} alt={alt} className={`max-h-full max-w-full object-contain object-center ${imageClassName}`} />
+        </div>
+      ) : (
+        <img src={src} alt={alt} className={`relative z-10 h-full w-full object-contain object-center ${imageClassName}`} />
+      )}
     </div>
   );
 }
@@ -294,7 +300,8 @@ function BlogHeroSlideshow({ posts = [], onNavigate }) {
           <EditorialImageFrame
             src={post.image}
             alt={post.title}
-            className="aspect-[4/3] w-full min-h-0 sm:aspect-[16/11] lg:aspect-auto lg:min-h-[540px]"
+            centerImage
+            className="aspect-[16/10] w-full min-h-0 sm:aspect-[16/9] lg:aspect-auto lg:min-h-[540px]"
             imageClassName="transition duration-500 hover:scale-[1.015]"
           />
         </button>
