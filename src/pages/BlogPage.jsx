@@ -8,6 +8,15 @@ import BlogNewsletterSection from "@/components/blog/BlogNewsletterSection.jsx";
 
 const POSTS_PER_PAGE = 9;
 
+function uniqueBySlug(posts = []) {
+  const seen = new Set();
+  return posts.filter((p) => {
+    const key = p?.slug || p?.id;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 // ─── Helpers para normalizar artículos del API ───────────────────────────────
 function getAuthorAvatar(post = {}) {
@@ -443,6 +452,11 @@ export default function BlogPage() {
   const [allTotal, setAllTotal] = useState(0);
   const [allLoading, setAllLoading] = useState(true);
 
+  const [showcasePosts, setShowcasePosts] = useState([]);
+  const [showcaseLoading, setShowcaseLoading] = useState(false);
+
+  const hasActiveFilters = Boolean(activeCategory || searchQuery);
+
   useEffect(() => {
     let alive = true;
     getBlogHome().catch(() => null).then((res) => {
@@ -489,6 +503,28 @@ export default function BlogPage() {
       .finally(() => { if (alive) setAllLoading(false); });
     return () => { alive = false; };
   }, [allPage, activeCategory, searchQuery]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!activeCategory && !searchQuery) {
+      setShowcasePosts([]);
+      setShowcaseLoading(false);
+      return;
+    }
+    setShowcaseLoading(true);
+    getBlogPosts({
+      limit: 15,
+      page: 1,
+      ...(activeCategory ? { category: activeCategory } : {}),
+      ...(searchQuery ? { search: searchQuery } : {}),
+    })
+      .then((res) => {
+        if (!cancelled) setShowcasePosts((res?.items || []).map(postToCard).filter(Boolean));
+      })
+      .catch(() => { if (!cancelled) setShowcasePosts([]); })
+      .finally(() => { if (!cancelled) setShowcaseLoading(false); });
+    return () => { cancelled = true; };
+  }, [activeCategory, searchQuery]);
 
   const totalPages = Math.max(1, Math.ceil(allTotal / POSTS_PER_PAGE));
 
@@ -545,14 +581,19 @@ export default function BlogPage() {
   const recentPosts = (layout?.recent_posts || []).map(postToCard).filter(Boolean);
   const categories = layout?.categories || [];
 
-  const heroSlides = (() => {
-    const seen = new Set();
-    return [heroMain, heroSide, ...topGrid, featureMain, ...recentPosts].filter((post) => {
-      if (!post?.slug || seen.has(post.slug)) return false;
-      seen.add(post.slug);
-      return true;
-    });
-  })();
+  const defaultHeroSlides = uniqueBySlug(
+    [heroMain, heroSide, ...topGrid, featureMain, ...recentPosts].filter(Boolean)
+  ).slice(0, 6);
+
+  const heroLoading = hasActiveFilters ? showcaseLoading : loading;
+  const displayHeroSlides = hasActiveFilters ? showcasePosts.slice(0, 6) : defaultHeroSlides;
+  const displayTopGrid = hasActiveFilters ? showcasePosts.slice(0, 4) : topGrid;
+  const displayFeatureMain = hasActiveFilters
+    ? (showcasePosts[4] || null)
+    : (featureMain || heroSide || null);
+  const displayRecentPosts = hasActiveFilters
+    ? showcasePosts.slice(0, 6)
+    : (recentPosts.length > 0 ? recentPosts : allPosts).slice(0, 6);
 
 
   return (
@@ -594,7 +635,7 @@ export default function BlogPage() {
           <Divider />
 
           {/* Slideshow hero principal */}
-          {loading ? (
+          {heroLoading ? (
             <div className="mt-10 animate-pulse overflow-hidden rounded-[36px] bg-neutral-100 lg:grid lg:grid-cols-[1.08fr_0.92fr]">
               <div className="min-h-[360px] bg-neutral-200 lg:min-h-[540px]" />
               <div className="flex items-center p-8 lg:p-12">
@@ -607,15 +648,25 @@ export default function BlogPage() {
                 </div>
               </div>
             </div>
-          ) : heroSlides.length > 0 ? (
-            <BlogHeroSlideshow posts={heroSlides} onNavigate={goPost} />
+          ) : displayHeroSlides.length > 0 ? (
+            <BlogHeroSlideshow posts={displayHeroSlides} onNavigate={goPost} />
           ) : (
             <div className="mt-10 rounded-[28px] border border-dashed border-neutral-200 py-20 text-center">
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-neutral-400">Blog</p>
-              <h2 className="mt-3 text-2xl font-semibold text-neutral-700">No hay artículos publicados todavía.</h2>
+              <h2 className="mt-3 text-2xl font-semibold text-neutral-700">
+                {hasActiveFilters ? "No encontramos artículos para este filtro." : "No hay artículos publicados todavía."}
+              </h2>
               <p className="mt-3 text-[15px] text-neutral-400">
-                Cuando publiques artículos desde el sistema editorial, aparecerán aquí.
+                {hasActiveFilters
+                  ? "Prueba con otra categoría o palabra clave."
+                  : "Cuando publiques artículos desde el sistema editorial, aparecerán aquí."}
               </p>
+              {hasActiveFilters && (
+                <button type="button" onClick={handleClearFilters}
+                  className="mt-6 inline-flex items-center gap-2 rounded-full border border-black/15 bg-white px-5 py-2.5 text-[11px] font-bold uppercase tracking-[0.18em] text-black transition hover:border-[#f2cc3d] hover:bg-[#f2cc3d]">
+                  Limpiar filtros ×
+                </button>
+              )}
             </div>
           )}
         </section>
@@ -624,9 +675,9 @@ export default function BlogPage() {
         <Divider />
 
         {/* ── TOP GRID 4 ── */}
-        {(topGrid.length > 0 || loading) && (
+        {(displayTopGrid.length > 0 || heroLoading) && (
           <section className="mt-0 grid gap-8 md:grid-cols-2 xl:grid-cols-4">
-            {loading
+            {heroLoading
               ? Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className="animate-pulse space-y-3">
                     <div className="h-[230px] w-full rounded-[20px] bg-neutral-100" />
@@ -634,7 +685,7 @@ export default function BlogPage() {
                     <div className="h-5 w-full rounded bg-neutral-100" />
                   </div>
                 ))
-              : topGrid.map((post) => (
+              : displayTopGrid.map((post) => (
                   <SmallPostCard key={post.id} post={post} onClick={() => goPost(post.slug)} />
                 ))}
           </section>
@@ -643,11 +694,11 @@ export default function BlogPage() {
         <Divider />
 
         {/* ── FEATURE SPLIT ── */}
-        {(featureMain || (!loading && heroSide)) && (
+        {!heroLoading && displayFeatureMain && (
           <section className="mt-0">
             <EditorialFeature
-              post={featureMain || heroSide}
-              onClick={() => goPost((featureMain || heroSide)?.slug)}
+              post={displayFeatureMain}
+              onClick={() => goPost(displayFeatureMain?.slug)}
             />
           </section>
         )}
@@ -716,7 +767,7 @@ export default function BlogPage() {
         <Divider />
 
         {/* ── MAGAZINE MIX ── */}
-        {(magazineLeft.length > 0 || magazineCenter || magazineRight.length > 0) && (
+        {!hasActiveFilters && (magazineLeft.length > 0 || magazineCenter || magazineRight.length > 0) && (
           <section className="mt-0 grid gap-8 xl:grid-cols-[0.8fr_1.4fr_0.8fr]">
             <div className="space-y-8">
               {magazineLeft.map((post) => (
@@ -781,20 +832,20 @@ export default function BlogPage() {
         <Divider />
 
         {/* ── ARTÍCULOS RECIENTES ── */}
-        {(recentPosts.length > 0 || (!allLoading && allPosts.length > 0)) && (
+        {displayRecentPosts.length > 0 && (
           <section className="mt-0">
             <div className="mb-10 flex items-end justify-between gap-4">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.25em] text-neutral-500">
-                  Recientes
+                  {hasActiveFilters ? "Filtrado" : "Recientes"}
                 </p>
                 <h2 className="mt-2 text-4xl font-semibold tracking-[-0.02em]">
-                  Artículos recientes
+                  {hasActiveFilters ? "También en esta búsqueda" : "Artículos recientes"}
                 </h2>
               </div>
             </div>
             <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
-              {(recentPosts.length > 0 ? recentPosts : allPosts).slice(0, 6).map((post) => (
+              {displayRecentPosts.map((post) => (
                 <LatestPostCard key={post.id} post={post} onClick={() => goPost(post.slug)} />
               ))}
             </div>
