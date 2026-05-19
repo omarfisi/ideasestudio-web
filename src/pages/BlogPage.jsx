@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getBlogHome, getBlogPosts } from "@/lib/api.js";
 import SEOHead from "@/components/seo/SEOHead.jsx";
@@ -216,6 +216,63 @@ function LatestPostCard({ post, onClick }) {
   );
 }
 
+function BlogFilterBar({ categories = [], activeCategory = "", searchQuery = "", onCategoryChange, onSearchChange, onClear }) {
+  const cats = Array.isArray(categories) ? categories.filter((c) => c?.name) : [];
+
+  return (
+    <div className="rounded-[30px] border border-neutral-200 bg-white p-5 shadow-[0_8px_32px_rgba(0,0,0,0.05)] md:p-6">
+      <div className="grid gap-5 lg:grid-cols-[1fr_1.2fr] lg:items-center">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-neutral-500">Explora el blog</p>
+          <h2 className="mt-1.5 text-2xl font-semibold tracking-[-0.03em] text-neutral-950 md:text-3xl">
+            Busca por tema o palabra clave
+          </h2>
+        </div>
+        <div className="relative">
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Buscar artículos..."
+            className="h-13 w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-5 pr-12 text-[15px] font-medium text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-[#f2cc3d] focus:bg-white focus:ring-4 focus:ring-[#f2cc3d]/20"
+          />
+          {searchQuery ? (
+            <button type="button" onClick={() => onSearchChange("")} aria-label="Limpiar búsqueda"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-lg font-bold text-neutral-400 transition hover:text-neutral-900">
+              ×
+            </button>
+          ) : (
+            <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">🔎</span>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => onCategoryChange("")}
+          className={!activeCategory
+            ? "rounded-full bg-[#f2cc3d] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-black shadow-[0_4px_16px_rgba(242,204,61,0.3)]"
+            : "rounded-full border border-neutral-200 bg-white px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-neutral-500 transition hover:border-[#f2cc3d] hover:bg-[#f2cc3d]/10 hover:text-neutral-900"}>
+          Todos
+        </button>
+        {cats.map((cat) => (
+          <button key={cat.slug} type="button" onClick={() => onCategoryChange(cat.slug)}
+            className={activeCategory === cat.slug
+              ? "rounded-full bg-[#f2cc3d] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-black shadow-[0_4px_16px_rgba(242,204,61,0.3)]"
+              : "rounded-full border border-neutral-200 bg-white px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-neutral-500 transition hover:border-[#f2cc3d] hover:bg-[#f2cc3d]/10 hover:text-neutral-900"}>
+            {cat.name}
+          </button>
+        ))}
+        {(activeCategory || searchQuery) && (
+          <button type="button" onClick={onClear}
+            className="rounded-full border border-neutral-200 bg-neutral-950 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white transition hover:bg-[#f2cc3d] hover:text-black">
+            Limpiar filtros ×
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function BlogHeroSlideshow({ posts = [], onNavigate }) {
   const slides = posts.filter((p) => p?.slug).slice(0, 6);
   const [current, setCurrent] = useState(0);
@@ -381,11 +438,14 @@ export default function BlogPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const allPage = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+  const activeCategory = searchParams.get("category") || "";
+  const searchQuery = searchParams.get("q") || "";
 
   const [layout, setLayout] = useState(null);
-  const [fallbackPosts, setFallbackPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeCategory, setActiveCategory] = useState("");
+
+  const [searchInput, setSearchInput] = useState(searchQuery);
+  const searchQueryRef = useRef(searchQuery);
 
   const [allPosts, setAllPosts] = useState([]);
   const [allTotal, setAllTotal] = useState(0);
@@ -393,27 +453,41 @@ export default function BlogPage() {
 
   useEffect(() => {
     let alive = true;
-    async function load() {
-      try {
-        const [homeRes, postsRes] = await Promise.all([
-          getBlogHome().catch(() => null),
-          getBlogPosts({ limit: 10 }).catch(() => null),
-        ]);
-        if (!alive) return;
-        setLayout(homeRes || null);
-        setFallbackPosts(postsRes?.items || []);
-      } finally {
-        if (alive) setLoading(false);
-      }
-    }
-    load();
+    getBlogHome().catch(() => null).then((res) => {
+      if (!alive) return;
+      setLayout(res || null);
+    }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, []);
+
+  // Sync searchInput when URL changes externally (back/forward navigation)
+  useEffect(() => {
+    if (searchQuery !== searchQueryRef.current) {
+      searchQueryRef.current = searchQuery;
+      setSearchInput(searchQuery);
+    }
+  }, [searchQuery]);
+
+  // Debounce: push searchInput → URL after 350 ms
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (searchInput.trim() !== searchQuery) {
+        updateBlogFilters({ q: searchInput });
+      }
+    }, 350);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
 
   useEffect(() => {
     let alive = true;
     setAllLoading(true);
-    getBlogPosts({ limit: POSTS_PER_PAGE, offset: (allPage - 1) * POSTS_PER_PAGE })
+    getBlogPosts({
+      limit: POSTS_PER_PAGE,
+      page: allPage,
+      ...(activeCategory ? { category: activeCategory } : {}),
+      ...(searchQuery ? { search: searchQuery } : {}),
+    })
       .then((res) => {
         if (!alive) return;
         setAllPosts((res?.items || []).map(postToCard).filter(Boolean));
@@ -422,12 +496,45 @@ export default function BlogPage() {
       .catch(() => {})
       .finally(() => { if (alive) setAllLoading(false); });
     return () => { alive = false; };
-  }, [allPage]);
+  }, [allPage, activeCategory, searchQuery]);
 
   const totalPages = Math.max(1, Math.ceil(allTotal / POSTS_PER_PAGE));
 
+  function updateBlogFilters(next) {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      if (Object.prototype.hasOwnProperty.call(next, "category")) {
+        if (next.category) params.set("category", next.category);
+        else params.delete("category");
+        params.delete("page");
+      }
+      if (Object.prototype.hasOwnProperty.call(next, "q")) {
+        const q = (next.q || "").trim();
+        if (q) params.set("q", q);
+        else params.delete("q");
+        params.delete("page");
+      }
+      return params;
+    });
+  }
+
+  function handleCategoryChange(slug) { updateBlogFilters({ category: slug }); }
+  function handleSearchChange(value) { setSearchInput(value); }
+  function handleClearFilters() {
+    setSearchInput("");
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      p.delete("category"); p.delete("q"); p.delete("page");
+      return p;
+    });
+  }
+
   function handlePageChange(n) {
-    setSearchParams(n <= 1 ? {} : { page: String(n) });
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      if (n <= 1) p.delete("page"); else p.set("page", String(n));
+      return p;
+    });
     document.getElementById("todos-articulos")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -444,7 +551,7 @@ export default function BlogPage() {
   const magazineCenter = layout?.magazine_center ? postToCard(layout.magazine_center) : null;
   const magazineRight = (layout?.magazine_right || []).map(postToCard).filter(Boolean);
   const recentPosts = (layout?.recent_posts || []).map(postToCard).filter(Boolean);
-  const categories = (layout?.categories || []).map((c) => c.name);
+  const categories = layout?.categories || [];
 
   const heroSlides = (() => {
     const seen = new Set();
@@ -455,12 +562,6 @@ export default function BlogPage() {
     });
   })();
 
-  const topicsDisplay = categories.length > 0
-    ? categories
-    : ["Branding", "Diseño Web", "Contenido", "Fotografía", "Video", "SEO", "Marketing Digital"];
-
-  const firstFallback = fallbackPosts.find((p) => p?.slug) || null;
-  const displayHero = heroMain || (firstFallback ? postToCard(firstFallback) : null);
 
   return (
     <main className="bg-white text-neutral-950">
@@ -485,6 +586,18 @@ export default function BlogPage() {
               Explora artículos con ideas, estrategias y recomendaciones para generar más visitas, captar mejores prospectos y aumentar tus ventas.
             </p>
           </div>
+
+          <Divider />
+
+          {/* Filtros de búsqueda y categorías */}
+          <BlogFilterBar
+            categories={categories}
+            activeCategory={activeCategory}
+            searchQuery={searchInput}
+            onCategoryChange={handleCategoryChange}
+            onSearchChange={handleSearchChange}
+            onClear={handleClearFilters}
+          />
 
           <Divider />
 
@@ -515,23 +628,6 @@ export default function BlogPage() {
           )}
         </section>
 
-        <Divider />
-
-        {/* ── TOPICS / CATEGORÍAS ── */}
-        <section className="mt-0 rounded-[20px] border border-neutral-200 py-7">
-          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-sm font-semibold uppercase tracking-[0.18em] text-neutral-500">
-            {topicsDisplay.map((t) => (
-              <button
-                key={t}
-                type="button"
-                className={`transition hover:text-black ${activeCategory === t ? "text-black" : ""}`}
-                onClick={() => setActiveCategory(activeCategory === t ? "" : t)}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-        </section>
 
         <Divider />
 
@@ -568,15 +664,22 @@ export default function BlogPage() {
 
         {/* ── TODOS LOS ARTÍCULOS ── */}
         <section id="todos-articulos" className="mt-0 scroll-mt-10">
-          <div className="mb-10 flex items-end justify-between gap-4">
+          <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="text-[11px] uppercase tracking-[0.25em] text-neutral-500">Archivo</p>
               <h2 className="mt-2 text-4xl font-semibold tracking-[-0.02em]">
-                Todos los artículos
+                {activeCategory || searchQuery ? "Resultados" : "Todos los artículos"}
               </h2>
+              {(activeCategory || searchQuery) && (
+                <p className="mt-2 text-sm text-neutral-500">
+                  {activeCategory && `Categoría: ${activeCategory}`}
+                  {activeCategory && searchQuery && " · "}
+                  {searchQuery && `"${searchQuery}"`}
+                </p>
+              )}
             </div>
-            {allTotal > 0 && (
-              <p className="shrink-0 text-sm text-neutral-500">{allTotal} artículos</p>
+            {!allLoading && (
+              <p className="shrink-0 text-sm text-neutral-500">{allTotal} artículo{allTotal !== 1 ? "s" : ""}</p>
             )}
           </div>
 
@@ -592,7 +695,13 @@ export default function BlogPage() {
               ))}
             </div>
           ) : allPosts.length === 0 ? (
-            <p className="py-10 text-center text-sm text-neutral-400">No hay artículos publicados.</p>
+            <div className="py-16 text-center">
+              <p className="text-base font-semibold text-neutral-700">No encontramos artículos con esos filtros.</p>
+              <button type="button" onClick={handleClearFilters}
+                className="mt-4 inline-flex items-center gap-2 rounded-full border border-black/15 bg-white px-5 py-2.5 text-[11px] font-bold uppercase tracking-[0.18em] text-black transition hover:border-[#f2cc3d] hover:bg-[#f2cc3d]">
+                Limpiar filtros ×
+              </button>
+            </div>
           ) : (
             <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
               {allPosts.map((post) => (
