@@ -529,13 +529,15 @@ function GallerySlideshow({ images, title, description, variant = "slideshow" })
       )}
       {/* Thumbnails */}
       {safeImages.length > 1 && (
-        <div className="flex gap-2.5 overflow-x-auto border-t border-slate-100 bg-white px-4 py-4">
+        <div className="flex gap-2 overflow-x-auto border-t border-slate-100 bg-slate-50 px-4 py-3">
           {safeImages.map((img, i) => (
             <button key={img.url + i} type="button" onClick={() => setCurrent(i)}
-              className={`h-16 w-24 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
-                i === current ? "border-blue-500 shadow-md" : "border-transparent opacity-60 hover:opacity-100 hover:border-slate-300"
+              className={`gallery-slideshow-thumb h-14 w-20 shrink-0 overflow-hidden rounded-none border-2 transition-all ${
+                i === current
+                  ? "border-slate-900 opacity-100 shadow-sm"
+                  : "border-transparent opacity-55 hover:opacity-90 hover:border-slate-300"
               }`}>
-              <img src={img.url} alt={img.alt || `Miniatura ${i + 1}`} className="h-full w-full object-cover object-top" />
+              <img src={img.url} alt={img.alt || `Miniatura ${i + 1}`} className="h-full w-full rounded-none object-cover object-center" />
             </button>
           ))}
         </div>

@@ -15077,3 +15077,9 @@ section[id] {
   border-radius: 9px;
   border: 1px solid rgba(176,48,48,0.15);
 }
+
+/* ── Gallery slideshow thumbnails — always square ──────────────────────────── */
+.gallery-slideshow-thumb,
+.gallery-slideshow-thumb img {
+  border-radius: 0 !important;
+}
