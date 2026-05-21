@@ -110,12 +110,23 @@ export function addImageCacheBust(url, version) {
  * @param {string|null} version     - cache-bust token from getSocialImageVersion()
  * @returns {string} proxied URL or rawImageUrl unchanged if no URL provided
  */
+/**
+ * Proxy version — increment whenever the proxy behaviour changes in a way that
+ * requires Vercel's edge cache to discard previously-cached responses.
+ *
+ * History:
+ *   1 — initial proxy (bug: HEAD forwarded to Supabase → content-length: 0)
+ *   2 — fixed HEAD: proxy always does GET upstream; HEAD returns headers only
+ */
+const OG_PROXY_VERSION = '2';
+
 export function buildProxyImageUrl(rawImageUrl, version) {
   if (!rawImageUrl) return rawImageUrl;
   try {
     const params = new URLSearchParams();
     params.set('src', rawImageUrl);
     if (version) params.set('v', version);
+    params.set('pv', OG_PROXY_VERSION);
     return `${SITE_URL}/api/og-image?${params.toString()}`;
   } catch {
     return rawImageUrl;
