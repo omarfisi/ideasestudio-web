@@ -1,5 +1,5 @@
 import { Helmet } from "react-helmet-async";
-import { getArticleSocialImage } from "@/lib/socialMeta.js";
+import { getArticleSocialImage, getSocialImageVersion, addImageCacheBust } from "@/lib/socialMeta.js";
 
 const SITE_URL  = "https://www.ideasestudio.com";
 const SITE_NAME = "Ideas Estudio";
@@ -52,13 +52,17 @@ export default function SEOHead({
   const resolvedOgTitle = e.og_title || ogTitle || fullTitle;
   const resolvedOgDescription = e.og_description || ogDescription || metaDescription;
 
-  // For article pages the caller can pass the full `post` object so we use
-  // the priority chain; otherwise we fall back to `ogImage` or the site default.
-  const resolvedOgImage =
+  // For article pages the caller passes the full `post` object so we resolve
+  // the image via the priority chain and apply a stable cache-busting token.
+  // For non-article pages (no post) we skip cache-busting to keep URLs clean.
+  const rawOgImage =
     e.og_image_url ||
     (post ? getArticleSocialImage(post, DEFAULT_OG_IMAGE) : null) ||
     ogImage ||
     DEFAULT_OG_IMAGE;
+
+  const imageVersion = post ? getSocialImageVersion(post) : null;
+  const resolvedOgImage = addImageCacheBust(rawOgImage, imageVersion);
 
   const resolvedTwitterTitle = e.twitter_title || twitterTitle || resolvedOgTitle;
   const resolvedTwitterDescription = e.twitter_description || twitterDescription || resolvedOgDescription;

@@ -51,3 +51,46 @@ export function getArticleSocialImage(post, fallback = null) {
 
   return fallback;
 }
+
+/**
+ * Derives a stable version token from the article's update/publish timestamp or ID.
+ *
+ * This token is appended as `?v=<token>` to the OG/Twitter image URL so that
+ * WhatsApp (and other aggressively-caching scrapers) see a "new" image URL when
+ * the article is updated — without invalidating CDN caching of the image itself.
+ *
+ * Stability guarantee: same article + same updated_at → same token every time.
+ * Returns null when no suitable field is found (cache-busting is then skipped).
+ *
+ * @param {object} post - Article/post object from the CRM API
+ * @returns {string|null}
+ */
+export function getSocialImageVersion(post) {
+  const raw =
+    post?.updated_at  ||
+    post?.published_at ||
+    post?.publish_at  ||
+    post?.created_at  ||
+    post?.id;
+  if (!raw) return null;
+  return String(raw).replace(/[^a-zA-Z0-9]/g, '').slice(0, 20);
+}
+
+/**
+ * Appends a stable `?v=<version>` querystring parameter to an image URL.
+ * Returns the original URL unchanged when version is null/empty.
+ *
+ * @param {string} url
+ * @param {string|null} version - token from getSocialImageVersion()
+ * @returns {string}
+ */
+export function addImageCacheBust(url, version) {
+  if (!url || !version) return url;
+  try {
+    const u = new URL(url);
+    u.searchParams.set('v', version);
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
