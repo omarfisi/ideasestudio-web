@@ -67,7 +67,7 @@ function getSocialImage(post) {
   return DEFAULT_SOCIAL_IMAGE;
 }
 
-/** Detect MIME type from image URL extension. */
+/** Detect MIME type from image URL extension (ignores querystring). */
 function getImageMime(url) {
   if (!url) return 'image/jpeg';
   const u = url.toLowerCase().split('?')[0];
@@ -75,6 +75,44 @@ function getImageMime(url) {
   if (u.endsWith('.png'))  return 'image/png';
   if (u.endsWith('.gif'))  return 'image/gif';
   return 'image/jpeg';
+}
+
+/**
+ * Derives a stable version token from the article's update/publish timestamp or ID.
+ * Used as a ?v= querystring on the social image URL so that WhatsApp (and other
+ * aggressive-caching scrapers) treat a changed image as a new resource.
+ *
+ * Stability guarantee: the same article at the same updated_at always produces
+ * the same token — so CDN caching of the image itself is unaffected, and the
+ * scraper only re-fetches when the article actually changes.
+ *
+ * Returns null when no suitable field is found (fallback: skip cache-busting).
+ */
+function getSocialImageVersion(post) {
+  const raw =
+    post?.updated_at  ||
+    post?.published_at ||
+    post?.publish_at  ||
+    post?.created_at  ||
+    post?.id;
+  if (!raw) return null;
+  // Strip all non-alphanumeric characters; trim to 20 chars max
+  return String(raw).replace(/[^a-zA-Z0-9]/g, '').slice(0, 20);
+}
+
+/**
+ * Appends a stable `?v=<version>` to an image URL.
+ * Returns the original URL unchanged when version is null/empty (e.g. fallback images).
+ */
+function addImageCacheBust(url, version) {
+  if (!url || !version) return url;
+  try {
+    const u = new URL(url);
+    u.searchParams.set('v', version);
+    return u.toString();
+  } catch {
+    return url;
+  }
 }
 
 // ─── Meta tag builder ─────────────────────────────────────────────────────────
@@ -90,8 +128,12 @@ function buildOgBlock(post, slug) {
   const description = post.meta_description || post.excerpt
     || `Lee "${rawTitle}" en el blog de ${SITE_NAME}.`;
 
-  const image       = getSocialImage(post);
-  const imageMime   = getImageMime(image);
+  // Versioned image URL: forces WhatsApp (and other caching scrapers) to
+  // re-fetch the image when the article is updated, without breaking CDN caching.
+  const rawImage    = getSocialImage(post);
+  const imageVer    = getSocialImageVersion(post);
+  const image       = addImageCacheBust(rawImage, imageVer);
+  const imageMime   = getImageMime(rawImage); // MIME detection uses base URL, not querystring
   const canonical   = `${SITE_URL}/blog/${slug}`;
   const publishedAt = post.published_at || post.publish_at || post.created_at || '';
   const modifiedAt  = post.updated_at   || publishedAt;
