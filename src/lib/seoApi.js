@@ -12,7 +12,9 @@ export async function getPublicSeo(path) {
     const res = await fetch(url);
     if (!res.ok) return null;
     const data = await res.json().catch(() => null);
-    return data?.entry || null;
+    // API returns { ok, found, seo: {...} } — "seo" is the entry key, NOT "entry"
+    if (!data?.found) return null;
+    return data?.seo || null;
   } catch {
     return null;
   }
