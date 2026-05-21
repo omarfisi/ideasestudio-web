@@ -108,6 +108,8 @@ export default function SEOHead({
       <meta property="og:description"      content={resolvedOgDescription} />
       <meta property="og:image"            content={resolvedOgImage} />
       <meta property="og:image:secure_url" content={resolvedOgImage} />
+      {/* Article pages use the og-image proxy which always outputs WebP 1200×630 */}
+      {post && <meta property="og:image:type"   content="image/webp" />}
       <meta property="og:image:width"      content="1200" />
       <meta property="og:image:height"     content="630" />
       <meta property="og:image:alt"        content={rawTitle || SITE_NAME} />
