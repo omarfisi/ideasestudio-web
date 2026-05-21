@@ -9,16 +9,20 @@
  * HTML <head> — even though the app is a client-side React SPA that normally
  * builds those tags with react-helmet.
  *
- * Image priority (highest → lowest):
- *   1. SEO entry configured in the CMS for this exact path (/public/seo?path=…)
- *      → og_image_url, seo_image_url, social_image_url, cover_url, image_url
- *   2. Item-level image fields (for articles, portfolio, services):
- *      seo_image_url → og_image_url → social_image_url → cover_* → image_url → media_urls[0]
- *   3. STATIC_PAGE_META.image fallback (only if neither 1 nor 2 resolved)
- *   4. DEFAULT_SITE_IMAGE — a real brand photo, never the favicon
+ * ── Image priority (highest → lowest) ──────────────────────────────────────
+ *   1. CMS SEO entry configured for this path (GET /public/seo?path=)
+ *      → seo.og_image_url
+ *   2. Item-level image fields (articles, portfolio items, services)
+ *   3. STATIC_PAGE_META.image — hardcoded fallback per route
+ *   4. DEFAULT_SITE_IMAGE — brand photo, NEVER the favicon
  *
- * On any error (timeout, CRM down, not found) the middleware returns
- * undefined so Vercel falls through to the normal SPA route (index.html).
+ * ── Debug headers ────────────────────────────────────────────────────────────
+ *   Add ?ogdebug=1 to any URL to get x-ie-og-* response headers showing
+ *   which source won for each field (seo | entity | fallback).
+ *
+ * ── Key fix (PR #57) ─────────────────────────────────────────────────────────
+ *   The CRM API returns { ok, found, seo: {...} }.
+ *   Previous code read data?.entry (always null). Now correctly reads data?.seo.
  */
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -28,9 +32,8 @@ const SITE_NAME      = 'Ideas Estudio';
 const TWITTER_HANDLE = '@ideasestudio';
 
 /**
- * Default brand image — a real Supabase photo used on the homepage.
- * Used only when NO configured OG image and NO item image are available.
- * Never use favicon here.
+ * Default brand images — real photos, never favicon/logo.
+ * Used only when no configured SEO image AND no item image exist.
  */
 const DEFAULT_SITE_IMAGE =
   'https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/presencia-visual.webp';
@@ -39,7 +42,7 @@ const SERVICES_IMAGE =
   'https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/marca-negocio.webp';
 
 // ─── Static page fallback registry ───────────────────────────────────────────
-// Used ONLY when the CRM's /public/seo?path= endpoint returns no entry.
+// This is a FALLBACK ONLY. The CMS SEO entry (GET /public/seo?path=) always wins.
 // Keys are normalized pathnames (no trailing slash).
 
 const STATIC_PAGE_META = {
@@ -75,47 +78,47 @@ const STATIC_PAGE_META = {
   },
   '/pequenos-negocios': {
     title:       'Para Pequeños Negocios | Ideas Estudio',
-    description: 'Contenido visual, branding y presencia digital para tiendas, restaurantes y negocios locales en Puerto Rico que necesitan verse más profesionales.',
+    description: 'Contenido visual, branding y presencia digital para tiendas, restaurantes y negocios locales en Puerto Rico.',
     image:       SERVICES_IMAGE,
   },
   '/emprendedores': {
     title:       'Para Emprendedores | Ideas Estudio',
-    description: 'Branding, fotografía y presencia digital para emprendedores y marcas personales que quieren presentar mejor su propuesta.',
+    description: 'Branding, fotografía y presencia digital para emprendedores y marcas personales.',
     image:       DEFAULT_SITE_IMAGE,
   },
   '/empresas-emergentes': {
     title:       'Para Empresas Emergentes | Ideas Estudio',
-    description: 'Identidad, contenido y presencia digital para startups y marcas nuevas que necesitan salir al mercado con una imagen sólida y escalable.',
+    description: 'Identidad, contenido y presencia digital para startups y marcas nuevas.',
     image:       DEFAULT_SITE_IMAGE,
   },
   '/bodas-eventos-sesiones': {
     title:       'Bodas, Eventos y Sesiones | Ideas Estudio',
-    description: 'Coberturas, sesiones y fotografía para bodas, celebraciones y retratos con un proceso claro desde la reserva hasta la entrega.',
+    description: 'Coberturas, sesiones y fotografía para bodas, celebraciones y retratos en Puerto Rico.',
     image:       DEFAULT_SITE_IMAGE,
   },
   '/servicios/marca-o-negocio': {
     title:       'Soluciones para Marcas y Negocios | Ideas Estudio',
-    description: 'Branding, contenido, web y activos comerciales para negocios que necesitan verse mejor, vender con más orden y comunicar con más intención.',
+    description: 'Branding, contenido, web y activos comerciales para negocios que necesitan verse mejor.',
     image:       SERVICES_IMAGE,
   },
   '/servicios/presencia-visual-profesional': {
     title:       'Presencia Visual Profesional | Ideas Estudio',
-    description: 'Imagen corporativa, fotografía y video profesional para empresas y equipos que necesitan verse serios, consistentes y listos para presentar.',
+    description: 'Imagen corporativa, fotografía y video profesional para empresas y equipos.',
     image:       DEFAULT_SITE_IMAGE,
   },
   '/servicios/momento-especial': {
     title:       'Fotografía para Momentos Especiales | Ideas Estudio',
-    description: 'Bodas, sesiones, celebraciones y coberturas con una estructura más clara para reservar, entender la experiencia y elegir mejor.',
+    description: 'Bodas, sesiones y coberturas con una experiencia clara desde la reserva hasta la entrega.',
     image:       DEFAULT_SITE_IMAGE,
   },
   '/servicios/solucion-creativa': {
     title:       'Soluciones Creativas Personalizadas | Ideas Estudio',
-    description: 'Campañas, proyectos mixtos y propuestas personalizadas para necesidades donde branding, contenido, producción o web deben mezclarse con criterio.',
+    description: 'Campañas, proyectos mixtos y propuestas donde branding, contenido, producción y web se mezclan.',
     image:       DEFAULT_SITE_IMAGE,
   },
 };
 
-// Slugs under /servicios/ that are static niche pages (handled via static registry)
+// Slugs under /servicios/ that are static niche pages (in STATIC_PAGE_META above)
 const SERVICE_NICHE_SLUGS = new Set([
   'marca-o-negocio',
   'presencia-visual-profesional',
@@ -123,16 +126,10 @@ const SERVICE_NICHE_SLUGS = new Set([
   'solucion-creativa',
 ]);
 
-// Slugs under /servicios/ to skip entirely (no OG injection needed)
+// Slugs to skip (no OG injection)
 const SERVICE_EXCLUDED_SLUGS = new Set(['checkout']);
 
 // ─── Image priority field lists ───────────────────────────────────────────────
-// Used by pickImage() to find the first valid image URL in an object.
-// Order = priority (highest first).
-
-const SEO_ENTRY_IMAGE_FIELDS = [
-  'og_image_url', 'seo_image_url', 'social_image_url', 'cover_url', 'image_url',
-];
 
 const BLOG_IMAGE_FIELDS = [
   'seo_image_url', 'og_image_url', 'social_image_url',
@@ -151,7 +148,6 @@ const SERVICE_IMAGE_FIELDS = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Escape special HTML attribute characters. */
 function esc(str) {
   return String(str || '')
     .replace(/&/g, '&amp;')
@@ -160,17 +156,17 @@ function esc(str) {
     .replace(/>/g, '&gt;');
 }
 
-/** Convert a relative URL to an absolute one. */
 function absoluteUrl(value) {
   if (!value) return null;
-  if (value.startsWith('https://') || value.startsWith('http://')) return value;
-  return `${SITE_URL}${value.startsWith('/') ? '' : '/'}${value}`;
+  const s = String(value).trim();
+  if (!s) return null;
+  if (s.startsWith('https://') || s.startsWith('http://')) return s;
+  return `${SITE_URL}${s.startsWith('/') ? '' : '/'}${s}`;
 }
 
 /**
- * Return the first valid absolute image URL from `obj` using the given field names.
- * Also checks `obj.media_urls[0]` as a last resort if `includeMediaUrls` is true.
- * Returns null (no built-in fallback) so callers can chain their own fallbacks.
+ * Return the first valid absolute image URL from `obj`'s named fields.
+ * Returns null — no built-in fallback — so callers can chain correctly.
  */
 function pickImage(obj, fields, { includeMediaUrls = false } = {}) {
   if (!obj) return null;
@@ -185,23 +181,13 @@ function pickImage(obj, fields, { includeMediaUrls = false } = {}) {
   return null;
 }
 
-/**
- * Derives a stable version token from an object's update/publish timestamp or ID.
- * Used as ?v= so caching scrapers treat a changed image as a new resource.
- * Returns null when no suitable field is found.
- */
 function getSocialImageVersion(obj) {
-  const raw =
-    obj?.updated_at  ||
-    obj?.published_at ||
-    obj?.publish_at  ||
-    obj?.created_at  ||
-    obj?.id;
+  if (!obj) return null;
+  const raw = obj.updated_at || obj.published_at || obj.publish_at || obj.created_at || obj.id;
   if (!raw) return null;
   return String(raw).replace(/[^a-zA-Z0-9]/g, '').slice(0, 20);
 }
 
-/** Appends a stable ?v= querystring to an image URL. */
 function addImageCacheBust(url, version) {
   if (!url || !version) return url;
   try {
@@ -214,19 +200,14 @@ function addImageCacheBust(url, version) {
 }
 
 /**
- * Proxy version — increment when proxy behaviour changes to bust Vercel edge cache.
- *
+ * Proxy version — increment when proxy output changes to bust Vercel edge cache.
  * History:
- *   1 — initial (bug: HEAD forwarded to Supabase, content-length: 0)
- *   2 — HEAD fix: proxy always does GET upstream; HEAD returns headers only
- *   3 — WebP transform: proxy returns WebP 1200x630 via sharp, not raw PNG
+ *   1 — initial (bug: HEAD->Supabase returned content-length: 0)
+ *   2 — HEAD fix: always GET upstream
+ *   3 — WebP transform: proxy returns WebP 1200×630 via sharp
  */
 const OG_PROXY_VERSION = '3';
 
-/**
- * Build the proxy URL that serves the image through our own domain.
- * Strips Supabase's x-robots-tag: none and converts to WebP 1200×630.
- */
 function buildProxyImageUrl(rawImageUrl, version) {
   if (!rawImageUrl) return rawImageUrl;
   try {
@@ -240,12 +221,6 @@ function buildProxyImageUrl(rawImageUrl, version) {
   }
 }
 
-/**
- * Resolve + proxy an image URL in one step.
- * @param {string|null} rawImageUrl - original (possibly relative) image URL
- * @param {string|null} version     - cache-bust token from getSocialImageVersion()
- * @returns {string} fully proxied URL, or buildProxyImageUrl(DEFAULT_SITE_IMAGE, null) as fallback
- */
 function resolveAndProxy(rawImageUrl, version) {
   const abs = absoluteUrl(rawImageUrl) || DEFAULT_SITE_IMAGE;
   const versioned = addImageCacheBust(abs, version);
@@ -255,14 +230,17 @@ function resolveAndProxy(rawImageUrl, version) {
 // ─── SEO entry fetcher ────────────────────────────────────────────────────────
 
 /**
- * Fetch the configured SEO entry for a given pathname from the CRM's public API.
- * This is the source of truth for OG image, title, and description per page.
- * Returns null silently on any error so middleware can fall back to defaults.
+ * Fetch the configured SEO entry for a path from the CRM's public API.
  *
- * @param {string} crmBase - CRM API base URL (e.g. https://api.example.com)
- * @param {string} pathname - normalized page path (e.g. '/servicios/marca-o-negocio')
- * @param {AbortSignal} signal
- * @returns {Promise<object|null>}
+ * API contract (GET /public/seo?path=<path>):
+ *   Found:     { ok: true, found: true,  seo: { og_image_url, seo_title, meta_description, … } }
+ *   Not found: { ok: true, found: false, path: <path> }
+ *
+ * IMPORTANT: the entry is under the "seo" key — NOT "entry".
+ * Previous code used data?.entry which always returned null and silently
+ * ignored every configured OG image. This is the fix.
+ *
+ * Returns null on: not-found, network error, timeout, bad JSON.
  */
 async function fetchPageSeoEntry(crmBase, pathname, signal) {
   if (!crmBase || !pathname) return null;
@@ -273,40 +251,101 @@ async function fetchPageSeoEntry(crmBase, pathname, signal) {
     );
     if (!res.ok) return null;
     const data = await res.json().catch(() => null);
-    return data?.entry || null;
+    // API returns found=false when no entry exists for this path
+    if (!data?.found) return null;
+    return data?.seo || null;
   } catch {
-    // Timeout, network error, parse error → graceful degradation
     return null;
   }
 }
 
-// ─── Route classifier ─────────────────────────────────────────────────────────
+// ─── Global OG source resolver ────────────────────────────────────────────────
 
 /**
- * Classify an incoming pathname into a route type and extract parameters.
- * @param {string} pathname - normalized pathname (no trailing slash, e.g. '/blog/my-slug')
- * @returns {{ type: string, slug?: string, staticMeta?: object }}
+ * Resolve the canonical title, description, image, and version for any page.
+ *
+ * Priority (highest → lowest):
+ *   title:       seoEntry.og_title (if set) → seoEntry.seo_title → entityTitle → staticMeta.title
+ *   description: seoEntry.og_description (if set) → seoEntry.meta_description → entityDescription → staticMeta.description
+ *   image:       seoEntry.og_image_url → entityImage → staticMeta.image → DEFAULT_SITE_IMAGE
+ *   version:     from seoEntry timestamps → from entity timestamps
+ *
+ * @param {object}      opts
+ * @param {object|null} opts.seoEntry         - CMS SEO entry ({ og_image_url, seo_title, … })
+ * @param {string}      opts.entityTitle      - pre-resolved title from item (post.title, service.name, …)
+ * @param {string}      opts.entityDescription - pre-resolved description from item
+ * @param {string|null} opts.entityImage      - pre-resolved image URL from item (already absolute)
+ * @param {string|null} opts.entityVersion    - cache-bust token from item (getSocialImageVersion result)
+ * @param {object|null} opts.staticMeta       - from STATIC_PAGE_META (fallback only)
+ * @returns {{ fullTitle, displayTitle, description, rawImage, imageSource, version }}
  */
+function resolveOgSource({ seoEntry, entityTitle, entityDescription, entityImage, entityVersion, staticMeta }) {
+  const e = seoEntry || {};
+
+  // ── Title ───────────────────────────────────────────────────────────────────
+  // og_title/og_description may be empty strings when not configured — treat as absent
+  const seoTitle =
+    (e.og_title       || '').trim() ||
+    (e.seo_title      || '').trim();
+  const staticTitle = (staticMeta?.title || '').replace(` | ${SITE_NAME}`, '').replace(`${SITE_NAME} | `, '');
+  const resolvedRaw = seoTitle || entityTitle || staticTitle || SITE_NAME;
+  const fullTitle   = resolvedRaw.includes(SITE_NAME)
+    ? resolvedRaw
+    : `${resolvedRaw} | ${SITE_NAME}`;
+  // Alt text / display title without the site name suffix
+  const displayTitle = fullTitle
+    .replace(` | ${SITE_NAME}`, '')
+    .replace(`${SITE_NAME} | `, '');
+
+  // ── Description ─────────────────────────────────────────────────────────────
+  const description =
+    (e.og_description  || '').trim() ||
+    (e.meta_description|| '').trim() ||
+    entityDescription  ||
+    staticMeta?.description          ||
+    `Agencia creativa en Puerto Rico — ${SITE_NAME}.`;
+
+  // ── Image ───────────────────────────────────────────────────────────────────
+  // seoEntry.og_image_url is the only image field in the real API response
+  const seoImage = absoluteUrl((e.og_image_url || '').trim());
+  const fallbackImage = absoluteUrl(staticMeta?.image) || DEFAULT_SITE_IMAGE;
+
+  let rawImage, imageSource;
+  if (seoImage) {
+    rawImage    = seoImage;
+    imageSource = 'seo';
+  } else if (entityImage) {
+    rawImage    = entityImage;
+    imageSource = 'entity';
+  } else {
+    rawImage    = fallbackImage;
+    imageSource = 'fallback';
+  }
+
+  // ── Version (cache-bust token) ───────────────────────────────────────────────
+  const version = getSocialImageVersion(e) || entityVersion || null;
+
+  return { fullTitle, displayTitle, description, rawImage, imageSource, version };
+}
+
+// ─── Route classifier ─────────────────────────────────────────────────────────
+
 function classifyRoute(pathname) {
-  // Static registry (exact match — catches niche pages under /servicios/ too)
   if (STATIC_PAGE_META[pathname]) {
     return { type: 'static', staticMeta: STATIC_PAGE_META[pathname] };
   }
 
-  // /blog/:slug  (single segment only)
   const blogMatch = pathname.match(/^\/blog\/([^/]+)$/);
   if (blogMatch) return { type: 'blog', slug: blogMatch[1] };
 
-  // /portafolio/:slug
   const portfolioMatch = pathname.match(/^\/portafolio\/([^/]+)$/);
   if (portfolioMatch) return { type: 'portfolio', slug: portfolioMatch[1] };
 
-  // /servicios/:slug — skip checkout and niche slugs (already in static registry)
   const serviceMatch = pathname.match(/^\/servicios\/([^/]+)$/);
   if (serviceMatch) {
     const slug = serviceMatch[1];
     if (SERVICE_EXCLUDED_SLUGS.has(slug)) return { type: 'unknown' };
-    if (SERVICE_NICHE_SLUGS.has(slug))    return { type: 'unknown' }; // caught above
+    if (SERVICE_NICHE_SLUGS.has(slug))    return { type: 'unknown' }; // in static registry
     return { type: 'service', slug };
   }
 
@@ -315,21 +354,7 @@ function classifyRoute(pathname) {
 
 // ─── OG block builder ─────────────────────────────────────────────────────────
 
-/**
- * Build a complete <head> social meta block for any page type.
- *
- * @param {object} opts
- * @param {string} opts.fullTitle       - complete title (e.g. "Bodas | Ideas Estudio")
- * @param {string} opts.rawTitle        - short title for alt text (without site name)
- * @param {string} opts.description     - meta description
- * @param {string} opts.image           - proxied OG image URL (WebP 1200×630)
- * @param {string} opts.canonical       - canonical page URL
- * @param {string} opts.ogType          - 'website' or 'article'
- * @param {string} opts.articleTagsHtml - article:* meta tags string, or '' for non-articles
- * @param {string} opts.schemaJson      - serialized JSON-LD schema
- * @param {string} opts.pathLabel       - pathname for the debug comment
- */
-function buildOgBlock({ fullTitle, rawTitle, description, image, canonical, ogType, articleTagsHtml, schemaJson, pathLabel }) {
+function buildOgBlock({ fullTitle, displayTitle, description, image, canonical, ogType, articleTagsHtml, schemaJson, pathLabel }) {
   const articleSection = articleTagsHtml
     ? `\n    <!-- ── Article-specific OG ─────────────────────────────── -->\n    ${articleTagsHtml}\n`
     : '';
@@ -355,7 +380,7 @@ function buildOgBlock({ fullTitle, rawTitle, description, image, canonical, ogTy
     <meta property="og:image:type"         content="image/webp" />
     <meta property="og:image:width"        content="1200" />
     <meta property="og:image:height"       content="630" />
-    <meta property="og:image:alt"          content="${esc(rawTitle)}" />${articleSection}
+    <meta property="og:image:alt"          content="${esc(displayTitle)}" />${articleSection}
     <!-- ── Twitter / X Card ─────────────────────────────────────── -->
     <meta name="twitter:card"        content="summary_large_image" />
     <meta name="twitter:site"        content="${TWITTER_HANDLE}" />
@@ -363,7 +388,7 @@ function buildOgBlock({ fullTitle, rawTitle, description, image, canonical, ogTy
     <meta name="twitter:title"       content="${esc(fullTitle)}" />
     <meta name="twitter:description" content="${esc(description)}" />
     <meta name="twitter:image"       content="${image}" />
-    <meta name="twitter:image:alt"   content="${esc(rawTitle)}" />
+    <meta name="twitter:image:alt"   content="${esc(displayTitle)}" />
 
     <!-- ── Pinterest ─────────────────────────────────────────────── -->
     <meta name="pinterest-rich-pin" content="true" />
@@ -375,53 +400,27 @@ function buildOgBlock({ fullTitle, rawTitle, description, image, canonical, ogTy
     <script type="application/ld+json">${schemaJson}</script>`;
 }
 
-// ─── Per-route OG options preparers ──────────────────────────────────────────
+// ─── Per-route OG options builders ───────────────────────────────────────────
 
-/**
- * Prepare OG opts for a static page.
- * Priority (title / description / image):
- *   1. CMS seoEntry configured for this path  ← source of truth
- *   2. STATIC_PAGE_META hard-coded fallback
- *   3. DEFAULT_SITE_IMAGE
- *
- * @param {object}      meta      - from STATIC_PAGE_META
- * @param {string}      pathname  - normalized path
- * @param {object|null} seoEntry  - from /public/seo?path= (may be null)
- */
-function prepStaticPage(meta, pathname, seoEntry) {
-  const e = seoEntry || {};
+function buildStaticOgOpts(staticMeta, pathname, seoEntry) {
+  const source = resolveOgSource({
+    seoEntry,
+    entityTitle:       null,
+    entityDescription: null,
+    entityImage:       null,
+    entityVersion:     null,
+    staticMeta,
+  });
 
-  // ── Title ──────────────────────────────────────────────────────────────────
-  const entryTitle = e.og_title || e.seo_title;
-  let fullTitle;
-  if (entryTitle) {
-    fullTitle = entryTitle.includes(SITE_NAME) ? entryTitle : `${entryTitle} | ${SITE_NAME}`;
-  } else {
-    fullTitle = meta.title; // already has "| Ideas Estudio" in the registry
-  }
-  const rawTitle = fullTitle
-    .replace(` | ${SITE_NAME}`, '')
-    .replace(`${SITE_NAME} | `, '');
-
-  // ── Description ────────────────────────────────────────────────────────────
-  const description = e.og_description || e.meta_description || meta.description;
-
-  // ── Canonical ──────────────────────────────────────────────────────────────
-  const canonical = e.canonical_url || `${SITE_URL}${pathname === '/' ? '' : pathname}`;
-
-  // ── Image — seoEntry wins over static default ──────────────────────────────
-  const rawImage =
-    pickImage(e, SEO_ENTRY_IMAGE_FIELDS) ||
-    absoluteUrl(meta.image)              ||
-    DEFAULT_SITE_IMAGE;
-  const imageVer = getSocialImageVersion(e); // null for entries without timestamps
-  const image    = resolveAndProxy(rawImage, imageVer);
+  const image    = resolveAndProxy(source.rawImage, source.version);
+  const canonical = (seoEntry?.canonical_url || '').trim() ||
+                    `${SITE_URL}${pathname === '/' ? '' : pathname}`;
 
   const schema = JSON.stringify({
     '@context': 'https://schema.org',
     '@type':    'WebPage',
-    name:        fullTitle,
-    description,
+    name:        source.fullTitle,
+    description: source.description,
     url:         canonical,
     publisher: {
       '@type': 'Organization',
@@ -432,50 +431,41 @@ function prepStaticPage(meta, pathname, seoEntry) {
   });
 
   return {
-    fullTitle,
-    rawTitle,
-    description,
+    fullTitle:       source.fullTitle,
+    displayTitle:    source.displayTitle,
+    description:     source.description,
     image,
     canonical,
     ogType:          'website',
     articleTagsHtml: '',
     schemaJson:      schema,
     pathLabel:       pathname,
+    imageSource:     source.imageSource,
   };
 }
 
-/**
- * Prepare OG opts for a blog article.
- * Priority for image:
- *   1. Post's own image fields (seo_image_url → og_image_url → … → image_url)
- *   2. SEO entry configured for /blog/:slug
- *   3. DEFAULT_SITE_IMAGE
- *
- * @param {object}      post      - raw CRM article (snake_case fields)
- * @param {string}      slug
- * @param {object|null} seoEntry  - from /public/seo?path=/blog/:slug (may be null)
- */
-function prepBlogPost(post, slug, seoEntry) {
-  const e = seoEntry || {};
+function buildBlogOgOpts(post, slug, seoEntry) {
+  const entityTitle       = post.meta_title || post.title || '';
+  const entityDescription = post.meta_description || post.excerpt || '';
+  const entityImage       = pickImage(post, BLOG_IMAGE_FIELDS);
+  const entityVersion     = getSocialImageVersion(post);
 
-  const rawTitle  = e.og_title || e.seo_title || post.meta_title || post.title || 'Blog | Ideas Estudio';
-  const fullTitle = rawTitle.includes(SITE_NAME) ? rawTitle : `${rawTitle} | ${SITE_NAME}`;
-  const description = e.og_description || e.meta_description || post.meta_description || post.excerpt ||
-    `Lee "${rawTitle}" en el blog de ${SITE_NAME}.`;
+  const source = resolveOgSource({
+    seoEntry,
+    entityTitle,
+    entityDescription,
+    entityImage,
+    entityVersion,
+    staticMeta: null,
+  });
 
-  // Image: post fields first (more specific), then SEO entry fallback
-  const rawImage =
-    pickImage(post, BLOG_IMAGE_FIELDS) ||
-    pickImage(e, SEO_ENTRY_IMAGE_FIELDS) ||
-    DEFAULT_SITE_IMAGE;
-  const imageVer     = getSocialImageVersion(post) || getSocialImageVersion(e);
-  const image        = resolveAndProxy(rawImage, imageVer);
-  const canonical    = e.canonical_url || `${SITE_URL}/blog/${slug}`;
+  const image    = resolveAndProxy(source.rawImage, source.version);
+  const canonical = (seoEntry?.canonical_url || '').trim() || `${SITE_URL}/blog/${slug}`;
 
-  const publishedAt  = post.published_at || post.publish_at || post.created_at || '';
-  const modifiedAt   = post.updated_at   || publishedAt;
-  const authorName   = post.author?.name || post.author_name || SITE_NAME;
-  const category     = post.category?.name || post.category_name || 'Blog';
+  const publishedAt = post.published_at || post.publish_at || post.created_at || '';
+  const modifiedAt  = post.updated_at   || publishedAt;
+  const authorName  = post.author?.name || post.author_name || SITE_NAME;
+  const category    = post.category?.name || post.category_name || 'Blog';
   const tags = (Array.isArray(post.tags) ? post.tags : [])
     .map(t => (typeof t === 'string' ? t : t?.name))
     .filter(Boolean);
@@ -491,8 +481,8 @@ function prepBlogPost(post, slug, seoEntry) {
   const schema = JSON.stringify({
     '@context': 'https://schema.org',
     '@type':    'BlogPosting',
-    headline:    rawTitle,
-    description,
+    headline:    source.fullTitle,
+    description: source.description,
     image:       [image],
     author: {
       '@type': post.author ? 'Person' : 'Organization',
@@ -511,123 +501,99 @@ function prepBlogPost(post, slug, seoEntry) {
   });
 
   return {
-    fullTitle,
-    rawTitle,
-    description,
+    fullTitle:       source.fullTitle,
+    displayTitle:    source.displayTitle,
+    description:     source.description,
     image,
     canonical,
     ogType:          'article',
     articleTagsHtml: articleLines,
     schemaJson:      schema,
     pathLabel:       `/blog/${slug}`,
+    imageSource:     source.imageSource,
   };
 }
 
-/**
- * Prepare OG opts for a portfolio project item.
- * Priority for image:
- *   1. Project's own image fields
- *   2. SEO entry configured for /portafolio/:slug
- *   3. DEFAULT_SITE_IMAGE
- *
- * @param {object}      item      - raw CRM portfolio item (snake_case fields)
- * @param {string}      slug
- * @param {object|null} seoEntry  - from /public/seo?path=/portafolio/:slug (may be null)
- */
-function prepPortfolioItem(item, slug, seoEntry) {
-  const e = seoEntry || {};
+function buildPortfolioOgOpts(item, slug, seoEntry) {
+  const entityTitle       = item.title || '';
+  const entityDescription = item.description || '';
+  const entityImage       = pickImage(item, PORTFOLIO_IMAGE_FIELDS, { includeMediaUrls: true });
+  const entityVersion     = getSocialImageVersion(item);
 
-  const rawTitle    = e.og_title || e.seo_title || item.title || 'Proyecto | Portafolio';
-  const fullTitle   = `${rawTitle} | ${SITE_NAME}`;
-  const description = e.og_description || e.meta_description || item.description ||
-    `Proyecto creativo realizado por ${SITE_NAME} en Puerto Rico.`;
+  const source = resolveOgSource({
+    seoEntry,
+    entityTitle,
+    entityDescription,
+    entityImage,
+    entityVersion,
+    staticMeta: STATIC_PAGE_META['/portafolio'],
+  });
 
-  const rawImage =
-    pickImage(item, PORTFOLIO_IMAGE_FIELDS, { includeMediaUrls: true }) ||
-    pickImage(e, SEO_ENTRY_IMAGE_FIELDS)                                 ||
-    DEFAULT_SITE_IMAGE;
-  const imageVer  = getSocialImageVersion(item) || getSocialImageVersion(e);
-  const image     = resolveAndProxy(rawImage, imageVer);
-  const canonical = e.canonical_url || `${SITE_URL}/portafolio/${slug}`;
+  const image    = resolveAndProxy(source.rawImage, source.version);
+  const canonical = (seoEntry?.canonical_url || '').trim() || `${SITE_URL}/portafolio/${slug}`;
 
   const schema = JSON.stringify({
     '@context': 'https://schema.org',
     '@type':    'CreativeWork',
-    name:        rawTitle,
-    description,
+    name:        source.fullTitle,
+    description: source.description,
     image:       [image],
     url:         canonical,
-    creator: {
-      '@type': 'Organization',
-      name:     SITE_NAME,
-      url:      SITE_URL,
-    },
+    creator: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
   });
 
   return {
-    fullTitle,
-    rawTitle,
-    description,
+    fullTitle:       source.fullTitle,
+    displayTitle:    source.displayTitle,
+    description:     source.description,
     image,
     canonical,
     ogType:          'website',
     articleTagsHtml: '',
     schemaJson:      schema,
     pathLabel:       `/portafolio/${slug}`,
+    imageSource:     source.imageSource,
   };
 }
 
-/**
- * Prepare OG opts for a service product detail page.
- * Priority for image:
- *   1. Service's own image fields
- *   2. SEO entry configured for /servicios/:slug
- *   3. SERVICES_IMAGE fallback
- *
- * @param {object}      service   - raw CRM service (snake_case fields)
- * @param {string}      slug
- * @param {object|null} seoEntry  - from /public/seo?path=/servicios/:slug (may be null)
- */
-function prepServicePage(service, slug, seoEntry) {
-  const e = seoEntry || {};
+function buildServiceOgOpts(service, slug, seoEntry) {
+  const entityTitle       = service.name || '';
+  const entityDescription = service.short_description || service.description || '';
+  const entityImage       = pickImage(service, SERVICE_IMAGE_FIELDS);
 
-  const rawTitle    = e.og_title || e.seo_title || service.name || 'Servicio';
-  const fullTitle   = `${rawTitle} | ${SITE_NAME}`;
-  const description = e.og_description || e.meta_description ||
-    service.short_description || service.description ||
-    `Contrata ${rawTitle} con ${SITE_NAME} en Puerto Rico.`;
+  const source = resolveOgSource({
+    seoEntry,
+    entityTitle,
+    entityDescription,
+    entityImage,
+    entityVersion: null,
+    staticMeta:    STATIC_PAGE_META['/servicios'],
+  });
 
-  const rawImage =
-    pickImage(service, SERVICE_IMAGE_FIELDS)  ||
-    pickImage(e, SEO_ENTRY_IMAGE_FIELDS)      ||
-    SERVICES_IMAGE;
-  const image     = resolveAndProxy(rawImage, null);
-  const canonical = e.canonical_url || `${SITE_URL}/servicios/${slug}`;
+  const image    = resolveAndProxy(source.rawImage, null);
+  const canonical = (seoEntry?.canonical_url || '').trim() || `${SITE_URL}/servicios/${slug}`;
 
   const schema = JSON.stringify({
     '@context': 'https://schema.org',
     '@type':    'Service',
-    name:        rawTitle,
-    description,
+    name:        source.fullTitle,
+    description: source.description,
     image:       [image],
     url:         canonical,
-    provider: {
-      '@type': 'Organization',
-      name:     SITE_NAME,
-      url:      SITE_URL,
-    },
+    provider:    { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
   });
 
   return {
-    fullTitle,
-    rawTitle,
-    description,
+    fullTitle:       source.fullTitle,
+    displayTitle:    source.displayTitle,
+    description:     source.description,
     image,
     canonical,
     ogType:          'website',
     articleTagsHtml: '',
     schemaJson:      schema,
     pathLabel:       `/servicios/${slug}`,
+    imageSource:     source.imageSource,
   };
 }
 
@@ -654,50 +620,46 @@ export const config = {
 export default async function middleware(request) {
   const url = new URL(request.url);
 
-  // Normalize pathname: strip trailing slash (keep bare '/')
+  // Normalize: strip trailing slash (keep bare '/')
   let pathname = url.pathname;
-  if (pathname.length > 1 && pathname.endsWith('/')) {
-    pathname = pathname.slice(0, -1);
-  }
+  if (pathname.length > 1 && pathname.endsWith('/')) pathname = pathname.slice(0, -1);
 
-  // Skip asset/file requests (e.g. /favicon.svg, /robots.txt)
+  // Skip asset/file requests
   if (pathname.includes('.')) return undefined;
 
   const { type, slug, staticMeta } = classifyRoute(pathname);
   if (type === 'unknown') return undefined;
 
   const crmBase = (process.env.VITE_CRM_BASE_URL || '').replace(/\/+$/, '');
+  if (type !== 'static' && !crmBase) return undefined;
+
+  const debug = url.searchParams.has('ogdebug');
 
   const controller = new AbortController();
   const timerId    = setTimeout(() => controller.abort(), 5000);
 
   try {
     const indexUrl = new URL('/index.html', url.origin).toString();
-    let html   = null;
-    let ogOpts = null;
+    let html    = null;
+    let ogOpts  = null;
 
-    // ── Static pages — fetch index.html + SEO entry concurrently ─────────────
+    // ── Static pages — index.html + SEO entry concurrently ───────────────────
     if (type === 'static') {
       const [htmlRes, seoEntry] = await Promise.all([
         fetch(indexUrl, { signal: controller.signal }),
-        // SEO entry is best-effort: silently returns null if crmBase missing or call fails
         fetchPageSeoEntry(crmBase, pathname, controller.signal),
       ]);
       clearTimeout(timerId);
 
       if (!htmlRes.ok) return undefined;
       html   = await htmlRes.text();
-      ogOpts = prepStaticPage(staticMeta, pathname, seoEntry);
+      ogOpts = buildStaticOgOpts(staticMeta, pathname, seoEntry);
 
-    // ── Dynamic pages — fetch index.html + CRM API + SEO entry concurrently ──
+    // ── Dynamic pages — index.html + CRM item API + SEO entry concurrently ───
     } else {
-      if (!crmBase) {
-        clearTimeout(timerId);
-        return undefined;
-      }
+      if (!crmBase) { clearTimeout(timerId); return undefined; }
 
-      let apiUrl;
-      let seoPath; // path to look up the SEO entry for this dynamic page
+      let apiUrl, seoPath;
 
       if (type === 'blog') {
         apiUrl  = `${crmBase}/api/blog/posts/${encodeURIComponent(slug)}`;
@@ -724,46 +686,50 @@ export default async function middleware(request) {
 
       if (type === 'blog') {
         const post = data?.item || null;
-        if (!post) return undefined; // let SPA handle 404
-        ogOpts = prepBlogPost(post, slug, seoEntry);
+        if (!post) return undefined;
+        ogOpts = buildBlogOgOpts(post, slug, seoEntry);
 
       } else if (type === 'portfolio') {
         const items = Array.isArray(data?.items) ? data.items
                     : Array.isArray(data)         ? data
                     : [];
-        // Filter by slug in case API returned multiple / didn't support slug filter
         const item = items.find(i => i.slug === slug) || items[0] || null;
         if (!item) return undefined;
-        ogOpts = prepPortfolioItem(item, slug, seoEntry);
+        ogOpts = buildPortfolioOgOpts(item, slug, seoEntry);
 
       } else if (type === 'service') {
         const service = data?.item || (data && !data.items ? data : null);
         if (!service) return undefined;
-        ogOpts = prepServicePage(service, slug, seoEntry);
+        ogOpts = buildServiceOgOpts(service, slug, seoEntry);
       }
     }
 
     if (!ogOpts || !html) return undefined;
 
-    // ── Inject OG block before </head> ────────────────────────────────────────
+    // ── Inject OG block ────────────────────────────────────────────────────────
     const ogBlock = buildOgBlock(ogOpts);
-
-    // Remove any existing <title> to avoid duplicates
     html = html.replace(/<title>[^<]*<\/title>/i, '');
     html = html.replace('</head>', `${ogBlock}\n  </head>`);
 
-    return new Response(html, {
-      status: 200,
-      headers: {
-        'Content-Type':  'text/html; charset=utf-8',
-        'Cache-Control': 'public, max-age=300, stale-while-revalidate=3600',
-        'X-Robots-Tag':  'index, follow',
-      },
-    });
+    const responseHeaders = {
+      'Content-Type':  'text/html; charset=utf-8',
+      'Cache-Control': 'public, max-age=300, stale-while-revalidate=3600',
+      'X-Robots-Tag':  'index, follow',
+    };
+
+    // ── Debug headers (only when ?ogdebug=1) ──────────────────────────────────
+    if (debug) {
+      responseHeaders['x-ie-og-route-type']   = type;
+      responseHeaders['x-ie-og-path']         = pathname;
+      responseHeaders['x-ie-og-image-source'] = ogOpts.imageSource || 'unknown';
+      responseHeaders['x-ie-og-seo-entry']    = ogOpts.imageSource === 'seo' ? 'found' : 'not-found-or-no-image';
+      responseHeaders['x-ie-og-proxy-version']= OG_PROXY_VERSION;
+    }
+
+    return new Response(html, { status: 200, headers: responseHeaders });
 
   } catch {
     clearTimeout(timerId);
-    // On any error (timeout, network, parse) fall through to normal SPA serving
     return undefined;
   }
 }
