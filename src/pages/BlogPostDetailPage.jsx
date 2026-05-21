@@ -1283,18 +1283,27 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
 
   return (
     <main className="bg-white text-neutral-950">
+      {/*
+       * SEOHead handles the client-side meta tags (Helmet).
+       * The Vercel edge middleware (middleware.js) injects equivalent tags
+       * into the static HTML for social scrapers that don't execute JS
+       * (WhatsApp, Facebook, LinkedIn, Pinterest, etc.).
+       *
+       * We pass the full `post` object so SEOHead can resolve the social image
+       * using the correct priority chain (seo_image_url → og_image_url → cover_url → …).
+       */}
       <SEOHead
         title={post.meta_title || post.title}
         description={post.meta_description || post.excerpt || undefined}
-        ogImage={post.og_image_url || post.featured_image_url || undefined}
+        post={post}
         ogType="article"
-        canonical={`https://ideasestudio.com/blog/${post.slug}`}
+        canonical={`https://www.ideasestudio.com/blog/${post.slug}`}
         jsonLd={[
           buildArticleSchema(post),
           buildBreadcrumbSchema([
-            { name: "Inicio", url: "https://ideasestudio.com" },
-            { name: "Blog", url: "https://ideasestudio.com/blog" },
-            { name: post.title, url: `https://ideasestudio.com/blog/${post.slug}` },
+            { name: "Inicio", url: "https://www.ideasestudio.com" },
+            { name: "Blog",   url: "https://www.ideasestudio.com/blog" },
+            { name: post.title, url: `https://www.ideasestudio.com/blog/${post.slug}` },
           ]),
         ].filter(Boolean)}
         seoEntry={pageSeo}

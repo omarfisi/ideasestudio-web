@@ -1,4 +1,4 @@
-const SITE_URL = "https://ideasestudio.com";
+const SITE_URL = "https://www.ideasestudio.com";
 
 export function buildOrganizationSchema() {
   return {
