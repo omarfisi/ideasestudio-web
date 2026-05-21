@@ -115,10 +115,11 @@ export function addImageCacheBust(url, version) {
  * requires Vercel's edge cache to discard previously-cached responses.
  *
  * History:
- *   1 — initial proxy (bug: HEAD forwarded to Supabase → content-length: 0)
- *   2 — fixed HEAD: proxy always does GET upstream; HEAD returns headers only
+ *   1 — initial proxy (bug: HEAD forwarded to Supabase, content-length: 0)
+ *   2 — HEAD fix: proxy always does GET upstream; HEAD returns headers only
+ *   3 — WebP transform: proxy returns WebP 1200x630 via sharp, not raw PNG
  */
-const OG_PROXY_VERSION = '2';
+const OG_PROXY_VERSION = '3';
 
 export function buildProxyImageUrl(rawImageUrl, version) {
   if (!rawImageUrl) return rawImageUrl;

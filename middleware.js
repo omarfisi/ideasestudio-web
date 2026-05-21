@@ -128,10 +128,11 @@ function addImageCacheBust(url, version) {
  * Vercel edge cache is invalidated and old broken responses are discarded.
  *
  * History:
- *   pv=1 — initial (bug: HEAD→Supabase returned 0 bytes → content-length: 0 cached)
+ *   pv=1 — initial (bug: HEAD->Supabase returned 0 bytes -> content-length: 0 cached)
  *   pv=2 — HEAD fix: proxy always does upstream GET; HEAD returns headers only
+ *   pv=3 — WebP transform: proxy returns WebP 1200x630 via sharp, not raw PNG
  */
-const OG_PROXY_VERSION = '2';
+const OG_PROXY_VERSION = '3';
 
 function buildProxyImageUrl(rawImageUrl, version) {
   if (!rawImageUrl) return rawImageUrl;
@@ -169,7 +170,9 @@ function buildOgBlock(post, slug) {
   const imageVer    = getSocialImageVersion(post);
   const versionedRaw = addImageCacheBust(rawImage, imageVer);
   const image       = buildProxyImageUrl(versionedRaw, imageVer);
-  const imageMime   = getImageMime(rawImage); // MIME from base URL (before proxy/querystring)
+  // The proxy always outputs WebP (via sharp), so og:image:type is always image/webp.
+  // getImageMime is kept as a fallback reference but not used for the proxied image.
+  const imageMime   = 'image/webp';
   const canonical   = `${SITE_URL}/blog/${slug}`;
   const publishedAt = post.published_at || post.publish_at || post.created_at || '';
   const modifiedAt  = post.updated_at   || publishedAt;
