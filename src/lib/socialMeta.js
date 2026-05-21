@@ -94,3 +94,30 @@ export function addImageCacheBust(url, version) {
     return url;
   }
 }
+
+/**
+ * Builds a proxy URL for the social image served through the site's own domain.
+ *
+ * Why: Supabase Storage responds with `x-robots-tag: none` on every object,
+ * which causes WhatsApp's scraper (and possibly others) to reject the image.
+ * Routing the image through /api/og-image strips that header and re-serves
+ * the bytes under https://www.ideasestudio.com with bot-friendly headers.
+ *
+ * The `v` parameter changes when the article is updated (derived from updated_at)
+ * so caching scrapers see a "new" URL and re-fetch the image automatically.
+ *
+ * @param {string|null} rawImageUrl - original image URL (Supabase or otherwise)
+ * @param {string|null} version     - cache-bust token from getSocialImageVersion()
+ * @returns {string} proxied URL or rawImageUrl unchanged if no URL provided
+ */
+export function buildProxyImageUrl(rawImageUrl, version) {
+  if (!rawImageUrl) return rawImageUrl;
+  try {
+    const params = new URLSearchParams();
+    params.set('src', rawImageUrl);
+    if (version) params.set('v', version);
+    return `${SITE_URL}/api/og-image?${params.toString()}`;
+  } catch {
+    return rawImageUrl;
+  }
+}

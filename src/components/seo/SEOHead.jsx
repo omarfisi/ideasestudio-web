@@ -1,5 +1,5 @@
 import { Helmet } from "react-helmet-async";
-import { getArticleSocialImage, getSocialImageVersion, addImageCacheBust } from "@/lib/socialMeta.js";
+import { getArticleSocialImage, getSocialImageVersion, addImageCacheBust, buildProxyImageUrl } from "@/lib/socialMeta.js";
 
 const SITE_URL  = "https://www.ideasestudio.com";
 const SITE_NAME = "Ideas Estudio";
@@ -52,17 +52,24 @@ export default function SEOHead({
   const resolvedOgTitle = e.og_title || ogTitle || fullTitle;
   const resolvedOgDescription = e.og_description || ogDescription || metaDescription;
 
-  // For article pages the caller passes the full `post` object so we resolve
-  // the image via the priority chain and apply a stable cache-busting token.
-  // For non-article pages (no post) we skip cache-busting to keep URLs clean.
+  // For article pages the caller passes the full `post` object so we:
+  //   1. resolve the image via the priority chain
+  //   2. apply a stable cache-bust token (?v=updated_at)
+  //   3. route through the site's own proxy (/api/og-image?src=…)
+  //      so WhatsApp doesn't reject the image due to `x-robots-tag: none`
+  //      returned by Supabase Storage.
+  // For non-article pages (no post) we use the image as-is.
   const rawOgImage =
     e.og_image_url ||
     (post ? getArticleSocialImage(post, DEFAULT_OG_IMAGE) : null) ||
     ogImage ||
     DEFAULT_OG_IMAGE;
 
-  const imageVersion = post ? getSocialImageVersion(post) : null;
-  const resolvedOgImage = addImageCacheBust(rawOgImage, imageVersion);
+  const imageVersion   = post ? getSocialImageVersion(post) : null;
+  const versionedRaw   = addImageCacheBust(rawOgImage, imageVersion);
+  const resolvedOgImage = post
+    ? buildProxyImageUrl(versionedRaw, imageVersion)
+    : rawOgImage;
 
   const resolvedTwitterTitle = e.twitter_title || twitterTitle || resolvedOgTitle;
   const resolvedTwitterDescription = e.twitter_description || twitterDescription || resolvedOgDescription;
