@@ -13,8 +13,18 @@
  *   1. CMS SEO entry configured for this path (GET /public/seo?path=)
  *      → seo.og_image_url
  *   2. Item-level image fields (articles, portfolio items, services)
- *   3. STATIC_PAGE_META.image — hardcoded fallback per route
+ *   3. STATIC_PAGE_META.image — hardcoded fallback per known route
  *   4. DEFAULT_SITE_IMAGE — brand photo, NEVER the favicon
+ *
+ * ── Route strategy ───────────────────────────────────────────────────────────
+ *   The matcher catches ALL public paths (one catch-all regex, not a list).
+ *   For every path the middleware:
+ *     1. Fetches the SEO entry from /public/seo?path= (concurrently with index.html).
+ *     2. If found → injects OG tags using that entry. Done.
+ *     3. If not found → tries entity-specific enrichment (blog post, service, portfolio item).
+ *     4. If no entity data → falls back to STATIC_PAGE_META.
+ *     5. If nothing → passes through, letting the SPA handle it client-side.
+ *   This means ~100 SEO entries all work automatically — no manual route list needed.
  *
  * ── Debug headers ────────────────────────────────────────────────────────────
  *   Add ?ogdebug=1 to any URL to get x-ie-og-* response headers showing
@@ -23,6 +33,10 @@
  * ── Key fix (PR #57) ─────────────────────────────────────────────────────────
  *   The CRM API returns { ok, found, seo: {...} }.
  *   Previous code read data?.entry (always null). Now correctly reads data?.seo.
+ *
+ * ── Key fix (PR #50) ─────────────────────────────────────────────────────────
+ *   Replaced 14-route hardcoded matcher with a global catch-all.
+ *   Every active SEO entry now gets OG injection automatically.
  */
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -118,15 +132,7 @@ const STATIC_PAGE_META = {
   },
 };
 
-// Slugs under /servicios/ that are static niche pages (in STATIC_PAGE_META above)
-const SERVICE_NICHE_SLUGS = new Set([
-  'marca-o-negocio',
-  'presencia-visual-profesional',
-  'momento-especial',
-  'solucion-creativa',
-]);
-
-// Slugs to skip (no OG injection)
+// Slugs to explicitly skip (no OG injection at all)
 const SERVICE_EXCLUDED_SLUGS = new Set(['checkout']);
 
 // ─── Image priority field lists ───────────────────────────────────────────────
@@ -237,8 +243,6 @@ function resolveAndProxy(rawImageUrl, version) {
  *   Not found: { ok: true, found: false, path: <path> }
  *
  * IMPORTANT: the entry is under the "seo" key — NOT "entry".
- * Previous code used data?.entry which always returned null and silently
- * ignored every configured OG image. This is the fix.
  *
  * Returns null on: not-found, network error, timeout, bad JSON.
  */
@@ -251,8 +255,8 @@ async function fetchPageSeoEntry(crmBase, pathname, signal) {
     );
     if (!res.ok) return null;
     const data = await res.json().catch(() => null);
-    // API returns found=false when no entry exists for this path
     if (!data?.found) return null;
+    // API returns { ok, found, seo: {...} }
     return data?.seo || null;
   } catch {
     return null;
@@ -283,7 +287,6 @@ function resolveOgSource({ seoEntry, entityTitle, entityDescription, entityImage
   const e = seoEntry || {};
 
   // ── Title ───────────────────────────────────────────────────────────────────
-  // og_title/og_description may be empty strings when not configured — treat as absent
   const seoTitle =
     (e.og_title       || '').trim() ||
     (e.seo_title      || '').trim();
@@ -292,7 +295,6 @@ function resolveOgSource({ seoEntry, entityTitle, entityDescription, entityImage
   const fullTitle   = resolvedRaw.includes(SITE_NAME)
     ? resolvedRaw
     : `${resolvedRaw} | ${SITE_NAME}`;
-  // Alt text / display title without the site name suffix
   const displayTitle = fullTitle
     .replace(` | ${SITE_NAME}`, '')
     .replace(`${SITE_NAME} | `, '');
@@ -306,8 +308,7 @@ function resolveOgSource({ seoEntry, entityTitle, entityDescription, entityImage
     `Agencia creativa en Puerto Rico — ${SITE_NAME}.`;
 
   // ── Image ───────────────────────────────────────────────────────────────────
-  // seoEntry.og_image_url is the only image field in the real API response
-  const seoImage = absoluteUrl((e.og_image_url || '').trim());
+  const seoImage     = absoluteUrl((e.og_image_url || '').trim());
   const fallbackImage = absoluteUrl(staticMeta?.image) || DEFAULT_SITE_IMAGE;
 
   let rawImage, imageSource;
@@ -330,26 +331,47 @@ function resolveOgSource({ seoEntry, entityTitle, entityDescription, entityImage
 
 // ─── Route classifier ─────────────────────────────────────────────────────────
 
+/**
+ * Classify a normalized pathname.
+ *
+ * Returns one of:
+ *   { type: 'bypass'    }  — explicitly excluded, no OG injection
+ *   { type: 'static',   staticMeta }  — known static page with fallback meta
+ *   { type: 'blog',     slug }        — blog post detail (needs entity API)
+ *   { type: 'portfolio',slug }        — portfolio item detail (needs entity API)
+ *   { type: 'service',  slug }        — service detail (needs entity API)
+ *   { type: 'seo-only' }              — any other public path; relies entirely on SEO entry
+ *
+ * NOTE: 'seo-only' is the new addition that enables coverage of all ~100 SEO entries
+ * without a hardcoded list. The middleware will fetch the SEO entry and inject if found,
+ * or pass through if not.
+ */
 function classifyRoute(pathname) {
+  // Explicitly excluded slugs (e.g. /servicios/checkout)
+  const serviceMatch = pathname.match(/^\/servicios\/([^/]+)$/);
+  if (serviceMatch && SERVICE_EXCLUDED_SLUGS.has(serviceMatch[1])) {
+    return { type: 'bypass' };
+  }
+
+  // Known static pages (checked before dynamic patterns so niche slugs like
+  // /servicios/marca-o-negocio are handled as static, not as service detail)
   if (STATIC_PAGE_META[pathname]) {
     return { type: 'static', staticMeta: STATIC_PAGE_META[pathname] };
   }
 
+  // Blog post detail
   const blogMatch = pathname.match(/^\/blog\/([^/]+)$/);
   if (blogMatch) return { type: 'blog', slug: blogMatch[1] };
 
+  // Portfolio item detail
   const portfolioMatch = pathname.match(/^\/portafolio\/([^/]+)$/);
   if (portfolioMatch) return { type: 'portfolio', slug: portfolioMatch[1] };
 
-  const serviceMatch = pathname.match(/^\/servicios\/([^/]+)$/);
-  if (serviceMatch) {
-    const slug = serviceMatch[1];
-    if (SERVICE_EXCLUDED_SLUGS.has(slug)) return { type: 'unknown' };
-    if (SERVICE_NICHE_SLUGS.has(slug))    return { type: 'unknown' }; // in static registry
-    return { type: 'service', slug };
-  }
+  // Service detail (non-excluded, non-static)
+  if (serviceMatch) return { type: 'service', slug: serviceMatch[1] };
 
-  return { type: 'unknown' };
+  // Any other public path — try the SEO entry; inject if found, pass through if not
+  return { type: 'seo-only' };
 }
 
 // ─── OG block builder ─────────────────────────────────────────────────────────
@@ -402,6 +424,12 @@ function buildOgBlock({ fullTitle, displayTitle, description, image, canonical, 
 
 // ─── Per-route OG options builders ───────────────────────────────────────────
 
+/**
+ * Build OG opts for static pages and SEO-entry-only routes.
+ * `staticMeta` may be null when the route is not in STATIC_PAGE_META —
+ * resolveOgSource handles null gracefully, falling back to seoEntry and then
+ * DEFAULT_SITE_IMAGE.
+ */
 function buildStaticOgOpts(staticMeta, pathname, seoEntry) {
   const source = resolveOgSource({
     seoEntry,
@@ -597,25 +625,28 @@ function buildServiceOgOpts(service, slug, seoEntry) {
   };
 }
 
-// ─── Middleware ───────────────────────────────────────────────────────────────
+// ─── Middleware config ────────────────────────────────────────────────────────
 
+/**
+ * Global catch-all matcher.
+ *
+ * Intercepts every public path EXCEPT:
+ *   - /api/og-image  (the proxy itself — must not loop)
+ *   - /api/*         (other serverless functions)
+ *   - /assets/*      (Vite build output)
+ *   - favicon.ico, favicon.svg, robots.txt, sitemap.xml
+ *   - Any path ending in a file extension (JS, CSS, images, fonts, …)
+ *
+ * This replaces the previous 14-route hardcoded list, enabling OG injection
+ * for all ~100 active SEO entries without manual maintenance.
+ */
 export const config = {
   matcher: [
-    '/',
-    '/blog',
-    '/blog/:slug+',
-    '/servicios',
-    '/servicios/:slug+',
-    '/portafolio',
-    '/portafolio/:slug+',
-    '/contacto',
-    '/equipo',
-    '/pequenos-negocios',
-    '/emprendedores',
-    '/empresas-emergentes',
-    '/bodas-eventos-sesiones',
+    '/((?!api/og-image|api/|assets/|favicon\\.ico|favicon\\.svg|robots\\.txt|sitemap\\.xml|.*\\.(?:js|css|map|png|jpg|jpeg|webp|svg|gif|ico|woff2?|ttf|otf|eot|pdf)$).*)',
   ],
 };
+
+// ─── Middleware ───────────────────────────────────────────────────────────────
 
 export default async function middleware(request) {
   const url = new URL(request.url);
@@ -624,27 +655,30 @@ export default async function middleware(request) {
   let pathname = url.pathname;
   if (pathname.length > 1 && pathname.endsWith('/')) pathname = pathname.slice(0, -1);
 
-  // Skip asset/file requests
-  if (pathname.includes('.')) return undefined;
+  // Belt-and-suspenders: skip any path that looks like a file (has extension)
+  if (/\.[a-zA-Z0-9]{1,8}$/.test(pathname)) return undefined;
 
-  const { type, slug, staticMeta } = classifyRoute(pathname);
-  if (type === 'unknown') return undefined;
+  const route = classifyRoute(pathname);
+  if (route.type === 'bypass') return undefined;
 
   const crmBase = (process.env.VITE_CRM_BASE_URL || '').replace(/\/+$/, '');
-  if (type !== 'static' && !crmBase) return undefined;
-
-  const debug = url.searchParams.has('ogdebug');
+  const debug   = url.searchParams.has('ogdebug');
 
   const controller = new AbortController();
   const timerId    = setTimeout(() => controller.abort(), 5000);
 
   try {
     const indexUrl = new URL('/index.html', url.origin).toString();
-    let html    = null;
-    let ogOpts  = null;
+    let html   = null;
+    let ogOpts = null;
 
-    // ── Static pages — index.html + SEO entry concurrently ───────────────────
-    if (type === 'static') {
+    // ── SEO-only paths ──────────────────────────────────────────────────────
+    // These are paths not in STATIC_PAGE_META and not a known entity type.
+    // Their only source of OG data is the CMS SEO entry.
+    // If no SEO entry exists → pass through to the SPA (no injection).
+    if (route.type === 'seo-only') {
+      if (!crmBase) { clearTimeout(timerId); return undefined; }
+
       const [htmlRes, seoEntry] = await Promise.all([
         fetch(indexUrl, { signal: controller.signal }),
         fetchPageSeoEntry(crmBase, pathname, controller.signal),
@@ -652,24 +686,38 @@ export default async function middleware(request) {
       clearTimeout(timerId);
 
       if (!htmlRes.ok) return undefined;
-      html   = await htmlRes.text();
-      ogOpts = buildStaticOgOpts(staticMeta, pathname, seoEntry);
+      if (!seoEntry) return undefined;  // no SEO entry for this path → SPA handles it
 
-    // ── Dynamic pages — index.html + CRM item API + SEO entry concurrently ───
+      html   = await htmlRes.text();
+      ogOpts = buildStaticOgOpts(null, pathname, seoEntry);
+
+    // ── Known static pages ───────────────────────────────────────────────────
+    } else if (route.type === 'static') {
+      const [htmlRes, seoEntry] = await Promise.all([
+        fetch(indexUrl, { signal: controller.signal }),
+        crmBase ? fetchPageSeoEntry(crmBase, pathname, controller.signal) : Promise.resolve(null),
+      ]);
+      clearTimeout(timerId);
+
+      if (!htmlRes.ok) return undefined;
+      html   = await htmlRes.text();
+      ogOpts = buildStaticOgOpts(route.staticMeta, pathname, seoEntry);
+
+    // ── Dynamic entity pages (blog / portfolio / service) ────────────────────
     } else {
       if (!crmBase) { clearTimeout(timerId); return undefined; }
 
       let apiUrl, seoPath;
 
-      if (type === 'blog') {
-        apiUrl  = `${crmBase}/api/blog/posts/${encodeURIComponent(slug)}`;
-        seoPath = `/blog/${slug}`;
-      } else if (type === 'portfolio') {
-        apiUrl  = `${crmBase}/portfolio?is_published=true&slug=${encodeURIComponent(slug)}`;
-        seoPath = `/portafolio/${slug}`;
-      } else if (type === 'service') {
-        apiUrl  = `${crmBase}/services/${encodeURIComponent(slug)}`;
-        seoPath = `/servicios/${slug}`;
+      if (route.type === 'blog') {
+        apiUrl  = `${crmBase}/api/blog/posts/${encodeURIComponent(route.slug)}`;
+        seoPath = `/blog/${route.slug}`;
+      } else if (route.type === 'portfolio') {
+        apiUrl  = `${crmBase}/portfolio?is_published=true&slug=${encodeURIComponent(route.slug)}`;
+        seoPath = `/portafolio/${route.slug}`;
+      } else if (route.type === 'service') {
+        apiUrl  = `${crmBase}/services/${encodeURIComponent(route.slug)}`;
+        seoPath = `/servicios/${route.slug}`;
       }
 
       const [apiRes, htmlRes, seoEntry] = await Promise.all([
@@ -684,29 +732,36 @@ export default async function middleware(request) {
 
       const data = apiRes.ok ? await apiRes.json().catch(() => null) : null;
 
-      if (type === 'blog') {
+      if (route.type === 'blog') {
         const post = data?.item || null;
-        if (!post) return undefined;
-        ogOpts = buildBlogOgOpts(post, slug, seoEntry);
+        // SEO entry alone is enough — don't need the post entity to inject OG
+        if (!post && !seoEntry) return undefined;
+        ogOpts = post
+          ? buildBlogOgOpts(post, route.slug, seoEntry)
+          : buildStaticOgOpts(null, pathname, seoEntry);
 
-      } else if (type === 'portfolio') {
+      } else if (route.type === 'portfolio') {
         const items = Array.isArray(data?.items) ? data.items
                     : Array.isArray(data)         ? data
                     : [];
-        const item = items.find(i => i.slug === slug) || items[0] || null;
-        if (!item) return undefined;
-        ogOpts = buildPortfolioOgOpts(item, slug, seoEntry);
+        const item = items.find(i => i.slug === route.slug) || items[0] || null;
+        if (!item && !seoEntry) return undefined;
+        ogOpts = item
+          ? buildPortfolioOgOpts(item, route.slug, seoEntry)
+          : buildStaticOgOpts(null, pathname, seoEntry);
 
-      } else if (type === 'service') {
+      } else if (route.type === 'service') {
         const service = data?.item || (data && !data.items ? data : null);
-        if (!service) return undefined;
-        ogOpts = buildServiceOgOpts(service, slug, seoEntry);
+        if (!service && !seoEntry) return undefined;
+        ogOpts = service
+          ? buildServiceOgOpts(service, route.slug, seoEntry)
+          : buildStaticOgOpts(null, pathname, seoEntry);
       }
     }
 
     if (!ogOpts || !html) return undefined;
 
-    // ── Inject OG block ────────────────────────────────────────────────────────
+    // ── Inject OG block ──────────────────────────────────────────────────────
     const ogBlock = buildOgBlock(ogOpts);
     html = html.replace(/<title>[^<]*<\/title>/i, '');
     html = html.replace('</head>', `${ogBlock}\n  </head>`);
@@ -717,13 +772,14 @@ export default async function middleware(request) {
       'X-Robots-Tag':  'index, follow',
     };
 
-    // ── Debug headers (only when ?ogdebug=1) ──────────────────────────────────
+    // ── Debug headers (only when ?ogdebug=1) ────────────────────────────────
     if (debug) {
-      responseHeaders['x-ie-og-route-type']   = type;
-      responseHeaders['x-ie-og-path']         = pathname;
-      responseHeaders['x-ie-og-image-source'] = ogOpts.imageSource || 'unknown';
-      responseHeaders['x-ie-og-seo-entry']    = ogOpts.imageSource === 'seo' ? 'found' : 'not-found-or-no-image';
-      responseHeaders['x-ie-og-proxy-version']= OG_PROXY_VERSION;
+      responseHeaders['x-ie-og-route-type']    = route.type;
+      responseHeaders['x-ie-og-path']          = pathname;
+      responseHeaders['x-ie-og-image-source']  = ogOpts.imageSource || 'unknown';
+      // 'found' = SEO entry existed for this path (image may come from entity if og_image_url blank)
+      responseHeaders['x-ie-og-seo-entry']     = ogOpts.imageSource === 'seo' ? 'found' : 'not-found-or-no-image';
+      responseHeaders['x-ie-og-proxy-version'] = OG_PROXY_VERSION;
     }
 
     return new Response(html, { status: 200, headers: responseHeaders });
