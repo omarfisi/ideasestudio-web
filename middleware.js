@@ -187,9 +187,57 @@ function pickImage(obj, fields, { includeMediaUrls = false } = {}) {
   return null;
 }
 
+/**
+ * DJB2-style stable hash of a string → base-36 integer string.
+ * Used as a cache-bust token when a timestamp is unavailable.
+ * The hash changes whenever the input string changes, so the proxy
+ * URL changes whenever og_image_url changes — even on the very first
+ * save after the seed migration.
+ */
+function stableHash(value = '') {
+  let hash = 0;
+  const str = String(value || '');
+  for (let i = 0; i < str.length; i += 1) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+/**
+ * Derive a cache-bust version token for an object.
+ *
+ * Priority:
+ *   1. updated_at / published_at / created_at timestamps — these change on every
+ *      save, guaranteeing the proxy URL changes when the admin re-saves.
+ *   2. Stable hash of og_image_url — this changes whenever the image URL changes,
+ *      covering the edge case where the entry was seeded and updated_at was never
+ *      refreshed after the image was swapped.
+ *   3. Stable hash of twitter_image_url (fallback image field).
+ *   4. Entity id — last resort; never changes, only prevents null version.
+ *
+ * Using the image URL as a fallback source is critical: if the admin has
+ * never saved an entry (updated_at == seed date), the og_image_url hash
+ * still produces a unique, stable, and image-specific version token.
+ * WhatsApp and social scrapers will see a new v= when the image URL changes.
+ */
 function getSocialImageVersion(obj) {
   if (!obj) return null;
-  const raw = obj.updated_at || obj.published_at || obj.publish_at || obj.created_at || obj.id;
+
+  // ── Prefer timestamps (change on every admin save) ──────────────────────────
+  const ts = obj.updated_at || obj.published_at || obj.publish_at || obj.created_at;
+  if (ts) return String(ts).replace(/[^a-zA-Z0-9]/g, '').slice(0, 20);
+
+  // ── Fallback: hash of the OG image URL itself ────────────────────────────────
+  // If updated_at is the old seed value and the admin just changed the image,
+  // this token will still change because the image URL changed.
+  const imgUrl =
+    (obj.og_image_url     || '').trim() ||
+    (obj.twitter_image_url|| '').trim() ||
+    (obj.seo_image_url    || '').trim();
+  if (imgUrl) return stableHash(imgUrl);
+
+  // ── Last resort: entity id ────────────────────────────────────────────────────
+  const raw = obj.id;
   if (!raw) return null;
   return String(raw).replace(/[^a-zA-Z0-9]/g, '').slice(0, 20);
 }
