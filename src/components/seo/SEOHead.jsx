@@ -52,15 +52,21 @@ export default function SEOHead({
   const resolvedOgTitle = e.og_title || ogTitle || fullTitle;
   const resolvedOgDescription = e.og_description || ogDescription || metaDescription;
 
-  // Always route the OG image through /api/og-image so that:
-  //   1. Supabase Storage's `x-robots-tag: none` is stripped for all pages
-  //      (not just articles) — WhatsApp and other scrapers reject images with
-  //      that header even when og:image is present.
-  //   2. The output is always WebP 1200×630, matching the proxy's contract.
-  //   3. For article pages: a stable ?v= token based on updated_at is added so
-  //      caching scrapers re-fetch when the article changes.
+  // Image priority (highest → lowest):
+  //   1. seoEntry-configured image — source of truth per page
+  //      (og_image_url → seo_image_url → social_image_url)
+  //   2. Article/post image chain (for blog article pages with a post object)
+  //   3. Caller-provided ogImage prop
+  //   4. DEFAULT_OG_IMAGE fallback
+  // All images are routed through /api/og-image so that:
+  //   - Supabase's x-robots-tag: none is stripped for ALL pages
+  //   - Output is always WebP 1200×630
+  //   - For article pages: a stable ?v= token (from updated_at) triggers re-fetch
+  //     when the article changes
   const rawOgImage =
-    e.og_image_url ||
+    e.og_image_url      ||
+    e.seo_image_url     ||
+    e.social_image_url  ||
     (post ? getArticleSocialImage(post, DEFAULT_OG_IMAGE) : null) ||
     ogImage ||
     DEFAULT_OG_IMAGE;
