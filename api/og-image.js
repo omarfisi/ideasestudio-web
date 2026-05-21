@@ -12,13 +12,19 @@
  * with no x-robots-tag and an explicit public Cache-Control.
  *
  * Usage:
- *   /api/og-image?src=<encoded-image-url>&v=<version>
+ *   /api/og-image?src=<encoded-image-url>&v=<version>&pv=<proxy-version>
  *
  * Parameters:
  *   src  (required) — HTTPS URL of the original image (URL-encoded).
- *   v    (optional) — stable cache-bust token (derived from updated_at / id).
- *                     Ignored by this function but changes the proxy URL so
- *                     WhatsApp treats it as a new resource when the article updates.
+ *   v    (optional) — stable article cache-bust token (updated_at / id).
+ *   pv   (optional) — proxy version; increment to bust the Vercel edge cache
+ *                     when proxy behaviour changes (e.g. this fix for HEAD).
+ *
+ * HEAD vs GET:
+ *   The function ALWAYS fetches the upstream image with GET so it has the real
+ *   Content-Length. For HEAD requests it sends back only the headers (no body).
+ *   This fixes the Vercel edge caching of content-length: 0 caused by the
+ *   previous behaviour of forwarding HEAD to Supabase and reading an empty body.
  *
  * Security:
  *   Only proxies images from the ALLOWED_DOMAINS allowlist.
@@ -75,13 +81,18 @@ export default async function handler(req, res) {
     return res.status(403).end('Domain not in allowlist');
   }
 
-  // ── Fetch from upstream ─────────────────────────────────────────────────────
+  // ── Fetch from upstream — always GET so we get the real body + Content-Length ─
+  // Bug fix: the previous version forwarded HEAD to Supabase which returned 0
+  // bytes (correct HTTP semantics), causing Content-Length: 0 to be cached by
+  // Vercel's edge as immutable — making validators and some scrapers think the
+  // image was empty. Always using GET here ensures we have the real buffer, from
+  // which we derive the correct Content-Length for both GET and HEAD responses.
   const controller = new AbortController();
   const timerId = setTimeout(() => controller.abort(), 12000);
 
   try {
     const upstream = await fetch(imageUrl.toString(), {
-      method: req.method,
+      method: 'GET',        // always GET — see note above
       headers: {
         Accept: 'image/*,*/*;q=0.8',
         'User-Agent':
@@ -102,7 +113,7 @@ export default async function handler(req, res) {
       return res.status(502).end('Upstream response is not an image');
     }
 
-    // ── Stream body + size guard ──────────────────────────────────────────────
+    // ── Read full buffer — needed for Content-Length even on HEAD ─────────────
     const buffer = Buffer.from(await upstream.arrayBuffer());
 
     if (buffer.length > MAX_BYTES) {
@@ -111,17 +122,24 @@ export default async function handler(req, res) {
       res.setHeader('X-OG-Proxy-Warning', 'image-exceeds-recommended-size');
     }
 
-    // ── Clean response — purposely omit x-robots-tag and other harmful headers ─
+    // ── Set clean response headers ─────────────────────────────────────────────
+    // Purposely omit x-robots-tag: none and other harmful upstream headers.
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Length', buffer.length);
-    // Immutable: the ?v=<token> cache-bust strategy means this URL never serves
-    // a different image; it's safe to cache forever.
+    res.setHeader('Content-Length', buffer.length);   // correct value for GET and HEAD
+    // Immutable: ?v=<token> + ?pv=<proxy-version> ensure the URL changes whenever
+    // the article or the proxy logic changes, so caching forever is safe.
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    // Explicitly allow indexing / sharing (overrides any upstream restriction)
+    // Explicitly allow bot indexing and sharing (overrides Supabase 'none').
     res.setHeader('X-Robots-Tag', 'all');
 
+    // ── HEAD: return headers only, no body ─────────────────────────────────────
+    if (req.method === 'HEAD') {
+      return res.status(200).end();
+    }
+
+    // ── GET: return full image body ────────────────────────────────────────────
     return res.status(200).send(buffer);
   } catch (err) {
     clearTimeout(timerId);

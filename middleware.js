@@ -124,13 +124,22 @@ function addImageCacheBust(url, version) {
  * bot-friendly headers (Cache-Control: public, immutable; no x-robots-tag).
  *
  * The `v` param changes when the article is updated so WhatsApp sees a new URL.
+ * The `pv` param (proxy version) is bumped when proxy logic changes so the
+ * Vercel edge cache is invalidated and old broken responses are discarded.
+ *
+ * History:
+ *   pv=1 — initial (bug: HEAD→Supabase returned 0 bytes → content-length: 0 cached)
+ *   pv=2 — HEAD fix: proxy always does upstream GET; HEAD returns headers only
  */
+const OG_PROXY_VERSION = '2';
+
 function buildProxyImageUrl(rawImageUrl, version) {
   if (!rawImageUrl) return rawImageUrl;
   try {
     const params = new URLSearchParams();
     params.set('src', rawImageUrl);
     if (version) params.set('v', version);
+    params.set('pv', OG_PROXY_VERSION);
     return `${SITE_URL}/api/og-image?${params.toString()}`;
   } catch {
     return rawImageUrl;
