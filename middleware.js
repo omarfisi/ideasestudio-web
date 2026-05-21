@@ -115,6 +115,28 @@ function addImageCacheBust(url, version) {
   }
 }
 
+/**
+ * Builds the proxied URL that serves the image through the site's own domain.
+ *
+ * Why: Supabase Storage returns `x-robots-tag: none` on every object, which
+ * causes WhatsApp's scraper to reject the image even when og:image is present.
+ * Routing through /api/og-image strips that header and re-serves the bytes with
+ * bot-friendly headers (Cache-Control: public, immutable; no x-robots-tag).
+ *
+ * The `v` param changes when the article is updated so WhatsApp sees a new URL.
+ */
+function buildProxyImageUrl(rawImageUrl, version) {
+  if (!rawImageUrl) return rawImageUrl;
+  try {
+    const params = new URLSearchParams();
+    params.set('src', rawImageUrl);
+    if (version) params.set('v', version);
+    return `${SITE_URL}/api/og-image?${params.toString()}`;
+  } catch {
+    return rawImageUrl;
+  }
+}
+
 // ─── Meta tag builder ─────────────────────────────────────────────────────────
 
 /**
@@ -128,12 +150,17 @@ function buildOgBlock(post, slug) {
   const description = post.meta_description || post.excerpt
     || `Lee "${rawTitle}" en el blog de ${SITE_NAME}.`;
 
-  // Versioned image URL: forces WhatsApp (and other caching scrapers) to
-  // re-fetch the image when the article is updated, without breaking CDN caching.
+  // Route the social image through our own proxy so:
+  //   1. x-robots-tag: none from Supabase is stripped.
+  //   2. We serve bot-friendly headers (Cache-Control: public, immutable).
+  //   3. The URL is under ideasestudio.com — not a third-party storage domain.
+  // The ?v= token on the raw image is included inside the proxied src= param,
+  // ensuring CDN cache-busting propagates through the proxy as well.
   const rawImage    = getSocialImage(post);
   const imageVer    = getSocialImageVersion(post);
-  const image       = addImageCacheBust(rawImage, imageVer);
-  const imageMime   = getImageMime(rawImage); // MIME detection uses base URL, not querystring
+  const versionedRaw = addImageCacheBust(rawImage, imageVer);
+  const image       = buildProxyImageUrl(versionedRaw, imageVer);
+  const imageMime   = getImageMime(rawImage); // MIME from base URL (before proxy/querystring)
   const canonical   = `${SITE_URL}/blog/${slug}`;
   const publishedAt = post.published_at || post.publish_at || post.created_at || '';
   const modifiedAt  = post.updated_at   || publishedAt;
