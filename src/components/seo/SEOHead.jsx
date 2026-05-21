@@ -52,24 +52,23 @@ export default function SEOHead({
   const resolvedOgTitle = e.og_title || ogTitle || fullTitle;
   const resolvedOgDescription = e.og_description || ogDescription || metaDescription;
 
-  // For article pages the caller passes the full `post` object so we:
-  //   1. resolve the image via the priority chain
-  //   2. apply a stable cache-bust token (?v=updated_at)
-  //   3. route through the site's own proxy (/api/og-image?src=…)
-  //      so WhatsApp doesn't reject the image due to `x-robots-tag: none`
-  //      returned by Supabase Storage.
-  // For non-article pages (no post) we use the image as-is.
+  // Always route the OG image through /api/og-image so that:
+  //   1. Supabase Storage's `x-robots-tag: none` is stripped for all pages
+  //      (not just articles) — WhatsApp and other scrapers reject images with
+  //      that header even when og:image is present.
+  //   2. The output is always WebP 1200×630, matching the proxy's contract.
+  //   3. For article pages: a stable ?v= token based on updated_at is added so
+  //      caching scrapers re-fetch when the article changes.
   const rawOgImage =
     e.og_image_url ||
     (post ? getArticleSocialImage(post, DEFAULT_OG_IMAGE) : null) ||
     ogImage ||
     DEFAULT_OG_IMAGE;
 
-  const imageVersion   = post ? getSocialImageVersion(post) : null;
-  const versionedRaw   = addImageCacheBust(rawOgImage, imageVersion);
-  const resolvedOgImage = post
-    ? buildProxyImageUrl(versionedRaw, imageVersion)
-    : rawOgImage;
+  const imageVersion    = post ? getSocialImageVersion(post) : null;
+  const versionedRaw    = addImageCacheBust(rawOgImage, imageVersion);
+  // Always proxy — covers articles, static pages, and any image from Supabase
+  const resolvedOgImage = buildProxyImageUrl(versionedRaw, imageVersion);
 
   const resolvedTwitterTitle = e.twitter_title || twitterTitle || resolvedOgTitle;
   const resolvedTwitterDescription = e.twitter_description || twitterDescription || resolvedOgDescription;
@@ -108,8 +107,8 @@ export default function SEOHead({
       <meta property="og:description"      content={resolvedOgDescription} />
       <meta property="og:image"            content={resolvedOgImage} />
       <meta property="og:image:secure_url" content={resolvedOgImage} />
-      {/* Article pages use the og-image proxy which always outputs WebP 1200×630 */}
-      {post && <meta property="og:image:type"   content="image/webp" />}
+      {/* All pages route through the og-image proxy → always WebP 1200×630 */}
+      <meta property="og:image:type"   content="image/webp" />
       <meta property="og:image:width"      content="1200" />
       <meta property="og:image:height"     content="630" />
       <meta property="og:image:alt"        content={rawTitle || SITE_NAME} />
