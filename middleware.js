@@ -171,6 +171,14 @@ function absoluteUrl(value) {
 }
 
 /**
+ * Returns true if the User-Agent belongs to a social/bot crawler.
+ * These bots need an HTML page with OG tags instead of a 302 redirect.
+ */
+function isSocialBot(ua = '') {
+  return /whatsapp|facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|telegrambot|discordbot|applebot|googlebot|bingbot/i.test(ua);
+}
+
+/**
  * Return the first valid absolute image URL from `obj`'s named fields.
  * Returns null — no built-in fallback — so callers can chain correctly.
  */
@@ -705,6 +713,87 @@ export default async function middleware(request) {
 
   // Belt-and-suspenders: skip any path that looks like a file (has extension)
   if (/\.[a-zA-Z0-9]{1,8}$/.test(pathname)) return undefined;
+
+  // ── Short link redirect / OG preview ──────────────────────────────────────
+  // /r/{slug}  →  if social bot: return 200 HTML with OG tags (no click tracked)
+  //               if human:      302 → api.ideasestudiopr.com/r/{slug} (click tracked)
+  const shortLinkMatch = pathname.match(/^\/r\/([a-zA-Z0-9_\-]{1,80})$/);
+  if (shortLinkMatch) {
+    const slug    = shortLinkMatch[1];
+    const ua      = request.headers.get('user-agent') || '';
+    const apiBase = (
+      process.env.API_BASE_URL      ||
+      process.env.VITE_CRM_BASE_URL ||
+      'https://api.ideasestudiopr.com'
+    ).replace(/\/+$/, '');
+    const trackingUrl = `${apiBase}/r/${encodeURIComponent(slug)}`;
+
+    if (isSocialBot(ua)) {
+      const sc      = new AbortController();
+      const scTimer = setTimeout(() => sc.abort(), 4000);
+      try {
+        const previewRes = await fetch(
+          `${apiBase}/api/public/short-links/${encodeURIComponent(slug)}/preview`,
+          { signal: sc.signal, headers: { Accept: 'application/json' } }
+        );
+        clearTimeout(scTimer);
+        if (previewRes.ok) {
+          const preview = await previewRes.json().catch(() => null);
+          if (preview?.ok) {
+            const rawImage  = (preview.og_image_url || '').trim() || DEFAULT_SITE_IMAGE;
+            const ogImage   = buildProxyImageUrl(rawImage, null);
+            const shortUrl  = preview.short_url || `${SITE_URL}/r/${slug}`;
+            const fullTitle = preview.title ? `${preview.title} | ${SITE_NAME}` : SITE_NAME;
+            const desc      = preview.description || `Enlace corto de ${SITE_NAME}`;
+
+            const html = `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>${esc(fullTitle)}</title>
+<meta name="description" content="${esc(desc)}">
+<link rel="canonical" href="${esc(shortUrl)}">
+<meta property="og:locale" content="es_PR">
+<meta property="og:site_name" content="${SITE_NAME}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="${esc(fullTitle)}">
+<meta property="og:description" content="${esc(desc)}">
+<meta property="og:url" content="${esc(shortUrl)}">
+<meta property="og:image" content="${ogImage}">
+<meta property="og:image:secure_url" content="${ogImage}">
+<meta property="og:image:type" content="image/webp">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${esc(preview.title || SITE_NAME)}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="${TWITTER_HANDLE}">
+<meta name="twitter:title" content="${esc(fullTitle)}">
+<meta name="twitter:description" content="${esc(desc)}">
+<meta name="twitter:image" content="${ogImage}">
+<meta http-equiv="refresh" content="0;url=${esc(trackingUrl)}">
+</head>
+<body>
+<p>Redirigiendo… <a href="${esc(trackingUrl)}">Haz clic aquí si no eres redirigido.</a></p>
+</body>
+</html>`;
+
+            return new Response(html, {
+              status: 200,
+              headers: {
+                'Content-Type':  'text/html; charset=utf-8',
+                'Cache-Control': 'no-store',
+              },
+            });
+          }
+        }
+      } catch {
+        clearTimeout(scTimer);
+      }
+    }
+
+    // Human (or bot preview fetch failed) → redirect to API tracker
+    return Response.redirect(trackingUrl, 302);
+  }
 
   const route = classifyRoute(pathname);
   if (route.type === 'bypass') return undefined;
