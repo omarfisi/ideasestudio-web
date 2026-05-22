@@ -171,6 +171,28 @@ function absoluteUrl(value) {
 }
 
 /**
+ * If `value` is already a proxied /api/og-image URL, extract the original `src`
+ * to avoid double-proxying. Otherwise returns the value unchanged.
+ *
+ * This guards against preview.og_image_url coming pre-wrapped in the proxy
+ * (e.g. if an admin accidentally saved a proxy URL into the SEO entry).
+ */
+function resolveMixedProxy(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return raw;
+  try {
+    const parsed = new URL(raw);
+    if (
+      parsed.hostname === 'www.ideasestudio.com' &&
+      parsed.pathname === '/api/og-image'
+    ) {
+      return parsed.searchParams.get('src') || raw;
+    }
+  } catch { /* not a valid URL — return as-is */ }
+  return raw;
+}
+
+/**
  * Returns true if the User-Agent belongs to a social/bot crawler.
  * These bots need an HTML page with OG tags instead of a 302 redirect.
  */
@@ -740,8 +762,19 @@ export default async function middleware(request) {
         if (previewRes.ok) {
           const preview = await previewRes.json().catch(() => null);
           if (preview?.ok) {
-            const rawImage  = (preview.og_image_url || '').trim() || DEFAULT_SITE_IMAGE;
-            const ogImage   = buildProxyImageUrl(rawImage, null);
+            // 1. absoluteUrl   → make relative paths absolute
+            // 2. resolveMixedProxy → unwrap if already wrapped in /api/og-image
+            // 3. buildProxyImageUrl → proxy with dynamic version for cache-busting
+            const rawPreviewImage = (preview.og_image_url || '').trim() || DEFAULT_SITE_IMAGE;
+            const normalizedImage = resolveMixedProxy(
+              absoluteUrl(rawPreviewImage) || rawPreviewImage
+            );
+            const version = preview.version || stableHash([
+              normalizedImage,
+              preview.destination_url,
+              preview.slug || slug,
+            ].filter(Boolean).join('|'));
+            const ogImage = buildProxyImageUrl(normalizedImage, version);
             const shortUrl  = preview.short_url || `${SITE_URL}/r/${slug}`;
             const fullTitle = preview.title ? `${preview.title} | ${SITE_NAME}` : SITE_NAME;
             const desc      = preview.description || `Enlace corto de ${SITE_NAME}`;
