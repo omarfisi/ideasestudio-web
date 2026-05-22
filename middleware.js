@@ -741,7 +741,14 @@ export default async function middleware(request) {
           const preview = await previewRes.json().catch(() => null);
           if (preview?.ok) {
             const rawImage  = (preview.og_image_url || '').trim() || DEFAULT_SITE_IMAGE;
-            const ogImage   = buildProxyImageUrl(rawImage, null);
+            // Version: use backend-resolved updated_at; fallback to stableHash so
+            // the proxy URL changes whenever the source image or destination changes.
+            const version   = preview.version || stableHash([
+              preview.og_image_url,
+              preview.destination_url,
+              slug,
+            ].filter(Boolean).join('|'));
+            const ogImage   = buildProxyImageUrl(rawImage, version);
             const shortUrl  = preview.short_url || `${SITE_URL}/r/${slug}`;
             const fullTitle = preview.title ? `${preview.title} | ${SITE_NAME}` : SITE_NAME;
             const desc      = preview.description || `Enlace corto de ${SITE_NAME}`;
