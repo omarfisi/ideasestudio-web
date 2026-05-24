@@ -37,6 +37,7 @@ import AccountPage from "@/pages/AccountPage.jsx";
 import AccountOrderDetailPage from "@/pages/AccountOrderDetailPage.jsx";
 import NotFoundPage from "@/pages/NotFoundPage.jsx";
 import CmsPage from "@/pages/CmsPage.jsx";
+import UnsubscribePage from "@/pages/UnsubscribePage.jsx";
 import RouteErrorPage from "@/pages/RouteErrorPage.jsx";
 import QulandSystemPreview from "@/pages/QulandSystemPreview.jsx";
 import { getClientRouteByKey } from "@/data/routes.js";
@@ -161,6 +162,10 @@ function RedirectLegacyOrder() {
 }
 
 const router = createBrowserRouter([
+  {
+    path: "/unsubscribe",
+    element: <UnsubscribePage />,
+  },
   {
     path: "/",
     element: <MainLayout />,
