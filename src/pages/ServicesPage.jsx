@@ -1,8 +1,7 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useLoaderData } from "react-router-dom";
 import { Link } from "react-router-dom";
 import {
-  servicesMock,
   getServiceCategoryLabel,
   getSaleTypeLabel,
 } from "@/data/services.js";
@@ -13,6 +12,7 @@ import {
   getTestimonialsForPage,
   TESTIMONIAL_SECTION_COPY,
 } from "@/data/testimonials.js";
+import { getPublicProducts } from "@/lib/api.js";
 
 const CATEGORY_ALL = "all";
 const SALE_TYPE_ALL = "all";
@@ -30,6 +30,33 @@ const SALE_TYPE_CTA = {
   quote_only: "Solicitar propuesta",
 };
 
+function normalizeCatalogItems(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.products)) return payload.products;
+  if (Array.isArray(payload?.data?.items)) return payload.data.items;
+  if (Array.isArray(payload?.data?.products)) return payload.data.products;
+  return [];
+}
+
+function mapProductToService(product) {
+  const saleMode = String(product?.metadata?.sale_mode || "").toLowerCase();
+  const saleType =
+    saleMode === "buy_now" || saleMode === "deposit_booking" || saleMode === "quote_only"
+      ? saleMode
+      : "quote_only";
+  return {
+    id: product?.id,
+    name: product?.name || "Servicio",
+    slug: product?.slug || "",
+    category: product?.category?.slug || "service",
+    saleType,
+    shortDescription: product?.shortDescription || "",
+    price: Number(product?.price || 0),
+    image: product?.coverImage || null,
+  };
+}
+
 // Build a lookup: slug → Set of segment keys
 const slugToSegments = {};
 SERVICE_SEGMENTS_MAP.forEach((seg) => {
@@ -41,13 +68,59 @@ SERVICE_SEGMENTS_MAP.forEach((seg) => {
 });
 
 export default function ServicesPage() {
-  const { services: loadedServices } = useLoaderData();
-  const services = loadedServices?.length ? loadedServices : servicesMock;
+  const { services: loadedServices } = useLoaderData() || {};
+  // Start with loader data if available; never fall back to mock/static data.
+  const [services, setServices] = useState(
+    loadedServices?.length ? loadedServices : []
+  );
+  const [isLoading, setIsLoading] = useState(!loadedServices?.length);
+  const [catalogError, setCatalogError] = useState("");
 
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState(CATEGORY_ALL);
   const [activeSaleType, setActiveSaleType] = useState(SALE_TYPE_ALL);
   const [activeSegment, setActiveSegment] = useState(SEGMENT_ALL);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadCatalog() {
+      setIsLoading(true);
+      setCatalogError("");
+      try {
+        const payload = await getPublicProducts({
+          productType: "service",
+          limit: 60,
+          offset: 0,
+        });
+        if (cancelled) return;
+        const normalized = normalizeCatalogItems(payload)
+          .map(mapProductToService)
+          .filter((s) => s.slug);
+        if (import.meta.env.DEV) {
+          console.debug("[ServicesPage] real route loaded");
+          console.debug("[ServicesPage] products payload", payload);
+          console.debug("[ServicesPage] products normalized", normalized.length);
+        }
+        if (normalized.length > 0) {
+          setServices(normalized);
+          setCatalogError("");
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setCatalogError(
+          err instanceof Error
+            ? err.message
+            : "No se pudo cargar el catálogo de servicios."
+        );
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+    loadCatalog();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const categories = useMemo(
     () => Array.from(new Set(services.map((s) => s.category))).sort(),
@@ -127,7 +200,7 @@ export default function ServicesPage() {
               <div className="services-catalog__vista">
                 <p className="services-catalog__vista-label">Vista actual</p>
                 <p className="services-catalog__vista-count">
-                  {filtered.length} de {services.length} servicios visibles
+                  {isLoading ? "..." : filtered.length} de {services.length} servicios visibles
                 </p>
                 <p className="services-catalog__vista-note">
                   Orden por nombre y categoría.
@@ -205,7 +278,22 @@ export default function ServicesPage() {
       {/* ── GRID ── */}
       <section className="services-catalog__grid-section">
         <div className="container">
-          <div className="services-catalog__grid">
+          {catalogError ? (
+            <p className="form-status form-status--error">{catalogError}</p>
+          ) : null}
+          {isLoading && (
+            <div className="py-16 text-center">
+              <p className="text-base text-neutral-500">Cargando catálogo de servicios...</p>
+            </div>
+          )}
+          {!isLoading && !catalogError && services.length === 0 && (
+            <div className="py-16 text-center">
+              <p className="text-base text-neutral-500">
+                No hay servicios disponibles en este momento. Vuelve pronto.
+              </p>
+            </div>
+          )}
+          <div className={`services-catalog__grid ${isLoading || services.length === 0 ? "hidden" : ""}`}>
             {filtered.map((service, index) => (
               <article key={service.id} className="service-catalog-card">
                 <div className="service-catalog-card__media">

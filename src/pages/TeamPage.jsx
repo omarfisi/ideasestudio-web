@@ -4,76 +4,8 @@ import { getPublicTeam } from "@/lib/api.js";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
 
-const EQUIPO_FALLBACK = [
-  {
-    id: 1,
-    nombre: "Osvaldo Marfisi",
-    rol: "Director Creativo & Fundador",
-    descripcion:
-      "Visionario detrás de cada proyecto. Con años de experiencia en fotografía, branding y producción visual, Osvaldo lidera cada trabajo con intención y detalle.",
-    biografia:
-      "Osvaldo Marfisi es el fundador y director creativo de Ideas Estudio. Con más de 10 años de experiencia en el mundo visual, ha trabajado con marcas, negocios y personas que buscan comunicar mejor su esencia. Su enfoque combina estrategia, estética y propósito, asegurando que cada proyecto no solo se vea bien, sino que también funcione. Osvaldo lidera el equipo con la misma energía y detalle que pone en cada entrega.",
-    imagen:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80",
-    especialidades: ["Fotografía", "Dirección Creativa", "Branding"],
-    redes: {
-      instagram: "https://www.instagram.com/ideasestudiopr/",
-      facebook: "https://www.facebook.com/ideasestudiopr",
-      linkedin: null,
-    },
-  },
-  {
-    id: 2,
-    nombre: "Ana Rodríguez",
-    rol: "Diseñadora Gráfica",
-    descripcion:
-      "Responsable de la identidad visual de cada marca. Ana transforma ideas en sistemas visuales coherentes, modernos y con propósito.",
-    biografia:
-      "Ana Rodríguez es la diseñadora gráfica del equipo. Su pasión por la tipografía, el color y la composición se traduce en identidades visuales sólidas que comunican con claridad. Trabaja de cerca con cada cliente para entender su esencia y convertirla en un sistema visual que sea funcional, memorable y diferente. Ha diseñado desde logotipos hasta campañas completas para marcas en distintos sectores.",
-    imagen:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=800&q=80",
-    especialidades: ["Branding", "Diseño Web", "Materiales"],
-    redes: {
-      instagram: "https://www.instagram.com/ideasestudiopr/",
-      facebook: null,
-      linkedin: null,
-    },
-  },
-  {
-    id: 3,
-    nombre: "Carlos Méndez",
-    rol: "Director de Video",
-    descripcion:
-      "Especialista en producción audiovisual. Carlos dirige cada pieza de video con un enfoque cinematográfico que comunica con claridad y emoción.",
-    biografia:
-      "Carlos Méndez dirige la producción audiovisual de Ideas Estudio. Con formación en cine y comunicación visual, trae un enfoque cinematográfico a cada proyecto, ya sea un reel de 30 segundos o una cobertura completa de evento. Su trabajo combina técnica y sensibilidad, logrando piezas que no solo informan, sino que emocionan y conectan con la audiencia.",
-    imagen:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=800&q=80",
-    especialidades: ["Video", "Edición", "Producción"],
-    redes: {
-      instagram: "https://www.instagram.com/ideasestudiopr/",
-      facebook: null,
-      linkedin: null,
-    },
-  },
-  {
-    id: 4,
-    nombre: "Sofía Torres",
-    rol: "Estratega de Contenido",
-    descripcion:
-      "Gestiona la presencia digital de nuestros clientes con una visión clara de comunicación, consistencia y resultados medibles en cada canal.",
-    biografia:
-      "Sofía Torres es la estratega de contenido del equipo. Su trabajo va más allá de publicar: analiza audiencias, define mensajes y construye calendarios de contenido que generan presencia consistente y resultados reales. Ha gestionado cuentas en Instagram, Facebook y otras plataformas para negocios de distintos sectores, siempre con un enfoque basado en datos y creatividad.",
-    imagen:
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=800&q=80",
-    especialidades: ["Redes Sociales", "Contenido", "Estrategia"],
-    redes: {
-      instagram: "https://www.instagram.com/ideasestudiopr/",
-      facebook: "https://www.facebook.com/ideasestudiopr",
-      linkedin: null,
-    },
-  },
-];
+// No fallback data — if the API returns empty or fails, we show an empty state.
+// Never show invented names or Unsplash stock photos as real team members.
 
 // Normaliza el formato de la API al formato que usa el componente
 function normalizeApiMember(m) {
@@ -353,12 +285,14 @@ export default function TeamPage() {
     getPublicTeam()
       .then((data) => {
         const members = data?.members || [];
-        setEquipo(members.length > 0 ? members.map(normalizeApiMember) : EQUIPO_FALLBACK);
+        // Only show real members from the API. Never fall back to invented data.
+        setEquipo(members.map(normalizeApiMember));
         if (data?.group_photo?.image_url) setGroupPhoto(data.group_photo);
         if (data?.gallery?.length > 0) setGallery(data.gallery);
       })
-      .catch(() => {
-        setEquipo(EQUIPO_FALLBACK);
+      .catch((error) => {
+        console.warn("[TEAM] public team unavailable", error);
+        // Leave equipo as empty array — the empty state will be shown.
       })
       .finally(() => {
         setLoading(false);
@@ -411,7 +345,15 @@ export default function TeamPage() {
       {/* ── EQUIPO ── */}
       <section className="section-split px-4 pb-16 md:px-6">
         <div className="mx-auto max-w-7xl">
-          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+          {/* Empty state: API returned no members or failed */}
+          {!loading && equipo.length === 0 && (
+            <div className="py-16 text-center">
+              <p className="text-base text-neutral-500">
+                Pronto estaremos actualizando esta sección con información oficial del equipo de Ideas Estudio.
+              </p>
+            </div>
+          )}
+          <div className={`grid gap-6 sm:grid-cols-2 xl:grid-cols-4 ${!loading && equipo.length === 0 ? "hidden" : ""}`}>
             {loading
               ? Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className="overflow-hidden rounded-[28px] bg-white shadow-[0_12px_30px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.05]">

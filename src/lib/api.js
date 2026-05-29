@@ -1274,7 +1274,10 @@ export async function getBlogHome() {
 }
 
 export async function getBlogPosts(params = {}) {
-  const url = buildUrl("/api/blog/posts", params);
+  const url = buildUrl("/api/blog/posts", {
+    workspace_id: PUBLIC_WORKSPACE_ID || undefined,
+    ...params,
+  });
   return apiFetch(url);
 }
 
