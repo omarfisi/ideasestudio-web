@@ -774,13 +774,18 @@ export async function getPublicProductCategories() {
 
 export async function getPublicProducts(filters = {}) {
   const data = await getStoreProducts(filters);
-  const items = Array.isArray(data?.items)
-    ? data.items.map(normalizeProduct).filter(Boolean)
+  const rawItems = Array.isArray(data?.items)
+    ? data.items
+    : Array.isArray(data?.products)
+    ? data.products
+    : Array.isArray(data)
+    ? data
     : [];
+  const items = rawItems.map(normalizeProduct).filter(Boolean);
 
   return {
     items,
-    count: Number(data?.count ?? items.length),
+    count: Number(data?.count ?? data?.total ?? items.length),
   };
 }
 
