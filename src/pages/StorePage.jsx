@@ -23,6 +23,16 @@ const SALE_MODE_LABELS = {
   quote_only: "Propuesta",
 };
 
+function withTimeout(promise, ms, message) {
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(message));
+    }, ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+}
+
 function toReadableLabel(value) {
   return String(value || "")
     .replace(/[_-]+/g, " ")
@@ -191,13 +201,17 @@ export default function StorePage() {
       setCatalogError("");
 
       try {
-        const catalog = await getPublicProducts({
-          category: filters.category,
-          productType: "service",
-          search: filters.search,
-          limit: 60,
-          offset: 0,
-        });
+        const catalog = await withTimeout(
+          getPublicProducts({
+            category: filters.category,
+            productType: "service",
+            search: filters.search,
+            limit: 60,
+            offset: 0,
+          }),
+          15000,
+          "La carga del catálogo tardó demasiado. Intenta nuevamente."
+        );
 
         if (cancelled || requestId !== productsRequestRef.current) {
           return;
