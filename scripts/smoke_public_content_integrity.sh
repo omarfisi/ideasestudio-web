@@ -70,15 +70,18 @@ assert_api_ok() {
     return
   fi
 
-  local body http_code
-  body=$(curl --max-time "$TIMEOUT" -s -w "\n%{http_code}" "$url") || {
+  local body http_code tmp_body
+  tmp_body="$(mktemp)"
+
+  http_code=$(curl --max-time "$TIMEOUT" -sS -o "$tmp_body" -w "%{http_code}" "$url") || {
+    rm -f "$tmp_body"
     red "  FAIL [api:$label] — curl error or timeout"
     FAIL=$((FAIL+1))
     return
   }
 
-  http_code=$(printf '%s' "$body" | tail -1)
-  body=$(printf '%s' "$body" | head -n -1)
+  body="$(cat "$tmp_body")"
+  rm -f "$tmp_body"
 
   if [[ "$http_code" != "200" ]]; then
     red "  FAIL [api:$label] — HTTP $http_code"
