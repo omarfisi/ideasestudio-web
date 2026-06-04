@@ -368,6 +368,9 @@ export default function ServicesPage() {
               <Button to="/contacto?mode=proposal&cta=services_catalog">
                 Quiero una propuesta clara
               </Button>
+              <Button to="/conoce-tu-negocio" variant="secondary">
+                Completa el formulario para conocer tu negocio
+              </Button>
               <Button to="/contacto" variant="secondary">
                 Hablar sobre mi proyecto
               </Button>

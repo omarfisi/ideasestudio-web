@@ -27,6 +27,7 @@ import BlogPage from "@/pages/BlogPage.jsx";
 import BlogPostDetailPage from "@/pages/BlogPostDetailPage.jsx";
 import BlogPostPreviewPage from "@/pages/BlogPostPreviewPage.jsx";
 import ContactPage from "@/pages/ContactPage.jsx";
+import BusinessIntakeLanding from "@/pages/BusinessIntakeLanding.jsx";
 import CartPage from "@/pages/CartPage.jsx";
 import CheckoutPage from "@/pages/CheckoutPage.jsx";
 import OrderConfirmationPage from "@/pages/OrderConfirmationPage.jsx";
@@ -300,6 +301,14 @@ const router = createBrowserRouter([
       {
         path: "contacto",
         element: <ContactPage />,
+      },
+      {
+        path: "conoce-tu-negocio",
+        element: <BusinessIntakeLanding />,
+      },
+      {
+        path: "formulario-negocio",
+        element: <RedirectWithLocation to="/conoce-tu-negocio" />,
       },
       {
         path: "carrito",

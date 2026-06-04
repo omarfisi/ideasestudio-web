@@ -11,6 +11,7 @@ const serviceLinks = [
 const quickLinks = [
   { label: "Inicio", href: "/" },
   { label: "Servicios", href: "/#servicios" },
+  { label: "Conoce tu negocio", href: "/conoce-tu-negocio" },
   { label: "Portafolio", href: "/#portafolio" },
   { label: "Blog", href: "/#blog" },
   { label: "Contacto", href: "/#contacto" },
