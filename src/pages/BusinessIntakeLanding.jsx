@@ -17,6 +17,9 @@ const DEFAULT_LANDING = {
   hero_title: "Conozcamos tu negocio",
   hero_subtitle:
     "Completa este formulario para entender mejor tu negocio, tus metas, tus retos y las áreas donde Ideas Estudio puede ayudarte a crecer.",
+  hero_media_kind: "none",
+  hero_media_url: "",
+  hero_media_alt: "",
   primary_cta_label: "Completar formulario",
   secondary_cta_label: "Hablar directamente",
   secondary_cta_url: "/contacto",
@@ -41,6 +44,30 @@ function normalizeList(value, fallback = []) {
 function normalizeAssets(value) {
   if (!Array.isArray(value)) return [];
   return value.filter((item) => item?.image_url && item?.is_active !== false);
+}
+
+function getVideoEmbedConfig(url) {
+  const raw = String(url || "").trim();
+  if (!raw) return null;
+
+  const youtubeMatch =
+    raw.match(/youtube\.com\/watch\?v=([^&]+)/i) ||
+    raw.match(/youtu\.be\/([^?&/]+)/i) ||
+    raw.match(/youtube\.com\/embed\/([^?&/]+)/i);
+  if (youtubeMatch?.[1]) {
+    return { type: "iframe", src: `https://www.youtube.com/embed/${youtubeMatch[1]}` };
+  }
+
+  const vimeoMatch = raw.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+  if (vimeoMatch?.[1]) {
+    return { type: "iframe", src: `https://player.vimeo.com/video/${vimeoMatch[1]}` };
+  }
+
+  if (/\.(mp4|webm|ogg)(\?|#|$)/i.test(raw)) {
+    return { type: "video", src: raw };
+  }
+
+  return { type: "link", src: raw };
 }
 
 function normalizeLandingPayload(payload, fallbackForm = null) {
@@ -72,13 +99,14 @@ function LogoStrip({ assets }) {
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {assets.map((asset) => {
+          const previewFit = ["client_logo", "brand_mark"].includes(asset.asset_type) ? "object-contain" : "object-cover";
           const content = (
             <div className="flex min-h-[90px] items-center gap-4 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-4">
               <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-white">
                 <img
                   src={asset.image_url}
                   alt={asset.alt_text || asset.company_name || asset.title || "Asset landing"}
-                  className="h-full w-full object-cover"
+                  className={`h-full w-full ${previewFit}`}
                   loading="lazy"
                 />
               </div>
@@ -114,6 +142,60 @@ function LogoStrip({ assets }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function LandingMediaBlock({ landing }) {
+  const mediaKind = landing?.hero_media_kind || "none";
+  const mediaUrl = landing?.hero_media_url || "";
+  if (mediaKind === "none" || !mediaUrl) return null;
+
+  if (mediaKind === "image") {
+    return (
+      <div className="mt-8 overflow-hidden rounded-[1.75rem] border border-neutral-200 bg-white shadow-sm">
+        <img
+          src={mediaUrl}
+          alt={landing?.hero_media_alt || landing?.hero_title || "Imagen principal de la landing"}
+          className="h-full max-h-[420px] w-full object-cover"
+          loading="lazy"
+        />
+      </div>
+    );
+  }
+
+  const video = getVideoEmbedConfig(mediaUrl);
+  if (!video) return null;
+
+  return (
+    <div className="mt-8 overflow-hidden rounded-[1.75rem] border border-neutral-200 bg-white shadow-sm">
+      {video.type === "iframe" ? (
+        <div className="aspect-video">
+          <iframe
+            src={video.src}
+            title={landing?.hero_media_alt || landing?.hero_title || "Video principal de la landing"}
+            className="h-full w-full"
+            loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      ) : video.type === "video" ? (
+        <video
+          src={video.src}
+          className="h-full max-h-[420px] w-full bg-black object-cover"
+          controls
+          playsInline
+          preload="metadata"
+        />
+      ) : (
+        <div className="p-6">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">Video principal</div>
+          <a href={video.src} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-sm font-medium text-neutral-950 underline underline-offset-4">
+            Abrir video
+          </a>
+        </div>
+      )}
     </div>
   );
 }
@@ -180,7 +262,7 @@ export default function BusinessIntakeLanding() {
   );
 
   return (
-    <main className="bg-[linear-gradient(180deg,#fffdf8_0%,#fff6d8_32%,#ffffff_100%)] text-neutral-950">
+    <main className="bg-white text-neutral-950">
       <SEOHead
         title={seo.title}
         description={seo.description}
@@ -216,6 +298,8 @@ export default function BusinessIntakeLanding() {
                 </Button>
               )}
             </div>
+
+            <LandingMediaBlock landing={landing} />
 
             <div className="mt-8 grid gap-4 md:grid-cols-2">
               {benefits.map((item, index) => (
