@@ -1,154 +1,269 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Button from "@/components/shared/Button.jsx";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import PublicBusinessIntakeForm from "@/components/forms/PublicBusinessIntakeForm.jsx";
-import { getPublicForm } from "@/lib/publicFormsApi.js";
+import { getPublicForm, getPublicFormLanding } from "@/lib/publicFormsApi.js";
 
-const BENEFITS = [
-  {
-    title: "Entendemos mejor tu negocio",
-    text: "Nos das contexto real sobre tu etapa, oferta, presencia digital y prioridades.",
-  },
-  {
-    title: "Identificamos tus necesidades principales",
-    text: "Vemos con más claridad dónde hace falta diseño, web, branding, contenido o automatización.",
-  },
-  {
-    title: "Te recomendamos servicios adecuados",
-    text: "La información llega organizada para sugerirte la combinación más útil.",
-  },
-  {
-    title: "Organizamos tu información dentro del CRM",
-    text: "Tu respuesta crea submission, contacto, lead, score y segmento asociado.",
-  },
-  {
-    title: "Podemos darte seguimiento de forma más efectiva",
-    text: "Llegamos a la conversación con contexto suficiente para avanzar más rápido.",
-  },
+const DEFAULT_BENEFITS = [
+  "Entendemos mejor tu negocio",
+  "Identificamos tus necesidades principales",
+  "Te recomendamos servicios adecuados",
+  "Organizamos tu información dentro del CRM",
+  "Podemos darte seguimiento de forma más efectiva",
 ];
 
+const DEFAULT_LANDING = {
+  hero_badge: "Ideas Estudio",
+  hero_title: "Conozcamos tu negocio",
+  hero_subtitle:
+    "Completa este formulario para entender mejor tu negocio, tus metas, tus retos y las áreas donde Ideas Estudio puede ayudarte a crecer.",
+  primary_cta_label: "Completar formulario",
+  secondary_cta_label: "Hablar directamente",
+  secondary_cta_url: "/contacto",
+  benefits: DEFAULT_BENEFITS,
+  trust_points: [],
+  seo: {
+    seo_title: "Conoce tu negocio | Ideas Estudio",
+    seo_description:
+      "Completa el formulario de Ideas Estudio para ayudarnos a conocer tu negocio, tus metas y tus necesidades de marketing, diseño, fotografía, video y web.",
+    og_title: "Conoce tu negocio | Ideas Estudio",
+    og_description:
+      "Cuéntanos sobre tu negocio y descubre cómo Ideas Estudio puede ayudarte a crecer.",
+  },
+};
+
+function normalizeList(value, fallback = []) {
+  if (!Array.isArray(value)) return fallback;
+  const items = value.map((item) => String(item || "").trim()).filter(Boolean);
+  return items.length ? items : fallback;
+}
+
+function normalizeAssets(value) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item) => item?.image_url && item?.is_active !== false);
+}
+
+function normalizeLandingPayload(payload, fallbackForm = null) {
+  const landing = payload?.landing || {};
+  const seo = landing?.seo || {};
+  return {
+    landing: {
+      ...DEFAULT_LANDING,
+      ...landing,
+      benefits: normalizeList(landing?.benefits, DEFAULT_BENEFITS),
+      trust_points: normalizeList(landing?.trust_points, []),
+      seo: {
+        ...DEFAULT_LANDING.seo,
+        ...seo,
+      },
+    },
+    form: payload?.form || fallbackForm,
+    assets: normalizeAssets(payload?.assets),
+  };
+}
+
+function LogoStrip({ assets }) {
+  if (!assets.length) return null;
+
+  return (
+    <div className="mt-8 rounded-[1.75rem] border border-neutral-200 bg-white p-5 shadow-sm">
+      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
+        Logos / clientes
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {assets.map((asset) => {
+          const content = (
+            <div className="flex min-h-[90px] items-center gap-4 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-4">
+              <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-white">
+                <img
+                  src={asset.image_url}
+                  alt={asset.alt_text || asset.company_name || asset.title || "Asset landing"}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-neutral-950">
+                  {asset.company_name || asset.title || "Cliente"}
+                </div>
+                {asset.title && asset.company_name ? (
+                  <div className="mt-1 text-xs text-neutral-500">{asset.title}</div>
+                ) : null}
+              </div>
+            </div>
+          );
+
+          if (asset.website_url) {
+            return (
+              <a
+                key={asset.id || asset.image_url}
+                href={asset.website_url}
+                target="_blank"
+                rel="noreferrer"
+                className="block"
+              >
+                {content}
+              </a>
+            );
+          }
+
+          return (
+            <div key={asset.id || asset.image_url}>
+              {content}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function BusinessIntakeLanding() {
-  const [formConfig, setFormConfig] = useState(null);
+  const [pageData, setPageData] = useState(() => normalizeLandingPayload(null, null));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError("");
 
-    getPublicForm("conoce-tu-negocio")
-      .then((data) => {
-        if (!cancelled) setFormConfig(data);
-      })
-      .catch((err) => {
+    async function load() {
+      setLoading(true);
+      setError("");
+
+      try {
+        const landingPayload = await getPublicFormLanding("conoce-tu-negocio");
+        if (!cancelled) {
+          setPageData(normalizeLandingPayload(landingPayload));
+        }
+        return;
+      } catch {
+        // fallback seguro al endpoint de formularios
+      }
+
+      try {
+        const fallbackForm = await getPublicForm("conoce-tu-negocio");
+        if (!cancelled) {
+          setPageData(normalizeLandingPayload(null, fallbackForm));
+        }
+      } catch (err) {
         if (!cancelled) {
           setError(err?.message || "No se pudo cargar el formulario. Intenta nuevamente.");
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    }
+
+    load().finally(() => {
+      if (!cancelled) setLoading(false);
+    });
 
     return () => {
       cancelled = true;
     };
   }, []);
 
+  const landing = pageData?.landing || DEFAULT_LANDING;
+  const formConfig = pageData?.form || null;
+  const assets = pageData?.assets || [];
+  const benefits = normalizeList(landing?.benefits, DEFAULT_BENEFITS);
+  const trustPoints = normalizeList(landing?.trust_points, []);
+
+  const seo = useMemo(
+    () => ({
+      title: landing?.seo?.seo_title || DEFAULT_LANDING.seo.seo_title,
+      description: landing?.seo?.seo_description || DEFAULT_LANDING.seo.seo_description,
+      ogTitle: landing?.seo?.og_title || DEFAULT_LANDING.seo.og_title,
+      ogDescription: landing?.seo?.og_description || DEFAULT_LANDING.seo.og_description,
+    }),
+    [landing],
+  );
+
   return (
     <main className="bg-[linear-gradient(180deg,#fffdf8_0%,#fff6d8_32%,#ffffff_100%)] text-neutral-950">
       <SEOHead
-        title="Conoce tu negocio | Ideas Estudio"
-        description="Completa el formulario de Ideas Estudio para ayudarnos a conocer tu negocio, tus metas y tus necesidades de marketing, diseño, fotografía, video y web."
+        title={seo.title}
+        description={seo.description}
         canonical="https://www.ideasestudio.com/conoce-tu-negocio"
-        ogTitle="Conoce tu negocio | Ideas Estudio"
-        ogDescription="Cuéntanos sobre tu negocio y descubre cómo Ideas Estudio puede ayudarte a crecer."
+        ogTitle={seo.ogTitle}
+        ogDescription={seo.ogDescription}
       />
 
-      <section className="px-4 pb-14 pt-16 md:px-6 md:pb-20 md:pt-24">
-        <div className="mx-auto grid max-w-[1220px] gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+      <section className="px-4 pb-16 pt-16 md:px-6 md:pb-24 md:pt-24">
+        <div className="mx-auto grid max-w-[1220px] gap-8 lg:grid-cols-[1.02fr_0.98fr] lg:items-start">
           <div>
             <div className="inline-flex rounded-full border border-neutral-300 bg-white/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-neutral-600">
-              Ideas Estudio
+              {landing.hero_badge || landing.eyebrow || DEFAULT_LANDING.hero_badge}
             </div>
             <h1 className="mt-5 text-4xl font-semibold leading-tight md:text-6xl">
-              Conozcamos tu <span className="text-amber-500">negocio</span>
+              {landing.hero_title || DEFAULT_LANDING.hero_title}
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-neutral-700 md:text-lg">
-              Completa este formulario para entender mejor tu negocio, tus metas, tus retos y las áreas donde Ideas Estudio puede ayudarte a crecer.
+              {landing.hero_subtitle || landing.subtitle || DEFAULT_LANDING.hero_subtitle}
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Button href="#business-intake-form">Completar formulario</Button>
-              <Button href="/contacto" variant="secondary">Hablar directamente</Button>
-            </div>
-          </div>
 
-          <div className="rounded-[2rem] border border-neutral-200 bg-neutral-950 p-8 text-white shadow-[0_30px_90px_rgba(0,0,0,0.18)]">
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">Diagnóstico inicial</div>
-            <h2 className="mt-4 text-2xl font-semibold">Un formulario pensado para proyectos reales</h2>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              {[
-                "Segmento de cliente",
-                "Necesidades prioritarias",
-                "Presencia digital actual",
-                "Presupuesto y urgencia",
-              ].map((item) => (
-                <div key={item} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-neutral-100">
-                  {item}
-                </div>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Button href="#business-intake-form">
+                {landing.primary_cta_label || DEFAULT_LANDING.primary_cta_label}
+              </Button>
+              {landing.secondary_cta_label && landing.secondary_cta_url ? (
+                <Button href={landing.secondary_cta_url} variant="secondary">
+                  {landing.secondary_cta_label}
+                </Button>
+              ) : (
+                <Button href={DEFAULT_LANDING.secondary_cta_url} variant="secondary">
+                  {DEFAULT_LANDING.secondary_cta_label}
+                </Button>
+              )}
+            </div>
+
+            <div className="mt-8 grid gap-4 md:grid-cols-2">
+              {benefits.map((item, index) => (
+                <article
+                  key={`${item}-${index}`}
+                  className="rounded-[1.75rem] border border-neutral-200 bg-white p-5 shadow-sm"
+                >
+                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-amber-100 text-sm font-semibold text-neutral-950">
+                    {index + 1}
+                  </div>
+                  <p className="text-sm leading-6 text-neutral-700">{item}</p>
+                </article>
               ))}
             </div>
-            <p className="mt-6 text-sm leading-6 text-neutral-300">
-              La información llega al CRM con score, lead asociado, contacto asociado y respuestas estructuradas para seguimiento comercial.
-            </p>
-          </div>
-        </div>
-      </section>
 
-      <section className="px-4 pb-14 md:px-6 md:pb-20">
-        <div className="mx-auto max-w-[1220px]">
-          <div className="max-w-2xl">
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
-              ¿Por qué completar este formulario?
+            {trustPoints.length ? (
+              <div className="mt-6 flex flex-wrap gap-2">
+                {trustPoints.map((item) => (
+                  <div
+                    key={item}
+                    className="rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm text-neutral-700 shadow-sm"
+                  >
+                    {item}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <LogoStrip assets={assets} />
+          </div>
+
+          <div
+            id="business-intake-form"
+            className="rounded-[2rem] border border-neutral-200 bg-white p-6 shadow-[0_25px_80px_rgba(0,0,0,0.08)] md:p-8"
+          >
+            <div className="mb-6 rounded-[1.75rem] border border-neutral-200 bg-neutral-950 px-5 py-5 text-white">
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
+                Diagnóstico inicial
+              </div>
+              <h2 className="mt-3 text-2xl font-semibold">
+                {landing.title || "Cuéntanos sobre tu negocio"}
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-neutral-300">
+                {landing.description ||
+                  "La información entra al CRM con respuestas estructuradas, score, lead asociado y contacto asociado."}
+              </p>
             </div>
-            <h2 className="mt-3 text-3xl font-semibold text-neutral-950 md:text-4xl">
-              Lo usamos para entender contexto, ordenar información y responder mejor.
-            </h2>
-          </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            {BENEFITS.map((item) => (
-              <article key={item.title} className="rounded-[1.75rem] border border-neutral-200 bg-white p-5 shadow-sm">
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-amber-100 text-sm font-semibold text-neutral-950">
-                  {item.title.slice(0, 1)}
-                </div>
-                <h3 className="text-lg font-semibold text-neutral-950">{item.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-neutral-600">{item.text}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="business-intake-form" className="px-4 pb-16 md:px-6 md:pb-24">
-        <div className="mx-auto grid max-w-[1220px] gap-8 lg:grid-cols-[0.38fr_0.62fr]">
-          <div className="rounded-[2rem] border border-neutral-200 bg-white p-6 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">Formulario</div>
-            <h2 className="mt-3 text-3xl font-semibold text-neutral-950">Cuéntanos sobre tu negocio</h2>
-            <p className="mt-4 text-sm leading-6 text-neutral-600">
-              Completa las secciones de información personal, negocio, presencia digital, necesidades, presupuesto y consentimiento.
-            </p>
-            <ul className="mt-6 space-y-3 text-sm text-neutral-700">
-              <li>• Información personal</li>
-              <li>• Información del negocio</li>
-              <li>• Presencia digital</li>
-              <li>• Necesidades y objetivos</li>
-              <li>• Presupuesto y urgencia</li>
-              <li>• Consentimiento</li>
-            </ul>
-          </div>
-
-          <div className="rounded-[2rem] border border-neutral-200 bg-white p-6 shadow-[0_25px_80px_rgba(0,0,0,0.08)] md:p-8">
             {loading ? (
               <div className="rounded-3xl border border-neutral-200 bg-neutral-50 px-6 py-12 text-center text-sm text-neutral-500">
                 Cargando formulario…
@@ -160,20 +275,6 @@ export default function BusinessIntakeLanding() {
             ) : (
               <PublicBusinessIntakeForm formConfig={formConfig} slug="conoce-tu-negocio" />
             )}
-          </div>
-        </div>
-      </section>
-
-      <section className="px-4 pb-20 md:px-6">
-        <div className="mx-auto max-w-[1220px] rounded-[2rem] border border-neutral-200 bg-neutral-950 px-6 py-8 text-white shadow-[0_30px_90px_rgba(0,0,0,0.18)] md:px-10">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
-                CTA secundario
-              </div>
-              <h2 className="mt-3 text-3xl font-semibold">¿Prefieres hablar directamente con nosotros?</h2>
-            </div>
-            <Button href="/contacto">Contactar a Ideas Estudio</Button>
           </div>
         </div>
       </section>
