@@ -79,6 +79,14 @@ export async function getPublicForm(slug) {
   return _publicFetch(`/public/forms/${encodeURIComponent(slug)}`);
 }
 
+export async function getPublicFormLanding(slug) {
+  return _publicFetch(`/public/form-landings/${encodeURIComponent(slug)}`);
+}
+
+export async function getPublicFormLandingByFormSlug(formSlug) {
+  return _publicFetch(`/public/form-landings/by-form/${encodeURIComponent(formSlug)}`);
+}
+
 export async function submitPublicForm(slug, payload) {
   const body = {
     ...payload,
