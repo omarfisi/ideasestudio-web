@@ -6,6 +6,7 @@ import LogoSliderBlock from "@/components/landing/blocks/LogoSliderBlock.jsx";
 import BenefitsBlock   from "@/components/landing/blocks/BenefitsBlock.jsx";
 import CtaBlock        from "@/components/landing/blocks/CtaBlock.jsx";
 import FaqBlock        from "@/components/landing/blocks/FaqBlock.jsx";
+import ColumnsBlock    from "@/components/landing/blocks/ColumnsBlock.jsx";
 
 function BlockRenderer({ block, assets, formConfig, loading, error }) {
   const s = block.settings || {};
@@ -18,6 +19,7 @@ function BlockRenderer({ block, assets, formConfig, loading, error }) {
     case "benefits":    return <BenefitsBlock    settings={s} />;
     case "cta":         return <CtaBlock         settings={s} />;
     case "faq":         return <FaqBlock         settings={s} />;
+    case "columns":     return <ColumnsBlock     settings={s} />;
     default:            return null;
   }
 }
