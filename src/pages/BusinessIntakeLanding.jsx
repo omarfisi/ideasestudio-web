@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import Button from "@/components/shared/Button.jsx";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import PublicBusinessIntakeForm from "@/components/forms/PublicBusinessIntakeForm.jsx";
+import PublicLandingBlocks from "@/components/landing/blocks/PublicLandingBlocks.jsx";
 import { getPublicForm, getPublicFormLanding } from "@/lib/publicFormsApi.js";
 
 const DEFAULT_BENEFITS = [
@@ -70,6 +71,11 @@ function getVideoEmbedConfig(url) {
   return { type: "link", src: raw };
 }
 
+function normalizeBlocks(value) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((b) => b?.block_type && b?.is_active !== false);
+}
+
 function normalizeLandingPayload(payload, fallbackForm = null) {
   const landing = payload?.landing || {};
   const seo = landing?.seo || {};
@@ -86,6 +92,7 @@ function normalizeLandingPayload(payload, fallbackForm = null) {
     },
     form: payload?.form || fallbackForm,
     assets: normalizeAssets(payload?.assets),
+    blocks: normalizeBlocks(payload?.blocks),
   };
 }
 
@@ -248,6 +255,8 @@ export default function BusinessIntakeLanding() {
   const landing = pageData?.landing || DEFAULT_LANDING;
   const formConfig = pageData?.form || null;
   const assets = pageData?.assets || [];
+  const blocks = pageData?.blocks || [];
+  const hasBlocks = blocks.length > 0;
   const benefits = normalizeList(landing?.benefits, DEFAULT_BENEFITS);
   const trustPoints = normalizeList(landing?.trust_points, []);
 
@@ -273,93 +282,109 @@ export default function BusinessIntakeLanding() {
 
       <section className="px-4 pb-16 pt-16 md:px-6 md:pb-24 md:pt-24">
         <div className="mx-auto grid max-w-[1220px] gap-8 lg:grid-cols-[1.02fr_0.98fr] lg:items-start">
-          <div>
-            <div className="inline-flex rounded-full border border-neutral-300 bg-white/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-neutral-600">
-              {landing.hero_badge || landing.eyebrow || DEFAULT_LANDING.hero_badge}
-            </div>
-            <h1 className="mt-5 text-4xl font-semibold leading-tight md:text-6xl">
-              {landing.hero_title || DEFAULT_LANDING.hero_title}
-            </h1>
-            <p className="mt-5 max-w-2xl text-base leading-7 text-neutral-700 md:text-lg">
-              {landing.hero_subtitle || landing.subtitle || DEFAULT_LANDING.hero_subtitle}
-            </p>
 
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Button href="#business-intake-form">
-                {landing.primary_cta_label || DEFAULT_LANDING.primary_cta_label}
-              </Button>
-              {landing.secondary_cta_label && landing.secondary_cta_url ? (
-                <Button href={landing.secondary_cta_url} variant="secondary">
-                  {landing.secondary_cta_label}
+          {/* left column — dynamic blocks OR fixed fallback */}
+          {hasBlocks ? (
+            <PublicLandingBlocks
+              blocks={blocks}
+              assets={assets}
+              formConfig={formConfig}
+              loading={loading}
+              error={error}
+            />
+          ) : (
+            <div>
+              <div className="inline-flex rounded-full border border-neutral-300 bg-white/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-neutral-600">
+                {landing.hero_badge || landing.eyebrow || DEFAULT_LANDING.hero_badge}
+              </div>
+              <h1 className="mt-5 text-4xl font-semibold leading-tight md:text-6xl">
+                {landing.hero_title || DEFAULT_LANDING.hero_title}
+              </h1>
+              <p className="mt-5 max-w-2xl text-base leading-7 text-neutral-700 md:text-lg">
+                {landing.hero_subtitle || landing.subtitle || DEFAULT_LANDING.hero_subtitle}
+              </p>
+
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Button href="#business-intake-form">
+                  {landing.primary_cta_label || DEFAULT_LANDING.primary_cta_label}
                 </Button>
-              ) : (
-                <Button href={DEFAULT_LANDING.secondary_cta_url} variant="secondary">
-                  {DEFAULT_LANDING.secondary_cta_label}
-                </Button>
-              )}
-            </div>
+                {landing.secondary_cta_label && landing.secondary_cta_url ? (
+                  <Button href={landing.secondary_cta_url} variant="secondary">
+                    {landing.secondary_cta_label}
+                  </Button>
+                ) : (
+                  <Button href={DEFAULT_LANDING.secondary_cta_url} variant="secondary">
+                    {DEFAULT_LANDING.secondary_cta_label}
+                  </Button>
+                )}
+              </div>
 
-            <LandingMediaBlock landing={landing} />
+              <LandingMediaBlock landing={landing} />
 
-            <div className="mt-8 grid gap-4 md:grid-cols-2">
-              {benefits.map((item, index) => (
-                <article
-                  key={`${item}-${index}`}
-                  className="rounded-[1.75rem] border border-neutral-200 bg-white p-5 shadow-sm"
-                >
-                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-amber-100 text-sm font-semibold text-neutral-950">
-                    {index + 1}
-                  </div>
-                  <p className="text-sm leading-6 text-neutral-700">{item}</p>
-                </article>
-              ))}
-            </div>
-
-            {trustPoints.length ? (
-              <div className="mt-6 flex flex-wrap gap-2">
-                {trustPoints.map((item) => (
-                  <div
-                    key={item}
-                    className="rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm text-neutral-700 shadow-sm"
+              <div className="mt-8 grid gap-4 md:grid-cols-2">
+                {benefits.map((item, index) => (
+                  <article
+                    key={`${item}-${index}`}
+                    className="rounded-[1.75rem] border border-neutral-200 bg-white p-5 shadow-sm"
                   >
-                    {item}
-                  </div>
+                    <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-amber-100 text-sm font-semibold text-neutral-950">
+                      {index + 1}
+                    </div>
+                    <p className="text-sm leading-6 text-neutral-700">{item}</p>
+                  </article>
                 ))}
               </div>
-            ) : null}
 
-            <LogoStrip assets={assets} />
-          </div>
+              {trustPoints.length ? (
+                <div className="mt-6 flex flex-wrap gap-2">
+                  {trustPoints.map((item) => (
+                    <div
+                      key={item}
+                      className="rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm text-neutral-700 shadow-sm"
+                    >
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
 
-          <div
-            id="business-intake-form"
-            className="rounded-[2rem] border border-neutral-200 bg-white p-6 shadow-[0_25px_80px_rgba(0,0,0,0.08)] md:p-8"
-          >
-            <div className="mb-6 rounded-[1.75rem] border border-neutral-200 bg-neutral-950 px-5 py-5 text-white">
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
-                Diagnóstico inicial
-              </div>
-              <h2 className="mt-3 text-2xl font-semibold">
-                {landing.title || "Cuéntanos sobre tu negocio"}
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-neutral-300">
-                {landing.description ||
-                  "La información entra al CRM con respuestas estructuradas, score, lead asociado y contacto asociado."}
-              </p>
+              <LogoStrip assets={assets} />
             </div>
+          )}
 
-            {loading ? (
-              <div className="rounded-3xl border border-neutral-200 bg-neutral-50 px-6 py-12 text-center text-sm text-neutral-500">
-                Cargando formulario…
+          {/* right column — form (always visible when no form block in left) */}
+          {!hasBlocks || !blocks.some((b) => b.block_type === "form" && b.is_active !== false) ? (
+            <div
+              id="business-intake-form"
+              className="rounded-[2rem] border border-neutral-200 bg-white p-6 shadow-[0_25px_80px_rgba(0,0,0,0.08)] md:p-8"
+            >
+              <div className="mb-6 rounded-[1.75rem] border border-neutral-200 bg-neutral-950 px-5 py-5 text-white">
+                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
+                  Diagnóstico inicial
+                </div>
+                <h2 className="mt-3 text-2xl font-semibold">
+                  {landing.title || "Cuéntanos sobre tu negocio"}
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-neutral-300">
+                  {landing.description ||
+                    "La información entra al CRM con respuestas estructuradas, score, lead asociado y contacto asociado."}
+                </p>
               </div>
-            ) : error ? (
-              <div className="rounded-3xl border border-red-200 bg-red-50 px-6 py-12 text-center text-sm text-red-700">
-                {error || "No se pudo cargar el formulario. Intenta nuevamente."}
-              </div>
-            ) : (
-              <PublicBusinessIntakeForm formConfig={formConfig} slug="conoce-tu-negocio" />
-            )}
-          </div>
+
+              {loading ? (
+                <div className="rounded-3xl border border-neutral-200 bg-neutral-50 px-6 py-12 text-center text-sm text-neutral-500">
+                  Cargando formulario…
+                </div>
+              ) : error ? (
+                <div className="rounded-3xl border border-red-200 bg-red-50 px-6 py-12 text-center text-sm text-red-700">
+                  {error || "No se pudo cargar el formulario. Intenta nuevamente."}
+                </div>
+              ) : (
+                <PublicBusinessIntakeForm formConfig={formConfig} slug="conoce-tu-negocio" />
+              )}
+            </div>
+          ) : null}
+
         </div>
       </section>
     </main>
