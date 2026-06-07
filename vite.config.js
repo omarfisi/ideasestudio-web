@@ -8,6 +8,20 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://api.ideasestudio.com',
+        changeOrigin: true,
+        secure: true,
+      },
+      '/public': {
+        target: 'https://api.ideasestudio.com',
+        changeOrigin: true,
+        secure: true,
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

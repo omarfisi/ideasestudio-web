@@ -81,6 +81,16 @@ function getFormSlug(form) {
   return form?.slug || form?.form_slug || "";
 }
 
+function isNotFoundError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    error?.status === 404 ||
+    message.includes("404") ||
+    message.includes("not found") ||
+    message.includes("no existe")
+  );
+}
+
 function normalizeLandingPayload(payload, fallbackForm = null) {
   const landing = payload?.landing || {};
   const seo = landing?.seo || {};
@@ -232,6 +242,7 @@ export default function BusinessIntakeLanding() {
       setLoading(true);
       setError("");
       setNotFound(false);
+      let landingError = null;
 
       try {
         const landingPayload = await getPublicFormLanding(landingSlug);
@@ -240,14 +251,23 @@ export default function BusinessIntakeLanding() {
         }
         return;
       } catch (err) {
-        if (usesDynamicRoute) {
+        landingError = err;
+        if (usesDynamicRoute && isNotFoundError(err)) {
           if (!cancelled) {
             setError(err?.message || "Esta landing no existe o no está publicada todavía.");
             setNotFound(true);
           }
           return;
         }
-        // fallback seguro al endpoint de formularios legacy
+      }
+
+      const canFallbackToForm = !usesDynamicRoute || landingSlug === "conoce-tu-negocio";
+
+      if (!canFallbackToForm) {
+        if (!cancelled) {
+          setError(landingError?.message || "No se pudo cargar esta landing. Intenta nuevamente.");
+        }
+        return;
       }
 
       try {
@@ -396,7 +416,7 @@ export default function BusinessIntakeLanding() {
   }
 
   return (
-    <main className="bg-white text-neutral-950">
+    <main className="bg-slate-50 text-neutral-950">
       <SEOHead
         title={seo.title}
         description={seo.description}
@@ -405,71 +425,95 @@ export default function BusinessIntakeLanding() {
         ogDescription={seo.ogDescription}
       />
 
-      <section className="px-4 pb-16 pt-16 md:px-6 md:pb-24 md:pt-24">
-        <div className="mx-auto grid max-w-[1220px] gap-8 lg:grid-cols-[1.02fr_0.98fr] lg:items-start">
-
-          {/* left column — dynamic blocks OR fixed fallback */}
+      <section className="px-4 pb-16 pt-14 md:px-6 md:pb-24 md:pt-20">
+        <div className="mx-auto max-w-5xl space-y-10">
           {hasBlocks ? (
-            <PublicLandingBlocks
-              blocks={blocks}
-              assets={assets}
-              formConfig={formConfig}
-              formConfigMap={formConfigsBySlug}
-              formErrors={formErrors}
-              pendingFormSlugs={pendingFormSlugs}
-              loading={loading}
-              error={error}
-              defaultFormSlug={primaryFormSlug}
-            />
-          ) : (
-            <div>
-              <div className="inline-flex rounded-full border border-neutral-300 bg-white/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-neutral-600">
-                {landing.hero_badge || landing.eyebrow || DEFAULT_LANDING.hero_badge}
-              </div>
-              <h1 className="mt-5 text-4xl font-semibold leading-tight md:text-6xl">
-                {landing.hero_title || DEFAULT_LANDING.hero_title}
-              </h1>
-              <p className="mt-5 max-w-2xl text-base leading-7 text-neutral-700 md:text-lg">
-                {landing.hero_subtitle || landing.subtitle || DEFAULT_LANDING.hero_subtitle}
-              </p>
+            <>
+              <PublicLandingBlocks
+                blocks={blocks}
+                assets={assets}
+                formConfig={formConfig}
+                formConfigMap={formConfigsBySlug}
+                formErrors={formErrors}
+                pendingFormSlugs={pendingFormSlugs}
+                loading={loading}
+                error={error}
+                defaultFormSlug={primaryFormSlug}
+              />
 
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Button href="#business-intake-form">
-                  {landing.primary_cta_label || DEFAULT_LANDING.primary_cta_label}
-                </Button>
-                {landing.secondary_cta_label && landing.secondary_cta_url ? (
-                  <Button href={landing.secondary_cta_url} variant="secondary">
-                    {landing.secondary_cta_label}
-                  </Button>
+              {!hasFormBlock ? (
+                <div className="mx-auto max-w-4xl">
+                  {loading ? (
+                    <div className="rounded-[2rem] border border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-500 shadow-sm">
+                      Cargando formulario…
+                    </div>
+                  ) : (
+                    <PublicBusinessIntakeForm
+                      formConfig={formConfig}
+                      slug={primaryFormSlug}
+                      title={landing.hero_title || DEFAULT_LANDING.hero_title}
+                      description={landing.hero_subtitle || landing.subtitle || DEFAULT_LANDING.hero_subtitle}
+                      eyebrow={landing.hero_badge || landing.eyebrow || DEFAULT_LANDING.hero_badge}
+                      loadError={error}
+                    />
+                  )}
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <div className="mx-auto max-w-4xl">
+                {loading ? (
+                  <div className="rounded-[2rem] border border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-500 shadow-sm">
+                    Cargando formulario…
+                  </div>
                 ) : (
-                  <Button href={DEFAULT_LANDING.secondary_cta_url} variant="secondary">
-                    {DEFAULT_LANDING.secondary_cta_label}
-                  </Button>
+                  <PublicBusinessIntakeForm
+                    formConfig={formConfig}
+                    slug={primaryFormSlug}
+                    title={landing.hero_title || DEFAULT_LANDING.hero_title}
+                    description={landing.hero_subtitle || landing.subtitle || DEFAULT_LANDING.hero_subtitle}
+                    eyebrow={landing.hero_badge || landing.eyebrow || DEFAULT_LANDING.hero_badge}
+                    loadError={error}
+                  />
                 )}
               </div>
 
               <LandingMediaBlock landing={landing} />
 
-              <div className="mt-8 grid gap-4 md:grid-cols-2">
-                {benefits.map((item, index) => (
-                  <article
-                    key={`${item}-${index}`}
-                    className="rounded-[1.75rem] border border-neutral-200 bg-white p-5 shadow-sm"
-                  >
-                    <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-amber-100 text-sm font-semibold text-neutral-950">
-                      {index + 1}
+              {benefits.length ? (
+                <div className="space-y-5">
+                  <div className="mx-auto max-w-2xl text-center">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      ¿Por qué completar este formulario?
                     </div>
-                    <p className="text-sm leading-6 text-neutral-700">{item}</p>
-                  </article>
-                ))}
-              </div>
+                    <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[#102a2a]">
+                      Recibimos mejor el contexto de tu negocio
+                    </h2>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {benefits.map((item, index) => (
+                      <article
+                        key={`${item}-${index}`}
+                        className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm"
+                      >
+                        <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-amber-100 text-sm font-semibold text-[#102a2a]">
+                          {index + 1}
+                        </div>
+                        <p className="text-sm leading-6 text-slate-600">{item}</p>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
 
               {trustPoints.length ? (
-                <div className="mt-6 flex flex-wrap gap-2">
+                <div className="flex flex-wrap justify-center gap-3">
                   {trustPoints.map((item) => (
                     <div
                       key={item}
-                      className="rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm text-neutral-700 shadow-sm"
+                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 shadow-sm"
                     >
                       {item}
                     </div>
@@ -478,42 +522,8 @@ export default function BusinessIntakeLanding() {
               ) : null}
 
               <LogoStrip assets={assets} />
-            </div>
+            </>
           )}
-
-          {/* right column — form (always visible when no form block in left) */}
-          {!hasBlocks || !hasFormBlock ? (
-            <div
-              id="business-intake-form"
-              className="rounded-[2rem] border border-neutral-200 bg-white p-6 shadow-[0_25px_80px_rgba(0,0,0,0.08)] md:p-8"
-            >
-              <div className="mb-6 rounded-[1.75rem] border border-neutral-200 bg-neutral-950 px-5 py-5 text-white">
-                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
-                  Diagnóstico inicial
-                </div>
-                <h2 className="mt-3 text-2xl font-semibold">
-                  {landing.title || "Cuéntanos sobre tu negocio"}
-                </h2>
-                <p className="mt-3 text-sm leading-6 text-neutral-300">
-                  {landing.description ||
-                    "La información entra al CRM con respuestas estructuradas, score, lead asociado y contacto asociado."}
-                </p>
-              </div>
-
-              {loading ? (
-                <div className="rounded-3xl border border-neutral-200 bg-neutral-50 px-6 py-12 text-center text-sm text-neutral-500">
-                  Cargando formulario…
-                </div>
-              ) : error ? (
-                <div className="rounded-3xl border border-red-200 bg-red-50 px-6 py-12 text-center text-sm text-red-700">
-                  {error || "No se pudo cargar el formulario. Intenta nuevamente."}
-                </div>
-              ) : (
-                <PublicBusinessIntakeForm formConfig={formConfig} slug={primaryFormSlug} />
-              )}
-            </div>
-          ) : null}
-
         </div>
       </section>
     </main>
