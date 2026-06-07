@@ -307,6 +307,10 @@ const router = createBrowserRouter([
         element: <BusinessIntakeLanding />,
       },
       {
+        path: "landing/:slug",
+        element: <BusinessIntakeLanding />,
+      },
+      {
         path: "formulario-negocio",
         element: <RedirectWithLocation to="/conoce-tu-negocio" />,
       },

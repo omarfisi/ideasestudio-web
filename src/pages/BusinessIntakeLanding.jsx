@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import PublicBusinessIntakeForm from "@/components/forms/PublicBusinessIntakeForm.jsx";
@@ -212,12 +213,17 @@ function LandingMediaBlock({ landing }) {
 }
 
 export default function BusinessIntakeLanding() {
+  const { slug: routeSlug } = useParams();
+  const landingSlug = String(routeSlug || "conoce-tu-negocio").trim() || "conoce-tu-negocio";
+  const usesDynamicRoute = Boolean(routeSlug);
+  const canonicalPath = usesDynamicRoute ? `/landing/${landingSlug}` : "/conoce-tu-negocio";
   const [pageData, setPageData] = useState(() => normalizeLandingPayload(null, null));
   const [formConfigsBySlug, setFormConfigsBySlug] = useState({});
   const [formErrors, setFormErrors] = useState({});
   const [pendingFormSlugs, setPendingFormSlugs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -225,15 +231,23 @@ export default function BusinessIntakeLanding() {
     async function load() {
       setLoading(true);
       setError("");
+      setNotFound(false);
 
       try {
-        const landingPayload = await getPublicFormLanding("conoce-tu-negocio");
+        const landingPayload = await getPublicFormLanding(landingSlug);
         if (!cancelled) {
           setPageData(normalizeLandingPayload(landingPayload));
         }
         return;
-      } catch {
-        // fallback seguro al endpoint de formularios
+      } catch (err) {
+        if (usesDynamicRoute) {
+          if (!cancelled) {
+            setError(err?.message || "Esta landing no existe o no está publicada todavía.");
+            setNotFound(true);
+          }
+          return;
+        }
+        // fallback seguro al endpoint de formularios legacy
       }
 
       try {
@@ -257,7 +271,7 @@ export default function BusinessIntakeLanding() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [landingSlug, usesDynamicRoute]);
 
   const landing = pageData?.landing || DEFAULT_LANDING;
   const formConfig = pageData?.form || null;
@@ -353,12 +367,40 @@ export default function BusinessIntakeLanding() {
     [landing],
   );
 
+  if (notFound) {
+    return (
+      <main className="bg-white px-4 py-20 text-neutral-950 md:px-6">
+        <SEOHead
+          title="Landing no disponible | Ideas Estudio"
+          description="La landing solicitada no existe o no está publicada."
+          canonical={`https://www.ideasestudio.com${canonicalPath}`}
+          ogTitle="Landing no disponible | Ideas Estudio"
+          ogDescription="La landing solicitada no existe o no está publicada."
+        />
+        <div className="mx-auto max-w-3xl rounded-[2rem] border border-neutral-200 bg-white p-8 shadow-sm md:p-12">
+          <div className="inline-flex rounded-full border border-neutral-300 bg-white/80 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-neutral-600">
+            Ideas Estudio
+          </div>
+          <h1 className="mt-5 text-4xl font-semibold leading-tight md:text-5xl">
+            Esta landing no está disponible
+          </h1>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-neutral-700">
+            La URL `/landing/{landingSlug}` no existe o todavía no está publicada. Verifica el slug o vuelve más tarde.
+          </p>
+          <div className="mt-8">
+            <Button href="/">Volver al inicio</Button>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="bg-white text-neutral-950">
       <SEOHead
         title={seo.title}
         description={seo.description}
-        canonical="https://www.ideasestudio.com/conoce-tu-negocio"
+        canonical={`https://www.ideasestudio.com${canonicalPath}`}
         ogTitle={seo.ogTitle}
         ogDescription={seo.ogDescription}
       />
