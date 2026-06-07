@@ -4,7 +4,20 @@ function cleanBase(value) {
   return String(value || "").trim().replace(/\/+$/, "");
 }
 
+function getLocalDevBase() {
+  if (typeof window === "undefined") return "";
+  if (!(typeof import.meta !== "undefined" && import.meta?.env?.DEV)) return "";
+
+  const hostname = String(window.location.hostname || "").trim().toLowerCase();
+  if (hostname === "127.0.0.1" || hostname === "localhost") {
+    return cleanBase(window.location.origin);
+  }
+
+  return "";
+}
+
 const API_BASE =
+  getLocalDevBase() ||
   cleanBase(typeof import.meta !== "undefined" && import.meta?.env?.VITE_API_BASE) ||
   cleanBase(typeof import.meta !== "undefined" && import.meta?.env?.VITE_CRM_BASE_URL) ||
   "https://api.ideasestudio.com";
@@ -26,7 +39,9 @@ async function _apiFetch(path, opts = {}) {
   try { data = await res.json(); } catch { data = null; }
   if (!res.ok) {
     const detail = data?.detail || data?.message || "Error en la solicitud.";
-    throw new Error(detail);
+    const error = new Error(detail);
+    error.status = res.status;
+    throw error;
   }
   return data;
 }
@@ -70,7 +85,9 @@ async function _publicFetch(path, opts = {}) {
   try { data = await res.json(); } catch { data = null; }
   if (!res.ok) {
     const detail = data?.detail || data?.message || "Error en la solicitud.";
-    throw new Error(detail);
+    const error = new Error(detail);
+    error.status = res.status;
+    throw error;
   }
   return data;
 }
