@@ -76,6 +76,10 @@ function normalizeBlocks(value) {
   return value.filter((b) => b?.block_type && b?.is_active !== false);
 }
 
+function getFormSlug(form) {
+  return form?.slug || form?.form_slug || "";
+}
+
 function normalizeLandingPayload(payload, fallbackForm = null) {
   const landing = payload?.landing || {};
   const seo = landing?.seo || {};
@@ -209,6 +213,9 @@ function LandingMediaBlock({ landing }) {
 
 export default function BusinessIntakeLanding() {
   const [pageData, setPageData] = useState(() => normalizeLandingPayload(null, null));
+  const [formConfigsBySlug, setFormConfigsBySlug] = useState({});
+  const [formErrors, setFormErrors] = useState({});
+  const [pendingFormSlugs, setPendingFormSlugs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -256,9 +263,85 @@ export default function BusinessIntakeLanding() {
   const formConfig = pageData?.form || null;
   const assets = pageData?.assets || [];
   const blocks = pageData?.blocks || [];
+  const primaryFormSlug = landing?.form_slug || getFormSlug(formConfig) || "conoce-tu-negocio";
   const hasBlocks = blocks.length > 0;
+  const hasFormBlock = blocks.some((block) => block.block_type === "form" && block.is_active !== false);
   const benefits = normalizeList(landing?.benefits, DEFAULT_BENEFITS);
   const trustPoints = normalizeList(landing?.trust_points, []);
+
+  useEffect(() => {
+    const slug = primaryFormSlug;
+    if (!slug || !formConfig) return;
+    setFormConfigsBySlug((current) => ({ ...current, [slug]: formConfig }));
+    setFormErrors((current) => {
+      if (!current[slug]) return current;
+      const next = { ...current };
+      delete next[slug];
+      return next;
+    });
+  }, [formConfig, primaryFormSlug]);
+
+  const activeFormSlugs = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          blocks
+            .filter((block) => block?.block_type === "form" && block?.is_active !== false)
+            .map((block) => block?.settings?.form_slug || primaryFormSlug)
+            .filter(Boolean),
+        ),
+      ),
+    [blocks, primaryFormSlug],
+  );
+
+  const missingFormSlugs = useMemo(
+    () => activeFormSlugs.filter((slug) => !formConfigsBySlug[slug] && !formErrors[slug]),
+    [activeFormSlugs, formConfigsBySlug, formErrors],
+  );
+
+  useEffect(() => {
+    if (!missingFormSlugs.length) return undefined;
+    let cancelled = false;
+
+    setPendingFormSlugs((current) => Array.from(new Set([...current, ...missingFormSlugs])));
+
+    Promise.allSettled(
+      missingFormSlugs.map(async (slug) => ({
+        slug,
+        form: await getPublicForm(slug),
+      })),
+    )
+      .then((results) => {
+        if (cancelled) return;
+
+        const loaded = {};
+        const nextErrors = {};
+
+        results.forEach((result, index) => {
+          const slug = missingFormSlugs[index];
+          if (result.status === "fulfilled") {
+            loaded[slug] = result.value.form;
+          } else {
+            nextErrors[slug] = result.reason?.message || `No se pudo cargar el formulario ${slug}.`;
+          }
+        });
+
+        if (Object.keys(loaded).length) {
+          setFormConfigsBySlug((current) => ({ ...current, ...loaded }));
+        }
+        if (Object.keys(nextErrors).length) {
+          setFormErrors((current) => ({ ...current, ...nextErrors }));
+        }
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setPendingFormSlugs((current) => current.filter((slug) => !missingFormSlugs.includes(slug)));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [missingFormSlugs]);
 
   const seo = useMemo(
     () => ({
@@ -289,8 +372,12 @@ export default function BusinessIntakeLanding() {
               blocks={blocks}
               assets={assets}
               formConfig={formConfig}
+              formConfigMap={formConfigsBySlug}
+              formErrors={formErrors}
+              pendingFormSlugs={pendingFormSlugs}
               loading={loading}
               error={error}
+              defaultFormSlug={primaryFormSlug}
             />
           ) : (
             <div>
@@ -353,7 +440,7 @@ export default function BusinessIntakeLanding() {
           )}
 
           {/* right column — form (always visible when no form block in left) */}
-          {!hasBlocks || !blocks.some((b) => b.block_type === "form" && b.is_active !== false) ? (
+          {!hasBlocks || !hasFormBlock ? (
             <div
               id="business-intake-form"
               className="rounded-[2rem] border border-neutral-200 bg-white p-6 shadow-[0_25px_80px_rgba(0,0,0,0.08)] md:p-8"
@@ -380,7 +467,7 @@ export default function BusinessIntakeLanding() {
                   {error || "No se pudo cargar el formulario. Intenta nuevamente."}
                 </div>
               ) : (
-                <PublicBusinessIntakeForm formConfig={formConfig} slug="conoce-tu-negocio" />
+                <PublicBusinessIntakeForm formConfig={formConfig} slug={primaryFormSlug} />
               )}
             </div>
           ) : null}
