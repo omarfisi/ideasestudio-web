@@ -1,13 +1,13 @@
 /**
  * HighlightedHeading
  *
- * Renders a heading where the leading `highlight` substring gets a solid
- * yellow background block (Ideas Estudio accent #F9D001), black text, and
- * slight horizontal padding — a clean "marker" effect with no border-radius.
+ * Renders a heading where the `highlight` substring gets the same visual
+ * treatment as PortfolioPage, TeamPage, etc.: yellow block + 4 black corner
+ * dots via the global `.highlight-box-glow` class (App.css lines 75-99).
  *
  * Props:
  *   text             {string}  Full heading text.
- *   highlight        {string}  Substring at the start of `text` to highlight.
+ *   highlight        {string}  Substring to highlight.
  *                              If falsy or not found, renders the full text unstyled.
  *   as               {string}  HTML tag to use — default "h1".
  *   className        {string}  Extra classes for the heading element.
@@ -39,9 +39,9 @@ export default function HighlightedHeading({
   const matched = text.slice(idx, idx + highlight.length);
   const after = text.slice(idx + highlight.length);
 
-  const highlightSpanClass =
-    highlightClassName ||
-    "inline bg-[#F9D001] text-[#0B0B0D] px-[0.18em] py-[0.04em]";
+  // Reuse the same global class used across PortfolioPage, TeamPage, ServicesPage, etc.
+  // It paints a yellow box + 4 black corner dots via ::before pseudo-element (App.css).
+  const highlightSpanClass = highlightClassName || "highlight-box-glow";
 
   return (
     <Tag className={className}>
