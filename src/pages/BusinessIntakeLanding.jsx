@@ -4,6 +4,7 @@ import Button from "@/components/shared/Button.jsx";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import PublicBusinessIntakeForm from "@/components/forms/PublicBusinessIntakeForm.jsx";
 import PublicLandingBlocks from "@/components/landing/blocks/PublicLandingBlocks.jsx";
+import HighlightedHeading from "@/components/common/HighlightedHeading.jsx";
 import { getPublicForm, getPublicFormLanding } from "@/lib/publicFormsApi.js";
 
 const DEFAULT_BENEFITS = [
@@ -416,7 +417,7 @@ export default function BusinessIntakeLanding() {
   }
 
   return (
-    <main className="bg-slate-50 text-neutral-950">
+    <main className="intake-bg text-neutral-950">
       <SEOHead
         title={seo.title}
         description={seo.description}
@@ -425,7 +426,22 @@ export default function BusinessIntakeLanding() {
         ogDescription={seo.ogDescription}
       />
 
-      <section className="px-4 pb-16 pt-14 md:px-6 md:pb-24 md:pt-20">
+      {/* ── Hero ────────────────────────────────────────────── */}
+      <div className="px-4 pb-10 pt-16 md:px-6 md:pb-14 md:pt-24">
+        <div className="mx-auto max-w-3xl text-center">
+          <HighlightedHeading
+            as="h1"
+            highlight="Soluciones"
+            text="Soluciones para marcas y negocios que necesitan crecer con claridad."
+            className="font-extrabold leading-[1.08] tracking-[-0.04em] text-[#0f172a] text-4xl md:text-5xl lg:text-6xl"
+          />
+          <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-slate-600 md:text-lg">
+            Completa este formulario para entender mejor tu negocio, tus metas y las áreas donde Ideas Estudio puede ayudarte a crecer.
+          </p>
+        </div>
+      </div>
+
+      <section className="px-4 pb-16 md:px-6 md:pb-24">
         <div className="mx-auto max-w-5xl space-y-10">
           {hasBlocks ? (
             <>
