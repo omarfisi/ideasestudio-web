@@ -112,7 +112,7 @@ export async function submitPublicForm(slug, payload) {
     page_url: payload.page_url ?? (typeof window !== "undefined" ? window.location.href : ""),
     referrer: payload.referrer ?? (typeof document !== "undefined" ? document.referrer || "" : ""),
   };
-  return _publicFetch(`/public/forms/${encodeURIComponent(slug)}/submit`, {
+  return _apiFetch(`/api/public/forms/${encodeURIComponent(slug)}/submit`, {
     method: "POST",
     body: JSON.stringify(body),
   });
