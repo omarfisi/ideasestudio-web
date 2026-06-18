@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import Button from "@/components/shared/Button.jsx";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { buildOrganizationSchema } from "@/components/seo/schema.js";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
@@ -531,23 +530,6 @@ export default function HomePage() {
 
       <section id="contacto" className="section-split px-4 pb-20 md:px-6">
         <div className="mx-auto max-w-[1220px]">
-          <div className="mb-6 rounded-[2rem] border border-neutral-200 bg-white px-6 py-6 shadow-sm">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
-                  Nuevo formulario
-                </div>
-                <h2 className="mt-2 text-2xl font-semibold text-neutral-950">
-                  Completa el formulario para conocer tu negocio
-                </h2>
-                <p className="mt-2 max-w-2xl text-sm text-neutral-600">
-                  Si quieres que lleguemos mejor preparados a la conversación, compártenos tu contexto, necesidades, presupuesto y urgencia.
-                </p>
-              </div>
-              <Button href="/conoce-tu-negocio">Ir al formulario</Button>
-            </div>
-          </div>
-
           <FormPlacementRenderer
             sectionKey="home_solicitar_info"
             fallback={
