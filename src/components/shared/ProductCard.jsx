@@ -2,6 +2,7 @@ import { CalendarDays, Clock3, MapPin, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
 import { formatPrice } from "@/lib/formatPrice.js";
+import { resolveCatalogPurchaseFlow } from "@/lib/catalogPurchaseFlow.js";
 
 const productTypeLabels = {
   digital: "Digital",
@@ -111,8 +112,12 @@ function getScheduleLabel(product) {
 
 export default function ProductCard({
   product,
-  onAddToCart,
-  addState = "idle",
+  // onAddToCart and addState are accepted but not used in Phase 1:
+  // the primary CTA navigates to the service detail page for all flow types.
+  // eslint-disable-next-line no-unused-vars
+  onAddToCart: _onAddToCart,
+  // eslint-disable-next-line no-unused-vars
+  addState: _addState,
 }) {
   const hasDiscount =
     product.compareAtPrice !== null && product.compareAtPrice > product.price;
@@ -127,6 +132,10 @@ export default function ProductCard({
     { id: "location", icon: MapPin, label: getLocationLabel(product) },
     { id: "schedule", icon: Clock3, label: getScheduleLabel(product) },
   ];
+
+  // Resolve configured purchase flow. Until the backend sync exposes
+  // purchase_flow, all cards use the neutral default (no badge, "Ver servicio").
+  const flow = resolveCatalogPurchaseFlow(product);
 
   return (
     <article className="product-card">
@@ -149,6 +158,13 @@ export default function ProductCard({
             {product.category?.name || "Catálogo"}
           </span>
           {duration ? <span className="pill pill--soft">{duration}</span> : null}
+          {flow.shouldShowBadge ? (
+            <span
+              className={`product-card__flow-badge product-card__flow-badge--${flow.tone}`}
+            >
+              {flow.label}
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -204,19 +220,13 @@ export default function ProductCard({
             <Link to={`/servicios/${product.slug}`} className="product-card__details-link">
               Ver detalles
             </Link>
-            {onAddToCart ? (
-              <Button
-                onClick={() => onAddToCart(product)}
-                disabled={addState === "loading"}
-                className="product-card__booking-btn"
-              >
-                {addState === "loading" ? "Agregando..." : "Contratar ahora"}
-              </Button>
-            ) : (
-              <Button to={`/servicios/${product.slug}`} className="product-card__booking-btn">
-                Contratar ahora
-              </Button>
-            )}
+            {/* Primary CTA: always navigates to service detail.
+                Phase 1 — no booking, cart, checkout, or payment action starts here.
+                flow.ctaLabel reflects the configured purchase_flow; until the
+                backend sync exposes that field, every card shows "Ver servicio". */}
+            <Button to={`/servicios/${product.slug}`} className="product-card__booking-btn">
+              {flow.ctaLabel}
+            </Button>
           </div>
         </div>
       </div>

@@ -432,6 +432,16 @@ function normalizeProduct(raw) {
         : raw.metadata && typeof raw.metadata === "object"
         ? raw.metadata
         : {},
+    // purchaseFlow is set from metadata_json.purchase_flow once the backend sync
+    // includes it. Until then all store products resolve to the neutral default.
+    purchaseFlow:
+      (raw.metadata_json && typeof raw.metadata_json === "object"
+        ? raw.metadata_json.purchase_flow
+        : null) ??
+      (raw.metadata && typeof raw.metadata === "object"
+        ? raw.metadata.purchase_flow
+        : null) ??
+      null,
     createdAt: raw.created_at || null,
     updatedAt: raw.updated_at || null,
     raw,

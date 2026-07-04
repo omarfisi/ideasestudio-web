@@ -141,6 +141,126 @@ test("all flows return a ctaLabel (no flow returns empty string)", () => {
   }
 });
 
+// ── ProductCard integration: normalizeProduct shape → resolver ─────────────────
+// These tests simulate what normalizeProduct() produces and verify that the
+// resolver reads product.purchaseFlow (not name, slug, category, price, etc.).
+
+function makeNormalizedProduct(overrides = {}) {
+  return {
+    id: "prod-001",
+    name: "Servicio Ejemplo",
+    slug: "servicio-ejemplo",
+    category: { slug: "fotografia", name: "Fotografía" },
+    shortDescription: "Descripción del servicio",
+    price: 150,
+    currency: "USD",
+    compareAtPrice: null,
+    isActive: true,
+    productType: "service",
+    coverImage: null,
+    metadata: {},
+    purchaseFlow: null,
+    ...overrides,
+  };
+}
+
+test("booking flow: normalizeProduct shape → badge=Reserva con fecha, CTA=Reservar fecha", () => {
+  const product = makeNormalizedProduct({ purchaseFlow: "booking" });
+  const flow = resolveCatalogPurchaseFlow(product);
+  assert.equal(flow.label, "Reserva con fecha");
+  assert.equal(flow.ctaLabel, "Reservar fecha");
+  assert.equal(flow.shouldShowBadge, true);
+  assert.equal(flow.tone, "booking");
+});
+
+test("direct_purchase flow: normalizeProduct shape → badge=Compra directa, CTA=Comprar servicio", () => {
+  const product = makeNormalizedProduct({ purchaseFlow: "direct_purchase" });
+  const flow = resolveCatalogPurchaseFlow(product);
+  assert.equal(flow.label, "Compra directa");
+  assert.equal(flow.ctaLabel, "Comprar servicio");
+  assert.equal(flow.shouldShowBadge, true);
+  assert.equal(flow.tone, "purchase");
+});
+
+test("proposal_request flow: normalizeProduct shape → badge=Solicitar propuesta, CTA=Solicitar propuesta", () => {
+  const product = makeNormalizedProduct({ purchaseFlow: "proposal_request" });
+  const flow = resolveCatalogPurchaseFlow(product);
+  assert.equal(flow.label, "Solicitar propuesta");
+  assert.equal(flow.ctaLabel, "Solicitar propuesta");
+  assert.equal(flow.shouldShowBadge, true);
+  assert.equal(flow.tone, "consultive");
+});
+
+test("monthly_plan flow: normalizeProduct shape → badge=Plan mensual, CTA=Ver plan mensual", () => {
+  const product = makeNormalizedProduct({ purchaseFlow: "monthly_plan" });
+  const flow = resolveCatalogPurchaseFlow(product);
+  assert.equal(flow.label, "Plan mensual");
+  assert.equal(flow.ctaLabel, "Ver plan mensual");
+  assert.equal(flow.shouldShowBadge, true);
+  assert.equal(flow.tone, "plan");
+});
+
+test("null purchaseFlow (store API before backend sync): no badge, CTA=Ver servicio", () => {
+  const product = makeNormalizedProduct({ purchaseFlow: null });
+  const flow = resolveCatalogPurchaseFlow(product);
+  assert.equal(flow.shouldShowBadge, false);
+  assert.equal(flow.ctaLabel, "Ver servicio");
+  assert.equal(flow.value, null);
+});
+
+test("CTA destination stays /servicios/:slug — all flows produce a non-empty ctaLabel", () => {
+  const flows = ["booking", "direct_purchase", "proposal_request", "monthly_plan", null];
+  for (const purchaseFlow of flows) {
+    const product = makeNormalizedProduct({ purchaseFlow });
+    const result = resolveCatalogPurchaseFlow(product);
+    assert.ok(result.ctaLabel.length > 0, `ctaLabel empty for flow=${purchaseFlow}`);
+    // CTA destination is enforced in the component as /servicios/${product.slug}.
+    // The resolver never returns a URL — it returns a label only.
+    assert.equal(typeof result.ctaLabel, "string");
+  }
+});
+
+test("resolver ignores product name even when it contains flow-like words", () => {
+  const product = makeNormalizedProduct({ name: "Plan mensual de diseño", purchaseFlow: null });
+  const flow = resolveCatalogPurchaseFlow(product);
+  assert.equal(flow.shouldShowBadge, false);
+  assert.equal(flow.ctaLabel, "Ver servicio");
+});
+
+test("resolver ignores product slug", () => {
+  const product = makeNormalizedProduct({ slug: "booking-fotografia-boda", purchaseFlow: null });
+  const flow = resolveCatalogPurchaseFlow(product);
+  assert.equal(flow.shouldShowBadge, false);
+  assert.equal(flow.ctaLabel, "Ver servicio");
+});
+
+test("resolver ignores category", () => {
+  const product = makeNormalizedProduct({
+    category: { slug: "monthly-plan", name: "Plan mensual" },
+    purchaseFlow: null,
+  });
+  const flow = resolveCatalogPurchaseFlow(product);
+  assert.equal(flow.shouldShowBadge, false);
+  assert.equal(flow.ctaLabel, "Ver servicio");
+});
+
+test("resolver ignores price", () => {
+  const product = makeNormalizedProduct({ price: 9999, purchaseFlow: null });
+  const flow = resolveCatalogPurchaseFlow(product);
+  assert.equal(flow.shouldShowBadge, false);
+  assert.equal(flow.ctaLabel, "Ver servicio");
+});
+
+test("resolver ignores metadata.sale_mode", () => {
+  const product = makeNormalizedProduct({
+    metadata: { sale_mode: "buy_now" },
+    purchaseFlow: null,
+  });
+  const flow = resolveCatalogPurchaseFlow(product);
+  assert.equal(flow.shouldShowBadge, false);
+  assert.equal(flow.ctaLabel, "Ver servicio");
+});
+
 // ── Summary ────────────────────────────────────────────────────────────────────
 
 console.log();
