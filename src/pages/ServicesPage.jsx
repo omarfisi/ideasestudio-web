@@ -3,7 +3,6 @@ import { useLoaderData } from "react-router-dom";
 import { Link } from "react-router-dom";
 import {
   getServiceCategoryLabel,
-  getSaleTypeLabel,
 } from "@/data/services.js";
 import { SERVICE_SEGMENTS_MAP } from "@/data/serviceSegmentsMap.js";
 import TestimonialsSlider from "@/components/shared/TestimonialsSlider.jsx";
@@ -12,50 +11,20 @@ import {
   getTestimonialsForPage,
   TESTIMONIAL_SECTION_COPY,
 } from "@/data/testimonials.js";
-import { getPublicProducts } from "@/lib/api.js";
+import { getPublicCatalog } from "@/lib/api.js";
+import { resolveCatalogPurchaseFlow } from "@/lib/catalogPurchaseFlow.js";
 
 const CATEGORY_ALL = "all";
-const SALE_TYPE_ALL = "all";
+const FLOW_ALL = "all";
 const SEGMENT_ALL = "all";
 
-const SALE_TYPE_BADGE = {
-  buy_now: "Compra directa",
-  deposit_booking: "Reserva",
-  quote_only: "Cotización",
+// Map purchase_flow value to filter label
+const FLOW_FILTER_LABELS = {
+  booking: "Reserva con fecha",
+  direct_purchase: "Compra directa",
+  proposal_request: "Solicitar propuesta",
+  monthly_plan: "Plan mensual",
 };
-
-const SALE_TYPE_CTA = {
-  buy_now: "Ver servicio",
-  deposit_booking: "Reservar fecha",
-  quote_only: "Solicitar propuesta",
-};
-
-function normalizeCatalogItems(payload) {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.items)) return payload.items;
-  if (Array.isArray(payload?.products)) return payload.products;
-  if (Array.isArray(payload?.data?.items)) return payload.data.items;
-  if (Array.isArray(payload?.data?.products)) return payload.data.products;
-  return [];
-}
-
-function mapProductToService(product) {
-  const saleMode = String(product?.metadata?.sale_mode || "").toLowerCase();
-  const saleType =
-    saleMode === "buy_now" || saleMode === "deposit_booking" || saleMode === "quote_only"
-      ? saleMode
-      : "quote_only";
-  return {
-    id: product?.id,
-    name: product?.name || "Servicio",
-    slug: product?.slug || "",
-    category: product?.category?.slug || "service",
-    saleType,
-    shortDescription: product?.shortDescription || "",
-    price: Number(product?.price || 0),
-    image: product?.coverImage || null,
-  };
-}
 
 // Build a lookup: slug → Set of segment keys
 const slugToSegments = {};
@@ -69,7 +38,6 @@ SERVICE_SEGMENTS_MAP.forEach((seg) => {
 
 export default function ServicesPage() {
   const { services: loadedServices } = useLoaderData() || {};
-  // Start with loader data if available; never fall back to mock/static data.
   const [services, setServices] = useState(
     loadedServices?.length ? loadedServices : []
   );
@@ -78,7 +46,7 @@ export default function ServicesPage() {
 
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState(CATEGORY_ALL);
-  const [activeSaleType, setActiveSaleType] = useState(SALE_TYPE_ALL);
+  const [activeFlow, setActiveFlow] = useState(FLOW_ALL);
   const [activeSegment, setActiveSegment] = useState(SEGMENT_ALL);
 
   useEffect(() => {
@@ -87,22 +55,14 @@ export default function ServicesPage() {
       setIsLoading(true);
       setCatalogError("");
       try {
-        const payload = await getPublicProducts({
-          productType: "service",
-          limit: 60,
-          offset: 0,
-        });
+        const payload = await getPublicCatalog();
         if (cancelled) return;
-        const normalized = normalizeCatalogItems(payload)
-          .map(mapProductToService)
-          .filter((s) => s.slug);
+        const items = payload?.items ?? [];
         if (import.meta.env.DEV) {
-          console.debug("[ServicesPage] real route loaded");
-          console.debug("[ServicesPage] products payload", payload);
-          console.debug("[ServicesPage] products normalized", normalized.length);
+          console.debug("[ServicesPage] catalog loaded:", items.length, "services");
         }
-        if (normalized.length > 0) {
-          setServices(normalized);
+        if (items.length > 0) {
+          setServices(items);
           setCatalogError("");
         }
       } catch (err) {
@@ -127,8 +87,11 @@ export default function ServicesPage() {
     [services]
   );
 
-  const saleTypes = useMemo(
-    () => Array.from(new Set(services.map((s) => s.saleType))).sort(),
+  const availableFlows = useMemo(
+    () =>
+      Array.from(
+        new Set(services.map((s) => s.purchaseFlow).filter(Boolean))
+      ).sort(),
     [services]
   );
 
@@ -136,12 +99,12 @@ export default function ServicesPage() {
     const q = search.trim().toLowerCase();
     return services.filter((s) => {
       if (activeCategory !== CATEGORY_ALL && s.category !== activeCategory) return false;
-      if (activeSaleType !== SALE_TYPE_ALL && s.saleType !== activeSaleType) return false;
+      if (activeFlow !== FLOW_ALL && s.purchaseFlow !== activeFlow) return false;
       if (activeSegment !== SEGMENT_ALL && !slugToSegments[s.slug]?.has(activeSegment)) return false;
       if (q && !s.name.toLowerCase().includes(q) && !s.shortDescription?.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [services, search, activeCategory, activeSaleType, activeSegment]);
+  }, [services, search, activeCategory, activeFlow, activeSegment]);
 
   const activeFilters = [];
   if (activeSegment !== SEGMENT_ALL) {
@@ -150,8 +113,8 @@ export default function ServicesPage() {
   }
   if (activeCategory !== CATEGORY_ALL)
     activeFilters.push({ key: "category", label: getServiceCategoryLabel(activeCategory), clear: () => setActiveCategory(CATEGORY_ALL) });
-  if (activeSaleType !== SALE_TYPE_ALL)
-    activeFilters.push({ key: "saleType", label: getSaleTypeLabel(activeSaleType), clear: () => setActiveSaleType(SALE_TYPE_ALL) });
+  if (activeFlow !== FLOW_ALL)
+    activeFilters.push({ key: "flow", label: FLOW_FILTER_LABELS[activeFlow] ?? activeFlow, clear: () => setActiveFlow(FLOW_ALL) });
   if (search.trim())
     activeFilters.push({ key: "search", label: `"${search.trim()}"`, clear: () => setSearch("") });
 
@@ -239,15 +202,15 @@ export default function ServicesPage() {
               </div>
 
               <div className="services-catalog__select-group">
-                <label className="services-catalog__filter-label">Modo de venta</label>
+                <label className="services-catalog__filter-label">Flujo de contratación</label>
                 <select
                   className="services-catalog__select"
-                  value={activeSaleType}
-                  onChange={(e) => setActiveSaleType(e.target.value)}
+                  value={activeFlow}
+                  onChange={(e) => setActiveFlow(e.target.value)}
                 >
-                  <option value={SALE_TYPE_ALL}>Todos los modos</option>
-                  {saleTypes.map((st) => (
-                    <option key={st} value={st}>{getSaleTypeLabel(st)}</option>
+                  <option value={FLOW_ALL}>Todos los flujos</option>
+                  {availableFlows.map((f) => (
+                    <option key={f} value={f}>{FLOW_FILTER_LABELS[f] ?? f}</option>
                   ))}
                 </select>
               </div>
@@ -294,54 +257,59 @@ export default function ServicesPage() {
             </div>
           )}
           <div className={`services-catalog__grid ${isLoading || services.length === 0 ? "hidden" : ""}`}>
-            {filtered.map((service, index) => (
-              <article key={service.id} className="service-catalog-card">
-                <div className="service-catalog-card__media">
-                  {service.image ? (
-                    <img
-                      src={service.image}
-                      alt=""
-                      aria-hidden="true"
-                      className="service-catalog-card__media-img"
-                    />
-                  ) : null}
-                  <div className="service-catalog-card__media-badges">
-                    <span className="service-catalog-card__index">
-                      Servicio {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <span
-                      className={`service-catalog-card__sale-badge${service.saleType === "quote_only" ? " service-catalog-card__sale-badge--consultive" : ""}${service.saleType === "deposit_booking" ? " service-catalog-card__sale-badge--booking" : ""}`}
-                    >
-                      {SALE_TYPE_BADGE[service.saleType] || getSaleTypeLabel(service.saleType)}
-                    </span>
+            {filtered.map((service, index) => {
+              const flow = resolveCatalogPurchaseFlow(service);
+              return (
+                <article key={service.id} className="service-catalog-card">
+                  <div className="service-catalog-card__media">
+                    {service.image ? (
+                      <img
+                        src={service.image}
+                        alt=""
+                        aria-hidden="true"
+                        className="service-catalog-card__media-img"
+                      />
+                    ) : null}
+                    <div className="service-catalog-card__media-badges">
+                      <span className="service-catalog-card__index">
+                        Servicio {String(index + 1).padStart(2, "0")}
+                      </span>
+                      {flow.shouldShowBadge && (
+                        <span
+                          className={`service-catalog-card__flow-badge service-catalog-card__flow-badge--${flow.tone}`}
+                        >
+                          {flow.label}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                <div className="service-catalog-card__body">
-                  <span className="service-catalog-card__category">
-                    {getServiceCategoryLabel(service.category)}
-                  </span>
-
-                  <h2 className="service-catalog-card__name">{service.name}</h2>
-                  <p className="service-catalog-card__desc">{service.shortDescription}</p>
-                </div>
-
-                <div className="service-catalog-card__footer">
-                  {service.price ? (
-                    <span className="service-catalog-card__price">
-                      Desde ${service.price.toLocaleString("es-DO")}
+                  <div className="service-catalog-card__body">
+                    <span className="service-catalog-card__category">
+                      {getServiceCategoryLabel(service.category)}
                     </span>
-                  ) : null}
 
-                  <Link
-                    to={`/servicios/${service.slug}`}
-                    className="service-catalog-card__cta"
-                  >
-                    {SALE_TYPE_CTA[service.saleType] || "Ver servicio"}
-                  </Link>
-                </div>
-              </article>
-            ))}
+                    <h2 className="service-catalog-card__name">{service.name}</h2>
+                    <p className="service-catalog-card__desc">{service.shortDescription}</p>
+                  </div>
+
+                  <div className="service-catalog-card__footer">
+                    {service.price ? (
+                      <span className="service-catalog-card__price">
+                        Desde ${service.price.toLocaleString("es-DO")}
+                      </span>
+                    ) : null}
+
+                    <Link
+                      to={`/servicios/${service.slug}`}
+                      className="service-catalog-card__cta"
+                    >
+                      {flow.ctaLabel}
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </div>
       </section>

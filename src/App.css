@@ -12608,6 +12608,48 @@ section[id] {
   color: #ffffff;
 }
 
+/* ── Purchase-flow badges (replace legacy sale-badge) ── */
+.service-catalog-card__flow-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #111111;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* booking: dark solid — requires a date commitment */
+.service-catalog-card__flow-badge--booking {
+  background: #111111;
+  color: #ffffff;
+}
+
+/* direct_purchase: brand color — transactional */
+.service-catalog-card__flow-badge--purchase {
+  background: var(--brand);
+  color: #111111;
+}
+
+/* proposal_request: white outlined — consultive */
+.service-catalog-card__flow-badge--consultive {
+  background: #ffffff;
+  color: #111111;
+  border: 1px solid rgba(17, 17, 17, 0.18);
+}
+
+/* monthly_plan: subtle tinted — recurring commitment */
+.service-catalog-card__flow-badge--plan {
+  background: rgba(17, 17, 17, 0.07);
+  color: #111111;
+  border: 1px solid rgba(17, 17, 17, 0.13);
+}
+
 .service-catalog-card__body {
   flex: 1;
   padding: 20px 22px 0;
