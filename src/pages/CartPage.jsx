@@ -358,7 +358,7 @@ export default function CartPage() {
                           <div className="cart-checkout-item__meta">
                             <strong>{formatPrice(item.unitPrice, item.currency)}</strong>
                             <span>{item.product?.category?.name || "Catálogo"}</span>
-                            <span className="pill--flow">{flowConfig.label}</span>
+                            <span className="pill pill--flow">{flowConfig.label}</span>
                           </div>
 
                           <div className="cart-checkout-item__actions">
