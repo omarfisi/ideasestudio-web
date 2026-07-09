@@ -30,15 +30,6 @@ function buildCalendarGrid(year, month) {
   return cells;
 }
 
-function durationLabel(minutes) {
-  if (!minutes) return "";
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  if (h && m) return `${h}h ${m}m`;
-  if (h) return `${h}h`;
-  return `${m}m`;
-}
-
 // ─── reducer ─────────────────────────────────────────────────────────────────
 
 const SVC_INIT = {
@@ -195,22 +186,6 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
   const calCells = hasCalendar ? buildCalendarGrid(year, month) : [];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
-  const basePkg = hasPkgs ? packages.find((p) => p.id === s.selectedPackage) : null;
-  const basePrice = basePkg ? basePkg.price : (booking.service?.base_price ?? 0);
-  const currency = basePkg ? basePkg.currency : (booking.service?.currency ?? "USD");
-  const addonsTotal = addons.reduce((sum, a) => sum + a.price * (s.addonQty[a.id] ?? 0), 0);
-  const addonDuration = addons.reduce((sum, a) => {
-    if (!a.affects_duration) return sum;
-    return sum + a.duration_minutes * (s.addonQty[a.id] ?? 0);
-  }, 0);
-  const baseDuration = (basePkg?.duration_minutes ?? null) ?? settings.base_duration_minutes ?? 60;
-  const total = basePrice + addonsTotal;
-  const depositAmount = (() => {
-    if (!settings.requires_deposit) return 0;
-    if (settings.deposit_type === "percent") return Math.round(total * settings.deposit_amount / 100 * 100) / 100;
-    return settings.deposit_amount ?? 0;
-  })();
 
   const dateLabel = s.selectedDate
     ? new Date(s.selectedDate + "T12:00:00").toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" })
@@ -372,46 +347,6 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
         </div>
       )}
 
-      {/* ── Card: Resumen ─────────────────────────────────────────── */}
-      {(addonsTotal > 0 || depositAmount > 0 || s.selectedSlot) && (
-        <div className="cbp-card">
-          <div className="cbp-card__header">
-            <span className="cbp-card__title">Resumen del servicio</span>
-          </div>
-          <div className="cbp-card__body cbp-card__body--no-gap">
-            {s.selectedSlot && (
-              <div className="cbp-summary-row">
-                <span>Fecha y hora</span>
-                <span>{dateLabel} · {s.selectedSlot.label}</span>
-              </div>
-            )}
-            <div className="cbp-summary-row">
-              <span>Servicio base</span>
-              <span>{formatPrice(basePrice, currency)}</span>
-            </div>
-            {addonsTotal > 0 && (
-              <div className="cbp-summary-row">
-                <span>Extras</span>
-                <span>+{formatPrice(addonsTotal, currency)}</span>
-              </div>
-            )}
-            {depositAmount > 0 && (
-              <div className="cbp-summary-row cbp-summary-row--deposit">
-                <span>Depósito requerido</span>
-                <span>{formatPrice(depositAmount, currency)}</span>
-              </div>
-            )}
-            <div className="cbp-summary-row cbp-summary-row--total">
-              <span>Total estimado</span>
-              <span>{formatPrice(total, currency)}</span>
-            </div>
-            <div className="cbp-summary-row cbp-summary-row--dur">
-              <span>Duración estimada</span>
-              <span>{durationLabel(baseDuration + addonDuration)}</span>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
