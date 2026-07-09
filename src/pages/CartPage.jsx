@@ -8,6 +8,11 @@ import {
   validateStoreCoupon,
 } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
+import {
+  allowsServiceQuantity,
+  getServiceFlowConfig,
+  showsDeliveryCost,
+} from "@/lib/serviceFlowType.js";
 
 function syncSelectedProductIds(nextCart, currentSelectedIds = []) {
   const nextItems = Array.isArray(nextCart?.items) ? nextCart.items : [];
@@ -247,6 +252,10 @@ export default function CartPage() {
     ? Math.max(0, cartSubtotal - appliedCoupon.discountAmount)
     : cartSubtotal;
 
+  const showDeliveryRow =
+    Array.isArray(cart?.items) &&
+    cart.items.some((item) => showsDeliveryCost(item.product || item));
+
   return (
     <>
       <section className="section cart-checkout-page">
@@ -310,82 +319,91 @@ export default function CartPage() {
                 </div>
 
                 <div className="cart-checkout-list">
-                  {cart.items.map((item) => (
-                    <article key={item.id || item.productId} className="cart-checkout-item">
-                      <label className="cart-checkout-item__selector">
-                        <input
-                          type="checkbox"
-                          checked={selectedProductIds.includes(
-                            String(item.productId || "")
-                          )}
-                          onChange={() => toggleProductSelection(item.productId)}
-                        />
-                      </label>
+                  {cart.items.map((item) => {
+                    const product = item.product || item;
+                    const flowConfig = getServiceFlowConfig(product);
+                    return (
+                      <article key={item.id || item.productId} className="cart-checkout-item">
+                        <label className="cart-checkout-item__selector">
+                          <input
+                            type="checkbox"
+                            checked={selectedProductIds.includes(
+                              String(item.productId || "")
+                            )}
+                            onChange={() => toggleProductSelection(item.productId)}
+                          />
+                        </label>
 
-                      <div
-                        className="cart-checkout-item__media"
-                        style={
-                          item.product?.coverImage
-                            ? {
-                                backgroundImage: `url(${item.product.coverImage})`,
-                              }
-                            : undefined
-                        }
-                      >
-                        {!item.product?.coverImage ? (
-                          <span>{item.snapshotName}</span>
-                        ) : null}
-                      </div>
-
-                      <div className="cart-checkout-item__body">
-                        <div className="cart-checkout-item__copy">
-                          <h3>{item.snapshotName}</h3>
-                          <p>{item.snapshotDescription || "Servicio profesional"}</p>
+                        <div
+                          className="cart-checkout-item__media"
+                          style={
+                            item.product?.coverImage
+                              ? {
+                                  backgroundImage: `url(${item.product.coverImage})`,
+                                }
+                              : undefined
+                          }
+                        >
+                          {!item.product?.coverImage ? (
+                            <span>{item.snapshotName}</span>
+                          ) : null}
                         </div>
 
-                        <div className="cart-checkout-item__meta">
-                          <strong>{formatPrice(item.unitPrice, item.currency)}</strong>
-                          <span>{item.product?.category?.name || "Catálogo"}</span>
-                        </div>
-
-                        <div className="cart-checkout-item__actions">
-                          <div className="cart-checkout-qty">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleQuantityChange(
-                                  item.productId,
-                                  Math.max(1, item.quantity - 1)
-                                )
-                              }
-                              disabled={pendingProductId === item.productId}
-                            >
-                              -
-                            </button>
-                            <span>{item.quantity}</span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleQuantityChange(item.productId, item.quantity + 1)
-                              }
-                              disabled={pendingProductId === item.productId}
-                            >
-                              +
-                            </button>
+                        <div className="cart-checkout-item__body">
+                          <div className="cart-checkout-item__copy">
+                            <h3>{item.snapshotName}</h3>
+                            <p>{item.snapshotDescription || "Servicio profesional"}</p>
                           </div>
 
-                          <button
-                            type="button"
-                            className="cart-checkout-item__remove"
-                            onClick={() => handleRemove(item.productId)}
-                            disabled={pendingProductId === item.productId}
-                          >
-                            Quitar
-                          </button>
+                          <div className="cart-checkout-item__meta">
+                            <strong>{formatPrice(item.unitPrice, item.currency)}</strong>
+                            <span>{item.product?.category?.name || "Catálogo"}</span>
+                            <span className="pill--flow">{flowConfig.label}</span>
+                          </div>
+
+                          <div className="cart-checkout-item__actions">
+                            {allowsServiceQuantity(product) ? (
+                              <div className="cart-checkout-qty">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleQuantityChange(
+                                      item.productId,
+                                      Math.max(1, item.quantity - 1)
+                                    )
+                                  }
+                                  disabled={pendingProductId === item.productId}
+                                >
+                                  -
+                                </button>
+                                <span>{item.quantity}</span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleQuantityChange(item.productId, item.quantity + 1)
+                                  }
+                                  disabled={pendingProductId === item.productId}
+                                >
+                                  +
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="cart-checkout-qty--fixed">Cantidad fija</span>
+                            )}
+
+                            <button
+                              type="button"
+                              className="cart-checkout-item__remove"
+                              onClick={() => handleRemove(item.productId)}
+                              disabled={pendingProductId === item.productId}
+                            >
+                              Quitar
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    </article>
-                  ))}
+                      </article>
+                    );
+                  })}
                 </div>
               </article>
 
@@ -437,10 +455,12 @@ export default function CartPage() {
                     <strong>-{formatPrice(appliedCoupon.discountAmount, cart.summary.currency)}</strong>
                   </div>
                 )}
-                <div className="summary-row">
-                  <span>Costo de entrega</span>
-                  <strong>{formatPrice(0, cart.summary.currency)}</strong>
-                </div>
+                {showDeliveryRow && (
+                  <div className="summary-row">
+                    <span>Costo de entrega</span>
+                    <strong>{formatPrice(0, cart.summary.currency)}</strong>
+                  </div>
+                )}
                 <div className="summary-row summary-row--total">
                   <span>Total</span>
                   <strong>
