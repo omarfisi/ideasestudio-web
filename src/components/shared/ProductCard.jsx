@@ -2,17 +2,7 @@ import { CalendarDays, Clock3, MapPin, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
 import { formatPrice } from "@/lib/formatPrice.js";
-
-const productTypeLabels = {
-  digital: "Digital",
-  physical: "Físico",
-  service_like: "Servicio fijo",
-  service: "Servicio",
-};
-
-function getProductTypeLabel(productType) {
-  return productTypeLabels[productType] || "Servicio";
-}
+import { getServiceFlowConfig } from "@/lib/serviceFlowType.js";
 
 function toReadableLabel(value) {
   return String(value || "")
@@ -43,16 +33,6 @@ function getDurationLabel(product) {
   return text ? toReadableLabel(text) : "";
 }
 
-function getSaleModeLabel(product) {
-  const mode = String(product?.metadata?.sale_mode || "").trim().toLowerCase();
-  if (!mode) return "";
-
-  if (mode === "buy_now") return "Compra directa";
-  if (mode === "deposit_booking") return "Reserva";
-  if (mode === "quote_only") return "Propuesta";
-  return toReadableLabel(mode);
-}
-
 function getSegmentLabel(product) {
   const segment = String(product?.metadata?.commercial_segment || "").trim();
   return segment ? toReadableLabel(segment) : "";
@@ -69,18 +49,19 @@ function getRatingLabel(product) {
     return `${numeric.toFixed(1)}/5`;
   }
 
-  return "Top";
+  return null;
 }
 
 function getAvailableSinceLabel(product) {
   const source =
+    product?.metadata?.availability_label ||
     product?.metadata?.available_since ||
-    product?.metadata?.published_at ||
-    product?.createdAt;
-  const date = source ? new Date(source) : null;
+    product?.metadata?.published_at;
+  if (!source) return "";
 
-  if (!date || Number.isNaN(date.getTime())) {
-    return "Disponible ahora";
+  const date = new Date(source);
+  if (Number.isNaN(date.getTime())) {
+    return String(source).trim();
   }
 
   return `Disponible ${date.toLocaleDateString("es-PR", {
@@ -92,21 +73,22 @@ function getAvailableSinceLabel(product) {
 
 function getLocationLabel(product) {
   const location =
+    product?.metadata?.location_label ||
     product?.metadata?.location ||
     product?.metadata?.city ||
-    product?.metadata?.region ||
-    product?.category?.name;
+    product?.metadata?.region;
 
-  return location ? toReadableLabel(String(location)) : "Remoto / Puerto Rico";
+  return location ? toReadableLabel(String(location)) : "";
 }
 
 function getScheduleLabel(product) {
   const schedule =
+    product?.metadata?.schedule_label ||
     product?.metadata?.schedule ||
     product?.metadata?.availability ||
     product?.metadata?.hours;
 
-  return schedule ? String(schedule) : "Lun-Dom · Horario a coordinar";
+  return schedule ? String(schedule) : "";
 }
 
 export default function ProductCard({
@@ -117,16 +99,18 @@ export default function ProductCard({
   const hasDiscount =
     product.compareAtPrice !== null && product.compareAtPrice > product.price;
 
+  const flowConfig = getServiceFlowConfig(product);
   const duration = getDurationLabel(product);
-  const saleMode = getSaleModeLabel(product);
   const segment = getSegmentLabel(product);
-  const subtitle = [product.category?.name, segment || saleMode].filter(Boolean).join(" · ");
+  // Category is already shown as an overlay badge — avoid repeating it in the subtitle
+  const subtitle = segment || null;
   const ratingLabel = getRatingLabel(product);
+  // Only include quick-fact rows that have real data
   const facts = [
     { id: "available", icon: CalendarDays, label: getAvailableSinceLabel(product) },
     { id: "location", icon: MapPin, label: getLocationLabel(product) },
     { id: "schedule", icon: Clock3, label: getScheduleLabel(product) },
-  ];
+  ].filter((fact) => Boolean(fact.label));
 
   return (
     <article className="product-card">
@@ -148,6 +132,7 @@ export default function ProductCard({
           <span className="pill pill--light">
             {product.category?.name || "Catálogo"}
           </span>
+          <span className="pill pill--flow">{flowConfig.label}</span>
           {duration ? <span className="pill pill--soft">{duration}</span> : null}
         </div>
       </div>
@@ -156,27 +141,31 @@ export default function ProductCard({
         <header className="product-card__header">
           <div className="product-card__headline">
             <h3>{product.name}</h3>
-            <p className="product-card__subtitle">
-              {subtitle || getProductTypeLabel(product.productType)}
-            </p>
+            {subtitle ? (
+              <p className="product-card__subtitle">{subtitle}</p>
+            ) : null}
           </div>
-          <div className="product-card__rating">
-            <Star size={16} strokeWidth={2.2} />
-            <span>{ratingLabel}</span>
-          </div>
+          {ratingLabel ? (
+            <div className="product-card__rating">
+              <Star size={16} strokeWidth={2.2} />
+              <span>{ratingLabel}</span>
+            </div>
+          ) : null}
         </header>
 
-        <ul className="product-card__facts">
-          {facts.map((fact) => {
-            const Icon = fact.icon;
-            return (
-              <li key={`${product.slug}-${fact.id}`}>
-                <Icon size={16} />
-                <span>{fact.label}</span>
-              </li>
-            );
-          })}
-        </ul>
+        {facts.length > 0 ? (
+          <ul className="product-card__facts">
+            {facts.map((fact) => {
+              const Icon = fact.icon;
+              return (
+                <li key={`${product.slug}-${fact.id}`}>
+                  <Icon size={16} />
+                  <span>{fact.label}</span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
 
         {product.shortDescription || product.longDescription ? (
           <p className="product-card__description">
@@ -184,10 +173,9 @@ export default function ProductCard({
           </p>
         ) : null}
 
-        {segment || saleMode ? (
+        {segment ? (
           <div className="product-card__chips">
-            {segment ? <span className="product-card__chip">{segment}</span> : null}
-            {saleMode ? <span className="product-card__chip">{saleMode}</span> : null}
+            <span className="product-card__chip">{segment}</span>
           </div>
         ) : null}
 
@@ -210,11 +198,11 @@ export default function ProductCard({
                 disabled={addState === "loading"}
                 className="product-card__booking-btn"
               >
-                {addState === "loading" ? "Agregando..." : "Contratar ahora"}
+                {addState === "loading" ? "Agregando..." : flowConfig.cta}
               </Button>
             ) : (
               <Button to={`/servicios/${product.slug}`} className="product-card__booking-btn">
-                Contratar ahora
+                {flowConfig.cta}
               </Button>
             )}
           </div>
