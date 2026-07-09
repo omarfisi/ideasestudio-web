@@ -3702,6 +3702,27 @@
   font-weight: 700;
 }
 
+.cart-checkout-item__meta .pill--flow {
+  background: rgba(17, 17, 17, 0.86);
+  color: #ffffff;
+  border-color: rgba(255, 207, 0, 0.45);
+}
+
+.cart-checkout-qty--fixed {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(17, 17, 17, 0.12);
+  border-radius: 999px;
+  padding: 0 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: rgba(17, 17, 17, 0.72);
+  background: rgba(17, 17, 17, 0.04);
+  white-space: nowrap;
+}
+
 .cart-checkout-item__remove {
   appearance: none;
   border: none;
