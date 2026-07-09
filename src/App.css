@@ -2720,6 +2720,14 @@
   font-size: 0.72rem;
 }
 
+.product-card__media .pill--flow {
+  background: rgba(17, 17, 17, 0.82);
+  color: #ffffff;
+  border: 1px solid rgba(255, 207, 0, 0.45);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+  font-size: 0.72rem;
+}
+
 .product-card__content {
   display: grid;
   align-content: start;

@@ -14,6 +14,7 @@ import Button from "@/components/shared/Button.jsx";
 
 import { addProductToPublicCart, getPublicProducts } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
+import { allowsServiceQuantity } from "@/lib/serviceFlowType.js";
 
 const MAX_ADDITIONAL_GALLERY_IMAGES = 3;
 
@@ -184,42 +185,19 @@ export default function ProductDetailPage() {
 
   const processSteps = useMemo(() => {
     const metadata = product?.metadata || {};
-    const fromMetadata = [
+    return [
       ...normalizeList(metadata.process_steps),
       ...normalizeList(metadata.workflow_steps),
       ...normalizeList(metadata.steps),
-    ];
-    if (fromMetadata.length) return fromMetadata;
-
-    return [
-      "Brief inicial y levantamiento de requerimientos.",
-      "Propuesta de ejecución y validación contigo.",
-      "Producción, revisiones y entrega final.",
     ];
   }, [product]);
 
   const faqs = useMemo(() => {
     const metadata = product?.metadata || {};
-    const parsed = [
+    return [
       ...normalizeFaqs(metadata.faqs),
       ...normalizeFaqs(metadata.faq),
       ...normalizeFaqs(metadata.questions),
-    ];
-    if (parsed.length) return parsed;
-
-    return [
-      {
-        question: "¿Cómo se confirma mi contratación?",
-        answer: "Recibes confirmación automática al completar el pago.",
-      },
-      {
-        question: "¿El servicio queda registrado en CRM?",
-        answer: "Sí, la orden y actividad comercial se registran automáticamente.",
-      },
-      {
-        question: "¿Puedo coordinar detalles después de pagar?",
-        answer: "Sí, nuestro equipo te contacta para alinear alcance y tiempos.",
-      },
     ];
   }, [product]);
 
@@ -478,6 +456,7 @@ export default function ProductDetailPage() {
             </ul>
 
             <div className="service-detail-purchase">
+              {allowsServiceQuantity(product) ? (
               <div className="service-detail-purchase__quantity">
                 <span>Cantidad</span>
                 <div>
@@ -507,6 +486,7 @@ export default function ProductDetailPage() {
                   </button>
                 </div>
               </div>
+            ) : null}
 
               <div className="service-detail-purchase__actions">
                 <Button
@@ -536,10 +516,6 @@ export default function ProductDetailPage() {
                 <li>
                   <BadgeCheck size={16} />
                   <span>Confirmación automática</span>
-                </li>
-                <li>
-                  <Layers3 size={16} />
-                  <span>Servicio conectado al CRM</span>
                 </li>
                 <li>
                   <MessagesSquare size={16} />
@@ -575,26 +551,30 @@ export default function ProductDetailPage() {
             </ul>
           </article>
 
-          <article className="service-detail-section-card">
-            <h2>Proceso de trabajo</h2>
-            <ol>
-              {processSteps.map((step) => (
-                <li key={step}>{step}</li>
-              ))}
-            </ol>
-          </article>
+          {processSteps.length > 0 ? (
+            <article className="service-detail-section-card">
+              <h2>Proceso de trabajo</h2>
+              <ol>
+                {processSteps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+            </article>
+          ) : null}
 
-          <article className="service-detail-section-card">
-            <h2>Preguntas frecuentes</h2>
-            <div className="service-detail-faq">
-              {faqs.map((faq) => (
-                <article key={faq.question}>
-                  <h3>{faq.question}</h3>
-                  {faq.answer ? <p>{faq.answer}</p> : null}
-                </article>
-              ))}
-            </div>
-          </article>
+          {faqs.length > 0 ? (
+            <article className="service-detail-section-card">
+              <h2>Preguntas frecuentes</h2>
+              <div className="service-detail-faq">
+                {faqs.map((faq) => (
+                  <article key={faq.question}>
+                    <h3>{faq.question}</h3>
+                    {faq.answer ? <p>{faq.answer}</p> : null}
+                  </article>
+                ))}
+              </div>
+            </article>
+          ) : null}
         </div>
 
         {relatedState.items.length ? (
