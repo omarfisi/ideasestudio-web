@@ -132,9 +132,13 @@ function ServiceBookingSection({
       .catch(() => dispatch({ type: "LOAD_ERR" }));
   }, [slug]);
 
+  const requiresCalendarForAvailability = Boolean(
+    s.booking?.booking_settings?.requires_calendar
+  );
+
   useEffect(() => {
     if (s.loadState !== "ready") return;
-    if (!s.booking?.booking_settings?.requires_calendar) return;
+    if (!requiresCalendarForAvailability) return;
     if (!s.calMonth) return;
 
     const from = toYMD(s.calMonth);
@@ -145,7 +149,7 @@ function ServiceBookingSection({
     getPublicServiceAvailability(slug, from, to)
       .then((res) => dispatch({ type: "AVAIL_OK", slots: res.slots || [] }))
       .catch(() => dispatch({ type: "AVAIL_ERR" }));
-  }, [slug, s.loadState, s.calMonth]);
+  }, [slug, s.loadState, s.calMonth, requiresCalendarForAvailability]);
 
   useEffect(() => {
     if (s.loadState !== "ready") return;
@@ -498,18 +502,13 @@ export default function ServiceBookingCheckoutPanel({
   onStatusChange,
 }) {
   const [resolvedItems, setResolvedItems] = useState(null);
-  const [unresolvedCount, setUnresolvedCount] = useState(0);
+  const [resolutionFailures, setResolutionFailures] = useState([]);
   const [statusMap, setStatusMap] = useState({});
 
   useEffect(() => {
     const rawItems = cart?.items || [];
-    if (rawItems.length === 0) {
-      setResolvedItems([]);
-      setUnresolvedCount(0);
-      return;
-    }
-
     let cancelled = false;
+
     async function resolve() {
       const results = await Promise.all(
         rawItems.map(async (item) => {
@@ -517,7 +516,7 @@ export default function ServiceBookingCheckoutPanel({
 
           // 1. Try direct slug fields
           const directSlug = getSlugFromItem(item);
-          if (directSlug) return { slug: directSlug, name };
+          if (directSlug) return { slug: directSlug, name, resolved: true };
 
           // 2. Check metadata fields (backend may store slug in snapshot metadata)
           const meta = item.metadata || {};
@@ -527,24 +526,25 @@ export default function ServiceBookingCheckoutPanel({
             meta.product_slug ||
             meta.serviceSlug ||
             null;
-          if (metaSlug) return { slug: metaSlug, name };
+          if (metaSlug) return { slug: metaSlug, name, resolved: true };
 
           // 3. Resolve by productId via store API
           if (item.productId) {
-            const resolved = await resolveProductSlugById(item.productId);
-            if (resolved) return { slug: resolved, name };
+            const resolvedSlug = await resolveProductSlugById(item.productId);
+            if (resolvedSlug) return { slug: resolvedSlug, name, resolved: true };
           }
 
-          return null;
+          // Genuinely could not resolve a slug for this cart item — this is
+          // NOT the same as "confirmed not a booking service" (see below).
+          return { slug: null, name, resolved: false };
         })
       );
+      // Promise.all([]) still resolves asynchronously, so an empty cart
+      // reaches this same branch instead of needing a synchronous
+      // early-return setState in the effect body.
       if (!cancelled) {
-        const resolved = results.filter(Boolean);
-        setResolvedItems(resolved);
-        // Items with no resolvable slug can never have booking data — count
-        // them as immediately resolved (no booking) so the parent's
-        // discovery status doesn't wait on them forever.
-        setUnresolvedCount(rawItems.length - resolved.length);
+        setResolvedItems(results.filter((r) => r.resolved));
+        setResolutionFailures(results.filter((r) => !r.resolved));
       }
     }
 
@@ -568,6 +568,7 @@ export default function ServiceBookingCheckoutPanel({
         scheduleComplete: false,
         customizationComplete: false,
         services: [],
+        resolutionErrors: [],
       });
       return;
     }
@@ -575,23 +576,32 @@ export default function ServiceBookingCheckoutPanel({
     const reportedStatuses = resolvedItems.map(
       (item) => statusMap[item.slug] || { slug: item.slug, name: item.name, resolved: false }
     );
-    const syntheticUnresolved = Array.from({ length: unresolvedCount }, (_, index) => ({
+    // A cart item whose slug could never be resolved is reported as a real
+    // resolutionError, not folded into "no booking" — a booking service
+    // that failed to resolve must never silently look confirmed-safe.
+    const failureStatuses = resolutionFailures.map((failure, index) => ({
       slug: `__unresolved_${index}`,
+      name: failure.name,
       resolved: true,
+      resolutionError: true,
       hasCalendar: false,
       hasPackages: false,
       hasAddons: false,
-      scheduleComplete: true,
-      customizationComplete: true,
+      scheduleComplete: false,
+      customizationComplete: false,
     }));
 
-    onStatusChange(
-      aggregateBookingStatus(
-        [...reportedStatuses, ...syntheticUnresolved],
-        resolvedItems.length + unresolvedCount
-      )
+    const aggregate = aggregateBookingStatus(
+      [...reportedStatuses, ...failureStatuses],
+      resolvedItems.length + resolutionFailures.length
     );
-  }, [resolvedItems, unresolvedCount, statusMap, onStatusChange]);
+
+    if (import.meta.env.DEV) {
+      console.log("[booking-checkout] status:", aggregate.status, aggregate);
+    }
+
+    onStatusChange(aggregate);
+  }, [resolvedItems, resolutionFailures, statusMap, onStatusChange]);
 
   // Still resolving which cart items even have a slug
   if (resolvedItems === null) return null;

@@ -19,8 +19,16 @@ export const STEP_LABELS = {
  * Aggregates the per-service booking status reported by each
  * ServiceBookingSection into a single status object the checkout page can
  * act on. `itemStatuses` only contains entries for items that have actually
- * resolved (successfully or not); `totalExpectedCount` is the total number
- * of cart items, used to detect when discovery is still in progress.
+ * resolved (successfully, with a booking error, or with no booking
+ * capability); `totalExpectedCount` is the total number of cart items, used
+ * to detect when discovery is still in progress.
+ *
+ * An item that failed to resolve at all (no slug could be found for it)
+ * must be reported with `resolutionError: true` — it is NOT the same as a
+ * confirmed non-booking item. Treating a resolution failure as "no booking"
+ * would let a cart that actually needed a date slip through unchecked, so
+ * any resolutionError forces hasBooking/scheduleComplete to stay false and
+ * surfaces the failure via `resolutionErrors` for the caller to block on.
  */
 export function aggregateBookingStatus(itemStatuses, totalExpectedCount) {
   const resolved = itemStatuses.filter((item) => item?.resolved);
@@ -30,15 +38,18 @@ export function aggregateBookingStatus(itemStatuses, totalExpectedCount) {
     ? "ready"
     : "loading";
 
-  const bookingItems = resolved.filter(
+  const resolutionErrors = itemStatuses.filter((item) => item?.resolutionError);
+  const hasResolutionError = resolutionErrors.length > 0;
+
+  const okItems = resolved.filter((item) => !item.resolutionError);
+  const bookingItems = okItems.filter(
     (item) => item.hasCalendar || item.hasPackages || item.hasAddons
   );
 
-  const hasBooking = bookingItems.length > 0;
-  const requiresCalendar = bookingItems.some((item) => item.hasCalendar);
-  const hasCustomization = bookingItems.some(
-    (item) => item.hasPackages || item.hasAddons
-  );
+  const hasBooking = !hasResolutionError && bookingItems.length > 0;
+  const requiresCalendar = !hasResolutionError && bookingItems.some((item) => item.hasCalendar);
+  const hasCustomization =
+    !hasResolutionError && bookingItems.some((item) => item.hasPackages || item.hasAddons);
 
   const calendarItems = bookingItems.filter((item) => item.hasCalendar);
   const customizableItems = bookingItems.filter(
@@ -46,9 +57,12 @@ export function aggregateBookingStatus(itemStatuses, totalExpectedCount) {
   );
 
   const scheduleComplete =
-    status === "ready" && calendarItems.every((item) => item.scheduleComplete);
+    status === "ready" &&
+    !hasResolutionError &&
+    calendarItems.every((item) => item.scheduleComplete);
   const customizationComplete =
     status === "ready" &&
+    !hasResolutionError &&
     customizableItems.every((item) => item.customizationComplete !== false);
 
   return {
@@ -59,6 +73,7 @@ export function aggregateBookingStatus(itemStatuses, totalExpectedCount) {
     scheduleComplete,
     customizationComplete,
     services: itemStatuses,
+    resolutionErrors,
   };
 }
 

@@ -211,6 +211,45 @@ test("el paso activo siempre es clickeable", () => {
   assert.equal(canNavigateToStep(0, { steps, activeIndex: 0, ctx }), true);
 });
 
+/* ── Bloqueo 4: slug no resoluble no se convierte en "no booking" ─────── */
+test("resolutionError bloquea hasBooking aunque el resto del carrito sea booking valido", () => {
+  const status = aggregateBookingStatus(
+    [
+      { slug: "boda", resolved: true, hasCalendar: true, scheduleComplete: true },
+      { slug: "__unresolved_0", resolved: true, resolutionError: true, hasCalendar: false, hasPackages: false, hasAddons: false, scheduleComplete: false, customizationComplete: false },
+    ],
+    2
+  );
+  assert.equal(status.status, "ready");
+  assert.equal(status.resolutionErrors.length, 1);
+  assert.equal(status.hasBooking, false);
+  assert.equal(status.scheduleComplete, false);
+  assert.equal(status.customizationComplete, false);
+});
+
+test("carrito con un item valido y otro no resoluble reporta el error, no lo oculta", () => {
+  const status = aggregateBookingStatus(
+    [
+      { slug: "logo", resolved: true, hasCalendar: false, hasPackages: false, hasAddons: false },
+      { slug: "__unresolved_0", resolved: true, resolutionError: true, hasCalendar: false, hasPackages: false, hasAddons: false, scheduleComplete: false, customizationComplete: false },
+    ],
+    2
+  );
+  assert.equal(status.resolutionErrors.length, 1);
+  // Aunque el otro item sea legitimamente "no booking", no se debe armar
+  // un wizard de compra directa mientras haya un item sin resolver.
+  assert.equal(status.hasBooking, false);
+});
+
+test("sin resolutionErrors el carrito se comporta igual que antes", () => {
+  const status = aggregateBookingStatus(
+    [{ slug: "boda", resolved: true, hasCalendar: true, scheduleComplete: true }],
+    1
+  );
+  assert.equal(status.resolutionErrors.length, 0);
+  assert.equal(status.hasBooking, true);
+});
+
 console.log(`\n${passed} pruebas OK`);
 if (process.exitCode) {
   console.error("Hay pruebas fallidas.");

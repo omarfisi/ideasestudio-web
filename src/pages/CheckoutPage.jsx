@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { CardCvcElement, CardExpiryElement, CardNumberElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
@@ -575,11 +575,43 @@ function StoreCheckout({
     return false;
   }, [crmFormState.status, crmFields, crmFormValues, fallbackCanSubmit]);
 
+  // Read-only customer data for the review step. The CRM form keeps its
+  // live values in crmFormValues while the user is on step 3 — checkoutForm
+  // is only synced from it inside prepareStoreCheckoutPayload(), right
+  // before the order is created. Reading checkoutForm directly in the
+  // review step showed blank name/email/phone until that point.
+  const reviewCustomer = useMemo(() => {
+    if (crmFormState.status === "ready" && crmFields.length) {
+      const parsed = parseCheckoutDataFromForm(crmFields, crmFormValues);
+      return { name: parsed.name, email: parsed.email, phone: parsed.phone };
+    }
+    return {
+      name: checkoutForm.name || "",
+      email: checkoutForm.email || "",
+      phone: checkoutForm.phone || "",
+    };
+  }, [crmFormState.status, crmFields, crmFormValues, checkoutForm.name, checkoutForm.email, checkoutForm.phone]);
+
   const stepCtx = {
     scheduleComplete: bookingStatus.scheduleComplete,
     customizationComplete: bookingStatus.customizationComplete,
     detailsValid,
   };
+
+  // DEV-only: confirms bookingStatus follows loading -> ready and never
+  // regresses back to loading unless the cart itself actually changed —
+  // a regression would indicate the panel got remounted.
+  const prevDiscoveryRef = useRef({ status: bookingStatus.status, items: cart.items });
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const prev = prevDiscoveryRef.current;
+    if (prev.status === "ready" && bookingStatus.status === "loading" && prev.items === cart.items) {
+      console.warn(
+        "[booking-checkout] bookingStatus volvio de ready a loading sin que cambiara cart.items — revisar si ServiceBookingCheckoutPanel se remonto."
+      );
+    }
+    prevDiscoveryRef.current = { status: bookingStatus.status, items: cart.items };
+  }, [bookingStatus.status, cart.items]);
 
   const activeStepKey = steps[activeStepIndex] ?? steps[steps.length - 1] ?? "details";
 
@@ -947,36 +979,35 @@ function StoreCheckout({
 
   // Discovery still running — don't show the (possibly wrong) 2-step or
   // 4-step stepper until every cart item has resolved its booking config.
-  if (bookingStatus.status !== "ready") {
-    return (
-      <div className="checkout-modern-page">
-        <div className="checkout-hero">
-          <h1>Finaliza tu contratación</h1>
-        </div>
-        <div className="checkout-wizard-shell">
-          <div className="empty-state">
-            <h2>Preparando tu checkout...</h2>
-            <p>Estamos revisando los servicios de tu resumen.</p>
-          </div>
-        </div>
-        {/* Keeps resolving/reporting even while hidden, so status flips to
-            "ready" once every item has been checked. */}
-        <ServiceBookingCheckoutPanel
-          cart={cart}
-          section="hidden"
-          onSelectionChange={handleBookingSelectionChange}
-          onStatusChange={setBookingStatus}
-        />
-      </div>
-    );
-  }
+  const isDiscovering = bookingStatus.status !== "ready";
+  const resolutionErrors = bookingStatus.resolutionErrors || [];
+  const hasResolutionError = resolutionErrors.length > 0;
 
   const panelSection =
-    activeStepKey === "schedule" ? "schedule" : activeStepKey === "customize" ? "customize" : "hidden";
+    isDiscovering || hasResolutionError
+      ? "hidden"
+      : activeStepKey === "schedule"
+      ? "schedule"
+      : activeStepKey === "customize"
+      ? "customize"
+      : "hidden";
 
   const bookingServices = bookingStatus.services.filter(
     (svc) => svc.hasCalendar || svc.hasPackages || svc.hasAddons
   );
+
+  const bookingExtrasEstimate = bookingServices.reduce((sum, svc) => {
+    const addonsTotal = (svc.display?.addons || []).reduce(
+      (addonSum, addon) => addonSum + Number(addon.price || 0) * Number(addon.quantity || 0),
+      0
+    );
+    return sum + addonsTotal;
+  }, 0);
+
+  const depositEstimate = bookingServices.reduce((sum, svc) => {
+    const selection = bookingSelections[svc.slug];
+    return sum + Number(selection?.deposit_amount || 0);
+  }, 0);
 
   return (
     <div className="checkout-modern-page">
@@ -985,27 +1016,36 @@ function StoreCheckout({
       </div>
 
       <div className="checkout-wizard-shell">
-        <BookingStepper
-          steps={steps}
-          activeIndex={activeStepIndex}
-          ctx={stepCtx}
-          onStepClick={goToStep}
-          showConfirmationPill={!bookingStatus.hasBooking}
-          confirmed={false}
-        />
+        {isDiscovering && (
+          <div className="empty-state">
+            <h2>Preparando tu checkout...</h2>
+            <p>Estamos revisando los servicios de tu resumen.</p>
+          </div>
+        )}
 
-        {/* Booking panel stays mounted for the whole checkout — only the
-            visible section changes with the active step, so the reducer
-            (date/slot/package/extras) never resets. */}
-        <ServiceBookingCheckoutPanel
-          cart={cart}
-          section={panelSection}
-          onSelectionChange={handleBookingSelectionChange}
-          onStatusChange={setBookingStatus}
-        />
+        {!isDiscovering && hasResolutionError && (
+          <div className="empty-state">
+            <h2>No pudimos preparar tu checkout</h2>
+            <p>No pudimos preparar uno de los servicios. Regresa al carrito e inténtalo nuevamente.</p>
+            <div className="empty-state__actions">
+              <Button to="/servicios/carrito">Volver al carrito</Button>
+            </div>
+          </div>
+        )}
 
-        {activeStepKey === "schedule" && (
-          <div className="checkout-step-card">
+        {!isDiscovering && !hasResolutionError && (
+          <>
+            <BookingStepper
+              steps={steps}
+              activeIndex={activeStepIndex}
+              ctx={stepCtx}
+              onStepClick={goToStep}
+              showConfirmationPill={!bookingStatus.hasBooking}
+              confirmed={false}
+            />
+
+            {activeStepKey === "schedule" && (
+              <div className="checkout-step-card">
             <h2>Fecha y hora</h2>
             <p className="checkout-step-card__hint">
               {bookingServices.length > 1
@@ -1193,9 +1233,9 @@ function StoreCheckout({
               <div className="checkout-review__section">
                 <h3>Cliente</h3>
                 <ul>
-                  {checkoutForm.name && <li>{checkoutForm.name}</li>}
-                  {checkoutForm.email && <li>{checkoutForm.email}</li>}
-                  {checkoutForm.phone && <li>{checkoutForm.phone}</li>}
+                  {reviewCustomer.name && <li>{reviewCustomer.name}</li>}
+                  {reviewCustomer.email && <li>{reviewCustomer.email}</li>}
+                  {reviewCustomer.phone && <li>{reviewCustomer.phone}</li>}
                 </ul>
               </div>
 
@@ -1292,30 +1332,67 @@ function StoreCheckout({
                   </p>
                 )}
 
-                <div className="checkout-totals">
-                  <div className="checkout-total-row">
-                    <span>
-                      Subtotal ({cart.items.length}{" "}
-                      {cart.items.length === 1 ? "item" : "items"})
-                    </span>
-                    <span>{formatPrice(cart.summary.subtotal, cart.summary.currency)}</span>
-                  </div>
-                  {appliedCoupon && (
-                    <div className="checkout-total-row" style={{ color: "#16a34a" }}>
-                      <span>Descuento ({appliedCoupon.code})</span>
-                      <span>-{formatPrice(appliedCoupon.discountAmount, cart.summary.currency)}</span>
+                {createdOrder ? (
+                  // Authoritative totals — the order was created server-side
+                  // from the cart, so these are the numbers Stripe will
+                  // actually charge, not a frontend estimate.
+                  <div className="checkout-totals">
+                    <div className="checkout-total-row">
+                      <span>Subtotal</span>
+                      <span>{formatPrice(createdOrder.subtotal, createdOrder.currency)}</span>
                     </div>
-                  )}
-                  <div className="checkout-total-row is-total">
-                    <span>Total</span>
-                    <span>
-                      {formatPrice(
-                        Math.max(0, Number(cart.summary.subtotal) - Number(appliedCoupon?.discountAmount || 0)),
-                        cart.summary.currency
-                      )}
-                    </span>
+                    {createdOrder.discountTotal > 0 && (
+                      <div className="checkout-total-row" style={{ color: "#16a34a" }}>
+                        <span>Descuento</span>
+                        <span>-{formatPrice(createdOrder.discountTotal, createdOrder.currency)}</span>
+                      </div>
+                    )}
+                    <div className="checkout-total-row is-total">
+                      <span>Total a pagar</span>
+                      <span>{formatPrice(createdOrder.total, createdOrder.currency)}</span>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="checkout-totals">
+                    <div className="checkout-total-row">
+                      <span>
+                        Subtotal ({cart.items.length}{" "}
+                        {cart.items.length === 1 ? "item" : "items"})
+                      </span>
+                      <span>{formatPrice(cart.summary.subtotal, cart.summary.currency)}</span>
+                    </div>
+                    {bookingExtrasEstimate > 0 && (
+                      <div className="checkout-total-row">
+                        <span>Extras (estimado)</span>
+                        <span>{formatPrice(bookingExtrasEstimate, cart.summary.currency)}</span>
+                      </div>
+                    )}
+                    {depositEstimate > 0 && (
+                      <div className="checkout-total-row">
+                        <span>Depósito requerido (estimado)</span>
+                        <span>{formatPrice(depositEstimate, cart.summary.currency)}</span>
+                      </div>
+                    )}
+                    {appliedCoupon && (
+                      <div className="checkout-total-row" style={{ color: "#16a34a" }}>
+                        <span>Descuento ({appliedCoupon.code})</span>
+                        <span>-{formatPrice(appliedCoupon.discountAmount, cart.summary.currency)}</span>
+                      </div>
+                    )}
+                    <div className="checkout-total-row is-total">
+                      <span>Total estimado</span>
+                      <span>
+                        {formatPrice(
+                          Math.max(0, Number(cart.summary.subtotal) - Number(appliedCoupon?.discountAmount || 0)),
+                          cart.summary.currency
+                        )}
+                      </span>
+                    </div>
+                    <p style={{ margin: "8px 0 0", fontSize: "0.76rem", color: "#71717a" }}>
+                      El monto final se confirma al crear tu orden.
+                    </p>
+                  </div>
+                )}
 
                 <button
                   type="submit"
@@ -1348,7 +1425,20 @@ function StoreCheckout({
             </aside>
           </div>
         )}
+          </>
+        )}
       </div>
+
+      {/* Single ServiceBookingCheckoutPanel instance for the entire checkout
+          — same tree position whether discovery is loading, blocked by a
+          resolution error, or ready. Only `section` changes with the active
+          step, so the reducer (date/slot/package/extras) never remounts. */}
+      <ServiceBookingCheckoutPanel
+        cart={cart}
+        section={panelSection}
+        onSelectionChange={handleBookingSelectionChange}
+        onStatusChange={setBookingStatus}
+      />
     </div>
   );
 }
@@ -1406,7 +1496,6 @@ export default function CheckoutPage() {
           setCheckoutForm((current) => ({ ...current, email: current.email || result?.email || "" }));
           setCartState({ status: "idle", message: "" });
           if (import.meta.env.DEV) {
-            // eslint-disable-next-line no-console
             console.log("[checkout] cart items raw:\n" + JSON.stringify(
               (result?.items || []).map((it) => ({
                 id: it.id,
