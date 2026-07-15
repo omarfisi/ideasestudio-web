@@ -176,11 +176,17 @@ export default function ProductDetailPage() {
     ];
     if (fromRaw.length) return fromRaw;
 
-    return [
-      "Definición de alcance y objetivos del servicio.",
-      "Ejecución profesional con seguimiento continuo.",
-      "Entrega final organizada y lista para implementación.",
-    ];
+    // Real content is stored here for store products synced from the
+    // services catalog — metadata.includes/includes_items above are
+    // always empty for that source.
+    const detailsSchema =
+      metadata.details_schema || product?.raw?.metadata_json?.details_schema;
+    const fromDetailsSchema = normalizeList(
+      detailsSchema?.includes_items?.length
+        ? detailsSchema.includes_items
+        : detailsSchema?.includes
+    );
+    return fromDetailsSchema;
   }, [product]);
 
   const processSteps = useMemo(() => {
@@ -276,27 +282,13 @@ export default function ProductDetailPage() {
   const segment = getSegment(product);
   const saleMode = getSaleMode(product);
   const metadataRows = [
-    {
-      key: "duration",
-      icon: Clock3,
-      label: duration || "Duración a coordinar",
-    },
-    {
-      key: "serviceType",
-      icon: Layers3,
-      label: serviceType || "Servicio profesional",
-    },
-    {
-      key: "segment",
-      icon: Sparkles,
-      label: segment || "Segmento general",
-    },
-    {
-      key: "saleMode",
-      icon: BadgeCheck,
-      label: saleMode || "Contratación directa",
-    },
-  ];
+    duration ? { key: "duration", icon: Clock3, label: duration } : null,
+    serviceType
+      ? { key: "serviceType", icon: Layers3, label: serviceType }
+      : null,
+    segment ? { key: "segment", icon: Sparkles, label: segment } : null,
+    saleMode ? { key: "saleMode", icon: BadgeCheck, label: saleMode } : null,
+  ].filter(Boolean);
 
   async function handleCartAction(mode) {
     setPendingAction(mode);
@@ -443,17 +435,19 @@ export default function ProductDetailPage() {
                 "Servicio profesional diseñado para impulsar resultados concretos en tu negocio."}
             </p>
 
-            <ul className="service-detail-content__meta">
-              {metadataRows.map((row) => {
-                const Icon = row.icon;
-                return (
-                  <li key={row.key}>
-                    <Icon size={16} />
-                    <span>{row.label}</span>
-                  </li>
-                );
-              })}
-            </ul>
+            {metadataRows.length > 0 ? (
+              <ul className="service-detail-content__meta">
+                {metadataRows.map((row) => {
+                  const Icon = row.icon;
+                  return (
+                    <li key={row.key}>
+                      <Icon size={16} />
+                      <span>{row.label}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
 
             <div className="service-detail-purchase">
               {allowsServiceQuantity(product) ? (
@@ -542,14 +536,16 @@ export default function ProductDetailPage() {
             </p>
           </article>
 
-          <article className="service-detail-section-card">
-            <h2>Qué incluye</h2>
-            <ul>
-              {includes.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </article>
+          {includes.length > 0 ? (
+            <article className="service-detail-section-card">
+              <h2>Qué incluye</h2>
+              <ul>
+                {includes.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </article>
+          ) : null}
 
           {processSteps.length > 0 ? (
             <article className="service-detail-section-card">
