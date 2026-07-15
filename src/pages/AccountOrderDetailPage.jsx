@@ -5,6 +5,10 @@ import Button from "@/components/shared/Button.jsx";
 import { useAuth } from "@/contexts/AuthContext.jsx";
 import { getMyOrderDetail } from "@/lib/accountApi.js";
 import { formatPrice } from "@/lib/formatPrice.js";
+import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
+
+// Do not fall back to localhost — invoice URLs must point to a real server.
+const CRM_BASE_URL = (CRM_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "");
 
 const paymentStatusLabel = {
   paid: "Pagado",
@@ -181,6 +185,26 @@ export default function AccountOrderDetailPage() {
                               ? new Date(order.document_created_at).toLocaleDateString("es-PR")
                               : "—"}
                           </span>
+                          {CRM_BASE_URL ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <a
+                                href={`${CRM_BASE_URL}/invoices/${order.invoice_id}/preview`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs text-blue-600 hover:underline"
+                              >
+                                Ver Factura
+                              </a>
+                              <a
+                                href={`${CRM_BASE_URL}/invoices/${order.invoice_id}/preview?format=pdf`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs text-blue-600 hover:underline"
+                              >
+                                Descargar PDF
+                              </a>
+                            </div>
+                          ) : null}
                         </div>
                       ) : null}
                       {order.proposal_id ? (
@@ -192,6 +216,26 @@ export default function AccountOrderDetailPage() {
                               ? new Date(order.document_created_at).toLocaleDateString("es-PR")
                               : "—"}
                           </span>
+                          {CRM_BASE_URL ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <a
+                                href={`${CRM_BASE_URL}/proposals/${order.proposal_id}/preview`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs text-blue-600 hover:underline"
+                              >
+                                Ver Propuesta
+                              </a>
+                              <a
+                                href={`${CRM_BASE_URL}/proposals/${order.proposal_id}/preview?format=pdf`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs text-blue-600 hover:underline"
+                              >
+                                Descargar PDF
+                              </a>
+                            </div>
+                          ) : null}
                         </div>
                       ) : null}
                     </div>

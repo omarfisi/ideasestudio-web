@@ -6,7 +6,9 @@ import { getMyOrders } from "@/lib/accountApi.js";
 import { formatPrice } from "@/lib/formatPrice.js";
 import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
 
-const CRM_BASE_URL = (CRM_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "") || "http://127.0.0.1:8000";
+// Do NOT fall back to localhost — invoice links pointing to 127.0.0.1 would fail
+// in production. If VITE_CRM_BASE_URL is not set, document links are suppressed.
+const CRM_BASE_URL = (CRM_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "");
 
 function money(order) {
   return formatPrice(order.grand_total ?? order.total ?? 0, order.currency || "USD");
@@ -22,6 +24,9 @@ function formatDate(value) {
 }
 
 function getDocument(order) {
+  // Only return document links when CRM_BASE_URL is a real URL.
+  // An empty base produces broken "#"-like links — better to show nothing.
+  if (!CRM_BASE_URL) return null;
   if (order?.invoice_id) {
     return {
       label: "Factura",
