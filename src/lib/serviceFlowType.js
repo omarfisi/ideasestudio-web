@@ -76,18 +76,31 @@ export function normalizeSaleMode(value) {
   if (v === "booking_extras" || v === "booking_with_extras") {
     return SERVICE_FLOW_TYPES.B_BOOKING_EXTRAS;
   }
-  if (v === "fixed_price" || v === "price_fixed" || v === "buy_now") {
+  if (
+    v === "fixed_price" ||
+    v === "price_fixed" ||
+    v === "buy_now" ||
+    v === "direct_purchase" ||
+    v === "compra_directa"
+  ) {
     return SERVICE_FLOW_TYPES.C_FIXED_PRICE;
   }
   if (
     v === "quote" ||
     v === "proposal" ||
     v === "quotation" ||
-    v === "quote_only"
+    v === "quote_only" ||
+    v === "proposal_request" ||
+    v === "cotizacion"
   ) {
     return SERVICE_FLOW_TYPES.D_QUOTE;
   }
-  if (v === "monthly" || v === "subscription" || v === "recurring") {
+  if (
+    v === "monthly" ||
+    v === "subscription" ||
+    v === "recurring" ||
+    v === "monthly_plan"
+  ) {
     return SERVICE_FLOW_TYPES.E_MONTHLY;
   }
   if (v === "fixed_session" || v === "session") {
@@ -159,12 +172,14 @@ function inferFromNameSlugCategory(product) {
  *
  * Priority:
  *   1. product.metadata.sale_mode
- *   2. product.metadata.flow_type
- *   3. product.sale_mode
- *   4. product.flow_type
- *   5. product.saleType  (used in local mock data)
- *   6. Inferred from name / slug / category
- *   7. D_QUOTE (safe default)
+ *   2. product.metadata.purchase_flow  (primary signal on synced store products)
+ *   3. product.metadata.flow_type
+ *   4. product.sale_mode
+ *   5. product.purchase_flow
+ *   6. product.flow_type
+ *   7. product.saleType  (used in local mock data)
+ *   8. Inferred from name / slug / category
+ *   9. D_QUOTE (safe default)
  */
 export function getServiceFlowType(product) {
   if (!product) return SAFE_DEFAULT;
@@ -173,8 +188,10 @@ export function getServiceFlowType(product) {
 
   const fromExplicit =
     normalizeSaleMode(metadata.sale_mode) ||
+    normalizeSaleMode(metadata.purchase_flow) ||
     normalizeSaleMode(metadata.flow_type) ||
     normalizeSaleMode(product.sale_mode) ||
+    normalizeSaleMode(product.purchase_flow) ||
     normalizeSaleMode(product.flow_type) ||
     normalizeSaleMode(product.saleType);
 
