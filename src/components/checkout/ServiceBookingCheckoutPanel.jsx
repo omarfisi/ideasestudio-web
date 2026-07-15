@@ -1,11 +1,12 @@
 import { useEffect, useReducer, useCallback, useState } from "react";
-import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   getPublicServiceBooking,
   getPublicServiceAvailability,
 } from "@/lib/publicServicesApi.js";
 import { resolveProductSlugById } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
+import { aggregateBookingStatus } from "@/lib/bookingCheckoutSteps.js";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -89,9 +90,37 @@ function svcReducer(state, action) {
   }
 }
 
+// ─── package chips (shared by the schedule and customize sections) ──────────
+
+function PackageChips({ packages, selectedId, onSelect }) {
+  return (
+    <div className="cbp-sub" style={{ marginBottom: 14 }}>
+      <p className="cbp-sub__label">Paquete</p>
+      <div className="cbp-chips">
+        {packages.map((pkg) => (
+          <button
+            key={pkg.id}
+            type="button"
+            className={`cbp-chip${selectedId === pkg.id ? " active" : ""}`}
+            onClick={() => onSelect(pkg.id)}
+          >
+            {pkg.name}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── single-service section ───────────────────────────────────────────────────
 
-function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
+function ServiceBookingSection({
+  slug,
+  serviceName,
+  section = "hidden",
+  onSelectionChange,
+  onStatusChange,
+}) {
   const [s, dispatch] = useReducer(svcReducer, SVC_INIT);
   const [editingBooking, setEditingBooking] = useState(true);
 
@@ -158,12 +187,83 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, s.selectedSlot, s.addonQty, s.selectedPackage]);
 
+  // Reports this service's booking capabilities/completion to the parent
+  // panel so the checkout stepper can build its steps and gate navigation.
+  // Fires on error too, so a non-booking item is reported as "resolved,
+  // nothing to book" instead of leaving the parent waiting forever.
+  useEffect(() => {
+    if (!onStatusChange) return;
+
+    if (s.loadState === "error") {
+      onStatusChange(slug, {
+        slug,
+        name: serviceName,
+        resolved: true,
+        hasCalendar: false,
+        hasPackages: false,
+        hasAddons: false,
+        scheduleComplete: true,
+        customizationComplete: true,
+      });
+      return;
+    }
+    if (s.loadState !== "ready") return;
+
+    const settings = s.booking?.booking_settings;
+    const addons = s.booking?.addons || [];
+    const packages = s.booking?.packages || [];
+    const hasCalendarNow = Boolean(settings?.requires_calendar);
+    const hasPackagesNow = packages.length > 1;
+    const hasAddonsNow = addons.length > 0;
+    const scheduleCompleteNow = hasCalendarNow
+      ? Boolean(s.selectedDate && s.selectedSlot)
+      : true;
+    const selectedPkg = packages.find((p) => p.id === s.selectedPackage);
+
+    // Read-only display data for the review step. Separate from the
+    // onSelectionChange payload sent to the backend — never merged into it.
+    onStatusChange(slug, {
+      slug,
+      name: serviceName,
+      resolved: true,
+      hasCalendar: hasCalendarNow,
+      hasPackages: hasPackagesNow,
+      hasAddons: hasAddonsNow,
+      scheduleComplete: scheduleCompleteNow,
+      customizationComplete: true,
+      display: {
+        packageName: selectedPkg?.name || null,
+        startsAt: s.selectedSlot?.starts_at || null,
+        endsAt: s.selectedSlot?.ends_at || null,
+        addons: addons
+          .filter((a) => (s.addonQty[a.id] ?? 0) > 0)
+          .map((a) => ({
+            name: a.name,
+            quantity: s.addonQty[a.id],
+            price: a.price,
+            currency: a.currency,
+          })),
+      },
+    });
+  }, [
+    slug,
+    serviceName,
+    s.loadState,
+    s.selectedDate,
+    s.selectedSlot,
+    s.selectedPackage,
+    s.addonQty,
+    s.booking,
+    onStatusChange,
+  ]);
+
   const handleAddon = useCallback((id, delta, min, max) => {
     const current = s.addonQty[id] ?? 0;
     dispatch({ type: "SET_ADDON", id, qty: Math.max(min ?? 0, Math.min(max ?? 99, current + delta)) });
   }, [s.addonQty]);
 
   if (s.loadState === "idle" || s.loadState === "loading") {
+    if (section === "hidden") return null;
     return <p className="cbp-loading">Cargando disponibilidad para {serviceName}...</p>;
   }
   if (s.loadState === "error") return null;
@@ -177,6 +277,18 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
   const hasAddons = addons.length > 0;
 
   if (!hasCalendar && !hasAddons && !hasPkgs) return null;
+  if (section === "hidden") return null;
+
+  // Packages ride along with the calendar step when there is one (choosing
+  // a package can change availability/duration). When this service has no
+  // calendar, package selection has nowhere else to live, so it moves into
+  // the customize step instead.
+  const showScheduleCard = section === "schedule" && hasCalendar;
+  const showPackagesInSchedule = hasCalendar;
+  const showPackagesInCustomize = section === "customize" && !hasCalendar && hasPkgs;
+  const showAddonsCard = section === "customize" && hasAddons;
+
+  if (!showScheduleCard && !showPackagesInCustomize && !showAddonsCard) return null;
 
   const slotDates = new Set(s.slots.map((sl) => sl.date));
   const daySlots = s.selectedDate ? s.slots.filter((sl) => sl.date === s.selectedDate) : [];
@@ -194,7 +306,7 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
   return (
     <>
       {/* ── Card: Reserva ─────────────────────────────────────────── */}
-      {(hasCalendar || hasPkgs) && (
+      {showScheduleCard && (
         <div className="cbp-card">
           <div className="cbp-card__header">
             <span className="cbp-card__title">Reserva del servicio</span>
@@ -210,20 +322,13 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
           </div>
 
           <div className="cbp-card__body">
-            {/* Package chips */}
-            {hasPkgs && (
-              <div className="cbp-sub" style={{ marginBottom: 14 }}>
-                <p className="cbp-sub__label">Paquete</p>
-                <div className="cbp-chips">
-                  {packages.map((pkg) => (
-                    <button key={pkg.id} type="button"
-                      className={`cbp-chip${s.selectedPackage === pkg.id ? " active" : ""}`}
-                      onClick={() => dispatch({ type: "SET_PACKAGE", id: pkg.id })}>
-                      {pkg.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            {/* Package chips — packages ride along with the calendar here */}
+            {hasPkgs && showPackagesInSchedule && (
+              <PackageChips
+                packages={packages}
+                selectedId={s.selectedPackage}
+                onSelect={(id) => dispatch({ type: "SET_PACKAGE", id })}
+              />
             )}
 
             {/* Summary view when date+slot selected */}
@@ -316,8 +421,24 @@ function ServiceBookingSection({ slug, serviceName, onSelectionChange }) {
         </div>
       )}
 
+      {/* ── Card: Paquete (solo cuando el servicio no tiene calendario) ── */}
+      {showPackagesInCustomize && (
+        <div className="cbp-card">
+          <div className="cbp-card__header">
+            <span className="cbp-card__title">Paquete</span>
+          </div>
+          <div className="cbp-card__body">
+            <PackageChips
+              packages={packages}
+              selectedId={s.selectedPackage}
+              onSelect={(id) => dispatch({ type: "SET_PACKAGE", id })}
+            />
+          </div>
+        </div>
+      )}
+
       {/* ── Card: Extras ──────────────────────────────────────────── */}
-      {hasAddons && (
+      {showAddonsCard && (
         <div className="cbp-card">
           <div className="cbp-card__header">
             <span className="cbp-card__title">Extras opcionales</span>
@@ -370,14 +491,21 @@ function getSlugFromItem(item) {
 
 // ─── panel wrapper ────────────────────────────────────────────────────────────
 
-export default function ServiceBookingCheckoutPanel({ cart, onSelectionChange }) {
+export default function ServiceBookingCheckoutPanel({
+  cart,
+  section = "hidden",
+  onSelectionChange,
+  onStatusChange,
+}) {
   const [resolvedItems, setResolvedItems] = useState(null);
-  const [open, setOpen] = useState(true);
+  const [unresolvedCount, setUnresolvedCount] = useState(0);
+  const [statusMap, setStatusMap] = useState({});
 
   useEffect(() => {
     const rawItems = cart?.items || [];
     if (rawItems.length === 0) {
       setResolvedItems([]);
+      setUnresolvedCount(0);
       return;
     }
 
@@ -411,7 +539,12 @@ export default function ServiceBookingCheckoutPanel({ cart, onSelectionChange })
         })
       );
       if (!cancelled) {
-        setResolvedItems(results.filter(Boolean));
+        const resolved = results.filter(Boolean);
+        setResolvedItems(resolved);
+        // Items with no resolvable slug can never have booking data — count
+        // them as immediately resolved (no booking) so the parent's
+        // discovery status doesn't wait on them forever.
+        setUnresolvedCount(rawItems.length - resolved.length);
       }
     }
 
@@ -419,11 +552,52 @@ export default function ServiceBookingCheckoutPanel({ cart, onSelectionChange })
     return () => { cancelled = true; };
   }, [cart?.items]);
 
-  // Still resolving
+  const handleSectionStatus = useCallback((slug, info) => {
+    setStatusMap((current) => ({ ...current, [slug]: info }));
+  }, []);
+
+  useEffect(() => {
+    if (!onStatusChange) return;
+
+    if (resolvedItems === null) {
+      onStatusChange({
+        status: "loading",
+        hasBooking: false,
+        requiresCalendar: false,
+        hasCustomization: false,
+        scheduleComplete: false,
+        customizationComplete: false,
+        services: [],
+      });
+      return;
+    }
+
+    const reportedStatuses = resolvedItems.map(
+      (item) => statusMap[item.slug] || { slug: item.slug, name: item.name, resolved: false }
+    );
+    const syntheticUnresolved = Array.from({ length: unresolvedCount }, (_, index) => ({
+      slug: `__unresolved_${index}`,
+      resolved: true,
+      hasCalendar: false,
+      hasPackages: false,
+      hasAddons: false,
+      scheduleComplete: true,
+      customizationComplete: true,
+    }));
+
+    onStatusChange(
+      aggregateBookingStatus(
+        [...reportedStatuses, ...syntheticUnresolved],
+        resolvedItems.length + unresolvedCount
+      )
+    );
+  }, [resolvedItems, unresolvedCount, statusMap, onStatusChange]);
+
+  // Still resolving which cart items even have a slug
   if (resolvedItems === null) return null;
 
   if (resolvedItems.length === 0) {
-    if (import.meta.env.DEV && (cart?.items || []).length > 0) {
+    if (import.meta.env.DEV && (cart?.items || []).length > 0 && section !== "hidden") {
       return (
         <p style={{ fontSize: "0.74rem", color: "#9b9189", marginBottom: 14, fontStyle: "italic" }}>
           [DEV] No se pudo resolver el slug del servicio — panel de booking oculto.
@@ -433,38 +607,37 @@ export default function ServiceBookingCheckoutPanel({ cart, onSelectionChange })
     return null;
   }
 
+  if (section === "hidden") {
+    // Keep every ServiceBookingSection mounted (reducers alive, no reload of
+    // availability, no lost date/slot/package/addons) — just render nothing.
+    return (
+      <div style={{ display: "none" }}>
+        {resolvedItems.map((item) => (
+          <ServiceBookingSection
+            key={item.slug}
+            slug={item.slug}
+            serviceName={item.name}
+            section={section}
+            onSelectionChange={onSelectionChange}
+            onStatusChange={handleSectionStatus}
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="cbp-wrapper">
-      <button
-        type="button"
-        className="cbp-accordion-toggle"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-      >
-        <span className="cbp-accordion-toggle__left">
-          <span className="cbp-accordion-toggle__dot" />
-          <span className="cbp-accordion-toggle__title">Datos del servicio</span>
-        </span>
-        <ChevronDown
-          size={16}
-          className="cbp-accordion-toggle__chevron"
-          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+      {resolvedItems.map((item) => (
+        <ServiceBookingSection
+          key={item.slug}
+          slug={item.slug}
+          serviceName={item.name}
+          section={section}
+          onSelectionChange={onSelectionChange}
+          onStatusChange={handleSectionStatus}
         />
-      </button>
-
-      {open && (
-        <div className="cbp-accordion-body">
-          <p className="cbp-header__sub">Selecciona la fecha, hora y extras antes de completar el pago.</p>
-          {resolvedItems.map((item) => (
-            <ServiceBookingSection
-              key={item.slug}
-              slug={item.slug}
-              serviceName={item.name}
-              onSelectionChange={onSelectionChange}
-            />
-          ))}
-        </div>
-      )}
+      ))}
     </div>
   );
 }

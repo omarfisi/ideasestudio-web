@@ -4394,6 +4394,255 @@
   align-items: start;
 }
 
+/* ─── Guided booking checkout (Fase E) ──────────────────────────────────── */
+
+.checkout-wizard-shell {
+  max-width: 760px;
+  margin: 0 auto;
+  display: grid;
+  gap: 24px;
+}
+
+.booking-stepper__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.booking-stepper__item {
+  display: flex;
+  align-items: center;
+}
+
+.booking-stepper__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(17, 17, 17, 0.14);
+  background: #fff;
+  border-radius: 999px;
+  padding: 8px 16px 8px 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #71717a;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.booking-stepper__btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.booking-stepper__btn:not(:disabled):hover {
+  border-color: rgba(17, 17, 17, 0.4);
+  color: #111;
+}
+
+.booking-stepper__btn:focus-visible {
+  outline: 2px solid #f1d146;
+  outline-offset: 2px;
+}
+
+.booking-stepper__btn--static {
+  cursor: default;
+}
+
+.booking-stepper__marker {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  background: #f4f4f5;
+  color: #71717a;
+  flex-shrink: 0;
+}
+
+.booking-stepper__item.is-active .booking-stepper__btn {
+  border-color: #111;
+  color: #111;
+  background: #fff;
+}
+
+.booking-stepper__item.is-active .booking-stepper__marker {
+  background: #111;
+  color: #fff;
+}
+
+.booking-stepper__item.is-completed .booking-stepper__btn {
+  border-color: #f1d146;
+  color: #111;
+}
+
+.booking-stepper__item.is-completed .booking-stepper__marker {
+  background: #f1d146;
+  color: #111;
+}
+
+.booking-stepper__item.is-upcoming .booking-stepper__btn {
+  color: #a1a1aa;
+}
+
+.checkout-step-card {
+  background: #fff;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.05);
+  padding: 28px;
+  display: grid;
+  gap: 4px;
+}
+
+.checkout-step-card h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #111;
+}
+
+.checkout-step-card__hint {
+  margin: 0 0 16px;
+  color: #71717a;
+  font-size: 0.9rem;
+}
+
+.checkout-step-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.checkout-review {
+  max-width: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 28px;
+  align-items: start;
+}
+
+.checkout-review__main {
+  background: #fff;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.05);
+  padding: 28px;
+  display: grid;
+  gap: 22px;
+}
+
+.checkout-review__main h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #111;
+}
+
+.checkout-review__section h3 {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #71717a;
+}
+
+.checkout-review__section ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-size: 0.92rem;
+  color: #27272a;
+}
+
+.checkout-review__booking {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fafafa;
+  margin-bottom: 10px;
+}
+
+.checkout-review__booking:last-child {
+  margin-bottom: 0;
+}
+
+.checkout-review__booking strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #111;
+}
+
+.checkout-review__edit-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.checkout-review__edit-links button {
+  border: 1px solid rgba(17, 17, 17, 0.16);
+  background: #fff;
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #111;
+  cursor: pointer;
+}
+
+.checkout-review__edit-links button:hover {
+  border-color: #111;
+}
+
+@media (max-width: 860px) {
+  .checkout-review {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .checkout-wizard-shell {
+    padding: 0 4px;
+  }
+
+  .checkout-step-card,
+  .checkout-review__main {
+    padding: 20px;
+    border-radius: 16px;
+  }
+
+  .booking-stepper__list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    justify-content: stretch;
+  }
+
+  .booking-stepper__item {
+    width: 100%;
+  }
+
+  .booking-stepper__btn {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .checkout-step-card__actions {
+    flex-direction: column-reverse;
+  }
+
+  .checkout-step-card__actions .btn,
+  .checkout-step-card__actions button {
+    width: 100%;
+  }
+}
+
 .checkout-card,
 .checkout-summary-card {
   background: #fff;
@@ -14830,62 +15079,8 @@ section[id] {
 
 /* Wrapper — no card of its own, divider only */
 .cbp-wrapper {
-  border: 1.5px solid rgba(22,22,22,0.10);
-  border-radius: 10px;
-  margin-top: 24px;
-  margin-bottom: 8px;
-  overflow: hidden;
-}
-
-/* Accordion toggle header */
-.cbp-accordion-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 14px 16px;
-  background: #fafafa;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  gap: 8px;
-}
-.cbp-accordion-toggle:hover {
-  background: #f5f5f5;
-}
-.cbp-accordion-toggle__left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.cbp-accordion-toggle__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #f1d146;
-  flex-shrink: 0;
-}
-.cbp-accordion-toggle__title {
-  font-size: 0.90rem;
-  font-weight: 700;
-  color: #111;
-}
-.cbp-accordion-toggle__chevron {
-  color: #888;
-  transition: transform 0.2s ease;
-  flex-shrink: 0;
-}
-
-/* Accordion body */
-.cbp-accordion-body {
-  padding: 16px 16px 12px;
-  border-top: 1.5px solid rgba(22,22,22,0.08);
-}
-
-.cbp-header__sub {
-  font-size: 0.78rem;
-  color: #6b6258;
-  margin: 0 0 14px;
+  display: grid;
+  gap: 14px;
 }
 
 /* Inner cards (Reserva / Extras / Resumen) */

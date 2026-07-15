@@ -5,6 +5,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import Button from "@/components/shared/Button.jsx";
 import DynamicField from "@/components/forms/DynamicField.jsx";
 import ServiceBookingCheckoutPanel from "@/components/checkout/ServiceBookingCheckoutPanel.jsx";
+import BookingStepper from "@/components/checkout/BookingStepper.jsx";
 import { getFormByPlacement, submitForm } from "@/lib/publicFormsApi.js";
 import {
   clearStoredCartSessionToken,
@@ -17,6 +18,17 @@ import {
   validateStoreCoupon,
 } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
+import { buildSteps, isStepComplete } from "@/lib/bookingCheckoutSteps.js";
+
+const INITIAL_BOOKING_STATUS = {
+  status: "loading",
+  hasBooking: false,
+  requiresCalendar: false,
+  hasCustomization: false,
+  scheduleComplete: false,
+  customizationComplete: false,
+  services: [],
+};
 
 const modeLabels = {
   buy: "Compra directa",
@@ -39,6 +51,19 @@ const storeCheckoutFormSectionKey = (
 function wait(ms) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, ms);
+  });
+}
+
+function formatDateTime(isoString) {
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("es", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   });
 }
 
@@ -497,6 +522,8 @@ function StoreCheckout({
 }) {
   const canCreateOrder = !createdOrder?.id;
   const [bookingSelections, setBookingSelections] = useState({});
+  const [bookingStatus, setBookingStatus] = useState(INITIAL_BOOKING_STATUS);
+  const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [couponCode, setCouponCode] = useState(initialCouponCode);
   const [couponState, setCouponState] = useState({ status: "idle", message: "" });
   const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -524,7 +551,77 @@ function StoreCheckout({
 
   // A service requires calendar if its panel returned a non-null selection at least once,
   // meaning the panel is visible. Block submit only if it's visible but incomplete (null).
+  // This stays the authoritative guard inside handleSubmit — the stepper below uses its
+  // own bookingStatus.scheduleComplete signal to gate navigation, but this check is what
+  // actually stops an order from being created.
   const bookingBlocked = Object.values(bookingSelections).some((v) => v === null);
+
+  const steps = useMemo(
+    () => buildSteps(bookingStatus),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bookingStatus.requiresCalendar, bookingStatus.hasCustomization]
+  );
+
+  const detailsValid = useMemo(() => {
+    if (crmFormState.status === "ready" && crmFields.length) {
+      const errors = validateFormFields(crmFields, crmFormValues);
+      if (Object.keys(errors).length > 0) return false;
+      const parsed = parseCheckoutDataFromForm(crmFields, crmFormValues);
+      return Boolean(parsed.name && parsed.email);
+    }
+    if (crmFormState.status === "error") {
+      return Boolean(fallbackCanSubmit);
+    }
+    return false;
+  }, [crmFormState.status, crmFields, crmFormValues, fallbackCanSubmit]);
+
+  const stepCtx = {
+    scheduleComplete: bookingStatus.scheduleComplete,
+    customizationComplete: bookingStatus.customizationComplete,
+    detailsValid,
+  };
+
+  const activeStepKey = steps[activeStepIndex] ?? steps[steps.length - 1] ?? "details";
+
+  function goToStep(index) {
+    if (index < 0 || index >= steps.length) return;
+    setActiveStepIndex(index);
+  }
+
+  function handleStepContinue() {
+    if (activeStepKey === "details") {
+      if (crmFormState.status === "ready" && crmFields.length) {
+        const errors = validateFormFields(crmFields, crmFormValues);
+        if (Object.keys(errors).length > 0) {
+          setCrmFormErrors(errors);
+          const firstInvalidField = crmFields.find((field) => errors[field.name]);
+          if (firstInvalidField) {
+            requestAnimationFrame(() => {
+              document
+                .querySelector(`#checkout-details-form [name="${firstInvalidField.name}"]`)
+                ?.focus();
+            });
+          }
+          return;
+        }
+        setCrmFormErrors({});
+      } else if (crmFormState.status === "error") {
+        if (!fallbackCanSubmit) {
+          setSubmitState({ status: "error", message: "Completa nombre y email para continuar." });
+          return;
+        }
+      } else {
+        return; // formulario todavia cargando
+      }
+    } else if (!isStepComplete(activeStepKey, stepCtx)) {
+      return;
+    }
+    goToStep(activeStepIndex + 1);
+  }
+
+  function handleStepBack() {
+    goToStep(activeStepIndex - 1);
+  }
 
   useEffect(() => {
     if (!initialCouponCode || !cart?.summary?.subtotal || appliedCoupon) return;
@@ -780,7 +877,9 @@ function StoreCheckout({
   if (completedOrder) {
     return (
       <div className="checkout-modern-page">
-        <CheckoutHero activeStep={3} />
+        <div className="checkout-hero">
+          <h1>Pedido confirmado</h1>
+        </div>
 
         <div className="checkout-modern-shell">
           <section>
@@ -846,27 +945,105 @@ function StoreCheckout({
   const isProcessing = submitState.status === "loading";
   const paymentReady = Boolean(paymentIntent?.clientSecret);
 
+  // Discovery still running — don't show the (possibly wrong) 2-step or
+  // 4-step stepper until every cart item has resolved its booking config.
+  if (bookingStatus.status !== "ready") {
+    return (
+      <div className="checkout-modern-page">
+        <div className="checkout-hero">
+          <h1>Finaliza tu contratación</h1>
+        </div>
+        <div className="checkout-wizard-shell">
+          <div className="empty-state">
+            <h2>Preparando tu checkout...</h2>
+            <p>Estamos revisando los servicios de tu resumen.</p>
+          </div>
+        </div>
+        {/* Keeps resolving/reporting even while hidden, so status flips to
+            "ready" once every item has been checked. */}
+        <ServiceBookingCheckoutPanel
+          cart={cart}
+          section="hidden"
+          onSelectionChange={handleBookingSelectionChange}
+          onStatusChange={setBookingStatus}
+        />
+      </div>
+    );
+  }
+
+  const panelSection =
+    activeStepKey === "schedule" ? "schedule" : activeStepKey === "customize" ? "customize" : "hidden";
+
+  const bookingServices = bookingStatus.services.filter(
+    (svc) => svc.hasCalendar || svc.hasPackages || svc.hasAddons
+  );
+
   return (
     <div className="checkout-modern-page">
-      <CheckoutHero activeStep={2} />
+      <div className="checkout-hero">
+        <h1>Finaliza tu contratación</h1>
+      </div>
 
-      <div className="checkout-modern-shell">
+      <div className="checkout-wizard-shell">
+        <BookingStepper
+          steps={steps}
+          activeIndex={activeStepIndex}
+          ctx={stepCtx}
+          onStepClick={goToStep}
+          showConfirmationPill={!bookingStatus.hasBooking}
+          confirmed={false}
+        />
 
-        {/* ── LEFT: form card ─────────────────────────────────────────── */}
-        <section>
-          <div className="checkout-card">
-            <h2>Datos de contratación</h2>
-            <p>Completa la información necesaria para preparar tu documento y procesar el pago.</p>
+        {/* Booking panel stays mounted for the whole checkout — only the
+            visible section changes with the active step, so the reducer
+            (date/slot/package/extras) never resets. */}
+        <ServiceBookingCheckoutPanel
+          cart={cart}
+          section={panelSection}
+          onSelectionChange={handleBookingSelectionChange}
+          onStatusChange={setBookingStatus}
+        />
 
-            {/* Booking panel — before customer fields so user picks date/extras first */}
-            <ServiceBookingCheckoutPanel
-              cart={cart}
-              onSelectionChange={handleBookingSelectionChange}
-            />
+        {activeStepKey === "schedule" && (
+          <div className="checkout-step-card">
+            <h2>Fecha y hora</h2>
+            <p className="checkout-step-card__hint">
+              {bookingServices.length > 1
+                ? `Elige fecha y horario para ${bookingServices.map((s) => s.name).join(" y ")}.`
+                : "Elige el día y horario para tu servicio."}
+            </p>
+            <div className="checkout-step-card__actions">
+              <Button
+                onClick={handleStepContinue}
+                disabled={!isStepComplete("schedule", stepCtx)}
+              >
+                Continuar
+              </Button>
+            </div>
+          </div>
+        )}
 
-            {/* Order form */}
-            <form id="checkout-order-form" onSubmit={handleSubmit}>
+        {activeStepKey === "customize" && (
+          <div className="checkout-step-card">
+            <h2>Personaliza</h2>
+            <p className="checkout-step-card__hint">Ajusta paquete y extras para tu servicio.</p>
+            <div className="checkout-step-card__actions">
+              {steps.includes("schedule") && (
+                <button type="button" className="checkout-secondary-button" onClick={handleStepBack}>
+                  Volver
+                </button>
+              )}
+              <Button onClick={handleStepContinue}>Continuar</Button>
+            </div>
+          </div>
+        )}
 
+        {activeStepKey === "details" && (
+          <div className="checkout-step-card">
+            <h2>Tus datos</h2>
+            <p className="checkout-step-card__hint">Completa tu información de contacto.</p>
+
+            <div id="checkout-details-form">
               {/* Loading CRM form */}
               {crmFormState.status === "loading" && (
                 <div className="checkout-crm-form__loading">
@@ -923,173 +1100,254 @@ function StoreCheckout({
                   </div>
                 </>
               ) : null}
+            </div>
 
-              {/* Status message */}
+            <div className="checkout-step-card__actions">
+              {(steps.includes("schedule") || steps.includes("customize")) && (
+                <button type="button" className="checkout-secondary-button" onClick={handleStepBack}>
+                  Volver
+                </button>
+              )}
+              <Button onClick={handleStepContinue}>Continuar</Button>
+            </div>
+          </div>
+        )}
+
+        {activeStepKey === "review" && (
+          <div className="checkout-review">
+            {/* ── Editable summary blocks ──────────────────────────────── */}
+            <section className="checkout-review__main">
+              <h2>Revisar y pagar</h2>
+
+              <div className="checkout-review__section">
+                <h3>Servicio{cart.items.length > 1 ? "s" : ""}</h3>
+                <div className="checkout-summary-items">
+                  {cart.items.map((item) => {
+                    const thumb =
+                      item.coverImageUrl ||
+                      item.image_url ||
+                      item.product?.cover_image_url ||
+                      item.metadata?.cover_image_url ||
+                      null;
+
+                    return (
+                      <div className="checkout-summary-item" key={item.id || item.productId}>
+                        <div className="checkout-summary-thumb">
+                          {thumb ? (
+                            <img src={thumb} alt={item.snapshotName} />
+                          ) : (
+                            <span>{(item.snapshotName || "S").slice(0, 1).toUpperCase()}</span>
+                          )}
+                        </div>
+                        <div>
+                          <div className="checkout-summary-name">{item.snapshotName}</div>
+                          <div className="checkout-summary-meta">
+                            {item.quantity}x &middot; {formatPrice(item.unitPrice, item.currency)}
+                          </div>
+                        </div>
+                        <strong className="checkout-summary-line-total">
+                          {formatPrice(item.unitPrice * item.quantity, item.currency)}
+                        </strong>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {bookingStatus.hasBooking && (
+                <div className="checkout-review__section">
+                  <h3>Reserva</h3>
+                  {bookingServices.map((svc) => {
+                    const selection = bookingSelections[svc.slug];
+                    return (
+                      <div key={svc.slug} className="checkout-review__booking">
+                        <strong>{svc.name}</strong>
+                        <ul>
+                          {svc.hasCalendar && selection?.starts_at && (
+                            <li>Fecha: {formatDateTime(selection.starts_at)}</li>
+                          )}
+                          {svc.display?.packageName && <li>Paquete: {svc.display.packageName}</li>}
+                          {svc.display?.addons?.length > 0 && (
+                            <li>
+                              Extras:{" "}
+                              {svc.display.addons
+                                .map((addon) => `${addon.name} x${addon.quantity}`)
+                                .join(", ")}
+                            </li>
+                          )}
+                          {selection?.estimated_duration_minutes ? (
+                            <li>Duración estimada: {selection.estimated_duration_minutes} min</li>
+                          ) : null}
+                          {selection?.deposit_amount > 0 && (
+                            <li>
+                              Depósito: {formatPrice(selection.deposit_amount, cart.summary.currency)}
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="checkout-review__section">
+                <h3>Cliente</h3>
+                <ul>
+                  {checkoutForm.name && <li>{checkoutForm.name}</li>}
+                  {checkoutForm.email && <li>{checkoutForm.email}</li>}
+                  {checkoutForm.phone && <li>{checkoutForm.phone}</li>}
+                </ul>
+              </div>
+
+              {!createdOrder && (
+                <div className="checkout-review__edit-links">
+                  {steps.includes("schedule") && (
+                    <button type="button" onClick={() => goToStep(steps.indexOf("schedule"))}>
+                      Editar fecha y hora
+                    </button>
+                  )}
+                  {steps.includes("customize") && (
+                    <button type="button" onClick={() => goToStep(steps.indexOf("customize"))}>
+                      Editar personalización
+                    </button>
+                  )}
+                  <button type="button" onClick={() => goToStep(steps.indexOf("details"))}>
+                    Editar datos
+                  </button>
+                </div>
+              )}
+
+              {/* Stripe payment box — appears after payment intent is ready */}
+              {paymentReady && (
+                <div style={{ marginTop: 28 }}>
+                  <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "0 0 6px", color: "#111" }}>
+                    Método de pago
+                  </h3>
+                  <p style={{ fontSize: "0.875rem", color: "#71717a", margin: "0 0 16px" }}>
+                    Ingresa los datos de tu tarjeta para completar la contratación.
+                  </p>
+                  {stripePromise ? (
+                    <Elements stripe={stripePromise}>
+                      <StoreCardPaymentForm
+                        clientSecret={paymentIntent.clientSecret}
+                        order={createdOrder}
+                        checkoutForm={checkoutForm}
+                        submitState={submitState}
+                        setSubmitState={setSubmitState}
+                        onPaymentSucceeded={handlePaymentSucceeded}
+                      />
+                    </Elements>
+                  ) : (
+                    <p className="form-status form-status--error">
+                      Falta `VITE_STRIPE_PUBLISHABLE_KEY` para inicializar Stripe en frontend.
+                    </p>
+                  )}
+                </div>
+              )}
+
               {submitState.status !== "idle" && !paymentReady && (
                 <p className={`form-status form-status--${submitState.status}`} style={{ marginTop: 16 }}>
                   {submitState.message}
                 </p>
               )}
-            </form>
 
-            {/* Stripe payment box — appears after payment intent is ready */}
-            {paymentReady && (
-              <div style={{ marginTop: 28 }}>
-                <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "0 0 6px", color: "#111" }}>
-                  Método de pago
-                </h3>
-                <p style={{ fontSize: "0.875rem", color: "#71717a", margin: "0 0 16px" }}>
-                  Ingresa los datos de tu tarjeta para completar la contratación.
-                </p>
-                {stripePromise ? (
-                  <Elements stripe={stripePromise}>
-                    <StoreCardPaymentForm
-                      clientSecret={paymentIntent.clientSecret}
-                      order={createdOrder}
-                      checkoutForm={checkoutForm}
-                      submitState={submitState}
-                      setSubmitState={setSubmitState}
-                      onPaymentSucceeded={handlePaymentSucceeded}
-                    />
-                  </Elements>
-                ) : (
-                  <p className="form-status form-status--error">
-                    Falta `VITE_STRIPE_PUBLISHABLE_KEY` para inicializar Stripe en frontend.
+              {/* Submitted via the pay button's form="checkout-order-form" attribute */}
+              <form id="checkout-order-form" onSubmit={handleSubmit} />
+            </section>
+
+            {/* ── Totals + pay ─────────────────────────────────────────── */}
+            <aside className="checkout-review__aside">
+              <div className="checkout-summary-card">
+                <div className="checkout-summary-head">
+                  <h2>Total</h2>
+                  <Link to="/servicios/carrito" className="checkout-edit-link">
+                    Editar carrito
+                  </Link>
+                </div>
+
+                <div className="checkout-coupon-row">
+                  <input
+                    type="text"
+                    placeholder="Código de descuento"
+                    value={couponCode}
+                    onChange={(e) => {
+                      setCouponCode(e.target.value.toUpperCase());
+                      if (appliedCoupon) setAppliedCoupon(null);
+                      if (couponState.status !== "idle") setCouponState({ status: "idle", message: "" });
+                    }}
+                    disabled={couponState.status === "loading" || !canCreateOrder}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleApplyCoupon(); } }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyCoupon}
+                    disabled={couponState.status === "loading" || !couponCode.trim() || !canCreateOrder}
+                  >
+                    {couponState.status === "loading" ? "..." : "Aplicar"}
+                  </button>
+                </div>
+                {couponState.status !== "idle" && (
+                  <p className={`form-status form-status--${couponState.status === "success" ? "success" : "error"}`} style={{ margin: "4px 0 0", fontSize: "0.8rem" }}>
+                    {couponState.message}
                   </p>
                 )}
-              </div>
-            )}
-          </div>
-        </section>
 
-        {/* ── RIGHT: summary card ─────────────────────────────────────── */}
-        <aside>
-          <div className="checkout-summary-card">
-            <div className="checkout-summary-head">
-              <h2>Revisa tu orden</h2>
-              <Link to="/servicios/carrito" className="checkout-edit-link">
-                Editar carrito
-              </Link>
-            </div>
-
-            {/* Items */}
-            <div className="checkout-summary-items">
-              {cart.items.map((item) => {
-                const thumb =
-                  item.coverImageUrl ||
-                  item.image_url ||
-                  item.product?.cover_image_url ||
-                  item.metadata?.cover_image_url ||
-                  null;
-
-                return (
-                  <div className="checkout-summary-item" key={item.id || item.productId}>
-                    <div className="checkout-summary-thumb">
-                      {thumb ? (
-                        <img src={thumb} alt={item.snapshotName} />
-                      ) : (
-                        <span>{(item.snapshotName || "S").slice(0, 1).toUpperCase()}</span>
-                      )}
-                    </div>
-                    <div>
-                      <div className="checkout-summary-name">{item.snapshotName}</div>
-                      <div className="checkout-summary-meta">
-                        {item.quantity}x &middot; {formatPrice(item.unitPrice, item.currency)}
-                      </div>
-                    </div>
-                    <strong className="checkout-summary-line-total">
-                      {formatPrice(item.unitPrice * item.quantity, item.currency)}
-                    </strong>
+                <div className="checkout-totals">
+                  <div className="checkout-total-row">
+                    <span>
+                      Subtotal ({cart.items.length}{" "}
+                      {cart.items.length === 1 ? "item" : "items"})
+                    </span>
+                    <span>{formatPrice(cart.summary.subtotal, cart.summary.currency)}</span>
                   </div>
-                );
-              })}
-            </div>
-
-            {/* Coupon */}
-            <div className="checkout-coupon-row">
-              <input
-                type="text"
-                placeholder="Código de descuento"
-                value={couponCode}
-                onChange={(e) => {
-                  setCouponCode(e.target.value.toUpperCase());
-                  if (appliedCoupon) setAppliedCoupon(null);
-                  if (couponState.status !== "idle") setCouponState({ status: "idle", message: "" });
-                }}
-                disabled={couponState.status === "loading" || !canCreateOrder}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleApplyCoupon(); } }}
-              />
-              <button
-                type="button"
-                onClick={handleApplyCoupon}
-                disabled={couponState.status === "loading" || !couponCode.trim() || !canCreateOrder}
-              >
-                {couponState.status === "loading" ? "..." : "Aplicar"}
-              </button>
-            </div>
-            {couponState.status !== "idle" && (
-              <p className={`form-status form-status--${couponState.status === "success" ? "success" : "error"}`} style={{ margin: "4px 0 0", fontSize: "0.8rem" }}>
-                {couponState.message}
-              </p>
-            )}
-
-            {/* Totals */}
-            <div className="checkout-totals">
-              <div className="checkout-total-row">
-                <span>
-                  Subtotal ({cart.items.length}{" "}
-                  {cart.items.length === 1 ? "item" : "items"})
-                </span>
-                <span>{formatPrice(cart.summary.subtotal, cart.summary.currency)}</span>
-              </div>
-              {appliedCoupon && (
-                <div className="checkout-total-row" style={{ color: "#16a34a" }}>
-                  <span>Descuento ({appliedCoupon.code})</span>
-                  <span>-{formatPrice(appliedCoupon.discountAmount, cart.summary.currency)}</span>
-                </div>
-              )}
-              <div className="checkout-total-row is-total">
-                <span>Total</span>
-                <span>
-                  {formatPrice(
-                    Math.max(0, Number(cart.summary.subtotal) - Number(appliedCoupon?.discountAmount || 0)),
-                    cart.summary.currency
+                  {appliedCoupon && (
+                    <div className="checkout-total-row" style={{ color: "#16a34a" }}>
+                      <span>Descuento ({appliedCoupon.code})</span>
+                      <span>-{formatPrice(appliedCoupon.discountAmount, cart.summary.currency)}</span>
+                    </div>
                   )}
-                </span>
+                  <div className="checkout-total-row is-total">
+                    <span>Total</span>
+                    <span>
+                      {formatPrice(
+                        Math.max(0, Number(cart.summary.subtotal) - Number(appliedCoupon?.discountAmount || 0)),
+                        cart.summary.currency
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  form={paymentReady ? "checkout-stripe-form" : "checkout-order-form"}
+                  className="checkout-pay-button"
+                  style={{ width: "100%", marginTop: 16 }}
+                  disabled={isProcessing}
+                >
+                  {isProcessing
+                    ? "Procesando..."
+                    : paymentReady
+                    ? "Pagar ahora"
+                    : "Crear orden y continuar al pago"}
+                </button>
+
+                {createdOrder && !paymentReady && (
+                  <p style={{ marginTop: 10, fontSize: "0.82rem", color: "#6b7280", textAlign: "center" }}>
+                    Orden <strong>{createdOrder.orderNumber}</strong> creada. Preparando pago...
+                  </p>
+                )}
+
+                <div className="checkout-secure-box">
+                  <LockIcon />
+                  <div>
+                    <strong>Secure Checkout - SSL Encrypted</strong>
+                    <p>Tus datos personales y financieros están protegidos durante toda la transacción.</p>
+                  </div>
+                </div>
               </div>
-            </div>
-
-            {/* Pay button — submits left-column form via `form` attribute */}
-            <button
-              type="submit"
-              form={paymentReady ? "checkout-stripe-form" : "checkout-order-form"}
-              className="checkout-pay-button"
-              style={{ width: "100%", marginTop: 16 }}
-              disabled={isProcessing}
-            >
-              {isProcessing
-                ? "Procesando..."
-                : paymentReady
-                ? "Pagar ahora"
-                : "Crear orden y continuar al pago"}
-            </button>
-
-            {createdOrder && !paymentReady && (
-              <p style={{ marginTop: 10, fontSize: "0.82rem", color: "#6b7280", textAlign: "center" }}>
-                Orden <strong>{createdOrder.orderNumber}</strong> creada. Preparando pago...
-              </p>
-            )}
-
-            {/* Security badge */}
-            <div className="checkout-secure-box">
-              <LockIcon />
-              <div>
-                <strong>Secure Checkout - SSL Encrypted</strong>
-                <p>Tus datos personales y financieros están protegidos durante toda la transacción.</p>
-              </div>
-            </div>
+            </aside>
           </div>
-        </aside>
+        )}
       </div>
     </div>
   );
