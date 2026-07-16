@@ -107,21 +107,28 @@ function svcReducer(state, action) {
   }
 }
 
-// ─── package chips (shared by the schedule and customize sections) ──────────
+// ─── package cards (shared by the schedule and customize sections) ──────────
+// Same visual system as the addon cards below — bordered rounded-rect
+// options, not pill chips — so packages and extras read as one consistent
+// system instead of two different UI languages for the same kind of choice.
 
 function PackageChips({ packages, selectedId, onSelect }) {
   return (
     <div className="cbp-sub" style={{ marginBottom: 14 }}>
       <p className="cbp-sub__label">Paquete</p>
-      <div className="cbp-chips">
+      <div className="cbp-option-grid">
         {packages.map((pkg) => (
           <button
             key={pkg.id}
             type="button"
-            className={`cbp-chip${selectedId === pkg.id ? " active" : ""}`}
+            className={`cbp-option-card${selectedId === pkg.id ? " active" : ""}`}
             onClick={() => onSelect(pkg.id)}
           >
-            {pkg.name}
+            <span className="cbp-option-card__name">{pkg.name}</span>
+            {pkg.description && <span className="cbp-option-card__desc">{pkg.description}</span>}
+            {pkg.price > 0 && (
+              <span className="cbp-option-card__price">{formatPrice(pkg.price, pkg.currency)}</span>
+            )}
           </button>
         ))}
       </div>
@@ -363,168 +370,159 @@ function ServiceBookingSection({
 
   return (
     <>
-      {/* ── Card: Reserva ─────────────────────────────────────────── */}
+      {/* Fecha y hora content — lives directly in the step body, no
+          separate "Reserva del servicio" card/header of its own (the
+          outer CheckoutPage step header already says "Fecha y hora"). */}
       {showScheduleCard && (
-        <div className="cbp-card cbp-card--booking">
-          <div className="cbp-card__header">
-            <span className="cbp-card__title">Reserva del servicio</span>
-            {!editingBooking && (
-              <button
-                type="button"
-                className="cbp-card__edit-btn"
-                onClick={() => { setEditingBooking(true); dispatch({ type: "SELECT_DATE", date: null }); dispatch({ type: "SELECT_SLOT", slot: null }); }}
-              >
-                Editar
-              </button>
-            )}
-          </div>
-
-          <div className="cbp-card__body">
-            {/* Package chips — packages ride along with the calendar here */}
-            {hasPkgs && showPackagesInSchedule && (
-              <PackageChips
-                packages={packages}
-                selectedId={s.selectedPackage}
-                onSelect={(id) => dispatch({ type: "SET_PACKAGE", id })}
-              />
-            )}
-
-            {/* Summary view when date+slot selected */}
-            {hasCalendar && !editingBooking && s.selectedDate && (
-              <>
-                <div className="cbp-booking-row">
-                  <div className="cbp-booking-row__icon">📅</div>
-                  <div className="cbp-booking-row__info">
-                    <span className="cbp-booking-row__label">Fecha</span>
-                    <span className="cbp-booking-row__value">{dateLabel}</span>
-                  </div>
-                </div>
-                {s.selectedSlot && (
-                  <div className="cbp-booking-row">
-                    <div className="cbp-booking-row__icon">🕐</div>
-                    <div className="cbp-booking-row__info">
-                      <span className="cbp-booking-row__label">Hora</span>
-                      <span className="cbp-booking-row__value">{s.selectedSlot.label}</span>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Calendar + horarios picker — two columns on desktop/tablet
-                (calendar left, times right), stacked on mobile. The times
-                column always renders once editing, even before a date is
-                picked, so the block reads as one balanced composition
-                instead of a calendar floating alone with a slot list that
-                pops in later. */}
-            {hasCalendar && editingBooking && (
-              <>
-                <div className="cbp-booking-layout">
-                  <div className="cbp-booking-layout__calendar">
-                    <div className="cbp-cal-nav">
-                      <button type="button" className="cbp-cal-nav__btn" onClick={() => dispatch({ type: "PREV_MONTH" })} aria-label="Mes anterior">
-                        <ChevronLeft size={13} />
-                      </button>
-                      <span className="cbp-cal-nav__month">
-                        {monthLabel ? monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1) : ""}
-                      </span>
-                      <button type="button" className="cbp-cal-nav__btn" onClick={() => dispatch({ type: "NEXT_MONTH" })} aria-label="Mes siguiente">
-                        <ChevronRight size={13} />
-                      </button>
-                    </div>
-
-                    <div className="cbp-cal-grid">
-                      {["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"].map((d) => (
-                        <div key={d} className="cbp-cal-dow">{d}</div>
-                      ))}
-                      {calCells.map((cell, i) => {
-                        if (!cell) return <div key={`e-${i}`} />;
-                        const ymd = toYMD(cell);
-                        const isPast = cell < today;
-                        const isAvail = slotDates.has(ymd);
-                        const isSel = s.selectedDate === ymd;
-                        const isToday = ymd === toYMD(today);
-                        let cls = "cbp-cal-day";
-                        if (isPast) cls += " past";
-                        else if (isAvail) cls += " available";
-                        if (isToday) cls += " today";
-                        if (isSel) cls += " selected";
-                        return (
-                          <button key={ymd} type="button" className={cls} disabled={isPast || !isAvail}
-                            onClick={() => dispatch({ type: "SELECT_DATE", date: ymd })}>
-                            {cell.getDate()}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="cbp-booking-layout__times">
-                    <p className="cbp-sub__label">Horarios disponibles</p>
-                    {!s.selectedDate ? (
-                      <p className="cbp-notice cbp-notice--placeholder">Selecciona una fecha para ver los horarios disponibles.</p>
-                    ) : daySlots.length === 0 ? (
-                      <p className="cbp-notice cbp-notice--placeholder">Sin horarios para esta fecha.</p>
-                    ) : (
-                      <div className="cbp-slots">
-                        {daySlots.map((sl) => (
-                          <button key={sl.starts_at} type="button"
-                            className={`cbp-slot${s.selectedSlot?.starts_at === sl.starts_at ? " active" : ""}`}
-                            onClick={() => {
-                              dispatch({ type: "SELECT_SLOT", slot: sl });
-                              setEditingBooking(false);
-                            }}>
-                            {sl.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {!s.selectedSlot && (
-                  <p className="cbp-required-hint">
-                    {s.slotInvalidated
-                      ? "Ese horario ya no está disponible con tu selección actual. Elige otro horario."
-                      : "Selecciona fecha y hora para continuar."}
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── Card: Paquete (solo cuando el servicio no tiene calendario) ── */}
-      {showPackagesInCustomize && (
-        <div className="cbp-card">
-          <div className="cbp-card__header">
-            <span className="cbp-card__title">Paquete</span>
-          </div>
-          <div className="cbp-card__body">
+        <div className="cbp-schedule">
+          {/* Package cards — packages ride along with the calendar here */}
+          {hasPkgs && showPackagesInSchedule && (
             <PackageChips
               packages={packages}
               selectedId={s.selectedPackage}
               onSelect={(id) => dispatch({ type: "SET_PACKAGE", id })}
             />
-          </div>
+          )}
+
+          {/* Summary view when date+slot selected */}
+          {hasCalendar && !editingBooking && s.selectedDate && (
+            <div className="cbp-schedule-summary">
+              <div className="cbp-booking-row">
+                <div className="cbp-booking-row__icon">📅</div>
+                <div className="cbp-booking-row__info">
+                  <span className="cbp-booking-row__label">Fecha</span>
+                  <span className="cbp-booking-row__value">{dateLabel}</span>
+                </div>
+              </div>
+              {s.selectedSlot && (
+                <div className="cbp-booking-row">
+                  <div className="cbp-booking-row__icon">🕐</div>
+                  <div className="cbp-booking-row__info">
+                    <span className="cbp-booking-row__label">Hora</span>
+                    <span className="cbp-booking-row__value">{s.selectedSlot.label}</span>
+                  </div>
+                </div>
+              )}
+              <button
+                type="button"
+                className="cbp-schedule-summary__edit"
+                onClick={() => { setEditingBooking(true); dispatch({ type: "SELECT_DATE", date: null }); dispatch({ type: "SELECT_SLOT", slot: null }); }}
+              >
+                Editar
+              </button>
+            </div>
+          )}
+
+          {/* Calendar + horarios picker — two columns on desktop/tablet
+              (calendar left, times right), stacked on mobile. The times
+              column always renders once editing, even before a date is
+              picked, so the block reads as one balanced composition
+              instead of a calendar floating alone with a slot list that
+              pops in later. */}
+          {hasCalendar && editingBooking && (
+            <>
+              <div className="cbp-booking-layout">
+                <div className="cbp-booking-layout__calendar">
+                  <div className="cbp-cal-nav">
+                    <button type="button" className="cbp-cal-nav__btn" onClick={() => dispatch({ type: "PREV_MONTH" })} aria-label="Mes anterior">
+                      <ChevronLeft size={13} />
+                    </button>
+                    <span className="cbp-cal-nav__month">
+                      {monthLabel ? monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1) : ""}
+                    </span>
+                    <button type="button" className="cbp-cal-nav__btn" onClick={() => dispatch({ type: "NEXT_MONTH" })} aria-label="Mes siguiente">
+                      <ChevronRight size={13} />
+                    </button>
+                  </div>
+
+                  <div className="cbp-cal-grid">
+                    {["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"].map((d) => (
+                      <div key={d} className="cbp-cal-dow">{d}</div>
+                    ))}
+                    {calCells.map((cell, i) => {
+                      if (!cell) return <div key={`e-${i}`} />;
+                      const ymd = toYMD(cell);
+                      const isPast = cell < today;
+                      const isAvail = slotDates.has(ymd);
+                      const isSel = s.selectedDate === ymd;
+                      const isToday = ymd === toYMD(today);
+                      let cls = "cbp-cal-day";
+                      if (isPast) cls += " past";
+                      else if (isAvail) cls += " available";
+                      if (isToday) cls += " today";
+                      if (isSel) cls += " selected";
+                      return (
+                        <button key={ymd} type="button" className={cls} disabled={isPast || !isAvail}
+                          onClick={() => dispatch({ type: "SELECT_DATE", date: ymd })}>
+                          {cell.getDate()}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="cbp-booking-layout__times">
+                  <p className="cbp-sub__label">Horarios disponibles</p>
+                  {!s.selectedDate ? (
+                    <p className="cbp-notice cbp-notice--placeholder">Selecciona una fecha para ver los horarios disponibles.</p>
+                  ) : daySlots.length === 0 ? (
+                    <p className="cbp-notice cbp-notice--placeholder">Sin horarios para esta fecha.</p>
+                  ) : (
+                    <div className="cbp-slots">
+                      {daySlots.map((sl) => (
+                        <button key={sl.starts_at} type="button"
+                          className={`cbp-slot${s.selectedSlot?.starts_at === sl.starts_at ? " active" : ""}`}
+                          onClick={() => {
+                            dispatch({ type: "SELECT_SLOT", slot: sl });
+                            setEditingBooking(false);
+                          }}>
+                          {sl.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {!s.selectedSlot && (
+                <p className="cbp-required-hint">
+                  {s.slotInvalidated
+                    ? "Ese horario ya no está disponible con tu selección actual. Elige otro horario."
+                    : "Selecciona fecha y hora para continuar."}
+                </p>
+              )}
+            </>
+          )}
         </div>
       )}
 
-      {/* ── Card: Extras ──────────────────────────────────────────── */}
+      {/* Paquete (solo cuando el servicio no tiene calendario) — mismo
+          sistema visual que Extras, sin card propia. */}
+      {showPackagesInCustomize && (
+        <div className="cbp-customize-block">
+          <PackageChips
+            packages={packages}
+            selectedId={s.selectedPackage}
+            onSelect={(id) => dispatch({ type: "SET_PACKAGE", id })}
+          />
+        </div>
+      )}
+
+      {/* Extras — 2-column grid of compact option cards, not a narrow
+          vertical list; no separate "Extras opcionales" card (the outer
+          step header already says "Personaliza"). */}
       {showAddonsCard && (
-        <div className="cbp-card">
-          <div className="cbp-card__header">
-            <span className="cbp-card__title">Extras opcionales</span>
-          </div>
-          <div className="cbp-card__body cbp-card__body--no-gap">
-            {addons.map((a, idx) => {
+        <div className="cbp-customize-block">
+          <p className="cbp-sub__label">Extras opcionales</p>
+          <div className="cbp-addons-grid">
+            {addons.map((a) => {
               const qty = s.addonQty[a.id] ?? 0;
               return (
-                <div key={a.id} className={`cbp-addon-row${idx < addons.length - 1 ? " cbp-addon-row--bordered" : ""}`}>
-                  <div className="cbp-addon-row__info">
-                    <span className="cbp-addon-row__name">{a.name}</span>
-                    {a.price > 0 && <span className="cbp-addon-row__price">+{formatPrice(a.price, a.currency)}</span>}
+                <div key={a.id} className={`cbp-addon-card${qty > 0 ? " has-qty" : ""}`}>
+                  <div className="cbp-addon-card__info">
+                    <span className="cbp-addon-card__name">{a.name}</span>
+                    {a.description && <span className="cbp-addon-card__desc">{a.description}</span>}
+                    {a.price > 0 && <span className="cbp-addon-card__price">+{formatPrice(a.price, a.currency)}</span>}
                   </div>
                   <div className="cbp-qty">
                     <button type="button" className="cbp-qty__btn"
@@ -541,7 +539,6 @@ function ServiceBookingSection({
           </div>
         </div>
       )}
-
     </>
   );
 }

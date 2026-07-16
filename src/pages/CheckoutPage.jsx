@@ -1022,32 +1022,27 @@ function StoreCheckout({
     return sum + Number(selection?.deposit_amount || 0);
   }, 0);
 
+  const isReviewStep = activeStepKey === "review";
+  const showWizardState = isDiscovering || hasResolutionError;
+
   return (
     <div className="checkout-modern-page">
       <div className="checkout-hero">
         <h1>Finaliza tu contratación</h1>
       </div>
 
-      <div className="checkout-wizard-shell">
-        {isDiscovering && (
-          <div className="empty-state">
-            <h2>Preparando tu checkout...</h2>
-            <p>Estamos revisando los servicios de tu resumen.</p>
-          </div>
-        )}
-
-        {!isDiscovering && hasResolutionError && (
-          <div className="empty-state">
-            <h2>No pudimos preparar tu checkout</h2>
-            <p>No pudimos preparar uno de los servicios. Regresa al carrito e inténtalo nuevamente.</p>
-            <div className="empty-state__actions">
-              <Button to="/servicios/carrito">Volver al carrito</Button>
-            </div>
-          </div>
-        )}
-
-        {!isDiscovering && !hasResolutionError && (
-          <>
+      {/* Single unified surface: stepper + step content + footer all live in
+          one card, and it is ALWAYS mounted (only hidden via CSS while on
+          the review step) — never conditionally removed from the tree based
+          on isDiscovering/hasResolutionError/activeStepKey. That's what
+          keeps ServiceBookingCheckoutPanel's internal reducer (selected
+          date/slot/package/addon quantities) alive across the whole
+          checkout, not just across step navigation — the exact bug the
+          original "single instance" fix (Bloqueo 1) closed. Going back to
+          conditionally unmounting this card would reopen it. */}
+      <div className="checkout-wizard-card" style={isReviewStep ? { display: "none" } : undefined}>
+        {!showWizardState && (
+          <div className="checkout-wizard-card__stepper">
             <BookingStepper
               steps={steps}
               activeIndex={activeStepIndex}
@@ -1056,117 +1051,159 @@ function StoreCheckout({
               showConfirmationPill={!bookingStatus.hasBooking}
               confirmed={false}
             />
-
-            {activeStepKey === "schedule" && (
-              <div className="checkout-step-card">
-            <h2>Fecha y hora</h2>
-            <p className="checkout-step-card__hint">
-              {bookingServices.length > 1
-                ? `Elige fecha y horario para ${bookingServices.map((s) => s.name).join(" y ")}.`
-                : "Elige el día y horario para tu servicio."}
-            </p>
-            <div className="checkout-step-card__actions">
-              <Button
-                onClick={handleStepContinue}
-                disabled={!isStepComplete("schedule", stepCtx)}
-              >
-                Continuar
-              </Button>
-            </div>
           </div>
         )}
 
-        {activeStepKey === "customize" && (
-          <div className="checkout-step-card">
-            <h2>Personaliza</h2>
-            <p className="checkout-step-card__hint">Ajusta paquete y extras para tu servicio.</p>
-            <div className="checkout-step-card__actions">
-              {steps.includes("schedule") && (
-                <button type="button" className="checkout-secondary-button" onClick={handleStepBack}>
-                  Volver
-                </button>
-              )}
-              <Button onClick={handleStepContinue}>Continuar</Button>
+        <div className="checkout-wizard-card__body">
+          {isDiscovering && (
+            <div className="checkout-wizard-state">
+              <h2>Preparando tu checkout...</h2>
+              <p>Estamos revisando los servicios de tu resumen.</p>
             </div>
-          </div>
-        )}
+          )}
 
-        {activeStepKey === "details" && (
-          <div className="checkout-step-card">
-            <h2>Tus datos</h2>
-            <p className="checkout-step-card__hint">Completa tu información de contacto.</p>
+          {!isDiscovering && hasResolutionError && (
+            <div className="checkout-wizard-state">
+              <h2>No pudimos preparar tu checkout</h2>
+              <p>No pudimos preparar uno de los servicios. Regresa al carrito e inténtalo nuevamente.</p>
+              <Button to="/servicios/carrito">Volver al carrito</Button>
+            </div>
+          )}
 
-            <div id="checkout-details-form">
-              {/* Loading CRM form */}
-              {crmFormState.status === "loading" && (
-                <div className="checkout-crm-form__loading">
-                  <div className="checkout-crm-form__spinner" />
-                  <p>Cargando formulario...</p>
-                </div>
-              )}
+          {!showWizardState && activeStepKey === "schedule" && (
+            <div className="checkout-step-header">
+              <h2>Fecha y hora</h2>
+              <p className="checkout-step-header__hint">
+                {bookingServices.length > 1
+                  ? `Elige fecha y horario para ${bookingServices.map((s) => s.name).join(" y ")}.`
+                  : "Elige el día y horario para tu servicio."}
+              </p>
+            </div>
+          )}
 
-              {/* CRM fields via DynamicField */}
-              {crmFormState.status === "ready" && crmFields.length ? (
-                <div className="checkout-form-grid">
-                  {crmFields.map((field) => (
-                    <DynamicField
-                      key={field.id || field.name}
-                      field={field}
-                      value={crmFormValues[field.name] ?? field.default_value ?? ""}
-                      onChange={handleCrmFieldChange}
-                      error={crmFormErrors[field.name]}
-                      disabled={!canCreateOrder}
-                    />
-                  ))}
-                </div>
-              ) : null}
+          {!showWizardState && activeStepKey === "customize" && (
+            <div className="checkout-step-header">
+              <h2>Personaliza</h2>
+              <p className="checkout-step-header__hint">Ajusta paquete y extras para tu servicio.</p>
+            </div>
+          )}
 
-              {/* Fallback fields */}
-              {crmFormState.status === "error" ? (
-                <>
-                  {crmFormState.message && (
-                    <p className="form-status form-status--error" style={{ marginBottom: 16 }}>
-                      {crmFormState.message}
-                    </p>
-                  )}
-                  <div className="checkout-form-grid">
-                    <div className="checkout-field">
-                      <label>Nombre completo <span style={{ color: "#ef4444" }}>*</span></label>
-                      <input type="text" name="name" value={checkoutForm.name} onChange={handleFallbackChange} placeholder="Tu nombre completo" required disabled={!canCreateOrder} />
-                    </div>
-                    <div className="checkout-field">
-                      <label>Email <span style={{ color: "#ef4444" }}>*</span></label>
-                      <input type="email" name="email" value={checkoutForm.email} onChange={handleFallbackChange} placeholder="tu@email.com" required disabled={!canCreateOrder} />
-                    </div>
-                    <div className="checkout-field">
-                      <label>Teléfono</label>
-                      <input type="text" name="phone" value={checkoutForm.phone} onChange={handleFallbackChange} placeholder="+52 55 0000 0000" disabled={!canCreateOrder} />
-                    </div>
-                    <div className="checkout-field">
-                      <label>Empresa</label>
-                      <input type="text" name="company" value={checkoutForm.company} onChange={handleFallbackChange} placeholder="Nombre de tu empresa" disabled={!canCreateOrder} />
-                    </div>
-                    <div className="checkout-field is-full">
-                      <label>Notas</label>
-                      <textarea name="notes" value={checkoutForm.notes} onChange={handleFallbackChange} placeholder="Notas sobre entrega, acceso o cualquier detalle adicional." disabled={!canCreateOrder} />
-                    </div>
+          {/* ALWAYS mounted, same call site regardless of isDiscovering/
+              hasResolutionError/activeStepKey — see the comment on
+              .checkout-wizard-card above. Renders nothing visible unless
+              section is "schedule" or "customize" (see panelSection). */}
+          <ServiceBookingCheckoutPanel
+            cart={cart}
+            section={panelSection}
+            onSelectionChange={handleBookingSelectionChange}
+            onStatusChange={setBookingStatus}
+          />
+
+          {!showWizardState && activeStepKey === "details" && (
+            <>
+              <div className="checkout-step-header">
+                <h2>Tus datos</h2>
+                <p className="checkout-step-header__hint">Completa tu información de contacto.</p>
+              </div>
+
+              <div id="checkout-details-form">
+                {/* Loading CRM form */}
+                {crmFormState.status === "loading" && (
+                  <div className="checkout-crm-form__loading">
+                    <div className="checkout-crm-form__spinner" />
+                    <p>Cargando formulario...</p>
                   </div>
-                </>
-              ) : null}
-            </div>
+                )}
 
-            <div className="checkout-step-card__actions">
-              {(steps.includes("schedule") || steps.includes("customize")) && (
-                <button type="button" className="checkout-secondary-button" onClick={handleStepBack}>
-                  Volver
-                </button>
-              )}
-              <Button onClick={handleStepContinue}>Continuar</Button>
-            </div>
+                {/* CRM fields via DynamicField */}
+                {crmFormState.status === "ready" && crmFields.length ? (
+                  <div className="checkout-form-grid">
+                    {crmFields.map((field) => (
+                      <DynamicField
+                        key={field.id || field.name}
+                        field={field}
+                        value={crmFormValues[field.name] ?? field.default_value ?? ""}
+                        onChange={handleCrmFieldChange}
+                        error={crmFormErrors[field.name]}
+                        disabled={!canCreateOrder}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+
+                {/* Fallback fields */}
+                {crmFormState.status === "error" ? (
+                  <>
+                    {crmFormState.message && (
+                      <p className="form-status form-status--error" style={{ marginBottom: 16 }}>
+                        {crmFormState.message}
+                      </p>
+                    )}
+                    <div className="checkout-form-grid">
+                      <div className="checkout-field">
+                        <label>Nombre completo <span style={{ color: "#ef4444" }}>*</span></label>
+                        <input type="text" name="name" value={checkoutForm.name} onChange={handleFallbackChange} placeholder="Tu nombre completo" required disabled={!canCreateOrder} />
+                      </div>
+                      <div className="checkout-field">
+                        <label>Email <span style={{ color: "#ef4444" }}>*</span></label>
+                        <input type="email" name="email" value={checkoutForm.email} onChange={handleFallbackChange} placeholder="tu@email.com" required disabled={!canCreateOrder} />
+                      </div>
+                      <div className="checkout-field">
+                        <label>Teléfono</label>
+                        <input type="text" name="phone" value={checkoutForm.phone} onChange={handleFallbackChange} placeholder="+52 55 0000 0000" disabled={!canCreateOrder} />
+                      </div>
+                      <div className="checkout-field">
+                        <label>Empresa</label>
+                        <input type="text" name="company" value={checkoutForm.company} onChange={handleFallbackChange} placeholder="Nombre de tu empresa" disabled={!canCreateOrder} />
+                      </div>
+                      <div className="checkout-field is-full">
+                        <label>Notas</label>
+                        <textarea name="notes" value={checkoutForm.notes} onChange={handleFallbackChange} placeholder="Notas sobre entrega, acceso o cualquier detalle adicional." disabled={!canCreateOrder} />
+                      </div>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            </>
+          )}
+        </div>
+
+        {!showWizardState && activeStepKey !== "review" && (
+          <div className="checkout-wizard-card__footer">
+            {activeStepKey === "schedule" && (
+              <>
+                <span />
+                <Button onClick={handleStepContinue} disabled={!isStepComplete("schedule", stepCtx)}>
+                  Continuar
+                </Button>
+              </>
+            )}
+            {activeStepKey === "customize" && (
+              <>
+                {steps.includes("schedule") ? (
+                  <button type="button" className="checkout-secondary-button" onClick={handleStepBack}>
+                    Volver
+                  </button>
+                ) : <span />}
+                <Button onClick={handleStepContinue}>Continuar</Button>
+              </>
+            )}
+            {activeStepKey === "details" && (
+              <>
+                {(steps.includes("schedule") || steps.includes("customize")) ? (
+                  <button type="button" className="checkout-secondary-button" onClick={handleStepBack}>
+                    Volver
+                  </button>
+                ) : <span />}
+                <Button onClick={handleStepContinue}>Continuar</Button>
+              </>
+            )}
           </div>
         )}
+      </div>
 
-        {activeStepKey === "review" && (
+      {!showWizardState && activeStepKey === "review" && (
+        <div className="checkout-wizard-shell">
           <div className="checkout-review">
             {/* ── Editable summary blocks ──────────────────────────────── */}
             <section className="checkout-review__main">
@@ -1499,21 +1536,8 @@ function StoreCheckout({
               </div>
             </aside>
           </div>
-        )}
-          </>
-        )}
-      </div>
-
-      {/* Single ServiceBookingCheckoutPanel instance for the entire checkout
-          — same tree position whether discovery is loading, blocked by a
-          resolution error, or ready. Only `section` changes with the active
-          step, so the reducer (date/slot/package/extras) never remounts. */}
-      <ServiceBookingCheckoutPanel
-        cart={cart}
-        section={panelSection}
-        onSelectionChange={handleBookingSelectionChange}
-        onStatusChange={setBookingStatus}
-      />
+        </div>
+      )}
     </div>
   );
 }

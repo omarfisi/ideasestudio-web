@@ -4403,6 +4403,9 @@
   gap: 24px;
 }
 
+/* Numbered circle + label, connected by a thin discrete line — no pill
+   buttons/borders per step, so the stepper reads as one horizontal
+   progress indicator instead of a row of separate buttons. */
 .booking-stepper__list {
   list-style: none;
   margin: 0;
@@ -4411,7 +4414,6 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 8px;
 }
 
 .booking-stepper__item {
@@ -4419,34 +4421,42 @@
   align-items: center;
 }
 
+.booking-stepper__item:not(:last-child)::after {
+  content: "";
+  width: 28px;
+  height: 1px;
+  background: #e5e7eb;
+  margin: 0 10px;
+  flex-shrink: 0;
+}
+
 .booking-stepper__btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid rgba(17, 17, 17, 0.14);
-  background: #fff;
-  border-radius: 999px;
-  padding: 8px 16px 8px 8px;
+  border: none;
+  background: none;
+  padding: 4px 2px;
   font-size: 0.85rem;
-  font-weight: 700;
-  color: #71717a;
+  font-weight: 600;
+  color: #9ca3af;
   cursor: pointer;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  font-family: inherit;
+  transition: color 0.15s;
 }
 
 .booking-stepper__btn:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
 }
 
 .booking-stepper__btn:not(:disabled):hover {
-  border-color: rgba(17, 17, 17, 0.4);
   color: #111;
 }
 
 .booking-stepper__btn:focus-visible {
-  outline: 2px solid #f1d146;
+  outline: 2px solid #f8d000;
   outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .booking-stepper__btn--static {
@@ -4462,14 +4472,12 @@
   justify-content: center;
   font-size: 0.78rem;
   background: #f4f4f5;
-  color: #71717a;
+  color: #6b7280;
   flex-shrink: 0;
 }
 
 .booking-stepper__item.is-active .booking-stepper__btn {
-  border-color: #111;
   color: #111;
-  background: #fff;
 }
 
 .booking-stepper__item.is-active .booking-stepper__marker {
@@ -4478,46 +4486,119 @@
 }
 
 .booking-stepper__item.is-completed .booking-stepper__btn {
-  border-color: #f1d146;
   color: #111;
 }
 
 .booking-stepper__item.is-completed .booking-stepper__marker {
-  background: #f1d146;
+  background: #f8d000;
   color: #111;
 }
 
 .booking-stepper__item.is-upcoming .booking-stepper__btn {
-  color: #a1a1aa;
+  color: #9ca3af;
 }
 
-.checkout-step-card {
+/* Unified booking wizard card — stepper, step content (incl. the
+   calendar/horarios/paquetes/extras panel) and the Volver/Continuar
+   footer all live inside this one surface, so the wizard stops looking
+   like three separate systems stacked on top of each other. Rendered
+   directly under .checkout-modern-page (not inside .checkout-wizard-shell,
+   whose 760px max-width would otherwise cap it) — see StoreCheckout in
+   CheckoutPage.jsx. */
+.checkout-wizard-card {
+  max-width: 1120px;
+  margin: 0 auto 32px;
   background: #fff;
-  border: 1px solid rgba(17, 17, 17, 0.08);
-  border-radius: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 22px;
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.05);
-  padding: 28px;
-  display: grid;
-  gap: 4px;
+  overflow: hidden;
 }
 
-.checkout-step-card h2 {
+.checkout-wizard-card__stepper {
+  padding: 20px 40px;
+  background: #fafafa;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.checkout-wizard-card__body {
+  padding: 36px 40px;
+  display: grid;
+  gap: 24px;
+}
+
+.checkout-wizard-card__footer {
+  padding: 20px 40px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.checkout-wizard-state {
+  text-align: center;
+  padding: 24px 0;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+
+.checkout-wizard-state h2 {
   margin: 0;
-  font-size: 1.3rem;
+  font-size: 1.2rem;
   color: #111;
 }
 
-.checkout-step-card__hint {
-  margin: 0 0 16px;
-  color: #71717a;
-  font-size: 0.9rem;
+.checkout-wizard-state p {
+  margin: 0 0 8px;
+  color: #6b7280;
+  font-size: 0.92rem;
 }
 
-.checkout-step-card__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 20px;
+.checkout-step-header {
+  margin: 0 0 4px;
+}
+
+.checkout-step-header h2 {
+  margin: 0 0 6px;
+  font-size: 1.85rem;
+  letter-spacing: -0.02em;
+  color: #111;
+}
+
+.checkout-step-header__hint {
+  margin: 0;
+  color: #6b7280;
+  font-size: 1rem;
+}
+
+@media (max-width: 640px) {
+  .checkout-wizard-card {
+    border-radius: 18px;
+    margin-bottom: 20px;
+  }
+  .checkout-wizard-card__stepper {
+    padding: 16px 18px;
+  }
+  .checkout-wizard-card__body {
+    padding: 20px 18px;
+    gap: 18px;
+  }
+  .checkout-wizard-card__footer {
+    padding: 16px 18px;
+  }
+  .checkout-wizard-card__footer .btn,
+  .checkout-wizard-card__footer .checkout-secondary-button {
+    flex: 1;
+    justify-content: center;
+  }
+  .checkout-step-header h2 {
+    font-size: 1.4rem;
+  }
+  .checkout-step-header__hint {
+    font-size: 0.9rem;
+  }
 }
 
 .checkout-review {
@@ -4611,7 +4692,6 @@
     padding: 0 4px;
   }
 
-  .checkout-step-card,
   .checkout-review__main {
     padding: 20px;
     border-radius: 16px;
@@ -4628,18 +4708,13 @@
     width: 100%;
   }
 
+  .booking-stepper__item::after {
+    display: none;
+  }
+
   .booking-stepper__btn {
     width: 100%;
     justify-content: flex-start;
-  }
-
-  .checkout-step-card__actions {
-    flex-direction: column-reverse;
-  }
-
-  .checkout-step-card__actions .btn,
-  .checkout-step-card__actions button {
-    width: 100%;
   }
 }
 
@@ -15077,46 +15152,32 @@ section[id] {
    Integrated inside checkout-card, before customer fields
 ═══════════════════════════════════════════════════════════════ */
 
-/* Wrapper — no card of its own, divider only */
+/* Wrapper — no card of its own; ServiceBookingCheckoutPanel's content lives
+   directly inside CheckoutPage's .checkout-wizard-card__body now, not in
+   its own separate card(s). */
 .cbp-wrapper {
   display: grid;
-  gap: 14px;
+  gap: 28px;
 }
 
-/* Inner cards (Reserva / Extras / Resumen) */
-.cbp-card {
-  max-width: 760px;
-  margin: 0 auto 12px;
-  border: 1.5px solid #e5e7eb;
-  border-radius: 16px;
-  overflow: hidden;
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+.cbp-schedule,
+.cbp-customize-block {
+  display: grid;
+  gap: 4px;
 }
 
-/* The booking (calendar + horarios) card is wider than the other cards —
-   it holds a two-column composition that needs the room, not a form. */
-.cbp-card--booking {
-  max-width: 1040px;
+/* Compact read-only summary once a date+time is picked — replaces the
+   two-column picker entirely rather than sitting inside a card of its own. */
+.cbp-schedule-summary {
+  display: grid;
+  gap: 2px;
+  max-width: 400px;
 }
-.cbp-card--booking .cbp-card__body {
-  padding: 28px 32px 24px;
-}
-.cbp-card__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  background: #f7f7f7;
-  border-bottom: 1.5px solid #e2e2e2;
-}
-.cbp-card__title {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: #111;
-}
-.cbp-card__edit-btn {
-  font-size: 0.80rem;
+
+.cbp-schedule-summary__edit {
+  justify-self: start;
+  margin-top: 8px;
+  font-size: 0.8rem;
   font-weight: 600;
   color: #111;
   background: none;
@@ -15126,20 +15187,15 @@ section[id] {
   font-family: inherit;
   padding: 0;
 }
-.cbp-card__edit-btn:hover { color: #555; }
-.cbp-card__body {
-  padding: 14px 16px 10px;
-}
-.cbp-card__body--no-gap {
-  padding: 0;
-}
+
+.cbp-schedule-summary__edit:hover { color: #555; }
 
 /* Booking summary rows (date / time) */
 .cbp-booking-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 0;
+  padding: 10px 0;
   border-bottom: 1px solid rgba(22,22,22,0.07);
 }
 .cbp-booking-row:last-child { border-bottom: none; }
@@ -15167,32 +15223,6 @@ section[id] {
   color: #111;
 }
 
-/* Addon rows */
-.cbp-addon-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  gap: 12px;
-}
-.cbp-addon-row--bordered {
-  border-bottom: 1px solid rgba(22,22,22,0.07);
-}
-.cbp-addon-row__info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.cbp-addon-row__name {
-  font-size: 0.84rem;
-  font-weight: 500;
-  color: #111;
-}
-.cbp-addon-row__price {
-  font-size: 0.75rem;
-  color: #6b6258;
-}
-
 /* Loading */
 .cbp-loading {
   font-size: 0.8rem;
@@ -15200,51 +15230,66 @@ section[id] {
   padding: 6px 0 14px;
 }
 
-/* Subsection (fecha/extras/resumen) */
+/* Subsection label (Paquete / Horarios disponibles / Extras opcionales) */
 .cbp-sub {
   margin-bottom: 14px;
 }
 
 .cbp-sub__label {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: #9b9189;
-  margin: 0 0 8px;
+  color: #6b7280;
+  margin: 0 0 10px;
 }
 
-.cbp-sub--summary {
-  background: #fafafa;
-  border: 1px solid rgba(22,22,22,0.08);
-  border-radius: 12px;
-  padding: 12px 14px;
+/* Package / addon option cards — the same bordered rounded-rect visual
+   system for both, so choosing a package and choosing an addon feel like
+   the same kind of decision instead of two different UI languages. */
+.cbp-option-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
 }
 
-/* Package chips */
-.cbp-chips {
+.cbp-option-card {
   display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.cbp-chip {
-  padding: 4px 13px;
-  border-radius: 999px;
-  border: 1.5px solid rgba(22,22,22,0.18);
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1.5px solid #e5e7eb;
   background: #fff;
   color: #111;
-  font-size: 0.76rem;
-  font-weight: 500;
   cursor: pointer;
   font-family: inherit;
-  transition: all 0.12s;
+  transition: background 0.1s, border-color 0.1s;
 }
 
-.cbp-chip.active {
-  border-color: #f1d146;
-  background: #f1d146;
+.cbp-option-card:hover { border-color: #f8d000; background: #fffbe6; }
+
+.cbp-option-card.active {
+  border-color: #f8d000;
+  background: #fff7cc;
+}
+
+.cbp-option-card__name {
+  font-size: 0.88rem;
   font-weight: 700;
+}
+
+.cbp-option-card__desc {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.cbp-option-card__price {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #111;
+  margin-top: 2px;
 }
 
 /* Booking layout — calendar left, horarios right. Two columns give the
@@ -15400,7 +15445,6 @@ section[id] {
 }
 
 @media (max-width: 480px) {
-  .cbp-card--booking .cbp-card__body { padding: 20px 16px 16px; }
   .cbp-cal-grid { max-width: 300px; gap: 5px; }
   .cbp-cal-day { max-width: 40px; max-height: 40px; font-size: 0.76rem; }
   .cbp-cal-nav { gap: 12px; margin-bottom: 10px; }
@@ -15448,29 +15492,62 @@ section[id] {
   font-size: 0.82rem;
 }
 
-/* Addon row */
-.cbp-addon {
+/* Extras — 2-column grid of option cards (1 column on mobile), same
+   bordered/rounded system as .cbp-option-card. A card with qty > 0 gets a
+   yellow border/tint so it's obvious at a glance which extras are active
+   without having to read every counter. */
+.cbp-addons-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .cbp-addons-grid { grid-template-columns: 1fr; }
+}
+
+.cbp-addon-card {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 0;
-  border-bottom: 1px solid rgba(22,22,22,0.06);
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1.5px solid #e5e7eb;
+  background: #fff;
+  transition: background 0.1s, border-color 0.1s;
 }
 
-.cbp-addon:last-child { border-bottom: none; }
+.cbp-addon-card:hover { border-color: #f8d000; }
 
-.cbp-addon__info { flex: 1; min-width: 0; }
+.cbp-addon-card.has-qty {
+  border-color: #f8d000;
+  background: #fff7cc;
+}
 
-.cbp-addon__name {
-  font-size: 0.82rem;
+.cbp-addon-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cbp-addon-card__name {
+  font-size: 0.86rem;
   font-weight: 600;
   color: #111;
-  display: block;
 }
 
-.cbp-addon__price {
-  font-size: 0.72rem;
-  color: #6b6258;
+.cbp-addon-card__desc {
+  font-size: 0.76rem;
+  color: #6b7280;
+}
+
+.cbp-addon-card__price {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #111;
+  margin-top: 2px;
 }
 
 .cbp-qty {
@@ -15498,7 +15575,7 @@ section[id] {
   line-height: 1;
 }
 
-.cbp-qty__btn:hover:not(:disabled) { background: #f1d146; border-color: #f1d146; }
+.cbp-qty__btn:hover:not(:disabled) { background: #f8d000; border-color: #f8d000; }
 .cbp-qty__btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .cbp-qty__val {
