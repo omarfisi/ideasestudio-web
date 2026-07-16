@@ -436,9 +436,11 @@ function ServiceBookingSection({
                     const isPast = cell < today;
                     const isAvail = slotDates.has(ymd);
                     const isSel = s.selectedDate === ymd;
+                    const isToday = ymd === toYMD(today);
                     let cls = "cbp-cal-day";
                     if (isPast) cls += " past";
                     else if (isAvail) cls += " available";
+                    if (isToday) cls += " today";
                     if (isSel) cls += " selected";
                     return (
                       <button key={ymd} type="button" className={cls} disabled={isPast || !isAvail}
