@@ -14,6 +14,9 @@ import {
   mapBookingErrorMessage,
   isSelectedSlotStillAvailable,
   mergeTrustedOrderTotals,
+  shouldPreparePaymentSession,
+  isRetryBlocked,
+  isBookingConflictError,
 } from "./bookingCheckoutSteps.js";
 
 let passed = 0;
@@ -427,6 +430,84 @@ test("mergeTrustedOrderTotals: no mezcla totales de una orden distinta", () => {
 test("mergeTrustedOrderTotals: sin fuente confiable devuelve el refresh tal cual", () => {
   const refresh = { id: "order-1", amountDueNow: 500 };
   assert.deepEqual(mergeTrustedOrderTotals(refresh, null), refresh);
+});
+
+/* ── shouldPreparePaymentSession ───────────────────────────────────────── */
+function baseCtx(overrides = {}) {
+  return {
+    activeStepKey: "review",
+    bookingReady: true,
+    detailsValid: true,
+    completedOrder: null,
+    paymentIntent: null,
+    preparation: { running: false, completed: false },
+    ...overrides,
+  };
+}
+
+test("shouldPreparePaymentSession: entra a review con todo listo -> dispara", () => {
+  assert.equal(shouldPreparePaymentSession(baseCtx()), true);
+});
+
+test("shouldPreparePaymentSession: no es el paso review -> no dispara", () => {
+  assert.equal(shouldPreparePaymentSession(baseCtx({ activeStepKey: "schedule" })), false);
+  assert.equal(shouldPreparePaymentSession(baseCtx({ activeStepKey: "details" })), false);
+});
+
+test("shouldPreparePaymentSession: booking todavia descubriendo o con error de resolucion -> no dispara", () => {
+  assert.equal(shouldPreparePaymentSession(baseCtx({ bookingReady: false })), false);
+});
+
+test("shouldPreparePaymentSession: datos del cliente incompletos -> no dispara", () => {
+  assert.equal(shouldPreparePaymentSession(baseCtx({ detailsValid: false })), false);
+});
+
+test("shouldPreparePaymentSession: ya existe completedOrder (pago exitoso) -> nunca recrea otra orden", () => {
+  assert.equal(shouldPreparePaymentSession(baseCtx({ completedOrder: { id: "order-1" } })), false);
+});
+
+test("shouldPreparePaymentSession: ya existe un PaymentIntent -> reutiliza, no dispara de nuevo (volver y regresar a review)", () => {
+  assert.equal(
+    shouldPreparePaymentSession(baseCtx({ paymentIntent: { clientSecret: "secret_123" } })),
+    false
+  );
+});
+
+test("shouldPreparePaymentSession: preparation.running true -> no dispara una segunda vez (protege doble invocacion de StrictMode)", () => {
+  const preparation = { running: false, completed: false };
+  assert.equal(shouldPreparePaymentSession(baseCtx({ preparation })), true);
+  // El primer disparo marca running=true de forma sincrona (mismo objeto ref
+  // que usaria un useRef real) antes de que el segundo invoke de StrictMode
+  // vuelva a evaluar la condicion.
+  preparation.running = true;
+  assert.equal(shouldPreparePaymentSession(baseCtx({ preparation })), false);
+});
+
+test("shouldPreparePaymentSession: preparation.completed true -> un re-render no repite la creacion", () => {
+  const preparation = { running: false, completed: true };
+  assert.equal(shouldPreparePaymentSession(baseCtx({ preparation })), false);
+});
+
+/* ── isBookingConflictError / isRetryBlocked ───────────────────────────── */
+test("isBookingConflictError: slot ocupado y hold expirado deben regresar a Fecha y hora", () => {
+  assert.equal(isBookingConflictError("booking_time_slot_not_available"), true);
+  assert.equal(isBookingConflictError("booking_hold_expired"), true);
+});
+
+test("isBookingConflictError: otros codigos de error no son conflicto de slot", () => {
+  assert.equal(isBookingConflictError("payment_review_required"), false);
+  assert.equal(isBookingConflictError("booking_package_invalid"), false);
+  assert.equal(isBookingConflictError(null), false);
+});
+
+test("isRetryBlocked: payment_review_required bloquea reintentos, automaticos y manuales", () => {
+  assert.equal(isRetryBlocked("payment_review_required"), true);
+});
+
+test("isRetryBlocked: errores genericos (red, validacion) permiten 'Intentar nuevamente'", () => {
+  assert.equal(isRetryBlocked("booking_package_invalid"), false);
+  assert.equal(isRetryBlocked("network_error"), false);
+  assert.equal(isRetryBlocked(null), false);
 });
 
 console.log(`\n${passed} pruebas OK`);

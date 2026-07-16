@@ -4759,6 +4759,73 @@
   text-align: center;
 }
 
+.checkout-payment-preparing {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 16px;
+  border: 1.5px dashed #e5e7eb;
+  border-radius: 12px;
+}
+
+.checkout-payment-preparing__title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.checkout-payment-preparing__hint {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.checkout-payment-spinner {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 2.5px solid rgba(17, 17, 17, 0.15);
+  border-top-color: #111111;
+  animation: cart-spinner 0.7s linear infinite;
+}
+
+.checkout-payment-error {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1.5px solid #fecaca;
+  background: #fef2f2;
+  border-radius: 12px;
+}
+
+.checkout-payment-error .form-status--error {
+  margin: 0;
+}
+
+.checkout-payment-error .checkout-secondary-button {
+  min-height: 44px;
+  justify-self: start;
+}
+
+.checkout-review-locked-note {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f4f4f5;
+  color: #52525b;
+  font-size: 0.82rem;
+}
+
+.checkout-secondary-button.is-disabled {
+  color: #a1a1aa;
+  border-color: #e5e7eb;
+  background: #fafafa;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .checkout-review-order-ref {
   margin: -20px 0 0;
   font-size: 0.82rem;

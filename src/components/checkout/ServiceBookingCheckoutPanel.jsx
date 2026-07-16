@@ -142,6 +142,7 @@ function ServiceBookingSection({
   slug,
   serviceName,
   section = "hidden",
+  resetSignal = 0,
   onSelectionChange,
   onStatusChange,
 }) {
@@ -155,6 +156,17 @@ function ServiceBookingSection({
       .then((data) => dispatch({ type: "LOAD_OK", data }))
       .catch(() => dispatch({ type: "LOAD_ERR" }));
   }, [slug]);
+
+  // Fired by the parent checkout when a booking conflict (slot taken, hold
+  // expired) comes back from order/payment creation — clears the now-stale
+  // date/slot and reopens the picker, same as a real slotInvalidated. Skips
+  // the initial mount (resetSignal starts at 0, only increments on a real
+  // conflict).
+  useEffect(() => {
+    if (!resetSignal) return;
+    dispatch({ type: "SELECT_DATE", date: null });
+    setEditingBooking(true);
+  }, [resetSignal]);
 
   const requiresCalendarForAvailability = Boolean(
     s.booking?.booking_settings?.requires_calendar
@@ -577,6 +589,7 @@ function getSlugFromItem(item) {
 export default function ServiceBookingCheckoutPanel({
   cart,
   section = "hidden",
+  resetSignal = 0,
   onSelectionChange,
   onStatusChange,
 }) {
@@ -707,6 +720,7 @@ export default function ServiceBookingCheckoutPanel({
             slug={item.slug}
             serviceName={item.name}
             section={section}
+            resetSignal={resetSignal}
             onSelectionChange={onSelectionChange}
             onStatusChange={handleSectionStatus}
           />
@@ -723,6 +737,7 @@ export default function ServiceBookingCheckoutPanel({
           slug={item.slug}
           serviceName={item.name}
           section={section}
+          resetSignal={resetSignal}
           onSelectionChange={onSelectionChange}
           onStatusChange={handleSectionStatus}
         />

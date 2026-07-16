@@ -24,6 +24,9 @@ import {
   buildBookingSelectionField,
   mapBookingErrorMessage,
   mergeTrustedOrderTotals,
+  shouldPreparePaymentSession,
+  isRetryBlocked,
+  isBookingConflictError,
 } from "@/lib/bookingCheckoutSteps.js";
 
 const INITIAL_BOOKING_STATUS = {
@@ -530,6 +533,23 @@ function StoreCheckout({
   const [bookingSelections, setBookingSelections] = useState({});
   const [bookingSummary, setBookingSummary] = useState([]);
   const [bookingStatus, setBookingStatus] = useState(INITIAL_BOOKING_STATUS);
+
+  // Discovery still running — don't show the (possibly wrong) 2-step or
+  // 4-step stepper until every cart item has resolved its booking config.
+  const resolutionErrors = bookingStatus.resolutionErrors || [];
+  const isDiscovering = bookingStatus.status !== "ready";
+  const hasResolutionError = resolutionErrors.length > 0;
+
+  // useRef (not state) so it updates synchronously, before any await inside
+  // preparePaymentSession — that's what actually stops React StrictMode's
+  // intentional double-invoke (and any other re-render) from starting a
+  // second order/PaymentIntent creation. See shouldPreparePaymentSession.
+  const paymentPreparationRef = useRef({ running: false, completed: false });
+  // Bumped on booking_time_slot_not_available / booking_hold_expired so the
+  // affected ServiceBookingSection(s) clear their now-stale date/slot and
+  // reopen the picker — see ServiceBookingCheckoutPanel's resetSignal prop.
+  const [scheduleResetSignal, setScheduleResetSignal] = useState(0);
+
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [couponCode, setCouponCode] = useState(initialCouponCode);
   const [couponState, setCouponState] = useState({ status: "idle", message: "" });
@@ -554,13 +574,21 @@ function StoreCheckout({
 
   function handleBookingSelectionChange(slug, selection) {
     setBookingSelections((prev) => ({ ...prev, [slug]: selection }));
+    // Clears the "ese horario ya no está disponible" banner (see the
+    // schedule step header) once the customer actually picks a new slot,
+    // so it doesn't linger as a stale warning after they've fixed it.
+    setSubmitState((current) =>
+      selection && current.status === "error" && isBookingConflictError(current.errorCode)
+        ? { status: "idle", message: "" }
+        : current
+    );
   }
 
   // A service requires calendar if its panel returned a non-null selection at least once,
   // meaning the panel is visible. Block submit only if it's visible but incomplete (null).
-  // This stays the authoritative guard inside handleSubmit — the stepper below uses its
-  // own bookingStatus.scheduleComplete signal to gate navigation, but this check is what
-  // actually stops an order from being created.
+  // This stays the authoritative guard inside preparePaymentSession — the stepper below
+  // uses its own bookingStatus.scheduleComplete signal to gate navigation, but this check
+  // is what actually stops an order from being created.
   const bookingBlocked = Object.values(bookingSelections).some((v) => v === null);
 
   const steps = useMemo(
@@ -814,48 +842,82 @@ function StoreCheckout({
     });
   }
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-    if (bookingBlocked) {
-      setSubmitState({ status: "error", message: "Selecciona fecha y horario para todos los servicios antes de continuar." });
-      return;
-    }
+  /**
+   * Creates the order (if one doesn't exist yet) and the Stripe PaymentIntent
+   * (if one doesn't exist yet), then stops — Stripe Elements picks up from
+   * there once paymentIntent.clientSecret is set. Idempotent and safe to
+   * call multiple times: the running-guard makes concurrent calls (the
+   * auto-trigger effect firing plus a manual "Intentar nuevamente" click, or
+   * React StrictMode's double-invoke) a no-op, and once createdOrder/
+   * paymentIntent exist it reuses them instead of creating new ones.
+   */
+  async function preparePaymentSession() {
+    if (paymentPreparationRef.current.running) return;
+    paymentPreparationRef.current.running = true;
     try {
-      setCrmFormErrors({});
-      setSubmitState({
-        status: "loading",
-        message: canCreateOrder ? "Creando orden y preparando pago..." : "Preparando intento de pago...",
-      });
-
-      if (!canCreateOrder && createdOrder?.id) {
-        const latestOrder = await ensureOrderPayable(createdOrder.id, createdOrder);
-        setCreatedOrder(latestOrder);
-        await ensurePaymentIntent(latestOrder);
-        setSubmitState({ status: "success", message: "Intento de pago listo. Completa los datos de tu tarjeta." });
+      if (bookingBlocked) {
+        setSubmitState({ status: "error", message: "Selecciona fecha y horario para todos los servicios antes de continuar." });
         return;
       }
+      setCrmFormErrors({});
+      setSubmitState({ status: "loading", message: "Preparando tu pago seguro..." });
 
-      const checkoutPayload = await prepareStoreCheckoutPayload();
-      const result = await submitPublicStoreCheckout(checkoutPayload);
-      if (!result?.order?.id) throw new Error("No se pudo crear la orden de checkout.");
-      setBookingSummary(result.bookingSummary || []);
+      let order = createdOrder;
+      if (!order?.id) {
+        const checkoutPayload = await prepareStoreCheckoutPayload();
+        const result = await submitPublicStoreCheckout(checkoutPayload);
+        if (!result?.order?.id) throw new Error("No se pudo crear la orden de checkout.");
+        setBookingSummary(result.bookingSummary || []);
+        order = result.order;
+      }
 
-      const latestOrder = await ensureOrderPayable(result.order.id, result.order);
+      const latestOrder = await ensureOrderPayable(order.id, order);
       setCreatedOrder(latestOrder);
-      await ensurePaymentIntent(latestOrder);
-      setSubmitState({ status: "success", message: "Orden creada. Completa el pago con tarjeta." });
+
+      if (!paymentIntent?.clientSecret) {
+        await ensurePaymentIntent(latestOrder);
+      }
+
+      setSubmitState({ status: "idle", message: "" });
+      paymentPreparationRef.current.completed = true;
     } catch (error) {
       // error.message is the backend's raw `detail` code (storeFetch/pub
       // both surface data.detail as the Error message) — never swallowed
       // in dev, always logged, mapped to a friendly message for display.
       const rawDetail = error instanceof Error ? error.message : null;
       if (import.meta.env.DEV) {
-        console.error("[checkout] submit failed:", rawDetail, error);
+        console.error("[checkout] preparePaymentSession failed:", rawDetail, error);
       }
+
+      if (isBookingConflictError(rawDetail)) {
+        // The slot that was held is gone (taken by someone else, or the
+        // hold's TTL expired) — the existing order/PaymentIntent are no
+        // longer valid for it, so both are dropped and the customer is sent
+        // back to pick a different date/time instead of retrying the same
+        // request.
+        setCreatedOrder(null);
+        setPaymentIntent(null);
+        paymentPreparationRef.current.completed = false;
+        setScheduleResetSignal((n) => n + 1);
+        const scheduleIdx = steps.indexOf("schedule");
+        if (scheduleIdx >= 0) goToStep(scheduleIdx);
+      } else if (isRetryBlocked(rawDetail)) {
+        // payment_review_required: mark as "completed" so the auto-trigger
+        // effect never fires again for this session — combined with the
+        // retry button staying hidden (see isRetryBlocked in the JSX), this
+        // is what makes the block permanent instead of just UI-level.
+        paymentPreparationRef.current.completed = true;
+      } else {
+        paymentPreparationRef.current.completed = false;
+      }
+
       setSubmitState({
         status: "error",
         message: mapBookingErrorMessage(rawDetail, "No se pudo completar el checkout."),
+        errorCode: rawDetail,
       });
+    } finally {
+      paymentPreparationRef.current.running = false;
     }
   }
 
@@ -917,6 +979,30 @@ function StoreCheckout({
       booking_selection: buildBookingSelectionField(bookingSelections),
     };
   }
+
+  // Auto-starts preparePaymentSession() the moment the customer reaches
+  // "Revisar y pagar" with everything else already valid — no intermediate
+  // "Continuar al pago seguro" button. shouldPreparePaymentSession is the
+  // single source of truth for every guard condition (right step, booking
+  // resolved, details valid, no completed/duplicate order, no existing
+  // PaymentIntent, not already running) so this effect stays a thin
+  // trigger. preparePaymentSession is a plain function re-created each
+  // render, not memoized, so it's intentionally left out of the deps array
+  // — only the actual state that should cause a re-check is listed.
+  useEffect(() => {
+    const bookingReady = !isDiscovering && !hasResolutionError;
+    const shouldRun = shouldPreparePaymentSession({
+      activeStepKey,
+      bookingReady,
+      detailsValid,
+      completedOrder,
+      paymentIntent,
+      preparation: paymentPreparationRef.current,
+    });
+    if (!shouldRun) return;
+    preparePaymentSession();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeStepKey, isDiscovering, hasResolutionError, detailsValid, completedOrder, paymentIntent]);
 
   /* ── Completed order view ───────────────────────────────────────────── */
   if (completedOrder) {
@@ -989,12 +1075,6 @@ function StoreCheckout({
   /* ── Main checkout view ─────────────────────────────────────────────── */
   const isProcessing = submitState.status === "loading";
   const paymentReady = Boolean(paymentIntent?.clientSecret);
-
-  // Discovery still running — don't show the (possibly wrong) 2-step or
-  // 4-step stepper until every cart item has resolved its booking config.
-  const isDiscovering = bookingStatus.status !== "ready";
-  const resolutionErrors = bookingStatus.resolutionErrors || [];
-  const hasResolutionError = resolutionErrors.length > 0;
 
   const panelSection =
     isDiscovering || hasResolutionError
@@ -1078,6 +1158,16 @@ function StoreCheckout({
                   ? `Elige fecha y horario para ${bookingServices.map((s) => s.name).join(" y ")}.`
                   : "Elige el día y horario para tu servicio."}
               </p>
+              {/* Shown after preparePaymentSession bounces the customer back
+                  here because their held slot was taken or the hold expired
+                  — see isBookingConflictError in preparePaymentSession's
+                  catch block. Without this, the redirect back to this step
+                  would look unexplained. */}
+              {submitState.status === "error" && isBookingConflictError(submitState.errorCode) && (
+                <p className="form-status form-status--error" style={{ marginTop: 12 }}>
+                  {submitState.message}
+                </p>
+              )}
             </div>
           )}
 
@@ -1095,6 +1185,7 @@ function StoreCheckout({
           <ServiceBookingCheckoutPanel
             cart={cart}
             section={panelSection}
+            resetSignal={scheduleResetSignal}
             onSelectionChange={handleBookingSelectionChange}
             onStatusChange={setBookingStatus}
           />
@@ -1301,19 +1392,25 @@ function StoreCheckout({
                 </div>
               )}
 
-              {!createdOrder && (steps.includes("schedule") || steps.includes("customize")) && (
-                <div className="checkout-review__edit-links">
-                  {steps.includes("schedule") && (
-                    <button type="button" onClick={() => goToStep(steps.indexOf("schedule"))}>
-                      Editar fecha y hora
-                    </button>
-                  )}
-                  {steps.includes("customize") && (
-                    <button type="button" onClick={() => goToStep(steps.indexOf("customize"))}>
-                      Editar personalización
-                    </button>
-                  )}
-                </div>
+              {createdOrder ? (
+                <p className="checkout-review-locked-note">
+                  Para cambiar la reserva, cancela este proceso y vuelve al carrito.
+                </p>
+              ) : (
+                !isProcessing && (steps.includes("schedule") || steps.includes("customize")) && (
+                  <div className="checkout-review__edit-links">
+                    {steps.includes("schedule") && (
+                      <button type="button" onClick={() => goToStep(steps.indexOf("schedule"))}>
+                        Editar fecha y hora
+                      </button>
+                    )}
+                    {steps.includes("customize") && (
+                      <button type="button" onClick={() => goToStep(steps.indexOf("customize"))}>
+                        Editar personalización
+                      </button>
+                    )}
+                  </div>
+                )
               )}
             </div>
 
@@ -1321,7 +1418,7 @@ function StoreCheckout({
             <div className="checkout-review-section">
               <div className="checkout-review-section__head">
                 <h3 className="checkout-review-section__title">Datos del cliente</h3>
-                {!createdOrder && (
+                {!createdOrder && !isProcessing && (
                   <button type="button" className="checkout-review-section__edit" onClick={() => goToStep(steps.indexOf("details"))}>
                     Editar
                   </button>
@@ -1347,7 +1444,11 @@ function StoreCheckout({
 
               {paymentReady ? (
                 stripePromise ? (
-                  <Elements stripe={stripePromise}>
+                  // Keyed by the PaymentIntent's own stable identifiers, never
+                  // a changing value like Date.now() — remounting Elements on
+                  // every render would reset whatever the customer already
+                  // typed into the card fields.
+                  <Elements key={paymentIntent.providerPaymentId || paymentIntent.clientSecret} stripe={stripePromise}>
                     <StoreCardPaymentForm
                       clientSecret={paymentIntent.clientSecret}
                       order={createdOrder}
@@ -1362,18 +1463,23 @@ function StoreCheckout({
                     Falta `VITE_STRIPE_PUBLISHABLE_KEY` para inicializar Stripe en frontend.
                   </p>
                 )
+              ) : submitState.status === "error" ? (
+                <div className="checkout-payment-error">
+                  <p className="form-status form-status--error">{submitState.message}</p>
+                  {!isRetryBlocked(submitState.errorCode) && (
+                    <button type="button" className="checkout-secondary-button" onClick={() => preparePaymentSession()}>
+                      Intentar nuevamente
+                    </button>
+                  )}
+                </div>
               ) : (
-                <p className="checkout-payment-pending-note">
-                  {createdOrder
-                    ? "Preparando el formulario de pago..."
-                    : "El formulario de tarjeta aparece aquí después de crear tu orden."}
-                </p>
-              )}
-
-              {submitState.status !== "idle" && !paymentReady && (
-                <p className={`form-status form-status--${submitState.status}`} style={{ marginTop: 16 }}>
-                  {submitState.message}
-                </p>
+                <div className="checkout-payment-preparing">
+                  <span className="checkout-payment-spinner" aria-hidden="true" />
+                  <div>
+                    <p className="checkout-payment-preparing__title">Preparando tu pago seguro…</p>
+                    <p className="checkout-payment-preparing__hint">Esto puede tomar unos segundos.</p>
+                  </div>
+                </div>
               )}
 
               <div className="checkout-secure-box">
@@ -1383,9 +1489,6 @@ function StoreCheckout({
                   <p>Tus datos financieros se procesan de forma segura durante toda la transacción.</p>
                 </div>
               </div>
-
-              {/* Submitted via the pay button's form="checkout-order-form" attribute */}
-              <form id="checkout-order-form" onSubmit={handleSubmit} />
             </div>
 
             {/* ── Desglose del pago ────────────────────────────────────── */}
@@ -1544,7 +1647,7 @@ function StoreCheckout({
               )}
             </div>
 
-            {createdOrder && !paymentReady && (
+            {createdOrder && !paymentReady && submitState.status !== "error" && (
               <p className="checkout-review-order-ref">
                 Orden <strong>{createdOrder.orderNumber}</strong> creada. Preparando pago...
               </p>
@@ -1552,21 +1655,25 @@ function StoreCheckout({
 
             {/* ── CTA final ─────────────────────────────────────────────── */}
             <div className="checkout-review-footer">
-              <Link to="/servicios/carrito" className="checkout-secondary-button">
-                Editar carrito
-              </Link>
-              <button
-                type="submit"
-                form={paymentReady ? "checkout-stripe-form" : "checkout-order-form"}
-                className="checkout-pay-button"
-                disabled={isProcessing}
-              >
-                {isProcessing
-                  ? "Procesando..."
-                  : paymentReady
-                  ? "Pagar ahora"
-                  : "Crear orden y continuar al pago"}
-              </button>
+              {createdOrder || isProcessing ? (
+                <span className="checkout-secondary-button is-disabled" aria-disabled="true">
+                  Editar carrito
+                </span>
+              ) : (
+                <Link to="/servicios/carrito" className="checkout-secondary-button">
+                  Editar carrito
+                </Link>
+              )}
+              {/* Single final CTA — only once Stripe Elements is ready to
+                  confirm the already-created PaymentIntent. There is no
+                  intermediate "crear orden" button anymore: preparePaymentSession
+                  runs automatically (see the useEffect above) as soon as the
+                  customer reaches this step. */}
+              {paymentReady && (
+                <button type="submit" form="checkout-stripe-form" className="checkout-pay-button" disabled={isProcessing}>
+                  {isProcessing ? "Procesando pago…" : "Pagar ahora"}
+                </button>
+              )}
             </div>
           </div>
         </div>

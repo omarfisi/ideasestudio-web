@@ -246,3 +246,51 @@ export function isSelectedSlotStillAvailable(selectedSlot, slots) {
   if (!selectedSlot?.starts_at) return true;
   return (slots || []).some((slot) => slot.starts_at === selectedSlot.starts_at);
 }
+
+/**
+ * Pure decision function for whether the review step should auto-start
+ * preparePaymentSession() (order + PaymentIntent creation). Encodes every
+ * guard condition in one place so the triggering useEffect stays a thin
+ * "if shouldPreparePaymentSession(...) call it" wrapper — this is what
+ * actually prevents duplicate orders/PaymentIntents (React StrictMode's
+ * double-invoke, re-renders, navigating back to review), since `preparation`
+ * is expected to be a ref object (`{ running, completed }`) that updates
+ * synchronously, unlike state.
+ */
+export function shouldPreparePaymentSession({
+  activeStepKey,
+  bookingReady,
+  detailsValid,
+  completedOrder,
+  paymentIntent,
+  preparation,
+}) {
+  if (activeStepKey !== "review") return false;
+  if (!bookingReady) return false;
+  if (!detailsValid) return false;
+  if (completedOrder) return false;
+  if (paymentIntent?.clientSecret) return false;
+  if (preparation?.running || preparation?.completed) return false;
+  return true;
+}
+
+/**
+ * payment_review_required means the payment already reached Stripe/the
+ * backend and needs manual review — retrying (automatically or via a
+ * button) could create a second attempt against a payment that's still
+ * being sorted out, so it must stay permanently blocked.
+ */
+export function isRetryBlocked(errorCode) {
+  return errorCode === "payment_review_required";
+}
+
+/**
+ * These two error codes mean the previously-selected slot is no longer
+ * usable (someone else booked it, or the hold expired) — the fix isn't
+ * "retry the same request", it's "go pick a different slot", so callers
+ * use this to route back to the schedule step instead of showing a retry
+ * button.
+ */
+export function isBookingConflictError(errorCode) {
+  return errorCode === "booking_time_slot_not_available" || errorCode === "booking_hold_expired";
+}
