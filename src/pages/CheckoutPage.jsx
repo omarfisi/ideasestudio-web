@@ -319,7 +319,7 @@ function ServiceIntentCheckout({
                 </div>
                 <div className="checkout-field">
                   <label>Teléfono</label>
-                  <input type="text" name="phone" value={formData.phone} onChange={handleChange} placeholder="+52 55 0000 0000" disabled={isLoading} />
+                  <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="(787) 000-0000" disabled={isLoading} />
                 </div>
                 <div className="checkout-field">
                   <label>Método preferido</label>
@@ -1118,16 +1118,32 @@ function StoreCheckout({
                 {/* CRM fields via DynamicField */}
                 {crmFormState.status === "ready" && crmFields.length ? (
                   <div className="checkout-form-grid">
-                    {crmFields.map((field) => (
-                      <DynamicField
-                        key={field.id || field.name}
-                        field={field}
-                        value={crmFormValues[field.name] ?? field.default_value ?? ""}
-                        onChange={handleCrmFieldChange}
-                        error={crmFormErrors[field.name]}
-                        disabled={!canCreateOrder}
-                      />
-                    ))}
+                    {crmFields.map((field) => {
+                      // The CRM form config's own placeholder is server-
+                      // controlled and (as configured today) shows a Mexico
+                      // phone format — this storefront is Puerto Rico, so
+                      // the phone field's placeholder/type are overridden
+                      // here at render time. Same field-name matching
+                      // parseCheckoutDataFromForm uses, so it stays correct
+                      // if the CRM ever renames/reorders this field. No CRM
+                      // data is touched, only what gets displayed.
+                      const isPhoneField = ["phone", "telefono", "tel", "customer_phone", "whatsapp"].includes(
+                        normalizeToken(field.map_to || field.name)
+                      );
+                      const resolvedField = isPhoneField
+                        ? { ...field, type: "tel", placeholder: "(787) 000-0000" }
+                        : field;
+                      return (
+                        <DynamicField
+                          key={field.id || field.name}
+                          field={resolvedField}
+                          value={crmFormValues[field.name] ?? field.default_value ?? ""}
+                          onChange={handleCrmFieldChange}
+                          error={crmFormErrors[field.name]}
+                          disabled={!canCreateOrder}
+                        />
+                      );
+                    })}
                   </div>
                 ) : null}
 
