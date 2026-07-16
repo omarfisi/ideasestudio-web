@@ -241,7 +241,9 @@ export default function ProductDetailPage() {
 
       setActionState({
         status: "success",
-        message: `Servicio agregado. Tu resumen ahora tiene ${cart.summary.totalQuantity} servicios.`,
+        message: `Servicio agregado. Tu resumen ahora tiene ${cart.summary.totalQuantity} ${
+          cart.summary.totalQuantity === 1 ? "servicio" : "servicios"
+        }.`,
       });
 
       if (mode === "checkout") {
