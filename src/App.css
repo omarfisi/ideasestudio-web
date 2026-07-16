@@ -15166,61 +15166,82 @@ section[id] {
   gap: 4px;
 }
 
-/* Compact read-only summary once a date+time is picked — replaces the
-   two-column picker entirely rather than sitting inside a card of its own. */
-.cbp-schedule-summary {
+/* Selection summary — replaces the two-column picker entirely once a date
+   is chosen. A grid of compact mini-cards (Fecha / Hora / Paquete), not
+   loose text rows with dividers — each card only renders when its value
+   actually exists, so a date-without-time or a service with no package
+   never leaves a blank/placeholder card behind. */
+.cbp-selection-summary {
   display: grid;
-  gap: 2px;
-  max-width: 400px;
+  gap: 14px;
 }
 
-.cbp-schedule-summary__edit {
-  justify-self: start;
-  margin-top: 8px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #111;
-  background: none;
-  border: none;
-  cursor: pointer;
-  text-decoration: underline;
-  font-family: inherit;
-  padding: 0;
-}
-
-.cbp-schedule-summary__edit:hover { color: #555; }
-
-/* Booking summary rows (date / time) */
-.cbp-booking-row {
-  display: flex;
-  align-items: center;
+.cbp-selection-summary__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid rgba(22,22,22,0.07);
+  max-width: 560px;
 }
-.cbp-booking-row:last-child { border-bottom: none; }
-.cbp-booking-row__icon {
-  font-size: 1.1rem;
-  width: 28px;
-  text-align: center;
+
+.cbp-selection-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 2px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1.5px solid #e5e7eb;
+  background: #fafafa;
+}
+
+.cbp-selection-card__icon {
+  grid-row: 1 / 3;
+  color: #111;
   flex-shrink: 0;
 }
-.cbp-booking-row__info {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-.cbp-booking-row__label {
-  font-size: 0.70rem;
-  color: #888;
-  font-weight: 500;
+
+.cbp-selection-card__label {
+  font-size: 0.72rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
+  color: #6b7280;
 }
-.cbp-booking-row__value {
-  font-size: 0.88rem;
+
+.cbp-selection-card__value {
+  font-size: 1.05rem;
   font-weight: 700;
   color: #111;
+  line-height: 1.2;
+}
+
+.cbp-selection-summary__edit {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1.5px solid #e5e7eb;
+  background: #fff;
+  color: #111;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.cbp-selection-summary__edit:hover {
+  border-color: #f8d000;
+  background: #fffbe6;
+}
+
+@media (max-width: 480px) {
+  .cbp-selection-summary__grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Loading */

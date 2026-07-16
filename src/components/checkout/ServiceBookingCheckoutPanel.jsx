@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useCallback, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Clock, Package, Pencil } from "lucide-react";
 import {
   getPublicServiceBooking,
   getPublicServiceAvailability,
@@ -367,6 +367,7 @@ function ServiceBookingSection({
   const dateLabel = s.selectedDate
     ? new Date(s.selectedDate + "T12:00:00").toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" })
     : null;
+  const selectedPkg = hasPkgs ? packages.find((p) => p.id === s.selectedPackage) : null;
 
   return (
     <>
@@ -384,30 +385,41 @@ function ServiceBookingSection({
             />
           )}
 
-          {/* Summary view when date+slot selected */}
+          {/* Selection summary — a compact grid of mini-cards (not loose
+              text with dividers) once a date is picked, so the choice
+              reads clearly and the step never looks half-empty while
+              waiting for "Continuar". Each card only renders if its value
+              actually exists (date without a time yet, no package on this
+              service) — never an empty/placeholder card. */}
           {hasCalendar && !editingBooking && s.selectedDate && (
-            <div className="cbp-schedule-summary">
-              <div className="cbp-booking-row">
-                <div className="cbp-booking-row__icon">📅</div>
-                <div className="cbp-booking-row__info">
-                  <span className="cbp-booking-row__label">Fecha</span>
-                  <span className="cbp-booking-row__value">{dateLabel}</span>
+            <div className="cbp-selection-summary">
+              <div className="cbp-selection-summary__grid">
+                <div className="cbp-selection-card">
+                  <Calendar size={18} className="cbp-selection-card__icon" />
+                  <span className="cbp-selection-card__label">Fecha</span>
+                  <span className="cbp-selection-card__value">{dateLabel}</span>
                 </div>
-              </div>
-              {s.selectedSlot && (
-                <div className="cbp-booking-row">
-                  <div className="cbp-booking-row__icon">🕐</div>
-                  <div className="cbp-booking-row__info">
-                    <span className="cbp-booking-row__label">Hora</span>
-                    <span className="cbp-booking-row__value">{s.selectedSlot.label}</span>
+                {s.selectedSlot && (
+                  <div className="cbp-selection-card">
+                    <Clock size={18} className="cbp-selection-card__icon" />
+                    <span className="cbp-selection-card__label">Hora</span>
+                    <span className="cbp-selection-card__value">{s.selectedSlot.label}</span>
                   </div>
-                </div>
-              )}
+                )}
+                {selectedPkg && (
+                  <div className="cbp-selection-card">
+                    <Package size={18} className="cbp-selection-card__icon" />
+                    <span className="cbp-selection-card__label">Paquete</span>
+                    <span className="cbp-selection-card__value">{selectedPkg.name}</span>
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
-                className="cbp-schedule-summary__edit"
+                className="cbp-selection-summary__edit"
                 onClick={() => { setEditingBooking(true); dispatch({ type: "SELECT_DATE", date: null }); dispatch({ type: "SELECT_SLOT", slot: null }); }}
               >
+                <Pencil size={13} />
                 Editar
               </button>
             </div>
