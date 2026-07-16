@@ -365,7 +365,7 @@ function ServiceBookingSection({
     <>
       {/* ── Card: Reserva ─────────────────────────────────────────── */}
       {showScheduleCard && (
-        <div className="cbp-card">
+        <div className="cbp-card cbp-card--booking">
           <div className="cbp-card__header">
             <span className="cbp-card__title">Reserva del servicio</span>
             {!editingBooking && (
@@ -411,50 +411,60 @@ function ServiceBookingSection({
               </>
             )}
 
-            {/* Calendar picker */}
+            {/* Calendar + horarios picker — two columns on desktop/tablet
+                (calendar left, times right), stacked on mobile. The times
+                column always renders once editing, even before a date is
+                picked, so the block reads as one balanced composition
+                instead of a calendar floating alone with a slot list that
+                pops in later. */}
             {hasCalendar && editingBooking && (
               <>
-                <div className="cbp-cal-nav">
-                  <button type="button" className="cbp-cal-nav__btn" onClick={() => dispatch({ type: "PREV_MONTH" })} aria-label="Mes anterior">
-                    <ChevronLeft size={13} />
-                  </button>
-                  <span className="cbp-cal-nav__month">
-                    {monthLabel ? monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1) : ""}
-                  </span>
-                  <button type="button" className="cbp-cal-nav__btn" onClick={() => dispatch({ type: "NEXT_MONTH" })} aria-label="Mes siguiente">
-                    <ChevronRight size={13} />
-                  </button>
-                </div>
-
-                <div className="cbp-cal-grid">
-                  {["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"].map((d) => (
-                    <div key={d} className="cbp-cal-dow">{d}</div>
-                  ))}
-                  {calCells.map((cell, i) => {
-                    if (!cell) return <div key={`e-${i}`} />;
-                    const ymd = toYMD(cell);
-                    const isPast = cell < today;
-                    const isAvail = slotDates.has(ymd);
-                    const isSel = s.selectedDate === ymd;
-                    const isToday = ymd === toYMD(today);
-                    let cls = "cbp-cal-day";
-                    if (isPast) cls += " past";
-                    else if (isAvail) cls += " available";
-                    if (isToday) cls += " today";
-                    if (isSel) cls += " selected";
-                    return (
-                      <button key={ymd} type="button" className={cls} disabled={isPast || !isAvail}
-                        onClick={() => dispatch({ type: "SELECT_DATE", date: ymd })}>
-                        {cell.getDate()}
+                <div className="cbp-booking-layout">
+                  <div className="cbp-booking-layout__calendar">
+                    <div className="cbp-cal-nav">
+                      <button type="button" className="cbp-cal-nav__btn" onClick={() => dispatch({ type: "PREV_MONTH" })} aria-label="Mes anterior">
+                        <ChevronLeft size={13} />
                       </button>
-                    );
-                  })}
-                </div>
+                      <span className="cbp-cal-nav__month">
+                        {monthLabel ? monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1) : ""}
+                      </span>
+                      <button type="button" className="cbp-cal-nav__btn" onClick={() => dispatch({ type: "NEXT_MONTH" })} aria-label="Mes siguiente">
+                        <ChevronRight size={13} />
+                      </button>
+                    </div>
 
-                {s.selectedDate && (
-                  <div className="cbp-slots-wrap">
-                    {daySlots.length === 0 ? (
-                      <p className="cbp-notice">Sin horarios para esta fecha.</p>
+                    <div className="cbp-cal-grid">
+                      {["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"].map((d) => (
+                        <div key={d} className="cbp-cal-dow">{d}</div>
+                      ))}
+                      {calCells.map((cell, i) => {
+                        if (!cell) return <div key={`e-${i}`} />;
+                        const ymd = toYMD(cell);
+                        const isPast = cell < today;
+                        const isAvail = slotDates.has(ymd);
+                        const isSel = s.selectedDate === ymd;
+                        const isToday = ymd === toYMD(today);
+                        let cls = "cbp-cal-day";
+                        if (isPast) cls += " past";
+                        else if (isAvail) cls += " available";
+                        if (isToday) cls += " today";
+                        if (isSel) cls += " selected";
+                        return (
+                          <button key={ymd} type="button" className={cls} disabled={isPast || !isAvail}
+                            onClick={() => dispatch({ type: "SELECT_DATE", date: ymd })}>
+                            {cell.getDate()}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="cbp-booking-layout__times">
+                    <p className="cbp-sub__label">Horarios disponibles</p>
+                    {!s.selectedDate ? (
+                      <p className="cbp-notice cbp-notice--placeholder">Selecciona una fecha para ver los horarios disponibles.</p>
+                    ) : daySlots.length === 0 ? (
+                      <p className="cbp-notice cbp-notice--placeholder">Sin horarios para esta fecha.</p>
                     ) : (
                       <div className="cbp-slots">
                         {daySlots.map((sl) => (
@@ -470,7 +480,7 @@ function ServiceBookingSection({
                       </div>
                     )}
                   </div>
-                )}
+                </div>
 
                 {!s.selectedSlot && (
                   <p className="cbp-required-hint">

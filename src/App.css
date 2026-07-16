@@ -15093,6 +15093,15 @@ section[id] {
   background: #fff;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
+
+/* The booking (calendar + horarios) card is wider than the other cards —
+   it holds a two-column composition that needs the room, not a form. */
+.cbp-card--booking {
+  max-width: 1040px;
+}
+.cbp-card--booking .cbp-card__body {
+  padding: 28px 32px 24px;
+}
 .cbp-card__header {
   display: flex;
   align-items: center;
@@ -15238,6 +15247,36 @@ section[id] {
   font-weight: 700;
 }
 
+/* Booking layout — calendar left, horarios right. Two columns give the
+   block real structure instead of a lone compact calendar surrounded by
+   empty space; the times column always renders (with a placeholder before
+   a date is picked) so the composition never looks half-finished. Collapses
+   to one column at the same 860px breakpoint .checkout-review already uses
+   elsewhere in this file, for consistency. */
+.cbp-booking-layout {
+  display: grid;
+  grid-template-columns: 45% 55%;
+  gap: 32px;
+  align-items: start;
+}
+
+.cbp-booking-layout__calendar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cbp-booking-layout__times {
+  min-width: 0;
+}
+
+@media (max-width: 860px) {
+  .cbp-booking-layout {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+
 /* Calendar nav — centered, compact; month label has a fixed min-width so
    the prev/next buttons don't shift horizontally as the label text changes
    length between months. */
@@ -15246,7 +15285,8 @@ section[id] {
   align-items: center;
   justify-content: center;
   gap: 18px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  width: 100%;
 }
 
 .cbp-cal-nav__btn {
@@ -15268,33 +15308,33 @@ section[id] {
 .cbp-cal-nav__btn:hover { background: #fdf6d8; border-color: #f8d000; }
 
 .cbp-cal-nav__month {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: #111;
   text-transform: capitalize;
-  min-width: 120px;
+  min-width: 130px;
   text-align: center;
 }
 
 /* Calendar grid — capped max-width is what actually keeps each of the 7
    `1fr` columns compact: without it, columns stretch to fill however wide
    the surrounding card happens to be, and aspect-ratio:1 turned that into
-   giant circles. Centered within the card via margin:auto, independent of
-   the card's own (much wider) max-width. */
+   giant circles. Centered within its column via margin:auto. */
 .cbp-cal-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
-  max-width: 340px;
+  gap: 8px;
+  max-width: 390px;
+  width: 100%;
   margin: 0 auto;
 }
 
 .cbp-cal-dow {
   text-align: center;
-  font-size: 0.66rem;
+  font-size: 0.7rem;
   font-weight: 600;
   color: #6b7280;
-  height: 28px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -15302,15 +15342,15 @@ section[id] {
 
 .cbp-cal-day {
   aspect-ratio: 1;
-  max-width: 44px;
-  max-height: 44px;
+  max-width: 50px;
+  max-height: 50px;
   width: 100%;
   justify-self: center;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 10px;
-  font-size: 0.76rem;
+  font-size: 0.82rem;
   font-weight: 400;
   border: 1.5px solid transparent;
   background: transparent;
@@ -15354,51 +15394,58 @@ section[id] {
   cursor: default;
 }
 
-@media (max-width: 960px) {
-  .cbp-cal-grid { max-width: 320px; }
-  .cbp-cal-day { max-width: 40px; max-height: 40px; }
+@media (max-width: 1024px) {
+  .cbp-cal-grid { max-width: 350px; }
+  .cbp-cal-day { max-width: 44px; max-height: 44px; }
 }
 
 @media (max-width: 480px) {
-  .cbp-card__body { padding: 14px 12px 10px; }
-  .cbp-cal-grid { max-width: 280px; gap: 4px; }
-  .cbp-cal-day { max-width: 36px; max-height: 36px; font-size: 0.7rem; }
-  .cbp-cal-nav { gap: 12px; }
-  .cbp-cal-nav__month { min-width: 100px; font-size: 0.8rem; }
+  .cbp-card--booking .cbp-card__body { padding: 20px 16px 16px; }
+  .cbp-cal-grid { max-width: 300px; gap: 5px; }
+  .cbp-cal-day { max-width: 40px; max-height: 40px; font-size: 0.76rem; }
+  .cbp-cal-nav { gap: 12px; margin-bottom: 10px; }
+  .cbp-cal-nav__month { min-width: 100px; font-size: 0.82rem; }
 }
 
-/* Slots expand after date click */
-.cbp-slots-wrap {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(22,22,22,0.07);
-}
-
+/* Horarios disponibles — 2-column grid of rounded-rect buttons, not pills,
+   so it reads as a clean, scannable schedule rather than a loose row of
+   tags. */
 .cbp-slots {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
 }
 
 .cbp-slot {
-  padding: 5px 12px;
-  border-radius: 999px;
-  border: 1.5px solid rgba(22,22,22,0.18);
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1.5px solid #e5e7eb;
   background: #fff;
   color: #111;
-  font-size: 0.76rem;
+  font-size: 0.84rem;
   font-weight: 500;
   cursor: pointer;
   font-family: inherit;
-  transition: all 0.1s;
+  text-align: center;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
 }
 
-.cbp-slot:hover { border-color: #f1d146; background: #fffde6; }
+.cbp-slot:hover { border-color: #f8d000; background: #fffbe6; }
 
 .cbp-slot.active {
-  border-color: #f1d146;
-  background: #f1d146;
+  border-color: #f8d000;
+  background: #f8d000;
+  color: #111;
   font-weight: 700;
+}
+
+.cbp-notice--placeholder {
+  border: 1.5px dashed #e5e7eb;
+  border-radius: 12px;
+  padding: 24px 16px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.82rem;
 }
 
 /* Addon row */
