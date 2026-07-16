@@ -18,7 +18,13 @@ import {
   validateStoreCoupon,
 } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
-import { buildSteps, isStepComplete } from "@/lib/bookingCheckoutSteps.js";
+import {
+  buildSteps,
+  isStepComplete,
+  buildBookingSelectionField,
+  mapBookingErrorMessage,
+  mergeTrustedOrderTotals,
+} from "@/lib/bookingCheckoutSteps.js";
 
 const INITIAL_BOOKING_STATUS = {
   status: "loading",
@@ -522,6 +528,7 @@ function StoreCheckout({
 }) {
   const canCreateOrder = !createdOrder?.id;
   const [bookingSelections, setBookingSelections] = useState({});
+  const [bookingSummary, setBookingSummary] = useState([]);
   const [bookingStatus, setBookingStatus] = useState(INITIAL_BOOKING_STATUS);
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [couponCode, setCouponCode] = useState(initialCouponCode);
@@ -766,7 +773,7 @@ function StoreCheckout({
     return intent;
   }
 
-  async function ensureOrderPayable(orderId) {
+  async function ensureOrderPayable(orderId, knownOrder = null) {
     const latest = await getPublicOrderById(orderId);
     if (!latest?.id) throw new Error("No se pudo validar la orden antes del pago.");
     const paymentStatus = String(latest.paymentStatus || "").toLowerCase();
@@ -776,7 +783,11 @@ function StoreCheckout({
         ["cancelled", "canceled", "refunded"].includes(paymentStatus)) {
       throw new Error("Esta orden no está disponible para pago.");
     }
-    return latest;
+    // See mergeTrustedOrderTotals — GET /orders/{id} doesn't carry
+    // amount_due_now/balance_due/deposit_total, so a refresh through it
+    // must not downgrade an already-known deposit-aware total.
+    const trustedSource = knownOrder?.id === latest.id ? knownOrder : createdOrder;
+    return mergeTrustedOrderTotals(latest, trustedSource);
   }
 
   async function handlePaymentSucceeded() {
@@ -785,7 +796,10 @@ function StoreCheckout({
     for (let attempt = 0; attempt < 6; attempt += 1) {
       try {
         const order = await getPublicOrderById(createdOrder.id);
-        if (order) latest = order;
+        // Same GET /orders/{id} gap as ensureOrderPayable — preserve the
+        // authoritative totals across each poll instead of losing them to
+        // this endpoint's incomplete shape.
+        if (order) latest = mergeTrustedOrderTotals(order, createdOrder);
         if (order?.paymentStatus === "paid") break;
       } catch { /* best-effort */ }
       await wait(900);
@@ -814,7 +828,7 @@ function StoreCheckout({
       });
 
       if (!canCreateOrder && createdOrder?.id) {
-        const latestOrder = await ensureOrderPayable(createdOrder.id);
+        const latestOrder = await ensureOrderPayable(createdOrder.id, createdOrder);
         setCreatedOrder(latestOrder);
         await ensurePaymentIntent(latestOrder);
         setSubmitState({ status: "success", message: "Intento de pago listo. Completa los datos de tu tarjeta." });
@@ -824,15 +838,23 @@ function StoreCheckout({
       const checkoutPayload = await prepareStoreCheckoutPayload();
       const result = await submitPublicStoreCheckout(checkoutPayload);
       if (!result?.order?.id) throw new Error("No se pudo crear la orden de checkout.");
+      setBookingSummary(result.bookingSummary || []);
 
-      const latestOrder = await ensureOrderPayable(result.order.id);
+      const latestOrder = await ensureOrderPayable(result.order.id, result.order);
       setCreatedOrder(latestOrder);
       await ensurePaymentIntent(latestOrder);
       setSubmitState({ status: "success", message: "Orden creada. Completa el pago con tarjeta." });
     } catch (error) {
+      // error.message is the backend's raw `detail` code (storeFetch/pub
+      // both surface data.detail as the Error message) — never swallowed
+      // in dev, always logged, mapped to a friendly message for display.
+      const rawDetail = error instanceof Error ? error.message : null;
+      if (import.meta.env.DEV) {
+        console.error("[checkout] submit failed:", rawDetail, error);
+      }
       setSubmitState({
         status: "error",
-        message: error instanceof Error ? error.message : "No se pudo completar el checkout.",
+        message: mapBookingErrorMessage(rawDetail, "No se pudo completar el checkout."),
       });
     }
   }
@@ -863,7 +885,6 @@ function StoreCheckout({
         notes: checkoutPayload.notes,
       }));
 
-      const bookingSelectionsArr = Object.values(bookingSelections).filter(Boolean);
       return {
         sessionToken: cart.sessionToken,
         name: checkoutPayload.name,
@@ -875,18 +896,14 @@ function StoreCheckout({
         documentType: "invoice",
         source,
         couponCode: appliedCoupon?.code || null,
-        // booking_selection: forwarded to backend when it supports it
-        booking_selection: bookingSelectionsArr.length === 1
-          ? bookingSelectionsArr[0]
-          : bookingSelectionsArr.length > 1
-          ? bookingSelectionsArr
-          : null,
+        // Recomputed and re-validated entirely server-side — see
+        // buildBookingSelectionField.
+        booking_selection: buildBookingSelectionField(bookingSelections),
       };
     }
 
     if (!fallbackCanSubmit) throw new Error("Completa nombre y email para continuar.");
 
-    const bookingSelectionsArr = Object.values(bookingSelections).filter(Boolean);
     return {
       sessionToken: cart.sessionToken,
       name: checkoutForm.name,
@@ -897,11 +914,7 @@ function StoreCheckout({
       documentType: "invoice",
       source: "website_store_checkout",
       couponCode: appliedCoupon?.code || null,
-      booking_selection: bookingSelectionsArr.length === 1
-        ? bookingSelectionsArr[0]
-        : bookingSelectionsArr.length > 1
-        ? bookingSelectionsArr
-        : null,
+      booking_selection: buildBookingSelectionField(bookingSelections),
     };
   }
 
@@ -1335,24 +1348,86 @@ function StoreCheckout({
                 {createdOrder ? (
                   // Authoritative totals — the order was created server-side
                   // from the cart, so these are the numbers Stripe will
-                  // actually charge, not a frontend estimate.
+                  // actually charge, not a frontend estimate. contractTotal
+                  // is the full service/order value; amountDueNow is what
+                  // gets charged right now (can be a deposit, in which case
+                  // balanceDue is what remains owed after this payment).
                   <div className="checkout-totals">
-                    <div className="checkout-total-row">
-                      <span>Subtotal</span>
-                      <span>{formatPrice(createdOrder.subtotal, createdOrder.currency)}</span>
-                    </div>
                     {createdOrder.discountTotal > 0 && (
                       <div className="checkout-total-row" style={{ color: "#16a34a" }}>
                         <span>Descuento</span>
                         <span>-{formatPrice(createdOrder.discountTotal, createdOrder.currency)}</span>
                       </div>
                     )}
-                    <div className="checkout-total-row is-total">
-                      <span>Total a pagar</span>
-                      <span>{formatPrice(createdOrder.total, createdOrder.currency)}</span>
+                    <div className="checkout-total-row">
+                      <span>Total del servicio</span>
+                      <span>{formatPrice(createdOrder.contractTotal, createdOrder.currency)}</span>
                     </div>
+                    <div className="checkout-total-row is-total">
+                      <span>A pagar ahora</span>
+                      <span>{formatPrice(createdOrder.amountDueNow, createdOrder.currency)}</span>
+                    </div>
+                    {createdOrder.depositTotal > 0 && (
+                      <div className="checkout-total-row">
+                        <span>Depósito</span>
+                        <span>{formatPrice(createdOrder.depositTotal, createdOrder.currency)}</span>
+                      </div>
+                    )}
+                    {createdOrder.balanceDue > 0 && (
+                      <div className="checkout-total-row">
+                        <span>Balance pendiente</span>
+                        <span>{formatPrice(createdOrder.balanceDue, createdOrder.currency)}</span>
+                      </div>
+                    )}
                   </div>
-                ) : (
+                ) : null}
+
+                {createdOrder && bookingSummary.length > 0 && (
+                  // Read-only receipt of what the server actually reserved
+                  // — never assume a hold exists (reservation_hold_id/
+                  // startsAt/endsAt are null for a "configured" no-calendar
+                  // entry, which is a valid, non-error state).
+                  <div className="checkout-totals" style={{ marginTop: 14 }}>
+                    {bookingSummary.map((entry, idx) => (
+                      <div key={entry.reservationHoldId || `${entry.serviceSlug}-${idx}`} style={{ marginBottom: idx < bookingSummary.length - 1 ? 12 : 0 }}>
+                        <div className="checkout-total-row">
+                          <span style={{ fontWeight: 600 }}>{entry.serviceSlug}</span>
+                          <span>{formatPrice(entry.serviceTotal, createdOrder.currency)}</span>
+                        </div>
+                        {entry.startsAt && (
+                          <div className="checkout-total-row">
+                            <span>Fecha y hora</span>
+                            <span>{formatDateTime(entry.startsAt)}</span>
+                          </div>
+                        )}
+                        {entry.packageName && (
+                          <div className="checkout-total-row">
+                            <span>Paquete</span>
+                            <span>{entry.packageName}</span>
+                          </div>
+                        )}
+                        {entry.addons.map((addon) => (
+                          <div className="checkout-total-row" key={addon.addonId}>
+                            <span>{addon.name} x{addon.quantity}</span>
+                            <span>{formatPrice(addon.price * addon.quantity, createdOrder.currency)}</span>
+                          </div>
+                        ))}
+                        {entry.depositAmount > 0 && (
+                          <div className="checkout-total-row">
+                            <span>Depósito</span>
+                            <span>{formatPrice(entry.depositAmount, createdOrder.currency)}</span>
+                          </div>
+                        )}
+                        <div className="checkout-total-row">
+                          <span>Estado</span>
+                          <span>{entry.status === "configured" ? "Configurado" : entry.status}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {!createdOrder && (
                   <div className="checkout-totals">
                     <div className="checkout-total-row">
                       <span>

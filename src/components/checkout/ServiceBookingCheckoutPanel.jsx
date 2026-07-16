@@ -3,10 +3,11 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   getPublicServiceBooking,
   getPublicServiceAvailability,
+  getPublicServiceAvailabilityAuthoritative,
 } from "@/lib/publicServicesApi.js";
 import { resolveProductSlugById } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
-import { aggregateBookingStatus } from "@/lib/bookingCheckoutSteps.js";
+import { aggregateBookingStatus, isSelectedSlotStillAvailable } from "@/lib/bookingCheckoutSteps.js";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -38,11 +39,13 @@ const SVC_INIT = {
   booking: null,
   calMonth: null,
   availState: "idle",
+  availSource: "authoritative",
   slots: [],
   selectedDate: null,
   selectedSlot: null,
   addonQty: {},
   selectedPackage: null,
+  slotInvalidated: false,
 };
 
 function svcReducer(state, action) {
@@ -68,23 +71,37 @@ function svcReducer(state, action) {
     case "LOAD_ERR":
       return { ...state, loadState: "error" };
     case "PREV_MONTH":
-      return { ...state, calMonth: addMonths(state.calMonth, -1), selectedDate: null, selectedSlot: null, slots: [] };
+      return { ...state, calMonth: addMonths(state.calMonth, -1), selectedDate: null, selectedSlot: null, slots: [], slotInvalidated: false };
     case "NEXT_MONTH":
-      return { ...state, calMonth: addMonths(state.calMonth, 1), selectedDate: null, selectedSlot: null, slots: [] };
+      return { ...state, calMonth: addMonths(state.calMonth, 1), selectedDate: null, selectedSlot: null, slots: [], slotInvalidated: false };
     case "AVAIL_START":
-      return { ...state, availState: "loading", slots: [] };
-    case "AVAIL_OK":
-      return { ...state, availState: "ready", slots: action.slots };
+      return { ...state, availState: "loading" };
+    case "AVAIL_OK": {
+      // Re-checked against every re-fetch (package/addon/date-range/service
+      // change) — a duration change (different package, or a
+      // duration-affecting addon) can make a previously-picked slot no
+      // longer fit. Only invalidate a slot that was actually selected;
+      // never invalidate just because the fetch happened to run.
+      const stillValid = isSelectedSlotStillAvailable(state.selectedSlot, action.slots);
+      return {
+        ...state,
+        availState: "ready",
+        availSource: action.source || state.availSource,
+        slots: action.slots,
+        selectedSlot: stillValid ? state.selectedSlot : null,
+        slotInvalidated: state.selectedSlot ? !stillValid : false,
+      };
+    }
     case "AVAIL_ERR":
       return { ...state, availState: "error", slots: [] };
     case "SELECT_DATE":
-      return { ...state, selectedDate: action.date, selectedSlot: null };
+      return { ...state, selectedDate: action.date, selectedSlot: null, slotInvalidated: false };
     case "SELECT_SLOT":
-      return { ...state, selectedSlot: action.slot };
+      return { ...state, selectedSlot: action.slot, slotInvalidated: false };
     case "SET_ADDON":
       return { ...state, addonQty: { ...state.addonQty, [action.id]: action.qty } };
     case "SET_PACKAGE":
-      return { ...state, selectedPackage: action.id, selectedSlot: null };
+      return { ...state, selectedPackage: action.id };
     default:
       return state;
   }
@@ -141,15 +158,52 @@ function ServiceBookingSection({
     if (!requiresCalendarForAvailability) return;
     if (!s.calMonth) return;
 
-    const from = toYMD(s.calMonth);
+    const fromDate = toYMD(s.calMonth);
     const lastDay = new Date(s.calMonth.getFullYear(), s.calMonth.getMonth() + 1, 0);
-    const to = toYMD(lastDay);
+    const toDate = toYMD(lastDay);
+    const selectedAddons = Object.entries(s.addonQty)
+      .filter(([, qty]) => qty > 0)
+      .map(([addon_id, quantity]) => ({ addon_id, quantity }));
 
+    let cancelled = false;
     dispatch({ type: "AVAIL_START" });
-    getPublicServiceAvailability(slug, from, to)
-      .then((res) => dispatch({ type: "AVAIL_OK", slots: res.slots || [] }))
-      .catch(() => dispatch({ type: "AVAIL_ERR" }));
-  }, [slug, s.loadState, s.calMonth, requiresCalendarForAvailability]);
+
+    getPublicServiceAvailabilityAuthoritative(slug, {
+      fromDate,
+      toDate,
+      packageId: s.selectedPackage,
+      selectedAddons,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        dispatch({ type: "AVAIL_OK", slots: res.slots || [], source: "authoritative" });
+      })
+      .catch(() => {
+        // Explicit compatibility fallback only — never the first choice,
+        // since GET ignores package/addon duration and can show a slot the
+        // authoritative endpoint would have hidden (or vice versa).
+        if (cancelled) return;
+        getPublicServiceAvailability(slug, fromDate, toDate)
+          .then((res) => {
+            if (cancelled) return;
+            dispatch({ type: "AVAIL_OK", slots: res.slots || [], source: "legacy_fallback" });
+          })
+          .catch(() => {
+            if (!cancelled) dispatch({ type: "AVAIL_ERR" });
+          });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, s.loadState, s.calMonth, requiresCalendarForAvailability, s.selectedPackage, s.addonQty]);
+
+  // A slot invalidated by a package/addon change must not stay hidden
+  // behind the "summary" view (editingBooking=false) — reopen the picker
+  // so the required-hint message above is actually visible.
+  useEffect(() => {
+    if (s.slotInvalidated) setEditingBooking(true);
+  }, [s.slotInvalidated]);
 
   useEffect(() => {
     if (s.loadState !== "ready") return;
@@ -417,7 +471,11 @@ function ServiceBookingSection({
                 )}
 
                 {!s.selectedSlot && (
-                  <p className="cbp-required-hint">Selecciona fecha y hora para continuar.</p>
+                  <p className="cbp-required-hint">
+                    {s.slotInvalidated
+                      ? "Ese horario ya no está disponible con tu selección actual. Elige otro horario."
+                      : "Selecciona fecha y hora para continuar."}
+                  </p>
                 )}
               </>
             )}

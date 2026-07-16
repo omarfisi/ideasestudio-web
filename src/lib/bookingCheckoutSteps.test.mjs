@@ -9,6 +9,11 @@ import {
   isStepComplete,
   computeMaxReachableIndex,
   canNavigateToStep,
+  buildBookingSelectionField,
+  mapOrderTotals,
+  mapBookingErrorMessage,
+  isSelectedSlotStillAvailable,
+  mergeTrustedOrderTotals,
 } from "./bookingCheckoutSteps.js";
 
 let passed = 0;
@@ -248,6 +253,180 @@ test("sin resolutionErrors el carrito se comporta igual que antes", () => {
   );
   assert.equal(status.resolutionErrors.length, 0);
   assert.equal(status.hasBooking, true);
+});
+
+/* ── buildBookingSelectionField ───────────────────────────────────────── */
+test("buildBookingSelectionField: carrito sin booking devuelve null", () => {
+  assert.equal(buildBookingSelectionField({}), null);
+  assert.equal(buildBookingSelectionField(null), null);
+});
+
+test("buildBookingSelectionField: null explicitos se filtran", () => {
+  assert.equal(buildBookingSelectionField({ boda: null, cumpleanos: null }), null);
+});
+
+test("buildBookingSelectionField: una seleccion devuelve el objeto, no un array", () => {
+  const selection = {
+    service_slug: "boda",
+    starts_at: "2026-08-01T14:00:00+00:00",
+    ends_at: "2026-08-01T18:00:00+00:00",
+    package_id: "pkg-1",
+    selected_addons: [{ addon_id: "addon-1", quantity: 2 }],
+    estimated_total: 999,
+    estimated_duration_minutes: 240,
+    deposit_amount: 250,
+  };
+  const result = buildBookingSelectionField({ boda: selection });
+  assert.equal(Array.isArray(result), false);
+  assert.deepEqual(result, selection);
+  // Paquete y addons viajan intactos, tal como los construyo el panel.
+  assert.equal(result.package_id, "pkg-1");
+  assert.deepEqual(result.selected_addons, [{ addon_id: "addon-1", quantity: 2 }]);
+});
+
+test("buildBookingSelectionField: dos o mas selecciones devuelven un array", () => {
+  const boda = { service_slug: "boda", starts_at: "2026-08-01T14:00:00+00:00" };
+  const cumpleanos = { service_slug: "cumpleanos", starts_at: "2026-08-02T18:00:00+00:00" };
+  const result = buildBookingSelectionField({ boda, cumpleanos, logo: null });
+  assert.equal(Array.isArray(result), true);
+  assert.equal(result.length, 2);
+  assert.deepEqual(new Set(result.map((r) => r.service_slug)), new Set(["boda", "cumpleanos"]));
+});
+
+/* ── mapOrderTotals ────────────────────────────────────────────────────── */
+test("mapOrderTotals: respuesta de create-order con pago completo", () => {
+  const totals = mapOrderTotals({
+    contract_total: 500,
+    amount_due_now: 500,
+    deposit_total: 0,
+    balance_due: 0,
+    grand_total: 500,
+  });
+  assert.deepEqual(totals, { contractTotal: 500, amountDueNow: 500, depositTotal: 0, balanceDue: 0 });
+});
+
+test("mapOrderTotals: respuesta con deposito y balance pendiente", () => {
+  const totals = mapOrderTotals({
+    contract_total: 999.95,
+    amount_due_now: 250,
+    deposit_total: 250,
+    balance_due: 749.95,
+    grand_total: 999.95,
+  });
+  assert.equal(totals.contractTotal, 999.95);
+  assert.equal(totals.amountDueNow, 250);
+  assert.equal(totals.depositTotal, 250);
+  assert.equal(totals.balanceDue, 749.95);
+});
+
+test("mapOrderTotals: orden legacy (GET /orders/{id}, sin contract_total/deposit_total) usa fallback", () => {
+  // Raw store_orders row shape — no contract_total/deposit_total keys,
+  // only grand_total/amount_due_now/deposit_amount/balance_due.
+  const totals = mapOrderTotals({
+    grand_total: 300,
+    amount_due_now: 300,
+    deposit_amount: 0,
+    balance_due: 0,
+  });
+  assert.equal(totals.contractTotal, 300);
+  assert.equal(totals.amountDueNow, 300);
+  assert.equal(totals.depositTotal, 0);
+});
+
+test("mapOrderTotals: precios manipulados en la seleccion del cliente nunca son la autoridad", () => {
+  // Un estimated_total/deposit_amount fabricado en el selection del cliente
+  // no tiene ningun campo compatible en mapOrderTotals — solo lee las
+  // claves que el backend controla (contract_total/amount_due_now/
+  // deposit_total/balance_due/grand_total/deposit_amount de la ORDEN, no
+  // del selection). Simulamos una orden real cuyo total no coincide con lo
+  // que un cliente malicioso hubiera "estimado" en el navegador.
+  const clientEstimated = { estimated_total: 1, deposit_amount: 1 }; // manipulado
+  const realOrder = { contract_total: 500, amount_due_now: 500, deposit_total: 0, balance_due: 0 };
+  const totals = mapOrderTotals({ ...clientEstimated, ...realOrder });
+  assert.equal(totals.amountDueNow, 500); // no 1 — el campo del cliente no es leido
+});
+
+test("mapOrderTotals: orden vacia no revienta, todo en cero", () => {
+  assert.deepEqual(mapOrderTotals(null), { contractTotal: 0, amountDueNow: 0, depositTotal: 0, balanceDue: 0 });
+  assert.deepEqual(mapOrderTotals({}), { contractTotal: 0, amountDueNow: 0, depositTotal: 0, balanceDue: 0 });
+});
+
+/* ── mapBookingErrorMessage ────────────────────────────────────────────── */
+test("mapBookingErrorMessage: slot ocupado", () => {
+  assert.equal(
+    mapBookingErrorMessage("booking_time_slot_not_available"),
+    "Ese horario acaba de ocuparse. Selecciona otro horario."
+  );
+});
+
+test("mapBookingErrorMessage: hold expirado", () => {
+  assert.equal(
+    mapBookingErrorMessage("booking_hold_expired"),
+    "El tiempo para completar el pago expiró. Selecciona nuevamente la fecha y hora."
+  );
+});
+
+test("mapBookingErrorMessage: booking_selection_required", () => {
+  assert.equal(
+    mapBookingErrorMessage("booking_selection_required"),
+    "Completa la configuración del servicio antes de continuar."
+  );
+});
+
+test("mapBookingErrorMessage: payment_review_required advierte no reintentar", () => {
+  const msg = mapBookingErrorMessage("payment_review_required");
+  assert.equal(msg, "El pago necesita revisión. No intentes pagar nuevamente.");
+});
+
+test("mapBookingErrorMessage: codigo no mapeado usa el fallback, nunca se pierde silenciosamente", () => {
+  assert.equal(mapBookingErrorMessage("algun_error_futuro_no_mapeado", "mensaje de respaldo"), "mensaje de respaldo");
+  assert.equal(mapBookingErrorMessage(null, "mensaje de respaldo"), "mensaje de respaldo");
+  assert.equal(mapBookingErrorMessage("algun_error_futuro_no_mapeado"), "algun_error_futuro_no_mapeado");
+});
+
+/* ── isSelectedSlotStillAvailable ──────────────────────────────────────── */
+test("isSelectedSlotStillAvailable: slot sigue en la nueva respuesta", () => {
+  const selected = { starts_at: "2026-08-01T14:00:00+00:00" };
+  const slots = [{ starts_at: "2026-08-01T13:00:00+00:00" }, { starts_at: "2026-08-01T14:00:00+00:00" }];
+  assert.equal(isSelectedSlotStillAvailable(selected, slots), true);
+});
+
+test("isSelectedSlotStillAvailable: cambiar addon quita el slot -> se invalida", () => {
+  const selected = { starts_at: "2026-08-01T14:00:00+00:00" };
+  const slotsAfterLongerAddon = [{ starts_at: "2026-08-01T13:00:00+00:00" }];
+  assert.equal(isSelectedSlotStillAvailable(selected, slotsAfterLongerAddon), false);
+});
+
+test("isSelectedSlotStillAvailable: sin slot seleccionado siempre es valido (nada que invalidar)", () => {
+  assert.equal(isSelectedSlotStillAvailable(null, []), true);
+  assert.equal(isSelectedSlotStillAvailable(undefined, [{ starts_at: "x" }]), true);
+});
+
+/* ── mergeTrustedOrderTotals ───────────────────────────────────────────── */
+test("mergeTrustedOrderTotals: preserva el deposito conocido tras un refresh incompleto (GET /orders/{id})", () => {
+  const trusted = { id: "order-1", contractTotal: 999.95, amountDueNow: 250, depositTotal: 250, balanceDue: 749.95 };
+  // Simula la respuesta real de GET /orders/{id}: sin estos 4 campos, cae
+  // en el fallback de mapOrderTotals (amountDueNow = grand_total = total).
+  const staleRefresh = { id: "order-1", status: "processing", paymentStatus: "deposit_paid", contractTotal: 999.95, amountDueNow: 999.95, depositTotal: 0, balanceDue: 0 };
+  const merged = mergeTrustedOrderTotals(staleRefresh, trusted);
+  assert.equal(merged.amountDueNow, 250);
+  assert.equal(merged.depositTotal, 250);
+  assert.equal(merged.balanceDue, 749.95);
+  // Los campos que SI deben refrescarse (status/paymentStatus) vienen del refresh, no del trusted.
+  assert.equal(merged.status, "processing");
+  assert.equal(merged.paymentStatus, "deposit_paid");
+});
+
+test("mergeTrustedOrderTotals: no mezcla totales de una orden distinta", () => {
+  const trusted = { id: "order-1", contractTotal: 500, amountDueNow: 500, depositTotal: 0, balanceDue: 0 };
+  const otherOrderRefresh = { id: "order-2", contractTotal: 80, amountDueNow: 80, depositTotal: 0, balanceDue: 0 };
+  const merged = mergeTrustedOrderTotals(otherOrderRefresh, trusted);
+  assert.equal(merged.amountDueNow, 80); // no se contamina con order-1
+});
+
+test("mergeTrustedOrderTotals: sin fuente confiable devuelve el refresh tal cual", () => {
+  const refresh = { id: "order-1", amountDueNow: 500 };
+  assert.deepEqual(mergeTrustedOrderTotals(refresh, null), refresh);
 });
 
 console.log(`\n${passed} pruebas OK`);
