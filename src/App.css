@@ -4601,63 +4601,95 @@
   }
 }
 
-.checkout-review {
-  max-width: none;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
-  gap: 28px;
-  align-items: start;
-}
-
-.checkout-review__main {
+/* Revisar y pagar — one vertical surface instead of two narrow columns
+   competing side by side. Same visual family as .checkout-wizard-card
+   (border/radius/shadow), sections stacked with generous spacing instead
+   of a summary column + a separate skinny payment column. */
+.checkout-review-card {
+  max-width: 940px;
+  margin: 0 auto;
   background: #fff;
-  border: 1px solid rgba(17, 17, 17, 0.08);
-  border-radius: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 22px;
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.05);
-  padding: 28px;
+  padding: 40px;
   display: grid;
-  gap: 22px;
+  gap: 32px;
 }
 
-.checkout-review__main h2 {
+.checkout-review-section {
+  display: grid;
+  gap: 12px;
+  padding-top: 28px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.checkout-review-section:first-of-type {
+  padding-top: 0;
+  border-top: none;
+}
+
+.checkout-review-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.checkout-review-section__title {
   margin: 0;
-  font-size: 1.3rem;
-  color: #111;
-}
-
-.checkout-review__section h3 {
-  margin: 0 0 10px;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #71717a;
+  color: #6b7280;
 }
 
-.checkout-review__section ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.checkout-review-section__edit {
+  border: 1.5px solid #e5e7eb;
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #111;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.checkout-review-section__edit:hover {
+  border-color: #f8d000;
+  background: #fffbe6;
+}
+
+.checkout-review-booking-list {
   display: grid;
-  gap: 4px;
-  font-size: 0.92rem;
-  color: #27272a;
+  gap: 10px;
 }
 
 .checkout-review__booking {
-  padding: 12px 14px;
-  border-radius: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
   background: #fafafa;
-  margin-bottom: 10px;
-}
-
-.checkout-review__booking:last-child {
-  margin-bottom: 0;
+  border: 1px solid #e5e7eb;
 }
 
 .checkout-review__booking strong {
   display: block;
   margin-bottom: 6px;
   color: #111;
+  font-size: 0.95rem;
+}
+
+.checkout-review__booking ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-size: 0.88rem;
+  color: #27272a;
 }
 
 .checkout-review__edit-links {
@@ -4667,7 +4699,7 @@
 }
 
 .checkout-review__edit-links button {
-  border: 1px solid rgba(17, 17, 17, 0.16);
+  border: 1.5px solid #e5e7eb;
   background: #fff;
   border-radius: 999px;
   padding: 7px 14px;
@@ -4675,26 +4707,103 @@
   font-weight: 600;
   color: #111;
   cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
 }
 
 .checkout-review__edit-links button:hover {
-  border-color: #111;
+  border-color: #f8d000;
+  background: #fffbe6;
 }
 
-@media (max-width: 860px) {
-  .checkout-review {
-    grid-template-columns: 1fr;
+.checkout-review-customer {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111;
+}
+
+/* Método de pago */
+.checkout-payment-intro {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.checkout-payment-badges {
+  display: flex;
+  gap: 8px;
+}
+
+.checkout-payment-badge {
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #111;
+  background: #fafafa;
+}
+
+.checkout-payment-pending-note {
+  margin: 0;
+  padding: 16px;
+  border: 1.5px dashed #e5e7eb;
+  border-radius: 12px;
+  color: #6b7280;
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.checkout-review-order-ref {
+  margin: -20px 0 0;
+  font-size: 0.82rem;
+  color: #6b7280;
+  text-align: center;
+}
+
+.checkout-review-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 28px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.checkout-review-footer .checkout-pay-button {
+  flex: 1;
+  max-width: 320px;
+}
+
+@media (max-width: 640px) {
+  .checkout-review-card {
+    padding: 22px 18px;
+    border-radius: 18px;
+    gap: 24px;
+  }
+  .checkout-review-section {
+    padding-top: 22px;
+  }
+  .checkout-review-footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+  .checkout-review-footer .checkout-pay-button,
+  .checkout-review-footer .checkout-secondary-button {
+    max-width: none;
+    width: 100%;
+    justify-content: center;
   }
 }
 
 @media (max-width: 640px) {
   .checkout-wizard-shell {
     padding: 0 4px;
-  }
-
-  .checkout-review__main {
-    padding: 20px;
-    border-radius: 16px;
   }
 
   .booking-stepper__list {
@@ -4953,23 +5062,6 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
-}
-
-.checkout-edit-link {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 14px;
-  border: 2px solid #f1d146;
-  border-radius: 999px;
-  color: #0b0b0d;
-  font-weight: 800;
-  font-size: .85rem;
-  text-decoration: none;
-  transition: background 0.15s;
-}
-
-.checkout-edit-link:hover {
-  background: #f1d146;
 }
 
 .checkout-summary-items {
@@ -15317,8 +15409,8 @@ section[id] {
    block real structure instead of a lone compact calendar surrounded by
    empty space; the times column always renders (with a placeholder before
    a date is picked) so the composition never looks half-finished. Collapses
-   to one column at the same 860px breakpoint .checkout-review already uses
-   elsewhere in this file, for consistency. */
+   to one column at 860px, matching the breakpoint used elsewhere in this
+   file for similar two-column-to-stacked layouts. */
 .cbp-booking-layout {
   display: grid;
   grid-template-columns: 45% 55%;

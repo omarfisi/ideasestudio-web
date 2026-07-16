@@ -1150,7 +1150,7 @@ function StoreCheckout({
                       </div>
                       <div className="checkout-field">
                         <label>Teléfono</label>
-                        <input type="text" name="phone" value={checkoutForm.phone} onChange={handleFallbackChange} placeholder="+52 55 0000 0000" disabled={!canCreateOrder} />
+                        <input type="tel" name="phone" value={checkoutForm.phone} onChange={handleFallbackChange} placeholder="(787) 000-0000" disabled={!canCreateOrder} />
                       </div>
                       <div className="checkout-field">
                         <label>Empresa</label>
@@ -1202,51 +1202,56 @@ function StoreCheckout({
         )}
       </div>
 
+      {/* One vertical checkout surface (not two narrow columns competing)
+          — same .checkout-wizard-card-family visual language as the other
+          steps. Order: reservation summary, customer, payment method +
+          card form, cost breakdown, final CTA. All state/handlers below
+          are unchanged from before this round — only markup/classes. */}
       {!showWizardState && activeStepKey === "review" && (
         <div className="checkout-wizard-shell">
-          <div className="checkout-review">
-            {/* ── Editable summary blocks ──────────────────────────────── */}
-            <section className="checkout-review__main">
+          <div className="checkout-review-card">
+            <div className="checkout-step-header">
               <h2>Revisar y pagar</h2>
+              <p className="checkout-step-header__hint">Confirma los detalles antes de completar tu pago.</p>
+            </div>
 
-              <div className="checkout-review__section">
-                <h3>Servicio{cart.items.length > 1 ? "s" : ""}</h3>
-                <div className="checkout-summary-items">
-                  {cart.items.map((item) => {
-                    const thumb =
-                      item.coverImageUrl ||
-                      item.image_url ||
-                      item.product?.cover_image_url ||
-                      item.metadata?.cover_image_url ||
-                      null;
+            {/* ── Resumen de tu reserva ────────────────────────────────── */}
+            <div className="checkout-review-section">
+              <h3 className="checkout-review-section__title">Resumen de tu reserva</h3>
+              <div className="checkout-summary-items">
+                {cart.items.map((item) => {
+                  const thumb =
+                    item.coverImageUrl ||
+                    item.image_url ||
+                    item.product?.cover_image_url ||
+                    item.metadata?.cover_image_url ||
+                    null;
 
-                    return (
-                      <div className="checkout-summary-item" key={item.id || item.productId}>
-                        <div className="checkout-summary-thumb">
-                          {thumb ? (
-                            <img src={thumb} alt={item.snapshotName} />
-                          ) : (
-                            <span>{(item.snapshotName || "S").slice(0, 1).toUpperCase()}</span>
-                          )}
-                        </div>
-                        <div>
-                          <div className="checkout-summary-name">{item.snapshotName}</div>
-                          <div className="checkout-summary-meta">
-                            {item.quantity}x &middot; {formatPrice(item.unitPrice, item.currency)}
-                          </div>
-                        </div>
-                        <strong className="checkout-summary-line-total">
-                          {formatPrice(item.unitPrice * item.quantity, item.currency)}
-                        </strong>
+                  return (
+                    <div className="checkout-summary-item" key={item.id || item.productId}>
+                      <div className="checkout-summary-thumb">
+                        {thumb ? (
+                          <img src={thumb} alt={item.snapshotName} />
+                        ) : (
+                          <span>{(item.snapshotName || "S").slice(0, 1).toUpperCase()}</span>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
+                      <div>
+                        <div className="checkout-summary-name">{item.snapshotName}</div>
+                        <div className="checkout-summary-meta">
+                          {item.quantity}x &middot; {formatPrice(item.unitPrice, item.currency)}
+                        </div>
+                      </div>
+                      <strong className="checkout-summary-line-total">
+                        {formatPrice(item.unitPrice * item.quantity, item.currency)}
+                      </strong>
+                    </div>
+                  );
+                })}
               </div>
 
               {bookingStatus.hasBooking && (
-                <div className="checkout-review__section">
-                  <h3>Reserva</h3>
+                <div className="checkout-review-booking-list">
                   {bookingServices.map((svc) => {
                     const selection = bookingSelections[svc.slug];
                     return (
@@ -1280,16 +1285,7 @@ function StoreCheckout({
                 </div>
               )}
 
-              <div className="checkout-review__section">
-                <h3>Cliente</h3>
-                <ul>
-                  {reviewCustomer.name && <li>{reviewCustomer.name}</li>}
-                  {reviewCustomer.email && <li>{reviewCustomer.email}</li>}
-                  {reviewCustomer.phone && <li>{reviewCustomer.phone}</li>}
-                </ul>
-              </div>
-
-              {!createdOrder && (
+              {!createdOrder && (steps.includes("schedule") || steps.includes("customize")) && (
                 <div className="checkout-review__edit-links">
                   {steps.includes("schedule") && (
                     <button type="button" onClick={() => goToStep(steps.indexOf("schedule"))}>
@@ -1301,38 +1297,61 @@ function StoreCheckout({
                       Editar personalización
                     </button>
                   )}
-                  <button type="button" onClick={() => goToStep(steps.indexOf("details"))}>
-                    Editar datos
-                  </button>
                 </div>
               )}
+            </div>
 
-              {/* Stripe payment box — appears after payment intent is ready */}
-              {paymentReady && (
-                <div style={{ marginTop: 28 }}>
-                  <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "0 0 6px", color: "#111" }}>
-                    Método de pago
-                  </h3>
-                  <p style={{ fontSize: "0.875rem", color: "#71717a", margin: "0 0 16px" }}>
-                    Ingresa los datos de tu tarjeta para completar la contratación.
+            {/* ── Datos del cliente ────────────────────────────────────── */}
+            <div className="checkout-review-section">
+              <div className="checkout-review-section__head">
+                <h3 className="checkout-review-section__title">Datos del cliente</h3>
+                {!createdOrder && (
+                  <button type="button" className="checkout-review-section__edit" onClick={() => goToStep(steps.indexOf("details"))}>
+                    Editar
+                  </button>
+                )}
+              </div>
+              <ul className="checkout-review-customer">
+                {reviewCustomer.name && <li>{reviewCustomer.name}</li>}
+                {reviewCustomer.email && <li>{reviewCustomer.email}</li>}
+                {reviewCustomer.phone && <li>{reviewCustomer.phone}</li>}
+              </ul>
+            </div>
+
+            {/* ── Método de pago ───────────────────────────────────────── */}
+            <div className="checkout-review-section">
+              <h3 className="checkout-review-section__title">Método de pago</h3>
+              <p className="checkout-payment-intro">
+                Pago seguro con tarjeta. Aceptamos tarjetas de crédito y débito.
+              </p>
+              <div className="checkout-payment-badges">
+                <span className="checkout-payment-badge">Visa</span>
+                <span className="checkout-payment-badge">Mastercard</span>
+              </div>
+
+              {paymentReady ? (
+                stripePromise ? (
+                  <Elements stripe={stripePromise}>
+                    <StoreCardPaymentForm
+                      clientSecret={paymentIntent.clientSecret}
+                      order={createdOrder}
+                      checkoutForm={checkoutForm}
+                      submitState={submitState}
+                      setSubmitState={setSubmitState}
+                      onPaymentSucceeded={handlePaymentSucceeded}
+                    />
+                  </Elements>
+                ) : (
+                  <p className="form-status form-status--error">
+                    Falta `VITE_STRIPE_PUBLISHABLE_KEY` para inicializar Stripe en frontend.
                   </p>
-                  {stripePromise ? (
-                    <Elements stripe={stripePromise}>
-                      <StoreCardPaymentForm
-                        clientSecret={paymentIntent.clientSecret}
-                        order={createdOrder}
-                        checkoutForm={checkoutForm}
-                        submitState={submitState}
-                        setSubmitState={setSubmitState}
-                        onPaymentSucceeded={handlePaymentSucceeded}
-                      />
-                    </Elements>
-                  ) : (
-                    <p className="form-status form-status--error">
-                      Falta `VITE_STRIPE_PUBLISHABLE_KEY` para inicializar Stripe en frontend.
-                    </p>
-                  )}
-                </div>
+                )
+              ) : (
+                <p className="checkout-payment-pending-note">
+                  {createdOrder
+                    ? "Preparando el formulario de pago..."
+                    : "El formulario de tarjeta aparece aquí después de crear tu orden."}
+                </p>
               )}
 
               {submitState.status !== "idle" && !paymentReady && (
@@ -1341,200 +1360,198 @@ function StoreCheckout({
                 </p>
               )}
 
-              {/* Submitted via the pay button's form="checkout-order-form" attribute */}
-              <form id="checkout-order-form" onSubmit={handleSubmit} />
-            </section>
-
-            {/* ── Totals + pay ─────────────────────────────────────────── */}
-            <aside className="checkout-review__aside">
-              <div className="checkout-summary-card">
-                <div className="checkout-summary-head">
-                  <h2>Total</h2>
-                  <Link to="/servicios/carrito" className="checkout-edit-link">
-                    Editar carrito
-                  </Link>
-                </div>
-
-                <div className="checkout-coupon-row">
-                  <input
-                    type="text"
-                    placeholder="Código de descuento"
-                    value={couponCode}
-                    onChange={(e) => {
-                      setCouponCode(e.target.value.toUpperCase());
-                      if (appliedCoupon) setAppliedCoupon(null);
-                      if (couponState.status !== "idle") setCouponState({ status: "idle", message: "" });
-                    }}
-                    disabled={couponState.status === "loading" || !canCreateOrder}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleApplyCoupon(); } }}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleApplyCoupon}
-                    disabled={couponState.status === "loading" || !couponCode.trim() || !canCreateOrder}
-                  >
-                    {couponState.status === "loading" ? "..." : "Aplicar"}
-                  </button>
-                </div>
-                {couponState.status !== "idle" && (
-                  <p className={`form-status form-status--${couponState.status === "success" ? "success" : "error"}`} style={{ margin: "4px 0 0", fontSize: "0.8rem" }}>
-                    {couponState.message}
-                  </p>
-                )}
-
-                {createdOrder ? (
-                  // Authoritative totals — the order was created server-side
-                  // from the cart, so these are the numbers Stripe will
-                  // actually charge, not a frontend estimate. contractTotal
-                  // is the full service/order value; amountDueNow is what
-                  // gets charged right now (can be a deposit, in which case
-                  // balanceDue is what remains owed after this payment).
-                  <div className="checkout-totals">
-                    {createdOrder.discountTotal > 0 && (
-                      <div className="checkout-total-row" style={{ color: "#16a34a" }}>
-                        <span>Descuento</span>
-                        <span>-{formatPrice(createdOrder.discountTotal, createdOrder.currency)}</span>
-                      </div>
-                    )}
-                    <div className="checkout-total-row">
-                      <span>Total del servicio</span>
-                      <span>{formatPrice(createdOrder.contractTotal, createdOrder.currency)}</span>
-                    </div>
-                    <div className="checkout-total-row is-total">
-                      <span>A pagar ahora</span>
-                      <span>{formatPrice(createdOrder.amountDueNow, createdOrder.currency)}</span>
-                    </div>
-                    {createdOrder.depositTotal > 0 && (
-                      <div className="checkout-total-row">
-                        <span>Depósito</span>
-                        <span>{formatPrice(createdOrder.depositTotal, createdOrder.currency)}</span>
-                      </div>
-                    )}
-                    {createdOrder.balanceDue > 0 && (
-                      <div className="checkout-total-row">
-                        <span>Balance pendiente</span>
-                        <span>{formatPrice(createdOrder.balanceDue, createdOrder.currency)}</span>
-                      </div>
-                    )}
-                  </div>
-                ) : null}
-
-                {createdOrder && bookingSummary.length > 0 && (
-                  // Read-only receipt of what the server actually reserved
-                  // — never assume a hold exists (reservation_hold_id/
-                  // startsAt/endsAt are null for a "configured" no-calendar
-                  // entry, which is a valid, non-error state).
-                  <div className="checkout-totals" style={{ marginTop: 14 }}>
-                    {bookingSummary.map((entry, idx) => (
-                      <div key={entry.reservationHoldId || `${entry.serviceSlug}-${idx}`} style={{ marginBottom: idx < bookingSummary.length - 1 ? 12 : 0 }}>
-                        <div className="checkout-total-row">
-                          <span style={{ fontWeight: 600 }}>{entry.serviceSlug}</span>
-                          <span>{formatPrice(entry.serviceTotal, createdOrder.currency)}</span>
-                        </div>
-                        {entry.startsAt && (
-                          <div className="checkout-total-row">
-                            <span>Fecha y hora</span>
-                            <span>{formatDateTime(entry.startsAt)}</span>
-                          </div>
-                        )}
-                        {entry.packageName && (
-                          <div className="checkout-total-row">
-                            <span>Paquete</span>
-                            <span>{entry.packageName}</span>
-                          </div>
-                        )}
-                        {entry.addons.map((addon) => (
-                          <div className="checkout-total-row" key={addon.addonId}>
-                            <span>{addon.name} x{addon.quantity}</span>
-                            <span>{formatPrice(addon.price * addon.quantity, createdOrder.currency)}</span>
-                          </div>
-                        ))}
-                        {entry.depositAmount > 0 && (
-                          <div className="checkout-total-row">
-                            <span>Depósito</span>
-                            <span>{formatPrice(entry.depositAmount, createdOrder.currency)}</span>
-                          </div>
-                        )}
-                        <div className="checkout-total-row">
-                          <span>Estado</span>
-                          <span>{entry.status === "configured" ? "Configurado" : entry.status}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {!createdOrder && (
-                  <div className="checkout-totals">
-                    <div className="checkout-total-row">
-                      <span>
-                        Subtotal ({cart.items.length}{" "}
-                        {cart.items.length === 1 ? "item" : "items"})
-                      </span>
-                      <span>{formatPrice(cart.summary.subtotal, cart.summary.currency)}</span>
-                    </div>
-                    {bookingExtrasEstimate > 0 && (
-                      <div className="checkout-total-row">
-                        <span>Extras (estimado)</span>
-                        <span>{formatPrice(bookingExtrasEstimate, cart.summary.currency)}</span>
-                      </div>
-                    )}
-                    {depositEstimate > 0 && (
-                      <div className="checkout-total-row">
-                        <span>Depósito requerido (estimado)</span>
-                        <span>{formatPrice(depositEstimate, cart.summary.currency)}</span>
-                      </div>
-                    )}
-                    {appliedCoupon && (
-                      <div className="checkout-total-row" style={{ color: "#16a34a" }}>
-                        <span>Descuento ({appliedCoupon.code})</span>
-                        <span>-{formatPrice(appliedCoupon.discountAmount, cart.summary.currency)}</span>
-                      </div>
-                    )}
-                    <div className="checkout-total-row is-total">
-                      <span>Total estimado</span>
-                      <span>
-                        {formatPrice(
-                          Math.max(0, Number(cart.summary.subtotal) - Number(appliedCoupon?.discountAmount || 0)),
-                          cart.summary.currency
-                        )}
-                      </span>
-                    </div>
-                    <p style={{ margin: "8px 0 0", fontSize: "0.76rem", color: "#71717a" }}>
-                      El monto final se confirma al crear tu orden.
-                    </p>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  form={paymentReady ? "checkout-stripe-form" : "checkout-order-form"}
-                  className="checkout-pay-button"
-                  style={{ width: "100%", marginTop: 16 }}
-                  disabled={isProcessing}
-                >
-                  {isProcessing
-                    ? "Procesando..."
-                    : paymentReady
-                    ? "Pagar ahora"
-                    : "Crear orden y continuar al pago"}
-                </button>
-
-                {createdOrder && !paymentReady && (
-                  <p style={{ marginTop: 10, fontSize: "0.82rem", color: "#6b7280", textAlign: "center" }}>
-                    Orden <strong>{createdOrder.orderNumber}</strong> creada. Preparando pago...
-                  </p>
-                )}
-
-                <div className="checkout-secure-box">
-                  <LockIcon />
-                  <div>
-                    <strong>Secure Checkout - SSL Encrypted</strong>
-                    <p>Tus datos personales y financieros están protegidos durante toda la transacción.</p>
-                  </div>
+              <div className="checkout-secure-box">
+                <LockIcon />
+                <div>
+                  <strong>Pago seguro • SSL</strong>
+                  <p>Tus datos financieros se procesan de forma segura durante toda la transacción.</p>
                 </div>
               </div>
-            </aside>
+
+              {/* Submitted via the pay button's form="checkout-order-form" attribute */}
+              <form id="checkout-order-form" onSubmit={handleSubmit} />
+            </div>
+
+            {/* ── Desglose del pago ────────────────────────────────────── */}
+            <div className="checkout-review-section checkout-review-section--totals">
+              <h3 className="checkout-review-section__title">Desglose del pago</h3>
+
+              <div className="checkout-coupon-row">
+                <input
+                  type="text"
+                  placeholder="Código de descuento"
+                  value={couponCode}
+                  onChange={(e) => {
+                    setCouponCode(e.target.value.toUpperCase());
+                    if (appliedCoupon) setAppliedCoupon(null);
+                    if (couponState.status !== "idle") setCouponState({ status: "idle", message: "" });
+                  }}
+                  disabled={couponState.status === "loading" || !canCreateOrder}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleApplyCoupon(); } }}
+                />
+                <button
+                  type="button"
+                  onClick={handleApplyCoupon}
+                  disabled={couponState.status === "loading" || !couponCode.trim() || !canCreateOrder}
+                >
+                  {couponState.status === "loading" ? "..." : "Aplicar"}
+                </button>
+              </div>
+              {couponState.status !== "idle" && (
+                <p className={`form-status form-status--${couponState.status === "success" ? "success" : "error"}`} style={{ margin: "4px 0 0", fontSize: "0.8rem" }}>
+                  {couponState.message}
+                </p>
+              )}
+
+              {createdOrder ? (
+                // Authoritative totals — the order was created server-side
+                // from the cart, so these are the numbers Stripe will
+                // actually charge, not a frontend estimate. contractTotal
+                // is the full service/order value; amountDueNow is what
+                // gets charged right now (can be a deposit, in which case
+                // balanceDue is what remains owed after this payment).
+                <div className="checkout-totals">
+                  {createdOrder.discountTotal > 0 && (
+                    <div className="checkout-total-row" style={{ color: "#16a34a" }}>
+                      <span>Descuento</span>
+                      <span>-{formatPrice(createdOrder.discountTotal, createdOrder.currency)}</span>
+                    </div>
+                  )}
+                  <div className="checkout-total-row">
+                    <span>Total del servicio</span>
+                    <span>{formatPrice(createdOrder.contractTotal, createdOrder.currency)}</span>
+                  </div>
+                  <div className="checkout-total-row is-total">
+                    <span>A pagar ahora</span>
+                    <span>{formatPrice(createdOrder.amountDueNow, createdOrder.currency)}</span>
+                  </div>
+                  {createdOrder.depositTotal > 0 && (
+                    <div className="checkout-total-row">
+                      <span>Depósito</span>
+                      <span>{formatPrice(createdOrder.depositTotal, createdOrder.currency)}</span>
+                    </div>
+                  )}
+                  {createdOrder.balanceDue > 0 && (
+                    <div className="checkout-total-row">
+                      <span>Balance pendiente</span>
+                      <span>{formatPrice(createdOrder.balanceDue, createdOrder.currency)}</span>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              {createdOrder && bookingSummary.length > 0 && (
+                // Read-only receipt of what the server actually reserved
+                // — never assume a hold exists (reservation_hold_id/
+                // startsAt/endsAt are null for a "configured" no-calendar
+                // entry, which is a valid, non-error state).
+                <div className="checkout-totals" style={{ marginTop: 14 }}>
+                  {bookingSummary.map((entry, idx) => (
+                    <div key={entry.reservationHoldId || `${entry.serviceSlug}-${idx}`} style={{ marginBottom: idx < bookingSummary.length - 1 ? 12 : 0 }}>
+                      <div className="checkout-total-row">
+                        <span style={{ fontWeight: 600 }}>{entry.serviceSlug}</span>
+                        <span>{formatPrice(entry.serviceTotal, createdOrder.currency)}</span>
+                      </div>
+                      {entry.startsAt && (
+                        <div className="checkout-total-row">
+                          <span>Fecha y hora</span>
+                          <span>{formatDateTime(entry.startsAt)}</span>
+                        </div>
+                      )}
+                      {entry.packageName && (
+                        <div className="checkout-total-row">
+                          <span>Paquete</span>
+                          <span>{entry.packageName}</span>
+                        </div>
+                      )}
+                      {entry.addons.map((addon) => (
+                        <div className="checkout-total-row" key={addon.addonId}>
+                          <span>{addon.name} x{addon.quantity}</span>
+                          <span>{formatPrice(addon.price * addon.quantity, createdOrder.currency)}</span>
+                        </div>
+                      ))}
+                      {entry.depositAmount > 0 && (
+                        <div className="checkout-total-row">
+                          <span>Depósito</span>
+                          <span>{formatPrice(entry.depositAmount, createdOrder.currency)}</span>
+                        </div>
+                      )}
+                      <div className="checkout-total-row">
+                        <span>Estado</span>
+                        <span>{entry.status === "configured" ? "Configurado" : entry.status}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!createdOrder && (
+                <div className="checkout-totals">
+                  <div className="checkout-total-row">
+                    <span>
+                      Subtotal ({cart.items.length}{" "}
+                      {cart.items.length === 1 ? "item" : "items"})
+                    </span>
+                    <span>{formatPrice(cart.summary.subtotal, cart.summary.currency)}</span>
+                  </div>
+                  {bookingExtrasEstimate > 0 && (
+                    <div className="checkout-total-row">
+                      <span>Extras (estimado)</span>
+                      <span>{formatPrice(bookingExtrasEstimate, cart.summary.currency)}</span>
+                    </div>
+                  )}
+                  {depositEstimate > 0 && (
+                    <div className="checkout-total-row">
+                      <span>Depósito requerido (estimado)</span>
+                      <span>{formatPrice(depositEstimate, cart.summary.currency)}</span>
+                    </div>
+                  )}
+                  {appliedCoupon && (
+                    <div className="checkout-total-row" style={{ color: "#16a34a" }}>
+                      <span>Descuento ({appliedCoupon.code})</span>
+                      <span>-{formatPrice(appliedCoupon.discountAmount, cart.summary.currency)}</span>
+                    </div>
+                  )}
+                  <div className="checkout-total-row is-total">
+                    <span>Total estimado</span>
+                    <span>
+                      {formatPrice(
+                        Math.max(0, Number(cart.summary.subtotal) - Number(appliedCoupon?.discountAmount || 0)),
+                        cart.summary.currency
+                      )}
+                    </span>
+                  </div>
+                  <p style={{ margin: "8px 0 0", fontSize: "0.76rem", color: "#71717a" }}>
+                    El monto final se confirma al crear tu orden.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {createdOrder && !paymentReady && (
+              <p className="checkout-review-order-ref">
+                Orden <strong>{createdOrder.orderNumber}</strong> creada. Preparando pago...
+              </p>
+            )}
+
+            {/* ── CTA final ─────────────────────────────────────────────── */}
+            <div className="checkout-review-footer">
+              <Link to="/servicios/carrito" className="checkout-secondary-button">
+                Editar carrito
+              </Link>
+              <button
+                type="submit"
+                form={paymentReady ? "checkout-stripe-form" : "checkout-order-form"}
+                className="checkout-pay-button"
+                disabled={isProcessing}
+              >
+                {isProcessing
+                  ? "Procesando..."
+                  : paymentReady
+                  ? "Pagar ahora"
+                  : "Crear orden y continuar al pago"}
+              </button>
+            </div>
           </div>
         </div>
       )}
