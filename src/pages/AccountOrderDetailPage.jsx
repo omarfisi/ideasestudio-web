@@ -1,25 +1,16 @@
 import { useEffect, useState } from "react";
 import { Navigate, useParams, Link } from "react-router-dom";
-import PageHero from "@/components/shared/PageHero.jsx";
-import Button from "@/components/shared/Button.jsx";
 import { useAuth } from "@/contexts/AuthContext.jsx";
 import { getMyOrderDetail } from "@/lib/accountApi.js";
 import { formatPrice } from "@/lib/formatPrice.js";
-
-const paymentStatusLabel = {
-  paid: "Pagado",
-  pending: "Pendiente",
-  pending_payment: "Pendiente de pago",
-  failed: "Fallido",
-  refunded: "Reembolsado",
-};
+import { getOrderPaymentAction, mapOrderPaymentErrorMessage } from "@/lib/orderPaymentState.js";
 
 const serviceStatusLabel = {
-  pending: "Pendiente",
-  confirmed: "Confirmado",
-  in_progress: "En progreso",
-  delivered: "Entregado",
-  cancelled: "Cancelado",
+  pending: "Servicio pendiente",
+  confirmed: "Servicio confirmado",
+  in_progress: "Servicio en progreso",
+  delivered: "Servicio entregado",
+  cancelled: "Servicio cancelado",
 };
 
 export default function AccountOrderDetailPage() {
@@ -45,10 +36,8 @@ export default function AccountOrderDetailPage() {
         }
       } catch (error) {
         if (!cancelled) {
-          setState({
-            status: "error",
-            message: error instanceof Error ? error.message : "No se pudo cargar la orden.",
-          });
+          const code = error instanceof Error ? error.message : null;
+          setState({ status: "error", message: mapOrderPaymentErrorMessage(code) });
         }
       }
     }
@@ -59,11 +48,9 @@ export default function AccountOrderDetailPage() {
 
   if (loading) {
     return (
-      <section className="section">
-        <div className="container">
-          <div className="empty-state"><p>Verificando sesión...</p></div>
-        </div>
-      </section>
+      <div className="account-dashboard-bg">
+        <div className="account-loading">Verificando sesión…</div>
+      </div>
     );
   }
 
@@ -72,165 +59,182 @@ export default function AccountOrderDetailPage() {
   }
 
   const currency = order?.currency || "USD";
+  const paymentAction = order ? getOrderPaymentAction(order) : null;
+  const serviceLabel = order ? serviceStatusLabel[order.service_status] || order.service_status || "—" : "—";
+  const hasDocument = Boolean(order?.invoice_id || order?.proposal_id);
 
   return (
-    <>
-      <PageHero
-        eyebrow="Mi cuenta"
-        title={order?.order_number ? `Orden ${order.order_number}` : "Detalle de orden"}
-        subtitle="Resumen de tu servicio, estado de pago y documentos."
-      />
-
-      <section className="section">
-        <div className="container">
-          <div className="mb-4">
-            <Link to="/mi-cuenta" className="text-sm text-blue-600 hover:underline">
-              ← Volver a mis órdenes
-            </Link>
+    <div className="account-dashboard-bg">
+      <section className="account-dashboard-card order-detail-card">
+        <div className="account-topbar">
+          <div className="account-breadcrumb">
+            <Link to="/mi-cuenta">Mi cuenta</Link>
+            <span>›</span>
+            <strong>Detalle de la orden</strong>
           </div>
+          <a className="account-support-btn" href="/contacto">Soporte</a>
+        </div>
+
+        <div className="order-detail-shell">
+          <Link to="/mi-cuenta" className="order-detail-link-back">
+            ← Volver a mis órdenes
+          </Link>
 
           {state.status === "loading" ? (
-            <div className="empty-state"><p>Cargando orden...</p></div>
+            <div className="account-loading">Cargando orden…</div>
           ) : state.status === "error" ? (
-            <div className="empty-state">
-              <p className="form-status form-status--error">{state.message}</p>
-              <div className="empty-state__actions">
-                <Button to="/mi-cuenta" variant="secondary">Volver</Button>
-              </div>
+            <div className="account-empty-state">
+              <h3>No pudimos cargar esta orden</h3>
+              <p>{state.message}</p>
             </div>
           ) : !order ? (
-            <div className="empty-state">
-              <h2>Orden no encontrada</h2>
-              <div className="empty-state__actions">
-                <Button to="/mi-cuenta" variant="secondary">Volver</Button>
-              </div>
+            <div className="account-empty-state">
+              <h3>No encontramos esta orden</h3>
             </div>
           ) : (
-            <div className="detail-grid">
-              <div className="detail-panel space-y-6">
-
-                {/* Estado de la orden */}
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <h3 className="mb-4 text-sm font-semibold text-slate-900">Estado</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="block text-slate-500">Pago</span>
-                      <strong className={order.payment_status === "paid" ? "text-emerald-700" : "text-amber-700"}>
-                        {paymentStatusLabel[order.payment_status] || order.payment_status || "—"}
-                      </strong>
-                    </div>
-                    <div>
-                      <span className="block text-slate-500">Servicio</span>
-                      <strong>{serviceStatusLabel[order.service_status] || order.service_status || "—"}</strong>
-                    </div>
-                    <div>
-                      <span className="block text-slate-500">Total</span>
-                      <strong>{formatPrice(order.grand_total ?? order.total ?? 0, currency)}</strong>
-                    </div>
-                    <div>
-                      <span className="block text-slate-500">Fecha</span>
-                      <strong>
-                        {order.created_at
-                          ? new Date(order.created_at).toLocaleDateString("es-PR")
-                          : "—"}
-                      </strong>
-                    </div>
+            <>
+              {/* ── Cabecera de estado ──────────────────────────────────── */}
+              <div className="order-detail-head">
+                <div className="order-detail-head__badges">
+                  <span className={`order-detail-badge order-detail-badge--${paymentAction.kind}`}>
+                    {paymentAction.badgeLabel}
+                  </span>
+                  <span className="order-detail-badge order-detail-badge--neutral">{serviceLabel}</span>
+                </div>
+                <div className="order-detail-head__figures">
+                  <div>
+                    <span>Total</span>
+                    <strong>{formatPrice(order.grand_total ?? order.total ?? 0, currency)}</strong>
+                  </div>
+                  <div>
+                    <span>Fecha</span>
+                    <strong>
+                      {order.created_at ? new Date(order.created_at).toLocaleDateString("es-PR") : "—"}
+                    </strong>
                   </div>
                 </div>
-
-                {/* Líneas de la orden */}
-                {items.length > 0 ? (
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <h3 className="mb-4 text-sm font-semibold text-slate-900">Servicios contratados</h3>
-                    <div className="space-y-3">
-                      {items.map((item, idx) => (
-                        <div
-                          key={item.id || idx}
-                          className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm"
-                        >
-                          <div>
-                            <strong className="block text-slate-800">{item.name_snapshot || "—"}</strong>
-                            <span className="text-slate-500">Cantidad: {item.quantity || 1}</span>
-                          </div>
-                          <span className="font-medium text-slate-700">
-                            {formatPrice(item.line_total ?? item.price_snapshot ?? 0, currency)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                {/* Documentos */}
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <h3 className="mb-4 text-sm font-semibold text-slate-900">Documentos</h3>
-                  {!order.invoice_id && !order.proposal_id ? (
-                    <p className="text-sm text-slate-500">
-                      {order.payment_status === "paid"
-                        ? "Los documentos se están generando. Actualiza en unos minutos."
-                        : "Los documentos se generarán automáticamente cuando se confirme el pago."}
-                    </p>
-                  ) : (
-                    <div className="flex flex-wrap gap-3">
-                      {order.invoice_id ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
-                          <span className="block font-medium text-slate-800">Factura</span>
-                          <span className="block text-xs text-slate-500 mt-0.5">
-                            Generada el{" "}
-                            {order.document_created_at
-                              ? new Date(order.document_created_at).toLocaleDateString("es-PR")
-                              : "—"}
-                          </span>
-                        </div>
-                      ) : null}
-                      {order.proposal_id ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
-                          <span className="block font-medium text-slate-800">Propuesta</span>
-                          <span className="block text-xs text-slate-500 mt-0.5">
-                            Generada el{" "}
-                            {order.document_created_at
-                              ? new Date(order.document_created_at).toLocaleDateString("es-PR")
-                              : "—"}
-                          </span>
-                        </div>
-                      ) : null}
-                    </div>
-                  )}
-                </div>
-
               </div>
 
-              <aside className="detail-summary">
-                <h3 className="text-sm font-semibold text-slate-900 mb-4">Resumen</h3>
-                <div className="summary-row">
-                  <span>Orden</span>
-                  <strong>{order.order_number || "—"}</strong>
-                </div>
-                <div className="summary-row">
-                  <span>Email</span>
-                  <strong>{order.customer_email || "—"}</strong>
-                </div>
-                <div className="summary-row">
-                  <span>Total</span>
-                  <strong>{formatPrice(order.grand_total ?? order.total ?? 0, currency)}</strong>
-                </div>
-                {order.service_date ? (
-                  <div className="summary-row">
-                    <span>Fecha del servicio</span>
-                    <strong>{new Date(order.service_date).toLocaleDateString("es-PR")}</strong>
+              {/* ── Bloque destacado: acción pendiente ─────────────────── */}
+              {paymentAction.kind === "payable" || paymentAction.kind === "retryable" ? (
+                <div className="order-detail-cta-block">
+                  <div>
+                    <h2>Tu pago está pendiente</h2>
+                    <p>Completa el pago para confirmar el servicio y generar tus documentos.</p>
                   </div>
-                ) : null}
-
-                <div className="detail-summary__actions mt-4">
-                  <Button to="/servicios" block variant="secondary">
-                    Ver más servicios
-                  </Button>
+                  <div className="order-detail-cta-block__actions">
+                    <Link to={`/mi-cuenta/ordenes/${orderId}/pagar`} className="order-detail-pay-button">
+                      {paymentAction.ctaLabel}
+                    </Link>
+                    <a href="/contacto" className="checkout-secondary-button">Contactar a Ideas Estudio</a>
+                  </div>
                 </div>
-              </aside>
-            </div>
+              ) : paymentAction.message ? (
+                <div className="order-detail-notice">
+                  <p>{paymentAction.message}</p>
+                  <a href="/contacto" className="checkout-secondary-button">Contactar a Ideas Estudio</a>
+                </div>
+              ) : null}
+
+              {/* ── Contenido en 2 columnas ─────────────────────────────── */}
+              <div className="order-detail-grid">
+                <div className="order-detail-main">
+                  {items.length > 0 ? (
+                    <div className="order-detail-panel">
+                      <h3>Servicio contratado</h3>
+                      <div className="order-detail-items">
+                        {items.map((item, idx) => (
+                          <div className="order-detail-item" key={item.id || idx}>
+                            <div>
+                              <strong>{item.name_snapshot || "—"}</strong>
+                              <span>Cantidad: {item.quantity || 1}</span>
+                            </div>
+                            <span className="order-detail-item__price">
+                              {formatPrice(item.line_total ?? item.price_snapshot ?? 0, currency)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="order-detail-panel">
+                    <h3>Documentos</h3>
+                    {!hasDocument ? (
+                      <p className="order-detail-muted">
+                        {paymentAction.kind === "paid"
+                          ? "Los documentos se están generando. Actualiza en unos minutos."
+                          : "Tu factura se generará automáticamente cuando se confirme el pago."}
+                      </p>
+                    ) : (
+                      <div className="order-detail-docs">
+                        {order.invoice_id ? (
+                          <div className="order-detail-doc-chip">
+                            <span>Factura</span>
+                            <small>
+                              Generada el{" "}
+                              {order.document_created_at
+                                ? new Date(order.document_created_at).toLocaleDateString("es-PR")
+                                : "—"}
+                            </small>
+                          </div>
+                        ) : null}
+                        {order.proposal_id ? (
+                          <div className="order-detail-doc-chip">
+                            <span>Propuesta</span>
+                            <small>
+                              Generada el{" "}
+                              {order.document_created_at
+                                ? new Date(order.document_created_at).toLocaleDateString("es-PR")
+                                : "—"}
+                            </small>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <aside className="order-detail-side">
+                  <div className="order-detail-panel">
+                    <h3>Resumen de orden</h3>
+                    <div className="summary-row">
+                      <span>Orden</span>
+                      <strong>{order.order_number || "—"}</strong>
+                    </div>
+                    <div className="summary-row">
+                      <span>Email</span>
+                      <strong>{order.customer_email || "—"}</strong>
+                    </div>
+                    <div className="summary-row">
+                      <span>Total</span>
+                      <strong>{formatPrice(order.grand_total ?? order.total ?? 0, currency)}</strong>
+                    </div>
+                    {order.service_date ? (
+                      <div className="summary-row">
+                        <span>Fecha del servicio</span>
+                        <strong>{new Date(order.service_date).toLocaleDateString("es-PR")}</strong>
+                      </div>
+                    ) : null}
+
+                    {paymentAction.kind === "payable" || paymentAction.kind === "retryable" ? (
+                      <Link to={`/mi-cuenta/ordenes/${orderId}/pagar`} className="order-detail-pay-button order-detail-pay-button--block">
+                        {paymentAction.ctaLabel}
+                      </Link>
+                    ) : null}
+                  </div>
+                </aside>
+              </div>
+
+              <div className="order-detail-footer">
+                <Link to="/servicios" className="order-detail-explore-link">
+                  Explorar otros servicios →
+                </Link>
+              </div>
+            </>
           )}
         </div>
       </section>
-    </>
+    </div>
   );
 }

@@ -47,3 +47,7 @@ export async function getMyOrders() {
 export async function getMyOrderDetail(orderId) {
   return accountFetch(`/my/orders/${orderId}`);
 }
+
+export async function postMyOrderPaymentSession(orderId) {
+  return accountFetch(`/my/orders/${orderId}/payment-session`, { method: "POST" });
+}
