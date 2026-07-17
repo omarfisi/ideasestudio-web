@@ -15423,11 +15423,13 @@ section[id] {
 .order-detail-shell,
 .order-payment-shell {
   width: 100%;
+  max-width: 100%;
   min-width: 0;
   padding: 28px 34px 34px;
   display: grid;
   gap: 20px;
   box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .order-detail-link-back {
@@ -15823,6 +15825,8 @@ section[id] {
 
 .order-payment-footer {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   display: flex;
   justify-content: flex-end;
   box-sizing: border-box;
