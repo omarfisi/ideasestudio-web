@@ -15787,8 +15787,15 @@ section[id] {
 }
 
 .order-payment-expired__icon {
-  font-size: 1.6rem;
-  line-height: 1;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: #fff3bf;
+  border: 1px solid #f3cf4e;
+  color: #8a6500;
 }
 
 .order-payment-expired h3 {

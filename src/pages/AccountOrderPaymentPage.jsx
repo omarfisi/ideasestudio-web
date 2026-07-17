@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useParams, Link } from "react-router-dom";
 import { Elements } from "@stripe/react-stripe-js";
+import { CalendarClock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext.jsx";
 import { getMyOrderDetail, postMyOrderPaymentSession } from "@/lib/accountApi.js";
 import { formatPrice } from "@/lib/formatPrice.js";
@@ -227,7 +228,9 @@ export default function AccountOrderPaymentPage() {
                   )
                 ) : recoveryAction?.kind === "booking_expired" ? (
                   <div className="order-payment-expired">
-                    <span className="order-payment-expired__icon" aria-hidden="true">📅</span>
+                    <div className="order-payment-expired__icon" aria-hidden="true">
+                      <CalendarClock size={24} strokeWidth={1.9} />
+                    </div>
                     <div>
                       <h3>{recoveryAction.title}</h3>
                       <p>{recoveryAction.message}</p>
