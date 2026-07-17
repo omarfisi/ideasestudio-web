@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import Button from "@/components/shared/Button.jsx";
+import { useAuth } from "@/contexts/AuthContext.jsx";
+import { getMyOrders } from "@/lib/accountApi.js";
+import { hasPendingOrderAction } from "@/lib/orderPaymentState.js";
 import {
   getPublicCart,
   getStoredCartSessionToken,
@@ -34,6 +37,7 @@ function syncSelectedProductIds(nextCart, currentSelectedIds = []) {
 }
 
 export default function CartPage() {
+  const { session } = useAuth();
   const [cart, setCart] = useState(null);
   const [viewState, setViewState] = useState({
     status: "loading",
@@ -44,6 +48,7 @@ export default function CartPage() {
   const [couponCode, setCouponCode] = useState("");
   const [couponState, setCouponState] = useState({ status: "idle", message: "" });
   const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [pendingOrder, setPendingOrder] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,6 +92,33 @@ export default function CartPage() {
       cancelled = true;
     };
   }, []);
+
+  // Only matters for the empty-cart state (see cartIsEmpty below) — an
+  // authenticated customer whose selection was already converted into an
+  // order shouldn't be told to start over; they should be pointed at the
+  // order they can still pay. Reuses /my/orders (already ordered by
+  // created_at desc) instead of a dedicated "pending" endpoint — order
+  // volume per customer on this storefront doesn't justify a new endpoint
+  // for this.
+  useEffect(() => {
+    if (!session) {
+      setPendingOrder(null);
+      return;
+    }
+    let cancelled = false;
+
+    getMyOrders()
+      .then((data) => {
+        if (cancelled) return;
+        const items = Array.isArray(data?.items) ? data.items : [];
+        setPendingOrder(items.find(hasPendingOrderAction) || null);
+      })
+      .catch(() => {
+        if (!cancelled) setPendingOrder(null);
+      });
+
+    return () => { cancelled = true; };
+  }, [session]);
 
   async function handleQuantityChange(productId, nextQuantity) {
     setPendingProductId(productId);
@@ -285,14 +317,25 @@ export default function CartPage() {
           ) : null}
 
           {cartIsEmpty ? (
-            <div className="empty-state">
-              <h2>Tu resumen está vacío</h2>
-              <p>
-                Cuando agregues servicios desde el catálogo, aquí verás tu
-                selección, cantidades y subtotal antes de continuar.
-              </p>
-              <Button to="/servicios">Ir a servicios</Button>
-            </div>
+            pendingOrder ? (
+              <div className="empty-state">
+                <h2>Tu carrito está vacío</h2>
+                <p>Ya tienes una orden pendiente. Puedes continuar el pago desde tu cuenta.</p>
+                <div className="empty-state__actions">
+                  <Button to={`/mi-cuenta/ordenes/${pendingOrder.id}`}>Ver orden pendiente</Button>
+                  <Button to="/servicios" variant="secondary">Ir a servicios</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="empty-state">
+                <h2>Tu resumen está vacío</h2>
+                <p>
+                  Cuando agregues servicios desde el catálogo, aquí verás tu
+                  selección, cantidades y subtotal antes de continuar.
+                </p>
+                <Button to="/servicios">Ir a servicios</Button>
+              </div>
+            )
           ) : (
             <div className="cart-checkout-shell">
               <article className="cart-checkout-list-panel">

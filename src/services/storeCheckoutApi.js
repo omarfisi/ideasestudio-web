@@ -1,5 +1,6 @@
 import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
 import { PUBLIC_WORKSPACE_ID } from "@/lib/workspace.js";
+import { supabase } from "@/lib/supabaseClient.js";
 
 function getStoreBaseUrl() {
   const base = (CRM_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "");
@@ -26,11 +27,28 @@ function buildStoreUrl(path, query = {}) {
   return url.toString();
 }
 
-async function storeFetch(path, { query = undefined, ...options } = {}) {
+// Never throws, never blocks checkout: a guest has no session (null is the
+// normal case), and a broken/expired token should degrade to "send no
+// header" rather than fail the request — the backend already treats a
+// missing/invalid Authorization header as a guest (see
+// optional_current_user on the backend).
+async function _getOptionalAuthToken() {
+  if (!supabase) return null;
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data?.session?.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
+async function storeFetch(path, { query = undefined, withAuth = false, ...options } = {}) {
   const url = buildStoreUrl(path, query || {});
+  const authToken = withAuth ? await _getOptionalAuthToken() : null;
   const response = await fetch(url, {
     headers: {
       "Content-Type": "application/json",
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       ...(options.headers || {}),
     },
     ...options,
@@ -147,8 +165,13 @@ export async function deleteStoreCartItem({ itemId }) {
 }
 
 export async function createStoreOrder(payload) {
+  // withAuth: if the customer is logged in, the backend links the created/
+  // found contact to their account (contacts.user_id) — see
+  // resolve_customer_contact on the backend. Guests (no session) still work
+  // exactly as before; the backend treats a missing token as a guest.
   return storeFetch("/checkout/create-order", {
     method: "POST",
+    withAuth: true,
     body: JSON.stringify(payload),
   });
 }

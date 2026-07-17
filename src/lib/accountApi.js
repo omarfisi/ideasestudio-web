@@ -36,10 +36,25 @@ async function accountFetch(path, options = {}) {
   return res.json();
 }
 
+export async function getMyProfile() {
+  return accountFetch("/my/profile");
+}
+
 export async function getMyOrders() {
   return accountFetch("/my/orders");
 }
 
 export async function getMyOrderDetail(orderId) {
   return accountFetch(`/my/orders/${orderId}`);
+}
+
+export async function postMyOrderPaymentSession(orderId) {
+  return accountFetch(`/my/orders/${orderId}/payment-session`, { method: "POST" });
+}
+
+export async function postMyOrderReschedule(orderId, startsAt) {
+  return accountFetch(`/my/orders/${orderId}/reschedule`, {
+    method: "POST",
+    body: JSON.stringify({ starts_at: startsAt }),
+  });
 }

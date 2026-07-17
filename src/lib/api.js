@@ -1,6 +1,7 @@
 import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
 import { PUBLIC_WORKSPACE_ID } from "@/lib/workspace.js";
 import { getClientRouteByKey } from "@/data/routes.js";
+import { mapOrderTotals } from "@/lib/bookingCheckoutSteps.js";
 import {
   addStoreCartItem,
   createStoreOrder,
@@ -550,6 +551,7 @@ function normalizeOrder(raw) {
     ? raw.items.map(normalizeOrderItem).filter(Boolean)
     : [];
   const summary = raw.summary && typeof raw.summary === "object" ? raw.summary : {};
+  const totals = mapOrderTotals(raw);
 
   return {
     id: raw.id,
@@ -566,6 +568,14 @@ function normalizeOrder(raw) {
     taxTotal: Number(raw.tax_total ?? raw.taxTotal ?? 0),
     discountTotal: Number(raw.discount_total ?? raw.discountTotal ?? 0),
     total: Number(raw.total ?? raw.grand_total ?? 0),
+    // Authoritative booking totals (see mapOrderTotals) — contractTotal is
+    // the full service/order value, amountDueNow is what Stripe actually
+    // charges now (may be a deposit), depositTotal/balanceDue are only
+    // non-zero for a deposit-only booking.
+    contractTotal: totals.contractTotal,
+    amountDueNow: totals.amountDueNow,
+    depositTotal: totals.depositTotal,
+    balanceDue: totals.balanceDue,
     notes: raw.notes || "",
     source: raw.source || "",
     metadata:
@@ -1014,6 +1024,37 @@ export async function removePublicCartItem({
   });
 }
 
+function normalizeBookingSummaryEntry(raw) {
+  if (!raw) return null;
+  return {
+    reservationHoldId: raw.reservation_hold_id ?? null,
+    serviceSlug: raw.service_slug ?? null,
+    startsAt: raw.starts_at ?? null,
+    endsAt: raw.ends_at ?? null,
+    packageName: raw.package_name ?? null,
+    addons: Array.isArray(raw.addons)
+      ? raw.addons.map((a) => ({
+          addonId: a.addon_id,
+          name: a.name,
+          quantity: a.quantity,
+          price: Number(a.price ?? 0),
+          durationMinutes: Number(a.duration_minutes ?? 0),
+          unitLabel: a.unit_label || "",
+        }))
+      : [],
+    serviceTotal: Number(raw.service_total ?? 0),
+    depositAmount: Number(raw.deposit_amount ?? 0),
+    // "configured" (no calendar — nothing held) vs a real hold's status
+    // (e.g. "pending_payment"). reservationHoldId/startsAt/endsAt are all
+    // null for a "configured" entry — never assume a hold exists.
+    status: raw.status || "configured",
+  };
+}
+
+function normalizeBookingSummary(raw) {
+  return Array.isArray(raw) ? raw.map(normalizeBookingSummaryEntry).filter(Boolean) : [];
+}
+
 export async function submitPublicStoreCheckout(payload) {
   const sessionToken = payload.sessionToken || getStoredCartSessionToken();
   const cart = await getPublicCart(sessionToken);
@@ -1030,6 +1071,11 @@ export async function submitPublicStoreCheckout(payload) {
     notes: payload.notes || null,
     document_type: payload.documentType || "invoice",
     coupon_code: payload.couponCode || null,
+    // Recomputed and re-validated entirely server-side (availability,
+    // package, addons, deposit) — never trusted for money or scheduling.
+    // null when the cart has no booking item, an object for one, an array
+    // for more than one (see buildBookingSelectionField).
+    booking_selection: payload.booking_selection ?? null,
     billing_address: {
       line1: payload.billingAddress?.line1 || null,
       line2: payload.billingAddress?.line2 || null,
@@ -1063,6 +1109,7 @@ export async function submitPublicStoreCheckout(payload) {
 
   return {
     order,
+    bookingSummary: normalizeBookingSummary(data?.booking_summary),
     warnings: [],
   };
 }

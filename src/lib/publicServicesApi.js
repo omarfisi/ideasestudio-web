@@ -29,6 +29,27 @@ export async function getPublicServiceAvailability(slug, from, to) {
   return pub(`/public/services/${encodeURIComponent(slug)}/availability?${params}`);
 }
 
+/**
+ * Authoritative availability — accounts for the selected package and
+ * duration-affecting addons, unlike the legacy GET above (base service
+ * duration only). This is the version the booking panel should call by
+ * default; GET stays as an explicit fallback for compatibility only.
+ */
+export async function getPublicServiceAvailabilityAuthoritative(
+  slug,
+  { fromDate, toDate, packageId = null, selectedAddons = [] }
+) {
+  return pub(`/public/services/${encodeURIComponent(slug)}/availability`, {
+    method: "POST",
+    body: JSON.stringify({
+      from_date: fromDate,
+      to_date: toDate,
+      package_id: packageId,
+      selected_addons: selectedAddons,
+    }),
+  });
+}
+
 export async function createPublicServiceReservation(slug, payload) {
   return pub(`/public/services/${encodeURIComponent(slug)}/reservations`, {
     method: "POST",

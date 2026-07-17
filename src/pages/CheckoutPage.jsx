@@ -1,11 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { CardCvcElement, CardExpiryElement, CardNumberElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
+import { Elements } from "@stripe/react-stripe-js";
 import Button from "@/components/shared/Button.jsx";
 import DynamicField from "@/components/forms/DynamicField.jsx";
 import ServiceBookingCheckoutPanel from "@/components/checkout/ServiceBookingCheckoutPanel.jsx";
+import BookingStepper from "@/components/checkout/BookingStepper.jsx";
+import StoreCardPaymentForm from "@/components/checkout/StoreCardPaymentForm.jsx";
+import { stripePromise } from "@/lib/stripeClient.js";
 import { getFormByPlacement, submitForm } from "@/lib/publicFormsApi.js";
+import { getMyProfile } from "@/lib/accountApi.js";
+import { useAuth } from "@/contexts/AuthContext.jsx";
 import {
   clearStoredCartSessionToken,
   createPublicStorePaymentIntent,
@@ -17,6 +21,29 @@ import {
   validateStoreCoupon,
 } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
+import {
+  buildSteps,
+  isStepComplete,
+  buildBookingSelectionField,
+  mapBookingErrorMessage,
+  mergeTrustedOrderTotals,
+  shouldPreparePaymentSession,
+  isRetryBlocked,
+  isBookingConflictError,
+  normalizeToken,
+  mapProfileToCrmFieldValues,
+  mergeProfileValuesWithoutOverwrite,
+} from "@/lib/bookingCheckoutSteps.js";
+
+const INITIAL_BOOKING_STATUS = {
+  status: "loading",
+  hasBooking: false,
+  requiresCalendar: false,
+  hasCustomization: false,
+  scheduleComplete: false,
+  customizationComplete: false,
+  services: [],
+};
 
 const modeLabels = {
   buy: "Compra directa",
@@ -28,10 +55,6 @@ const submitLabels = {
   booking: "Registrar intención de reserva",
 };
 
-const stripePublishableKey = (
-  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || ""
-).trim();
-const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
 const storeCheckoutFormSectionKey = (
   import.meta.env.VITE_STORE_CHECKOUT_FORM_SECTION_KEY || "checkout_service_form"
 ).trim();
@@ -42,12 +65,17 @@ function wait(ms) {
   });
 }
 
-function normalizeToken(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .trim()
-    .toLowerCase();
+function formatDateTime(isoString) {
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("es", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function isEmptyValue(value) {
@@ -288,7 +316,7 @@ function ServiceIntentCheckout({
                 </div>
                 <div className="checkout-field">
                   <label>Teléfono</label>
-                  <input type="text" name="phone" value={formData.phone} onChange={handleChange} placeholder="+52 55 0000 0000" disabled={isLoading} />
+                  <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="(787) 000-0000" disabled={isLoading} />
                 </div>
                 <div className="checkout-field">
                   <label>Método preferido</label>
@@ -358,128 +386,6 @@ function ServiceIntentCheckout({
 }
 
 /* ─── StoreCardPaymentForm ──────────────────────────────────────────────── */
-function StoreCardPaymentForm({
-  clientSecret,
-  order,
-  checkoutForm,
-  submitState,
-  setSubmitState,
-  onPaymentSucceeded,
-}) {
-  const stripe = useStripe();
-  const elements = useElements();
-
-  async function handleCardPayment(event) {
-    event.preventDefault();
-
-    if (!stripe || !elements) {
-      setSubmitState({
-        status: "error",
-        message: "Stripe todavía no está listo. Intenta nuevamente en unos segundos.",
-      });
-      return;
-    }
-
-    const card = elements.getElement(CardNumberElement);
-    if (!card) {
-      setSubmitState({ status: "error", message: "No se pudo cargar el campo de tarjeta." });
-      return;
-    }
-
-    setSubmitState({ status: "loading", message: "Procesando pago con tarjeta..." });
-
-    try {
-      const result = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card,
-          billing_details: {
-            name: checkoutForm.name || undefined,
-            email: checkoutForm.email || undefined,
-            phone: checkoutForm.phone || undefined,
-          },
-        },
-      });
-
-      if (result.error) {
-        setSubmitState({ status: "error", message: result.error.message || "No se pudo confirmar el pago." });
-        return;
-      }
-
-      const status = result.paymentIntent?.status;
-      if (status === "succeeded") { await onPaymentSucceeded(); return; }
-      if (status === "requires_action") {
-        setSubmitState({ status: "error", message: "La tarjeta requiere autenticación adicional. Completa el flujo de verificación e intenta nuevamente." });
-        return;
-      }
-      if (status === "processing") {
-        setSubmitState({ status: "success", message: "Tu pago está en procesamiento. Te confirmaremos el resultado en breve." });
-        return;
-      }
-      setSubmitState({ status: "error", message: `El pago no se completó. Estado actual: ${status || "desconocido"}.` });
-    } catch (error) {
-      setSubmitState({
-        status: "error",
-        message: error instanceof Error ? error.message : "Error de conexión. Intenta nuevamente.",
-      });
-    }
-  }
-
-  const stripeFieldStyle = {
-    base: {
-      fontSize: "16px",
-      color: "#1a1a1a",
-      fontFamily: "inherit",
-      "::placeholder": { color: "#a0aec0" },
-    },
-    invalid: { color: "#e53e3e" },
-  };
-
-  return (
-    <form id="checkout-stripe-form" onSubmit={handleCardPayment}>
-      <p className="checkout-order-ref" style={{ marginBottom: 20 }}>
-        Orden: <strong>{order?.orderNumber || "pendiente"}</strong>
-      </p>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {/* Número de tarjeta */}
-        <div>
-          <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#4a5568", marginBottom: 6 }}>
-            Número de tarjeta
-          </label>
-          <div className="checkout-stripe-field">
-            <CardNumberElement options={{ style: stripeFieldStyle, showIcon: true }} />
-          </div>
-        </div>
-
-        {/* Vencimiento + CVC */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <div>
-            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#4a5568", marginBottom: 6 }}>
-              Vencimiento
-            </label>
-            <div className="checkout-stripe-field">
-              <CardExpiryElement options={{ style: stripeFieldStyle }} />
-            </div>
-          </div>
-          <div>
-            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#4a5568", marginBottom: 6 }}>
-              CVC
-            </label>
-            <div className="checkout-stripe-field">
-              <CardCvcElement options={{ style: stripeFieldStyle }} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {submitState.status === "error" ? (
-        <p className="form-status form-status--error" style={{ marginTop: 16 }}>{submitState.message}</p>
-      ) : null}
-      {/* Button rendered by right column via form="checkout-stripe-form" */}
-    </form>
-  );
-}
-
 /* ─── StoreCheckout ─────────────────────────────────────────────────────── */
 function StoreCheckout({
   cart,
@@ -496,7 +402,30 @@ function StoreCheckout({
   initialCouponCode = "",
 }) {
   const canCreateOrder = !createdOrder?.id;
+  const { session } = useAuth();
+  const profilePreloadedRef = useRef(false);
+  const [profileLoadState, setProfileLoadState] = useState({ status: "idle", applied: false });
   const [bookingSelections, setBookingSelections] = useState({});
+  const [bookingSummary, setBookingSummary] = useState([]);
+  const [bookingStatus, setBookingStatus] = useState(INITIAL_BOOKING_STATUS);
+
+  // Discovery still running — don't show the (possibly wrong) 2-step or
+  // 4-step stepper until every cart item has resolved its booking config.
+  const resolutionErrors = bookingStatus.resolutionErrors || [];
+  const isDiscovering = bookingStatus.status !== "ready";
+  const hasResolutionError = resolutionErrors.length > 0;
+
+  // useRef (not state) so it updates synchronously, before any await inside
+  // preparePaymentSession — that's what actually stops React StrictMode's
+  // intentional double-invoke (and any other re-render) from starting a
+  // second order/PaymentIntent creation. See shouldPreparePaymentSession.
+  const paymentPreparationRef = useRef({ running: false, completed: false });
+  // Bumped on booking_time_slot_not_available / booking_hold_expired so the
+  // affected ServiceBookingSection(s) clear their now-stale date/slot and
+  // reopen the picker — see ServiceBookingCheckoutPanel's resetSignal prop.
+  const [scheduleResetSignal, setScheduleResetSignal] = useState(0);
+
+  const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [couponCode, setCouponCode] = useState(initialCouponCode);
   const [couponState, setCouponState] = useState({ status: "idle", message: "" });
   const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -520,11 +449,121 @@ function StoreCheckout({
 
   function handleBookingSelectionChange(slug, selection) {
     setBookingSelections((prev) => ({ ...prev, [slug]: selection }));
+    // Clears the "ese horario ya no está disponible" banner (see the
+    // schedule step header) once the customer actually picks a new slot,
+    // so it doesn't linger as a stale warning after they've fixed it.
+    setSubmitState((current) =>
+      selection && current.status === "error" && isBookingConflictError(current.errorCode)
+        ? { status: "idle", message: "" }
+        : current
+    );
   }
 
   // A service requires calendar if its panel returned a non-null selection at least once,
   // meaning the panel is visible. Block submit only if it's visible but incomplete (null).
+  // This stays the authoritative guard inside preparePaymentSession — the stepper below
+  // uses its own bookingStatus.scheduleComplete signal to gate navigation, but this check
+  // is what actually stops an order from being created.
   const bookingBlocked = Object.values(bookingSelections).some((v) => v === null);
+
+  const steps = useMemo(
+    () => buildSteps(bookingStatus),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bookingStatus.requiresCalendar, bookingStatus.hasCustomization]
+  );
+
+  const detailsValid = useMemo(() => {
+    if (crmFormState.status === "ready" && crmFields.length) {
+      const errors = validateFormFields(crmFields, crmFormValues);
+      if (Object.keys(errors).length > 0) return false;
+      const parsed = parseCheckoutDataFromForm(crmFields, crmFormValues);
+      return Boolean(parsed.name && parsed.email);
+    }
+    if (crmFormState.status === "error") {
+      return Boolean(fallbackCanSubmit);
+    }
+    return false;
+  }, [crmFormState.status, crmFields, crmFormValues, fallbackCanSubmit]);
+
+  // Read-only customer data for the review step. The CRM form keeps its
+  // live values in crmFormValues while the user is on step 3 — checkoutForm
+  // is only synced from it inside prepareStoreCheckoutPayload(), right
+  // before the order is created. Reading checkoutForm directly in the
+  // review step showed blank name/email/phone until that point.
+  const reviewCustomer = useMemo(() => {
+    if (crmFormState.status === "ready" && crmFields.length) {
+      const parsed = parseCheckoutDataFromForm(crmFields, crmFormValues);
+      return { name: parsed.name, email: parsed.email, phone: parsed.phone };
+    }
+    return {
+      name: checkoutForm.name || "",
+      email: checkoutForm.email || "",
+      phone: checkoutForm.phone || "",
+    };
+  }, [crmFormState.status, crmFields, crmFormValues, checkoutForm.name, checkoutForm.email, checkoutForm.phone]);
+
+  const stepCtx = {
+    scheduleComplete: bookingStatus.scheduleComplete,
+    customizationComplete: bookingStatus.customizationComplete,
+    detailsValid,
+  };
+
+  // DEV-only: confirms bookingStatus follows loading -> ready and never
+  // regresses back to loading unless the cart itself actually changed —
+  // a regression would indicate the panel got remounted.
+  const prevDiscoveryRef = useRef({ status: bookingStatus.status, items: cart.items });
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const prev = prevDiscoveryRef.current;
+    if (prev.status === "ready" && bookingStatus.status === "loading" && prev.items === cart.items) {
+      console.warn(
+        "[booking-checkout] bookingStatus volvio de ready a loading sin que cambiara cart.items — revisar si ServiceBookingCheckoutPanel se remonto."
+      );
+    }
+    prevDiscoveryRef.current = { status: bookingStatus.status, items: cart.items };
+  }, [bookingStatus.status, cart.items]);
+
+  const activeStepKey = steps[activeStepIndex] ?? steps[steps.length - 1] ?? "details";
+
+  function goToStep(index) {
+    if (index < 0 || index >= steps.length) return;
+    setActiveStepIndex(index);
+  }
+
+  function handleStepContinue() {
+    if (activeStepKey === "details") {
+      if (crmFormState.status === "ready" && crmFields.length) {
+        const errors = validateFormFields(crmFields, crmFormValues);
+        if (Object.keys(errors).length > 0) {
+          setCrmFormErrors(errors);
+          const firstInvalidField = crmFields.find((field) => errors[field.name]);
+          if (firstInvalidField) {
+            requestAnimationFrame(() => {
+              document
+                .querySelector(`#checkout-details-form [name="${firstInvalidField.name}"]`)
+                ?.focus();
+            });
+          }
+          return;
+        }
+        setCrmFormErrors({});
+      } else if (crmFormState.status === "error") {
+        if (!fallbackCanSubmit) {
+          setSubmitState({ status: "error", message: "Completa nombre y email para continuar." });
+          return;
+        }
+      } else {
+        return; // formulario todavia cargando
+      }
+    } else if (!isStepComplete(activeStepKey, stepCtx)) {
+      return;
+    }
+    goToStep(activeStepIndex + 1);
+  }
+
+  function handleStepBack() {
+    goToStep(activeStepIndex - 1);
+  }
 
   useEffect(() => {
     if (!initialCouponCode || !cart?.summary?.subtotal || appliedCoupon) return;
@@ -594,6 +633,53 @@ function StoreCheckout({
     return () => { cancelled = true; };
   }, [cart?.email, cart?.items]);
 
+  // Preloads name/email/phone/company from the authenticated customer's
+  // linked CRM contact (see GET /my/profile, backed by
+  // resolve_customer_contact on the backend) so a returning, logged-in
+  // customer never has to retype their details on a second purchase.
+  // Waits for the CRM form to resolve first so it knows whether to target
+  // crmFormValues (dynamic field names) or the fallback checkoutForm, and
+  // — via profilePreloadedRef — only ever applies once per session, so it
+  // can never clobber something the customer typed after it ran.
+  useEffect(() => {
+    if (!session) return;
+    if (profilePreloadedRef.current) return;
+    if (crmFormState.status === "loading") return;
+
+    profilePreloadedRef.current = true;
+    setProfileLoadState({ status: "loading", applied: false });
+
+    getMyProfile()
+      .then((res) => {
+        const profile = res?.item;
+        if (!profile) {
+          setProfileLoadState({ status: "done", applied: false });
+          return;
+        }
+
+        if (crmFormState.status === "ready" && crmFields.length) {
+          const profileValues = mapProfileToCrmFieldValues(crmFields, profile);
+          setCrmFormValues((current) => mergeProfileValuesWithoutOverwrite(current, profileValues));
+        } else {
+          setCheckoutForm((current) =>
+            mergeProfileValuesWithoutOverwrite(current, {
+              name: profile.name || "",
+              email: profile.email || "",
+              phone: profile.phone || "",
+              company: profile.company || "",
+            })
+          );
+        }
+        setProfileLoadState({ status: "done", applied: true });
+      })
+      .catch(() => {
+        // Never blocks checkout — a failed profile preload just means the
+        // customer types their data manually, same as a guest.
+        setProfileLoadState({ status: "done", applied: false });
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, crmFormState.status, crmFields]);
+
   function handleFallbackChange(event) {
     const { name, value } = event.target;
     setCheckoutForm((current) => ({ ...current, [name]: value }));
@@ -637,7 +723,7 @@ function StoreCheckout({
     return intent;
   }
 
-  async function ensureOrderPayable(orderId) {
+  async function ensureOrderPayable(orderId, knownOrder = null) {
     const latest = await getPublicOrderById(orderId);
     if (!latest?.id) throw new Error("No se pudo validar la orden antes del pago.");
     const paymentStatus = String(latest.paymentStatus || "").toLowerCase();
@@ -647,7 +733,11 @@ function StoreCheckout({
         ["cancelled", "canceled", "refunded"].includes(paymentStatus)) {
       throw new Error("Esta orden no está disponible para pago.");
     }
-    return latest;
+    // See mergeTrustedOrderTotals — GET /orders/{id} doesn't carry
+    // amount_due_now/balance_due/deposit_total, so a refresh through it
+    // must not downgrade an already-known deposit-aware total.
+    const trustedSource = knownOrder?.id === latest.id ? knownOrder : createdOrder;
+    return mergeTrustedOrderTotals(latest, trustedSource);
   }
 
   async function handlePaymentSucceeded() {
@@ -656,7 +746,10 @@ function StoreCheckout({
     for (let attempt = 0; attempt < 6; attempt += 1) {
       try {
         const order = await getPublicOrderById(createdOrder.id);
-        if (order) latest = order;
+        // Same GET /orders/{id} gap as ensureOrderPayable — preserve the
+        // authoritative totals across each poll instead of losing them to
+        // this endpoint's incomplete shape.
+        if (order) latest = mergeTrustedOrderTotals(order, createdOrder);
         if (order?.paymentStatus === "paid") break;
       } catch { /* best-effort */ }
       await wait(900);
@@ -671,40 +764,82 @@ function StoreCheckout({
     });
   }
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-    if (bookingBlocked) {
-      setSubmitState({ status: "error", message: "Selecciona fecha y horario para todos los servicios antes de continuar." });
-      return;
-    }
+  /**
+   * Creates the order (if one doesn't exist yet) and the Stripe PaymentIntent
+   * (if one doesn't exist yet), then stops — Stripe Elements picks up from
+   * there once paymentIntent.clientSecret is set. Idempotent and safe to
+   * call multiple times: the running-guard makes concurrent calls (the
+   * auto-trigger effect firing plus a manual "Intentar nuevamente" click, or
+   * React StrictMode's double-invoke) a no-op, and once createdOrder/
+   * paymentIntent exist it reuses them instead of creating new ones.
+   */
+  async function preparePaymentSession() {
+    if (paymentPreparationRef.current.running) return;
+    paymentPreparationRef.current.running = true;
     try {
-      setCrmFormErrors({});
-      setSubmitState({
-        status: "loading",
-        message: canCreateOrder ? "Creando orden y preparando pago..." : "Preparando intento de pago...",
-      });
-
-      if (!canCreateOrder && createdOrder?.id) {
-        const latestOrder = await ensureOrderPayable(createdOrder.id);
-        setCreatedOrder(latestOrder);
-        await ensurePaymentIntent(latestOrder);
-        setSubmitState({ status: "success", message: "Intento de pago listo. Completa los datos de tu tarjeta." });
+      if (bookingBlocked) {
+        setSubmitState({ status: "error", message: "Selecciona fecha y horario para todos los servicios antes de continuar." });
         return;
       }
+      setCrmFormErrors({});
+      setSubmitState({ status: "loading", message: "Preparando tu pago seguro..." });
 
-      const checkoutPayload = await prepareStoreCheckoutPayload();
-      const result = await submitPublicStoreCheckout(checkoutPayload);
-      if (!result?.order?.id) throw new Error("No se pudo crear la orden de checkout.");
+      let order = createdOrder;
+      if (!order?.id) {
+        const checkoutPayload = await prepareStoreCheckoutPayload();
+        const result = await submitPublicStoreCheckout(checkoutPayload);
+        if (!result?.order?.id) throw new Error("No se pudo crear la orden de checkout.");
+        setBookingSummary(result.bookingSummary || []);
+        order = result.order;
+      }
 
-      const latestOrder = await ensureOrderPayable(result.order.id);
+      const latestOrder = await ensureOrderPayable(order.id, order);
       setCreatedOrder(latestOrder);
-      await ensurePaymentIntent(latestOrder);
-      setSubmitState({ status: "success", message: "Orden creada. Completa el pago con tarjeta." });
+
+      if (!paymentIntent?.clientSecret) {
+        await ensurePaymentIntent(latestOrder);
+      }
+
+      setSubmitState({ status: "idle", message: "" });
+      paymentPreparationRef.current.completed = true;
     } catch (error) {
+      // error.message is the backend's raw `detail` code (storeFetch/pub
+      // both surface data.detail as the Error message) — never swallowed
+      // in dev, always logged, mapped to a friendly message for display.
+      const rawDetail = error instanceof Error ? error.message : null;
+      if (import.meta.env.DEV) {
+        console.error("[checkout] preparePaymentSession failed:", rawDetail, error);
+      }
+
+      if (isBookingConflictError(rawDetail)) {
+        // The slot that was held is gone (taken by someone else, or the
+        // hold's TTL expired) — the existing order/PaymentIntent are no
+        // longer valid for it, so both are dropped and the customer is sent
+        // back to pick a different date/time instead of retrying the same
+        // request.
+        setCreatedOrder(null);
+        setPaymentIntent(null);
+        paymentPreparationRef.current.completed = false;
+        setScheduleResetSignal((n) => n + 1);
+        const scheduleIdx = steps.indexOf("schedule");
+        if (scheduleIdx >= 0) goToStep(scheduleIdx);
+      } else if (isRetryBlocked(rawDetail)) {
+        // payment_review_required: mark as "completed" so the auto-trigger
+        // effect never fires again for this session — combined with the
+        // retry button staying hidden (see isRetryBlocked in the JSX), this
+        // is what makes the block permanent instead of just UI-level.
+        paymentPreparationRef.current.completed = true;
+      } else {
+        paymentPreparationRef.current.completed = false;
+      }
+
       setSubmitState({
         status: "error",
-        message: error instanceof Error ? error.message : "No se pudo completar el checkout.",
+        message: mapBookingErrorMessage(rawDetail, "No se pudo completar el checkout."),
+        errorCode: rawDetail,
       });
+    } finally {
+      paymentPreparationRef.current.running = false;
     }
   }
 
@@ -734,7 +869,6 @@ function StoreCheckout({
         notes: checkoutPayload.notes,
       }));
 
-      const bookingSelectionsArr = Object.values(bookingSelections).filter(Boolean);
       return {
         sessionToken: cart.sessionToken,
         name: checkoutPayload.name,
@@ -746,18 +880,14 @@ function StoreCheckout({
         documentType: "invoice",
         source,
         couponCode: appliedCoupon?.code || null,
-        // booking_selection: forwarded to backend when it supports it
-        booking_selection: bookingSelectionsArr.length === 1
-          ? bookingSelectionsArr[0]
-          : bookingSelectionsArr.length > 1
-          ? bookingSelectionsArr
-          : null,
+        // Recomputed and re-validated entirely server-side — see
+        // buildBookingSelectionField.
+        booking_selection: buildBookingSelectionField(bookingSelections),
       };
     }
 
     if (!fallbackCanSubmit) throw new Error("Completa nombre y email para continuar.");
 
-    const bookingSelectionsArr = Object.values(bookingSelections).filter(Boolean);
     return {
       sessionToken: cart.sessionToken,
       name: checkoutForm.name,
@@ -768,19 +898,41 @@ function StoreCheckout({
       documentType: "invoice",
       source: "website_store_checkout",
       couponCode: appliedCoupon?.code || null,
-      booking_selection: bookingSelectionsArr.length === 1
-        ? bookingSelectionsArr[0]
-        : bookingSelectionsArr.length > 1
-        ? bookingSelectionsArr
-        : null,
+      booking_selection: buildBookingSelectionField(bookingSelections),
     };
   }
+
+  // Auto-starts preparePaymentSession() the moment the customer reaches
+  // "Revisar y pagar" with everything else already valid — no intermediate
+  // "Continuar al pago seguro" button. shouldPreparePaymentSession is the
+  // single source of truth for every guard condition (right step, booking
+  // resolved, details valid, no completed/duplicate order, no existing
+  // PaymentIntent, not already running) so this effect stays a thin
+  // trigger. preparePaymentSession is a plain function re-created each
+  // render, not memoized, so it's intentionally left out of the deps array
+  // — only the actual state that should cause a re-check is listed.
+  useEffect(() => {
+    const bookingReady = !isDiscovering && !hasResolutionError;
+    const shouldRun = shouldPreparePaymentSession({
+      activeStepKey,
+      bookingReady,
+      detailsValid,
+      completedOrder,
+      paymentIntent,
+      preparation: paymentPreparationRef.current,
+    });
+    if (!shouldRun) return;
+    preparePaymentSession();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeStepKey, isDiscovering, hasResolutionError, detailsValid, completedOrder, paymentIntent]);
 
   /* ── Completed order view ───────────────────────────────────────────── */
   if (completedOrder) {
     return (
       <div className="checkout-modern-page">
-        <CheckoutHero activeStep={3} />
+        <div className="checkout-hero">
+          <h1>Pedido confirmado</h1>
+        </div>
 
         <div className="checkout-modern-shell">
           <section>
@@ -846,107 +998,389 @@ function StoreCheckout({
   const isProcessing = submitState.status === "loading";
   const paymentReady = Boolean(paymentIntent?.clientSecret);
 
+  const panelSection =
+    isDiscovering || hasResolutionError
+      ? "hidden"
+      : activeStepKey === "schedule"
+      ? "schedule"
+      : activeStepKey === "customize"
+      ? "customize"
+      : "hidden";
+
+  const bookingServices = bookingStatus.services.filter(
+    (svc) => svc.hasCalendar || svc.hasPackages || svc.hasAddons
+  );
+
+  const bookingExtrasEstimate = bookingServices.reduce((sum, svc) => {
+    const addonsTotal = (svc.display?.addons || []).reduce(
+      (addonSum, addon) => addonSum + Number(addon.price || 0) * Number(addon.quantity || 0),
+      0
+    );
+    return sum + addonsTotal;
+  }, 0);
+
+  const depositEstimate = bookingServices.reduce((sum, svc) => {
+    const selection = bookingSelections[svc.slug];
+    return sum + Number(selection?.deposit_amount || 0);
+  }, 0);
+
+  const isReviewStep = activeStepKey === "review";
+  const showWizardState = isDiscovering || hasResolutionError;
+
   return (
     <div className="checkout-modern-page">
-      <CheckoutHero activeStep={2} />
+      <div className="checkout-hero">
+        <h1>Finaliza tu contratación</h1>
+      </div>
 
-      <div className="checkout-modern-shell">
-
-        {/* ── LEFT: form card ─────────────────────────────────────────── */}
-        <section>
-          <div className="checkout-card">
-            <h2>Datos de contratación</h2>
-            <p>Completa la información necesaria para preparar tu documento y procesar el pago.</p>
-
-            {/* Booking panel — before customer fields so user picks date/extras first */}
-            <ServiceBookingCheckoutPanel
-              cart={cart}
-              onSelectionChange={handleBookingSelectionChange}
+      {/* Single unified surface: stepper + step content + footer all live in
+          one card, and it is ALWAYS mounted (only hidden via CSS while on
+          the review step) — never conditionally removed from the tree based
+          on isDiscovering/hasResolutionError/activeStepKey. That's what
+          keeps ServiceBookingCheckoutPanel's internal reducer (selected
+          date/slot/package/addon quantities) alive across the whole
+          checkout, not just across step navigation — the exact bug the
+          original "single instance" fix (Bloqueo 1) closed. Going back to
+          conditionally unmounting this card would reopen it. */}
+      <div className="checkout-wizard-card" style={isReviewStep ? { display: "none" } : undefined}>
+        {!showWizardState && (
+          <div className="checkout-wizard-card__stepper">
+            <BookingStepper
+              steps={steps}
+              activeIndex={activeStepIndex}
+              ctx={stepCtx}
+              onStepClick={goToStep}
+              showConfirmationPill={!bookingStatus.hasBooking}
+              confirmed={false}
             />
+          </div>
+        )}
 
-            {/* Order form */}
-            <form id="checkout-order-form" onSubmit={handleSubmit}>
+        <div className="checkout-wizard-card__body">
+          {isDiscovering && (
+            <div className="checkout-wizard-state">
+              <h2>Preparando tu checkout...</h2>
+              <p>Estamos revisando los servicios de tu resumen.</p>
+            </div>
+          )}
 
-              {/* Loading CRM form */}
-              {crmFormState.status === "loading" && (
-                <div className="checkout-crm-form__loading">
-                  <div className="checkout-crm-form__spinner" />
-                  <p>Cargando formulario...</p>
-                </div>
-              )}
+          {!isDiscovering && hasResolutionError && (
+            <div className="checkout-wizard-state">
+              <h2>No pudimos preparar tu checkout</h2>
+              <p>No pudimos preparar uno de los servicios. Regresa al carrito e inténtalo nuevamente.</p>
+              <Button to="/servicios/carrito">Volver al carrito</Button>
+            </div>
+          )}
 
-              {/* CRM fields via DynamicField */}
-              {crmFormState.status === "ready" && crmFields.length ? (
-                <div className="checkout-form-grid">
-                  {crmFields.map((field) => (
-                    <DynamicField
-                      key={field.id || field.name}
-                      field={field}
-                      value={crmFormValues[field.name] ?? field.default_value ?? ""}
-                      onChange={handleCrmFieldChange}
-                      error={crmFormErrors[field.name]}
-                      disabled={!canCreateOrder}
-                    />
-                  ))}
-                </div>
-              ) : null}
-
-              {/* Fallback fields */}
-              {crmFormState.status === "error" ? (
-                <>
-                  {crmFormState.message && (
-                    <p className="form-status form-status--error" style={{ marginBottom: 16 }}>
-                      {crmFormState.message}
-                    </p>
-                  )}
-                  <div className="checkout-form-grid">
-                    <div className="checkout-field">
-                      <label>Nombre completo <span style={{ color: "#ef4444" }}>*</span></label>
-                      <input type="text" name="name" value={checkoutForm.name} onChange={handleFallbackChange} placeholder="Tu nombre completo" required disabled={!canCreateOrder} />
-                    </div>
-                    <div className="checkout-field">
-                      <label>Email <span style={{ color: "#ef4444" }}>*</span></label>
-                      <input type="email" name="email" value={checkoutForm.email} onChange={handleFallbackChange} placeholder="tu@email.com" required disabled={!canCreateOrder} />
-                    </div>
-                    <div className="checkout-field">
-                      <label>Teléfono</label>
-                      <input type="text" name="phone" value={checkoutForm.phone} onChange={handleFallbackChange} placeholder="+52 55 0000 0000" disabled={!canCreateOrder} />
-                    </div>
-                    <div className="checkout-field">
-                      <label>Empresa</label>
-                      <input type="text" name="company" value={checkoutForm.company} onChange={handleFallbackChange} placeholder="Nombre de tu empresa" disabled={!canCreateOrder} />
-                    </div>
-                    <div className="checkout-field is-full">
-                      <label>Notas</label>
-                      <textarea name="notes" value={checkoutForm.notes} onChange={handleFallbackChange} placeholder="Notas sobre entrega, acceso o cualquier detalle adicional." disabled={!canCreateOrder} />
-                    </div>
-                  </div>
-                </>
-              ) : null}
-
-              {/* Status message */}
-              {submitState.status !== "idle" && !paymentReady && (
-                <p className={`form-status form-status--${submitState.status}`} style={{ marginTop: 16 }}>
+          {!showWizardState && activeStepKey === "schedule" && (
+            <div className="checkout-step-header">
+              <h2>Fecha y hora</h2>
+              <p className="checkout-step-header__hint">
+                {bookingServices.length > 1
+                  ? `Elige fecha y horario para ${bookingServices.map((s) => s.name).join(" y ")}.`
+                  : "Elige el día y horario para tu servicio."}
+              </p>
+              {/* Shown after preparePaymentSession bounces the customer back
+                  here because their held slot was taken or the hold expired
+                  — see isBookingConflictError in preparePaymentSession's
+                  catch block. Without this, the redirect back to this step
+                  would look unexplained. */}
+              {submitState.status === "error" && isBookingConflictError(submitState.errorCode) && (
+                <p className="form-status form-status--error" style={{ marginTop: 12 }}>
                   {submitState.message}
                 </p>
               )}
-            </form>
+            </div>
+          )}
 
-            {/* Stripe payment box — appears after payment intent is ready */}
-            {paymentReady && (
-              <div style={{ marginTop: 28 }}>
-                <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: "0 0 6px", color: "#111" }}>
-                  Método de pago
-                </h3>
-                <p style={{ fontSize: "0.875rem", color: "#71717a", margin: "0 0 16px" }}>
-                  Ingresa los datos de tu tarjeta para completar la contratación.
+          {!showWizardState && activeStepKey === "customize" && (
+            <div className="checkout-step-header">
+              <h2>Personaliza</h2>
+              <p className="checkout-step-header__hint">Ajusta paquete y extras para tu servicio.</p>
+            </div>
+          )}
+
+          {/* ALWAYS mounted, same call site regardless of isDiscovering/
+              hasResolutionError/activeStepKey — see the comment on
+              .checkout-wizard-card above. Renders nothing visible unless
+              section is "schedule" or "customize" (see panelSection). */}
+          <ServiceBookingCheckoutPanel
+            cart={cart}
+            section={panelSection}
+            resetSignal={scheduleResetSignal}
+            onSelectionChange={handleBookingSelectionChange}
+            onStatusChange={setBookingStatus}
+          />
+
+          {!showWizardState && activeStepKey === "details" && (
+            <>
+              <div className="checkout-step-header">
+                <h2>Tus datos</h2>
+                <p className="checkout-step-header__hint">Completa tu información de contacto.</p>
+                {profileLoadState.status === "loading" && (
+                  <p className="checkout-profile-note">Cargando tus datos guardados...</p>
+                )}
+                {profileLoadState.status === "done" && profileLoadState.applied && (
+                  <p className="checkout-profile-note">Usamos los datos guardados en tu cuenta.</p>
+                )}
+              </div>
+
+              <div id="checkout-details-form">
+                {/* Loading CRM form */}
+                {crmFormState.status === "loading" && (
+                  <div className="checkout-crm-form__loading">
+                    <div className="checkout-crm-form__spinner" />
+                    <p>Cargando formulario...</p>
+                  </div>
+                )}
+
+                {/* CRM fields via DynamicField */}
+                {crmFormState.status === "ready" && crmFields.length ? (
+                  <div className="checkout-form-grid">
+                    {crmFields.map((field) => {
+                      // The CRM form config's own placeholder is server-
+                      // controlled and (as configured today) shows a Mexico
+                      // phone format — this storefront is Puerto Rico, so
+                      // the phone field's placeholder/type are overridden
+                      // here at render time. Same field-name matching
+                      // parseCheckoutDataFromForm uses, so it stays correct
+                      // if the CRM ever renames/reorders this field. No CRM
+                      // data is touched, only what gets displayed.
+                      const isPhoneField = ["phone", "telefono", "tel", "customer_phone", "whatsapp"].includes(
+                        normalizeToken(field.map_to || field.name)
+                      );
+                      const resolvedField = isPhoneField
+                        ? { ...field, type: "tel", placeholder: "(787) 000-0000" }
+                        : field;
+                      return (
+                        <DynamicField
+                          key={field.id || field.name}
+                          field={resolvedField}
+                          value={crmFormValues[field.name] ?? field.default_value ?? ""}
+                          onChange={handleCrmFieldChange}
+                          error={crmFormErrors[field.name]}
+                          disabled={!canCreateOrder}
+                        />
+                      );
+                    })}
+                  </div>
+                ) : null}
+
+                {/* Fallback fields */}
+                {crmFormState.status === "error" ? (
+                  <>
+                    {crmFormState.message && (
+                      <p className="form-status form-status--error" style={{ marginBottom: 16 }}>
+                        {crmFormState.message}
+                      </p>
+                    )}
+                    <div className="checkout-form-grid">
+                      <div className="checkout-field">
+                        <label>Nombre completo <span style={{ color: "#ef4444" }}>*</span></label>
+                        <input type="text" name="name" value={checkoutForm.name} onChange={handleFallbackChange} placeholder="Tu nombre completo" required disabled={!canCreateOrder} />
+                      </div>
+                      <div className="checkout-field">
+                        <label>Email <span style={{ color: "#ef4444" }}>*</span></label>
+                        <input type="email" name="email" value={checkoutForm.email} onChange={handleFallbackChange} placeholder="tu@email.com" required disabled={!canCreateOrder} />
+                      </div>
+                      <div className="checkout-field">
+                        <label>Teléfono</label>
+                        <input type="tel" name="phone" value={checkoutForm.phone} onChange={handleFallbackChange} placeholder="(787) 000-0000" disabled={!canCreateOrder} />
+                      </div>
+                      <div className="checkout-field">
+                        <label>Empresa</label>
+                        <input type="text" name="company" value={checkoutForm.company} onChange={handleFallbackChange} placeholder="Nombre de tu empresa" disabled={!canCreateOrder} />
+                      </div>
+                      <div className="checkout-field is-full">
+                        <label>Notas</label>
+                        <textarea name="notes" value={checkoutForm.notes} onChange={handleFallbackChange} placeholder="Notas sobre entrega, acceso o cualquier detalle adicional." disabled={!canCreateOrder} />
+                      </div>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            </>
+          )}
+        </div>
+
+        {!showWizardState && activeStepKey !== "review" && (
+          <div className="checkout-wizard-card__footer">
+            {activeStepKey === "schedule" && (
+              <>
+                <span />
+                <Button onClick={handleStepContinue} disabled={!isStepComplete("schedule", stepCtx)}>
+                  Continuar
+                </Button>
+              </>
+            )}
+            {activeStepKey === "customize" && (
+              <>
+                {steps.includes("schedule") ? (
+                  <button type="button" className="checkout-secondary-button" onClick={handleStepBack}>
+                    Volver
+                  </button>
+                ) : <span />}
+                <Button onClick={handleStepContinue}>Continuar</Button>
+              </>
+            )}
+            {activeStepKey === "details" && (
+              <>
+                {(steps.includes("schedule") || steps.includes("customize")) ? (
+                  <button type="button" className="checkout-secondary-button" onClick={handleStepBack}>
+                    Volver
+                  </button>
+                ) : <span />}
+                <Button onClick={handleStepContinue}>Continuar</Button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* One vertical checkout surface (not two narrow columns competing)
+          — same .checkout-wizard-card-family visual language as the other
+          steps. Order: reservation summary, customer, payment method +
+          card form, cost breakdown, final CTA. All state/handlers below
+          are unchanged from before this round — only markup/classes. */}
+      {!showWizardState && activeStepKey === "review" && (
+        <div className="checkout-wizard-shell">
+          <div className="checkout-review-card">
+            <div className="checkout-step-header">
+              <h2>Revisar y pagar</h2>
+              <p className="checkout-step-header__hint">Confirma los detalles antes de completar tu pago.</p>
+            </div>
+
+            {/* ── Resumen de tu reserva ────────────────────────────────── */}
+            <div className="checkout-review-section">
+              <h3 className="checkout-review-section__title">Resumen de tu reserva</h3>
+              <div className="checkout-summary-items">
+                {cart.items.map((item) => {
+                  const thumb =
+                    item.coverImageUrl ||
+                    item.image_url ||
+                    item.product?.cover_image_url ||
+                    item.metadata?.cover_image_url ||
+                    null;
+
+                  return (
+                    <div className="checkout-summary-item" key={item.id || item.productId}>
+                      <div className="checkout-summary-thumb">
+                        {thumb ? (
+                          <img src={thumb} alt={item.snapshotName} />
+                        ) : (
+                          <span>{(item.snapshotName || "S").slice(0, 1).toUpperCase()}</span>
+                        )}
+                      </div>
+                      <div>
+                        <div className="checkout-summary-name">{item.snapshotName}</div>
+                        <div className="checkout-summary-meta">
+                          {item.quantity}x &middot; {formatPrice(item.unitPrice, item.currency)}
+                        </div>
+                      </div>
+                      <strong className="checkout-summary-line-total">
+                        {formatPrice(item.unitPrice * item.quantity, item.currency)}
+                      </strong>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {bookingStatus.hasBooking && (
+                <div className="checkout-review-booking-list">
+                  {bookingServices.map((svc) => {
+                    const selection = bookingSelections[svc.slug];
+                    return (
+                      <div key={svc.slug} className="checkout-review__booking">
+                        <strong>{svc.name}</strong>
+                        <ul>
+                          {svc.hasCalendar && selection?.starts_at && (
+                            <li>Fecha: {formatDateTime(selection.starts_at)}</li>
+                          )}
+                          {svc.display?.packageName && <li>Paquete: {svc.display.packageName}</li>}
+                          {svc.display?.addons?.length > 0 && (
+                            <li>
+                              Extras:{" "}
+                              {svc.display.addons
+                                .map((addon) => `${addon.name} x${addon.quantity}`)
+                                .join(", ")}
+                            </li>
+                          )}
+                          {selection?.estimated_duration_minutes ? (
+                            <li>Duración estimada: {selection.estimated_duration_minutes} min</li>
+                          ) : null}
+                          {selection?.deposit_amount > 0 && (
+                            <li>
+                              Depósito: {formatPrice(selection.deposit_amount, cart.summary.currency)}
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {createdOrder ? (
+                <p className="checkout-review-locked-note">
+                  Para cambiar la reserva, cancela este proceso y vuelve al carrito.
                 </p>
-                {stripePromise ? (
-                  <Elements stripe={stripePromise}>
+              ) : (
+                !isProcessing && (steps.includes("schedule") || steps.includes("customize")) && (
+                  <div className="checkout-review__edit-links">
+                    {steps.includes("schedule") && (
+                      <button type="button" onClick={() => goToStep(steps.indexOf("schedule"))}>
+                        Editar fecha y hora
+                      </button>
+                    )}
+                    {steps.includes("customize") && (
+                      <button type="button" onClick={() => goToStep(steps.indexOf("customize"))}>
+                        Editar personalización
+                      </button>
+                    )}
+                  </div>
+                )
+              )}
+            </div>
+
+            {/* ── Datos del cliente ────────────────────────────────────── */}
+            <div className="checkout-review-section">
+              <div className="checkout-review-section__head">
+                <h3 className="checkout-review-section__title">Datos del cliente</h3>
+                {!createdOrder && !isProcessing && (
+                  <button type="button" className="checkout-review-section__edit" onClick={() => goToStep(steps.indexOf("details"))}>
+                    Editar
+                  </button>
+                )}
+              </div>
+              <ul className="checkout-review-customer">
+                {reviewCustomer.name && <li>{reviewCustomer.name}</li>}
+                {reviewCustomer.email && <li>{reviewCustomer.email}</li>}
+                {reviewCustomer.phone && <li>{reviewCustomer.phone}</li>}
+              </ul>
+            </div>
+
+            {/* ── Método de pago ───────────────────────────────────────── */}
+            <div className="checkout-review-section">
+              <h3 className="checkout-review-section__title">Método de pago</h3>
+              <p className="checkout-payment-intro">
+                Pago seguro con tarjeta. Aceptamos tarjetas de crédito y débito.
+              </p>
+              <div className="checkout-payment-badges">
+                <span className="checkout-payment-badge">Visa</span>
+                <span className="checkout-payment-badge">Mastercard</span>
+              </div>
+
+              {paymentReady ? (
+                stripePromise ? (
+                  // Keyed by the PaymentIntent's own stable identifiers, never
+                  // a changing value like Date.now() — remounting Elements on
+                  // every render would reset whatever the customer already
+                  // typed into the card fields.
+                  <Elements key={paymentIntent.providerPaymentId || paymentIntent.clientSecret} stripe={stripePromise}>
                     <StoreCardPaymentForm
                       clientSecret={paymentIntent.clientSecret}
                       order={createdOrder}
-                      checkoutForm={checkoutForm}
+                      billingDetails={checkoutForm}
                       submitState={submitState}
                       setSubmitState={setSubmitState}
                       onPaymentSucceeded={handlePaymentSucceeded}
@@ -956,141 +1390,222 @@ function StoreCheckout({
                   <p className="form-status form-status--error">
                     Falta `VITE_STRIPE_PUBLISHABLE_KEY` para inicializar Stripe en frontend.
                   </p>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* ── RIGHT: summary card ─────────────────────────────────────── */}
-        <aside>
-          <div className="checkout-summary-card">
-            <div className="checkout-summary-head">
-              <h2>Revisa tu orden</h2>
-              <Link to="/servicios/carrito" className="checkout-edit-link">
-                Editar carrito
-              </Link>
-            </div>
-
-            {/* Items */}
-            <div className="checkout-summary-items">
-              {cart.items.map((item) => {
-                const thumb =
-                  item.coverImageUrl ||
-                  item.image_url ||
-                  item.product?.cover_image_url ||
-                  item.metadata?.cover_image_url ||
-                  null;
-
-                return (
-                  <div className="checkout-summary-item" key={item.id || item.productId}>
-                    <div className="checkout-summary-thumb">
-                      {thumb ? (
-                        <img src={thumb} alt={item.snapshotName} />
-                      ) : (
-                        <span>{(item.snapshotName || "S").slice(0, 1).toUpperCase()}</span>
-                      )}
-                    </div>
-                    <div>
-                      <div className="checkout-summary-name">{item.snapshotName}</div>
-                      <div className="checkout-summary-meta">
-                        {item.quantity}x &middot; {formatPrice(item.unitPrice, item.currency)}
-                      </div>
-                    </div>
-                    <strong className="checkout-summary-line-total">
-                      {formatPrice(item.unitPrice * item.quantity, item.currency)}
-                    </strong>
+                )
+              ) : submitState.status === "error" ? (
+                <div className="checkout-payment-error">
+                  <p className="form-status form-status--error">{submitState.message}</p>
+                  {!isRetryBlocked(submitState.errorCode) && (
+                    <button type="button" className="checkout-secondary-button" onClick={() => preparePaymentSession()}>
+                      Intentar nuevamente
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="checkout-payment-preparing">
+                  <span className="checkout-payment-spinner" aria-hidden="true" />
+                  <div>
+                    <p className="checkout-payment-preparing__title">Preparando tu pago seguro…</p>
+                    <p className="checkout-payment-preparing__hint">Esto puede tomar unos segundos.</p>
                   </div>
-                );
-              })}
-            </div>
-
-            {/* Coupon */}
-            <div className="checkout-coupon-row">
-              <input
-                type="text"
-                placeholder="Código de descuento"
-                value={couponCode}
-                onChange={(e) => {
-                  setCouponCode(e.target.value.toUpperCase());
-                  if (appliedCoupon) setAppliedCoupon(null);
-                  if (couponState.status !== "idle") setCouponState({ status: "idle", message: "" });
-                }}
-                disabled={couponState.status === "loading" || !canCreateOrder}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleApplyCoupon(); } }}
-              />
-              <button
-                type="button"
-                onClick={handleApplyCoupon}
-                disabled={couponState.status === "loading" || !couponCode.trim() || !canCreateOrder}
-              >
-                {couponState.status === "loading" ? "..." : "Aplicar"}
-              </button>
-            </div>
-            {couponState.status !== "idle" && (
-              <p className={`form-status form-status--${couponState.status === "success" ? "success" : "error"}`} style={{ margin: "4px 0 0", fontSize: "0.8rem" }}>
-                {couponState.message}
-              </p>
-            )}
-
-            {/* Totals */}
-            <div className="checkout-totals">
-              <div className="checkout-total-row">
-                <span>
-                  Subtotal ({cart.items.length}{" "}
-                  {cart.items.length === 1 ? "item" : "items"})
-                </span>
-                <span>{formatPrice(cart.summary.subtotal, cart.summary.currency)}</span>
-              </div>
-              {appliedCoupon && (
-                <div className="checkout-total-row" style={{ color: "#16a34a" }}>
-                  <span>Descuento ({appliedCoupon.code})</span>
-                  <span>-{formatPrice(appliedCoupon.discountAmount, cart.summary.currency)}</span>
                 </div>
               )}
-              <div className="checkout-total-row is-total">
-                <span>Total</span>
-                <span>
-                  {formatPrice(
-                    Math.max(0, Number(cart.summary.subtotal) - Number(appliedCoupon?.discountAmount || 0)),
-                    cart.summary.currency
-                  )}
-                </span>
+
+              <div className="checkout-secure-box">
+                <LockIcon />
+                <div>
+                  <strong>Pago seguro • SSL</strong>
+                  <p>Tus datos financieros se procesan de forma segura durante toda la transacción.</p>
+                </div>
               </div>
             </div>
 
-            {/* Pay button — submits left-column form via `form` attribute */}
-            <button
-              type="submit"
-              form={paymentReady ? "checkout-stripe-form" : "checkout-order-form"}
-              className="checkout-pay-button"
-              style={{ width: "100%", marginTop: 16 }}
-              disabled={isProcessing}
-            >
-              {isProcessing
-                ? "Procesando..."
-                : paymentReady
-                ? "Pagar ahora"
-                : "Crear orden y continuar al pago"}
-            </button>
+            {/* ── Desglose del pago ────────────────────────────────────── */}
+            <div className="checkout-review-section checkout-review-section--totals">
+              <h3 className="checkout-review-section__title">Desglose del pago</h3>
 
-            {createdOrder && !paymentReady && (
-              <p style={{ marginTop: 10, fontSize: "0.82rem", color: "#6b7280", textAlign: "center" }}>
+              <div className="checkout-coupon-row">
+                <input
+                  type="text"
+                  placeholder="Código de descuento"
+                  value={couponCode}
+                  onChange={(e) => {
+                    setCouponCode(e.target.value.toUpperCase());
+                    if (appliedCoupon) setAppliedCoupon(null);
+                    if (couponState.status !== "idle") setCouponState({ status: "idle", message: "" });
+                  }}
+                  disabled={couponState.status === "loading" || !canCreateOrder}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleApplyCoupon(); } }}
+                />
+                <button
+                  type="button"
+                  onClick={handleApplyCoupon}
+                  disabled={couponState.status === "loading" || !couponCode.trim() || !canCreateOrder}
+                >
+                  {couponState.status === "loading" ? "..." : "Aplicar"}
+                </button>
+              </div>
+              {couponState.status !== "idle" && (
+                <p className={`form-status form-status--${couponState.status === "success" ? "success" : "error"}`} style={{ margin: "4px 0 0", fontSize: "0.8rem" }}>
+                  {couponState.message}
+                </p>
+              )}
+
+              {createdOrder ? (
+                // Authoritative totals — the order was created server-side
+                // from the cart, so these are the numbers Stripe will
+                // actually charge, not a frontend estimate. contractTotal
+                // is the full service/order value; amountDueNow is what
+                // gets charged right now (can be a deposit, in which case
+                // balanceDue is what remains owed after this payment).
+                <div className="checkout-totals">
+                  {createdOrder.discountTotal > 0 && (
+                    <div className="checkout-total-row" style={{ color: "#16a34a" }}>
+                      <span>Descuento</span>
+                      <span>-{formatPrice(createdOrder.discountTotal, createdOrder.currency)}</span>
+                    </div>
+                  )}
+                  <div className="checkout-total-row">
+                    <span>Total del servicio</span>
+                    <span>{formatPrice(createdOrder.contractTotal, createdOrder.currency)}</span>
+                  </div>
+                  <div className="checkout-total-row is-total">
+                    <span>A pagar ahora</span>
+                    <span>{formatPrice(createdOrder.amountDueNow, createdOrder.currency)}</span>
+                  </div>
+                  {createdOrder.depositTotal > 0 && (
+                    <div className="checkout-total-row">
+                      <span>Depósito</span>
+                      <span>{formatPrice(createdOrder.depositTotal, createdOrder.currency)}</span>
+                    </div>
+                  )}
+                  {createdOrder.balanceDue > 0 && (
+                    <div className="checkout-total-row">
+                      <span>Balance pendiente</span>
+                      <span>{formatPrice(createdOrder.balanceDue, createdOrder.currency)}</span>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              {createdOrder && bookingSummary.length > 0 && (
+                // Read-only receipt of what the server actually reserved
+                // — never assume a hold exists (reservation_hold_id/
+                // startsAt/endsAt are null for a "configured" no-calendar
+                // entry, which is a valid, non-error state).
+                <div className="checkout-totals" style={{ marginTop: 14 }}>
+                  {bookingSummary.map((entry, idx) => (
+                    <div key={entry.reservationHoldId || `${entry.serviceSlug}-${idx}`} style={{ marginBottom: idx < bookingSummary.length - 1 ? 12 : 0 }}>
+                      <div className="checkout-total-row">
+                        <span style={{ fontWeight: 600 }}>{entry.serviceSlug}</span>
+                        <span>{formatPrice(entry.serviceTotal, createdOrder.currency)}</span>
+                      </div>
+                      {entry.startsAt && (
+                        <div className="checkout-total-row">
+                          <span>Fecha y hora</span>
+                          <span>{formatDateTime(entry.startsAt)}</span>
+                        </div>
+                      )}
+                      {entry.packageName && (
+                        <div className="checkout-total-row">
+                          <span>Paquete</span>
+                          <span>{entry.packageName}</span>
+                        </div>
+                      )}
+                      {entry.addons.map((addon) => (
+                        <div className="checkout-total-row" key={addon.addonId}>
+                          <span>{addon.name} x{addon.quantity}</span>
+                          <span>{formatPrice(addon.price * addon.quantity, createdOrder.currency)}</span>
+                        </div>
+                      ))}
+                      {entry.depositAmount > 0 && (
+                        <div className="checkout-total-row">
+                          <span>Depósito</span>
+                          <span>{formatPrice(entry.depositAmount, createdOrder.currency)}</span>
+                        </div>
+                      )}
+                      <div className="checkout-total-row">
+                        <span>Estado</span>
+                        <span>{entry.status === "configured" ? "Configurado" : entry.status}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!createdOrder && (
+                <div className="checkout-totals">
+                  <div className="checkout-total-row">
+                    <span>
+                      Subtotal ({cart.items.length}{" "}
+                      {cart.items.length === 1 ? "item" : "items"})
+                    </span>
+                    <span>{formatPrice(cart.summary.subtotal, cart.summary.currency)}</span>
+                  </div>
+                  {bookingExtrasEstimate > 0 && (
+                    <div className="checkout-total-row">
+                      <span>Extras (estimado)</span>
+                      <span>{formatPrice(bookingExtrasEstimate, cart.summary.currency)}</span>
+                    </div>
+                  )}
+                  {depositEstimate > 0 && (
+                    <div className="checkout-total-row">
+                      <span>Depósito requerido (estimado)</span>
+                      <span>{formatPrice(depositEstimate, cart.summary.currency)}</span>
+                    </div>
+                  )}
+                  {appliedCoupon && (
+                    <div className="checkout-total-row" style={{ color: "#16a34a" }}>
+                      <span>Descuento ({appliedCoupon.code})</span>
+                      <span>-{formatPrice(appliedCoupon.discountAmount, cart.summary.currency)}</span>
+                    </div>
+                  )}
+                  <div className="checkout-total-row is-total">
+                    <span>Total estimado</span>
+                    <span>
+                      {formatPrice(
+                        Math.max(0, Number(cart.summary.subtotal) - Number(appliedCoupon?.discountAmount || 0)),
+                        cart.summary.currency
+                      )}
+                    </span>
+                  </div>
+                  <p style={{ margin: "8px 0 0", fontSize: "0.76rem", color: "#71717a" }}>
+                    El monto final se confirma al crear tu orden.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {createdOrder && !paymentReady && submitState.status !== "error" && (
+              <p className="checkout-review-order-ref">
                 Orden <strong>{createdOrder.orderNumber}</strong> creada. Preparando pago...
               </p>
             )}
 
-            {/* Security badge */}
-            <div className="checkout-secure-box">
-              <LockIcon />
-              <div>
-                <strong>Secure Checkout - SSL Encrypted</strong>
-                <p>Tus datos personales y financieros están protegidos durante toda la transacción.</p>
-              </div>
+            {/* ── CTA final ─────────────────────────────────────────────── */}
+            <div className="checkout-review-footer">
+              {createdOrder || isProcessing ? (
+                <span className="checkout-secondary-button is-disabled" aria-disabled="true">
+                  Editar carrito
+                </span>
+              ) : (
+                <Link to="/servicios/carrito" className="checkout-secondary-button">
+                  Editar carrito
+                </Link>
+              )}
+              {/* Single final CTA — only once Stripe Elements is ready to
+                  confirm the already-created PaymentIntent. There is no
+                  intermediate "crear orden" button anymore: preparePaymentSession
+                  runs automatically (see the useEffect above) as soon as the
+                  customer reaches this step. */}
+              {paymentReady && (
+                <button type="submit" form="checkout-stripe-form" className="checkout-pay-button" disabled={isProcessing}>
+                  {isProcessing ? "Procesando pago…" : "Pagar ahora"}
+                </button>
+              )}
             </div>
           </div>
-        </aside>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1148,7 +1663,6 @@ export default function CheckoutPage() {
           setCheckoutForm((current) => ({ ...current, email: current.email || result?.email || "" }));
           setCartState({ status: "idle", message: "" });
           if (import.meta.env.DEV) {
-            // eslint-disable-next-line no-console
             console.log("[checkout] cart items raw:\n" + JSON.stringify(
               (result?.items || []).map((it) => ({
                 id: it.id,

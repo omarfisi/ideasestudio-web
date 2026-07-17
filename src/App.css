@@ -2621,6 +2621,108 @@
   min-width: 0;
 }
 
+.services-cart-success {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+  border-radius: 14px;
+  border: 1.5px solid #bbf7d0;
+  background: #f0fdf4;
+}
+
+.services-cart-success__content {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.services-cart-success__content p {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #14532d;
+}
+
+.services-cart-success__icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #16a34a;
+}
+
+.services-cart-success__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.services-cart-success__cta,
+.services-cart-success__secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 20px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-decoration: none;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.services-cart-success__cta {
+  background: #f8d000;
+  color: #111111;
+  border: 0;
+  transition: background 0.15s;
+}
+
+.services-cart-success__cta:hover {
+  background: #dfba00;
+}
+
+.services-cart-success__cta:focus-visible,
+.services-cart-success__secondary:focus-visible {
+  outline: 2px solid #111111;
+  outline-offset: 2px;
+}
+
+.services-cart-success__secondary {
+  background: #ffffff;
+  color: #111111;
+  border: 1.5px solid #d1d5db;
+  transition: border-color 0.15s;
+}
+
+.services-cart-success__secondary:hover {
+  border-color: #9ca3af;
+}
+
+@media (max-width: 640px) {
+  .services-cart-success {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .services-cart-success__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .services-cart-success__cta,
+  .services-cart-success__secondary {
+    justify-content: center;
+    width: 100%;
+  }
+}
+
 .services-market__empty {
   border: 1px solid var(--line);
   border-radius: 24px;
@@ -4394,6 +4496,513 @@
   align-items: start;
 }
 
+/* ─── Guided booking checkout (Fase E) ──────────────────────────────────── */
+
+.checkout-wizard-shell {
+  max-width: 760px;
+  margin: 0 auto;
+  display: grid;
+  gap: 24px;
+}
+
+/* Numbered circle + label, connected by a thin discrete line — no pill
+   buttons/borders per step, so the stepper reads as one horizontal
+   progress indicator instead of a row of separate buttons. */
+.booking-stepper__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+}
+
+.booking-stepper__item {
+  display: flex;
+  align-items: center;
+}
+
+.booking-stepper__item:not(:last-child)::after {
+  content: "";
+  width: 28px;
+  height: 1px;
+  background: #e5e7eb;
+  margin: 0 10px;
+  flex-shrink: 0;
+}
+
+.booking-stepper__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: none;
+  padding: 4px 2px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #9ca3af;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s;
+}
+
+.booking-stepper__btn:disabled {
+  cursor: not-allowed;
+}
+
+.booking-stepper__btn:not(:disabled):hover {
+  color: #111;
+}
+
+.booking-stepper__btn:focus-visible {
+  outline: 2px solid #f8d000;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.booking-stepper__btn--static {
+  cursor: default;
+}
+
+.booking-stepper__marker {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  background: #f4f4f5;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.booking-stepper__item.is-active .booking-stepper__btn {
+  color: #111;
+}
+
+.booking-stepper__item.is-active .booking-stepper__marker {
+  background: #111;
+  color: #fff;
+}
+
+.booking-stepper__item.is-completed .booking-stepper__btn {
+  color: #111;
+}
+
+.booking-stepper__item.is-completed .booking-stepper__marker {
+  background: #f8d000;
+  color: #111;
+}
+
+.booking-stepper__item.is-upcoming .booking-stepper__btn {
+  color: #9ca3af;
+}
+
+/* Unified booking wizard card — stepper, step content (incl. the
+   calendar/horarios/paquetes/extras panel) and the Volver/Continuar
+   footer all live inside this one surface, so the wizard stops looking
+   like three separate systems stacked on top of each other. Rendered
+   directly under .checkout-modern-page (not inside .checkout-wizard-shell,
+   whose 760px max-width would otherwise cap it) — see StoreCheckout in
+   CheckoutPage.jsx. */
+.checkout-wizard-card {
+  max-width: 1120px;
+  margin: 0 auto 32px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 22px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.05);
+  overflow: hidden;
+}
+
+.checkout-wizard-card__stepper {
+  padding: 20px 40px;
+  background: #fafafa;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.checkout-wizard-card__body {
+  padding: 36px 40px;
+  display: grid;
+  gap: 24px;
+}
+
+.checkout-wizard-card__footer {
+  padding: 20px 40px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.checkout-wizard-state {
+  text-align: center;
+  padding: 24px 0;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+
+.checkout-wizard-state h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #111;
+}
+
+.checkout-wizard-state p {
+  margin: 0 0 8px;
+  color: #6b7280;
+  font-size: 0.92rem;
+}
+
+.checkout-step-header {
+  margin: 0 0 4px;
+}
+
+.checkout-step-header h2 {
+  margin: 0 0 6px;
+  font-size: 1.85rem;
+  letter-spacing: -0.02em;
+  color: #111;
+}
+
+.checkout-step-header__hint {
+  margin: 0;
+  color: #6b7280;
+  font-size: 1rem;
+}
+
+.checkout-profile-note {
+  margin: 8px 0 0;
+  color: #6b7280;
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
+@media (max-width: 640px) {
+  .checkout-wizard-card {
+    border-radius: 18px;
+    margin-bottom: 20px;
+  }
+  .checkout-wizard-card__stepper {
+    padding: 16px 18px;
+  }
+  .checkout-wizard-card__body {
+    padding: 20px 18px;
+    gap: 18px;
+  }
+  .checkout-wizard-card__footer {
+    padding: 16px 18px;
+  }
+  .checkout-wizard-card__footer .btn,
+  .checkout-wizard-card__footer .checkout-secondary-button {
+    flex: 1;
+    justify-content: center;
+  }
+  .checkout-step-header h2 {
+    font-size: 1.4rem;
+  }
+  .checkout-step-header__hint {
+    font-size: 0.9rem;
+  }
+}
+
+/* Revisar y pagar — one vertical surface instead of two narrow columns
+   competing side by side. Same visual family as .checkout-wizard-card
+   (border/radius/shadow), sections stacked with generous spacing instead
+   of a summary column + a separate skinny payment column. */
+.checkout-review-card {
+  max-width: 940px;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 22px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.05);
+  padding: 40px;
+  display: grid;
+  gap: 32px;
+}
+
+.checkout-review-section {
+  display: grid;
+  gap: 12px;
+  padding-top: 28px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.checkout-review-section:first-of-type {
+  padding-top: 0;
+  border-top: none;
+}
+
+.checkout-review-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.checkout-review-section__title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+}
+
+.checkout-review-section__edit {
+  border: 1.5px solid #e5e7eb;
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #111;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.checkout-review-section__edit:hover {
+  border-color: #f8d000;
+  background: #fffbe6;
+}
+
+.checkout-review-booking-list {
+  display: grid;
+  gap: 10px;
+}
+
+.checkout-review__booking {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #fafafa;
+  border: 1px solid #e5e7eb;
+}
+
+.checkout-review__booking strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #111;
+  font-size: 0.95rem;
+}
+
+.checkout-review__booking ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-size: 0.88rem;
+  color: #27272a;
+}
+
+.checkout-review__edit-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.checkout-review__edit-links button {
+  border: 1.5px solid #e5e7eb;
+  background: #fff;
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #111;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.checkout-review__edit-links button:hover {
+  border-color: #f8d000;
+  background: #fffbe6;
+}
+
+.checkout-review-customer {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111;
+}
+
+/* Método de pago */
+.checkout-payment-intro {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.checkout-payment-badges {
+  display: flex;
+  gap: 8px;
+}
+
+.checkout-payment-badge {
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #111;
+  background: #fafafa;
+}
+
+.checkout-payment-pending-note {
+  margin: 0;
+  padding: 16px;
+  border: 1.5px dashed #e5e7eb;
+  border-radius: 12px;
+  color: #6b7280;
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.checkout-payment-preparing {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 16px;
+  border: 1.5px dashed #e5e7eb;
+  border-radius: 12px;
+}
+
+.checkout-payment-preparing__title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.checkout-payment-preparing__hint {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.checkout-payment-spinner {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 2.5px solid rgba(17, 17, 17, 0.15);
+  border-top-color: #111111;
+  animation: cart-spinner 0.7s linear infinite;
+}
+
+.checkout-payment-error {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1.5px solid #fecaca;
+  background: #fef2f2;
+  border-radius: 12px;
+}
+
+.checkout-payment-error .form-status--error {
+  margin: 0;
+}
+
+.checkout-payment-error .checkout-secondary-button {
+  min-height: 44px;
+  justify-self: start;
+}
+
+.checkout-review-locked-note {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f4f4f5;
+  color: #52525b;
+  font-size: 0.82rem;
+}
+
+.checkout-secondary-button.is-disabled {
+  color: #a1a1aa;
+  border-color: #e5e7eb;
+  background: #fafafa;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.checkout-review-order-ref {
+  margin: -20px 0 0;
+  font-size: 0.82rem;
+  color: #6b7280;
+  text-align: center;
+}
+
+.checkout-review-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 28px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.checkout-review-footer .checkout-pay-button {
+  flex: 1;
+  max-width: 320px;
+}
+
+@media (max-width: 640px) {
+  .checkout-review-card {
+    padding: 22px 18px;
+    border-radius: 18px;
+    gap: 24px;
+  }
+  .checkout-review-section {
+    padding-top: 22px;
+  }
+  .checkout-review-footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+  .checkout-review-footer .checkout-pay-button,
+  .checkout-review-footer .checkout-secondary-button {
+    max-width: none;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .checkout-wizard-shell {
+    padding: 0 4px;
+  }
+
+  .booking-stepper__list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    justify-content: stretch;
+  }
+
+  .booking-stepper__item {
+    width: 100%;
+  }
+
+  .booking-stepper__item::after {
+    display: none;
+  }
+
+  .booking-stepper__btn {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
 .checkout-card,
 .checkout-summary-card {
   background: #fff;
@@ -4629,23 +5238,6 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
-}
-
-.checkout-edit-link {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 14px;
-  border: 2px solid #f1d146;
-  border-radius: 999px;
-  color: #0b0b0d;
-  font-weight: 800;
-  font-size: .85rem;
-  text-decoration: none;
-  transition: background 0.15s;
-}
-
-.checkout-edit-link:hover {
-  background: #f1d146;
 }
 
 .checkout-summary-items {
@@ -14824,168 +15416,632 @@ section[id] {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   Order detail (.order-detail-*) — same .account-dashboard-* shell
+   as "Mis órdenes", own content classes for the drill-down view.
+═══════════════════════════════════════════════════════════════ */
+
+/* width/max-width/min-width/overflow-x here were an earlier attempt at
+   fixing the reschedule page's misplaced confirm button — turned out that
+   was a structural JSX issue (the button's wrapper was a sibling of the
+   calendar panel instead of living inside it, see .order-reschedule-panel/
+   .order-reschedule-actions below), not a sizing one. Left in place since
+   this selector is shared with .order-detail-shell (AccountOrderDetailPage)
+   and they're harmless there, but they were not the actual fix. */
+.order-detail-shell,
+.order-payment-shell {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 28px 34px 34px;
+  display: grid;
+  gap: 20px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.order-detail-link-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #475569;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-decoration: none;
+  width: fit-content;
+}
+
+.order-detail-link-back:hover {
+  color: #111827;
+}
+
+/* ── Cabecera de estado ────────────────────────────────────────── */
+.order-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.order-detail-head__badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.order-detail-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.order-detail-badge--payable,
+.order-detail-badge--retryable,
+.order-detail-badge--booking_expired {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.order-detail-badge--paid {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.order-detail-badge--cancelled,
+.order-detail-badge--not_payable {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.order-detail-badge--refunded {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.order-detail-badge--review_required {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.order-detail-badge--deposit_paid {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.order-detail-badge--neutral {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.order-detail-head__figures {
+  display: flex;
+  gap: 28px;
+}
+
+.order-detail-head__figures span {
+  display: block;
+  margin: 0 0 3px;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.order-detail-head__figures strong {
+  color: #0f172a;
+  font-size: 1.1rem;
+}
+
+/* ── Bloque destacado: acción pendiente ───────────────────────── */
+.order-detail-cta-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 22px 24px;
+  border-radius: 18px;
+  background: #fffbeb;
+  border: 1.5px solid #fde68a;
+}
+
+.order-detail-cta-block h2 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  color: #111827;
+}
+
+.order-detail-cta-block p {
+  margin: 0;
+  color: #78716c;
+  font-size: 0.9rem;
+}
+
+.order-detail-cta-block__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.order-detail-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 18px 22px;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.order-detail-notice p {
+  margin: 0;
+}
+
+.order-detail-pay-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+  padding: 0 26px;
+  border-radius: 999px;
+  background: #f8d000;
+  color: #111111;
+  font-weight: 800;
+  font-size: 0.92rem;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.order-detail-pay-button:hover {
+  background: #dfba00;
+}
+
+.order-detail-pay-button--block {
+  display: flex;
+  width: 100%;
+  margin-top: 16px;
+}
+
+/* ── Grid principal / lateral ─────────────────────────────────── */
+.order-detail-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.order-detail-main,
+.order-detail-side {
+  display: grid;
+  gap: 20px;
+}
+
+.order-detail-panel {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 22px;
+}
+
+.order-detail-panel h3 {
+  margin: 0 0 14px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #111827;
+}
+
+.order-detail-items {
+  display: grid;
+  gap: 10px;
+}
+
+.order-detail-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+}
+
+.order-detail-item strong {
+  display: block;
+  color: #1e293b;
+  font-size: 0.9rem;
+}
+
+.order-detail-item span {
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.order-detail-item__price {
+  color: #374151 !important;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.order-detail-muted {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.88rem;
+}
+
+.order-detail-docs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.order-detail-doc-chip {
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+}
+
+.order-detail-doc-chip span {
+  display: block;
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 0.88rem;
+}
+
+.order-detail-doc-chip small {
+  display: block;
+  margin-top: 3px;
+  color: #94a3b8;
+  font-size: 0.76rem;
+}
+
+.order-detail-footer {
+  padding-top: 8px;
+  text-align: center;
+}
+
+.order-detail-explore-link {
+  color: #64748b;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.order-detail-explore-link:hover {
+  color: #111827;
+}
+
+/* ── AccountOrderPaymentPage ──────────────────────────────────── */
+.order-payment-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+}
+
+.order-payment-summary span {
+  display: block;
+  margin: 0 0 4px;
+  color: #94a3b8;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.order-payment-summary strong {
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.order-payment-panel {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 24px;
+}
+
+/* AccountOrderReschedulePage's confirm button lives inside this same
+   white panel (as a sibling of the calendar, not of .order-payment-shell)
+   — a structural fix, not a width one: the button was rendering visually
+   detached from the calendar card because .order-payment-footer used to
+   be its sibling instead of living inside it. */
+.order-reschedule-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.order-reschedule-actions {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+  box-sizing: border-box;
+}
+
+.order-reschedule-actions .checkout-pay-button {
+  width: min(100%, 360px);
+  min-width: 0;
+  max-width: 360px;
+}
+
+.order-payment-panel h2 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  color: #111827;
+}
+
+.order-payment-paid {
+  padding: 24px;
+  border-radius: 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  text-align: center;
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+}
+
+.order-payment-paid p {
+  margin: 0;
+  color: #15803d;
+  font-weight: 700;
+}
+
+/* Deliberately the same amber/neutral treatment as .order-detail-cta-block
+   — this is not a technical failure ("no pudimos conectar"), it's an
+   expected, recoverable state, so it must never look like a red
+   connection-error card. */
+.order-payment-expired {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 22px 24px;
+  border-radius: 16px;
+  background: #fffbeb;
+  border: 1.5px solid #fde68a;
+}
+
+.order-payment-expired__icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: #fff3bf;
+  border: 1px solid #f3cf4e;
+  color: #8a6500;
+}
+
+.order-payment-expired h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  color: #111827;
+}
+
+.order-payment-expired p {
+  margin: 0;
+  color: #78716c;
+  font-size: 0.9rem;
+}
+
+.order-payment-expired__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.order-payment-footer {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+  box-sizing: border-box;
+}
+
+.order-payment-footer .checkout-pay-button {
+  width: auto;
+  max-width: 100%;
+  min-width: 280px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 980px) {
+  .order-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .order-detail-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .order-payment-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .order-detail-shell,
+  .order-payment-shell {
+    padding: 20px 18px 26px;
+  }
+
+  .order-detail-cta-block,
+  .order-detail-notice {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .order-detail-cta-block__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .order-detail-cta-block__actions .order-detail-pay-button,
+  .order-detail-cta-block__actions .checkout-secondary-button {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .order-payment-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .order-payment-expired__actions {
+    margin-left: 0;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .order-payment-expired__actions .order-detail-pay-button,
+  .order-payment-expired__actions .checkout-secondary-button {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .order-payment-footer {
+    justify-content: stretch;
+  }
+
+  .order-payment-footer .checkout-pay-button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .order-reschedule-actions {
+    justify-content: stretch;
+  }
+
+  .order-reschedule-actions .checkout-pay-button {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
    Checkout Booking Panel  (.cbp-*)
    Integrated inside checkout-card, before customer fields
 ═══════════════════════════════════════════════════════════════ */
 
-/* Wrapper — no card of its own, divider only */
+/* Wrapper — no card of its own; ServiceBookingCheckoutPanel's content lives
+   directly inside CheckoutPage's .checkout-wizard-card__body now, not in
+   its own separate card(s). */
 .cbp-wrapper {
-  border: 1.5px solid rgba(22,22,22,0.10);
-  border-radius: 10px;
-  margin-top: 24px;
-  margin-bottom: 8px;
-  overflow: hidden;
+  display: grid;
+  gap: 28px;
 }
 
-/* Accordion toggle header */
-.cbp-accordion-toggle {
-  display: flex;
+.cbp-schedule,
+.cbp-customize-block {
+  display: grid;
+  gap: 4px;
+}
+
+/* Selection summary — replaces the two-column picker entirely once a date
+   is chosen. A grid of compact mini-cards (Fecha / Hora / Paquete), not
+   loose text rows with dividers — each card only renders when its value
+   actually exists, so a date-without-time or a service with no package
+   never leaves a blank/placeholder card behind. */
+.cbp-selection-summary {
+  display: grid;
+  gap: 14px;
+}
+
+.cbp-selection-summary__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  max-width: 560px;
+}
+
+.cbp-selection-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
   align-items: center;
-  justify-content: space-between;
-  width: 100%;
+  column-gap: 10px;
+  row-gap: 2px;
   padding: 14px 16px;
+  border-radius: 14px;
+  border: 1.5px solid #e5e7eb;
   background: #fafafa;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  gap: 8px;
 }
-.cbp-accordion-toggle:hover {
-  background: #f5f5f5;
-}
-.cbp-accordion-toggle__left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.cbp-accordion-toggle__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #f1d146;
-  flex-shrink: 0;
-}
-.cbp-accordion-toggle__title {
-  font-size: 0.90rem;
-  font-weight: 700;
+
+.cbp-selection-card__icon {
+  grid-row: 1 / 3;
   color: #111;
-}
-.cbp-accordion-toggle__chevron {
-  color: #888;
-  transition: transform 0.2s ease;
   flex-shrink: 0;
 }
 
-/* Accordion body */
-.cbp-accordion-body {
-  padding: 16px 16px 12px;
-  border-top: 1.5px solid rgba(22,22,22,0.08);
-}
-
-.cbp-header__sub {
-  font-size: 0.78rem;
-  color: #6b6258;
-  margin: 0 0 14px;
-}
-
-/* Inner cards (Reserva / Extras / Resumen) */
-.cbp-card {
-  border: 1.5px solid #e2e2e2;
-  border-radius: 12px;
-  margin-bottom: 12px;
-  overflow: hidden;
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-}
-.cbp-card__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  background: #f7f7f7;
-  border-bottom: 1.5px solid #e2e2e2;
-}
-.cbp-card__title {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: #111;
-}
-.cbp-card__edit-btn {
-  font-size: 0.80rem;
+.cbp-selection-card__label {
+  font-size: 0.72rem;
   font-weight: 600;
-  color: #111;
-  background: none;
-  border: none;
-  cursor: pointer;
-  text-decoration: underline;
-  font-family: inherit;
-  padding: 0;
-}
-.cbp-card__edit-btn:hover { color: #555; }
-.cbp-card__body {
-  padding: 14px 16px 10px;
-}
-.cbp-card__body--no-gap {
-  padding: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
 }
 
-/* Booking summary rows (date / time) */
-.cbp-booking-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(22,22,22,0.07);
-}
-.cbp-booking-row:last-child { border-bottom: none; }
-.cbp-booking-row__icon {
-  font-size: 1.1rem;
-  width: 28px;
-  text-align: center;
-  flex-shrink: 0;
-}
-.cbp-booking-row__info {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-.cbp-booking-row__label {
-  font-size: 0.70rem;
-  color: #888;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-.cbp-booking-row__value {
-  font-size: 0.88rem;
+.cbp-selection-card__value {
+  font-size: 1.05rem;
   font-weight: 700;
   color: #111;
+  line-height: 1.2;
 }
 
-/* Addon rows */
-.cbp-addon-row {
-  display: flex;
+.cbp-selection-summary__edit {
+  justify-self: start;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  gap: 12px;
-}
-.cbp-addon-row--bordered {
-  border-bottom: 1px solid rgba(22,22,22,0.07);
-}
-.cbp-addon-row__info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.cbp-addon-row__name {
-  font-size: 0.84rem;
-  font-weight: 500;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1.5px solid #e5e7eb;
+  background: #fff;
   color: #111;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
 }
-.cbp-addon-row__price {
-  font-size: 0.75rem;
-  color: #6b6258;
+
+.cbp-selection-summary__edit:hover {
+  border-color: #f8d000;
+  background: #fffbe6;
+}
+
+@media (max-width: 480px) {
+  .cbp-selection-summary__grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Loading */
@@ -14995,66 +16051,115 @@ section[id] {
   padding: 6px 0 14px;
 }
 
-/* Subsection (fecha/extras/resumen) */
+/* Subsection label (Paquete / Horarios disponibles / Extras opcionales) */
 .cbp-sub {
   margin-bottom: 14px;
 }
 
 .cbp-sub__label {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: #9b9189;
-  margin: 0 0 8px;
+  color: #6b7280;
+  margin: 0 0 10px;
 }
 
-.cbp-sub--summary {
-  background: #fafafa;
-  border: 1px solid rgba(22,22,22,0.08);
-  border-radius: 12px;
-  padding: 12px 14px;
+/* Package / addon option cards — the same bordered rounded-rect visual
+   system for both, so choosing a package and choosing an addon feel like
+   the same kind of decision instead of two different UI languages. */
+.cbp-option-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
 }
 
-/* Package chips */
-.cbp-chips {
+.cbp-option-card {
   display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.cbp-chip {
-  padding: 4px 13px;
-  border-radius: 999px;
-  border: 1.5px solid rgba(22,22,22,0.18);
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1.5px solid #e5e7eb;
   background: #fff;
   color: #111;
-  font-size: 0.76rem;
-  font-weight: 500;
   cursor: pointer;
   font-family: inherit;
-  transition: all 0.12s;
+  transition: background 0.1s, border-color 0.1s;
 }
 
-.cbp-chip.active {
-  border-color: #f1d146;
-  background: #f1d146;
+.cbp-option-card:hover { border-color: #f8d000; background: #fffbe6; }
+
+.cbp-option-card.active {
+  border-color: #f8d000;
+  background: #fff7cc;
+}
+
+.cbp-option-card__name {
+  font-size: 0.88rem;
   font-weight: 700;
 }
 
-/* Calendar nav */
+.cbp-option-card__desc {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.cbp-option-card__price {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #111;
+  margin-top: 2px;
+}
+
+/* Booking layout — calendar left, horarios right. Two columns give the
+   block real structure instead of a lone compact calendar surrounded by
+   empty space; the times column always renders (with a placeholder before
+   a date is picked) so the composition never looks half-finished. Collapses
+   to one column at 860px, matching the breakpoint used elsewhere in this
+   file for similar two-column-to-stacked layouts. */
+.cbp-booking-layout {
+  display: grid;
+  grid-template-columns: 45% 55%;
+  gap: 32px;
+  align-items: start;
+}
+
+.cbp-booking-layout__calendar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cbp-booking-layout__times {
+  min-width: 0;
+}
+
+@media (max-width: 860px) {
+  .cbp-booking-layout {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+
+/* Calendar nav — centered, compact; month label has a fixed min-width so
+   the prev/next buttons don't shift horizontally as the label text changes
+   length between months. */
 .cbp-cal-nav {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
+  justify-content: center;
+  gap: 18px;
+  margin-bottom: 12px;
+  width: 100%;
 }
 
 .cbp-cal-nav__btn {
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  border: 1.5px solid rgba(22,22,22,0.15);
+  border: 1.5px solid #e5e7eb;
   background: #fff;
   cursor: pointer;
   display: flex;
@@ -15062,123 +16167,208 @@ section[id] {
   justify-content: center;
   font-family: inherit;
   color: #111;
-  transition: background 0.1s;
+  flex-shrink: 0;
+  transition: background 0.1s, border-color 0.1s;
 }
 
-.cbp-cal-nav__btn:hover { background: #f5f5f5; }
+.cbp-cal-nav__btn:hover { background: #fdf6d8; border-color: #f8d000; }
 
 .cbp-cal-nav__month {
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: #111;
   text-transform: capitalize;
+  min-width: 130px;
+  text-align: center;
 }
 
-/* Calendar grid */
+/* Calendar grid — capped max-width is what actually keeps each of the 7
+   `1fr` columns compact: without it, columns stretch to fill however wide
+   the surrounding card happens to be, and aspect-ratio:1 turned that into
+   giant circles. Centered within its column via margin:auto. */
 .cbp-cal-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
+  gap: 8px;
+  max-width: 390px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .cbp-cal-dow {
   text-align: center;
-  font-size: 0.58rem;
-  font-weight: 700;
-  color: #9b9189;
-  padding: 1px 0 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #6b7280;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .cbp-cal-day {
   aspect-ratio: 1;
+  max-width: 50px;
+  max-height: 50px;
+  width: 100%;
+  justify-self: center;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  font-size: 0.7rem;
+  border-radius: 10px;
+  font-size: 0.82rem;
   font-weight: 400;
   border: 1.5px solid transparent;
   background: transparent;
-  color: #111;
+  color: #b8bdc5;
   cursor: default;
   font-family: inherit;
-  transition: all 0.1s;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
 }
 
 .cbp-cal-day.available {
-  background: #fffde6;
-  border-color: #f1d146;
+  background: #fff;
+  border-color: #e5e7eb;
+  color: #111;
   font-weight: 600;
   cursor: pointer;
 }
 
-.cbp-cal-day.available:hover { background: #f1d146; }
+.cbp-cal-day.available:hover {
+  background: #fffbe6;
+  border-color: #f8d000;
+}
+
+/* Today — a quiet border indicator, deliberately styled so it never
+   competes with .selected below (source order + the explicit
+   .selected.today rule both make selected win when a day is both). */
+.cbp-cal-day.today { border-color: #111; }
 
 .cbp-cal-day.selected {
-  background: #f1d146;
-  border-color: #f1d146;
-  font-weight: 800;
-}
-
-.cbp-cal-day.past { color: #ccc; }
-
-/* Slots expand after date click */
-.cbp-slots-wrap {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(22,22,22,0.07);
-}
-
-.cbp-slots {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.cbp-slot {
-  padding: 5px 12px;
-  border-radius: 999px;
-  border: 1.5px solid rgba(22,22,22,0.18);
-  background: #fff;
+  background: #f8d000;
+  border-color: #f8d000;
   color: #111;
-  font-size: 0.76rem;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-  transition: all 0.1s;
-}
-
-.cbp-slot:hover { border-color: #f1d146; background: #fffde6; }
-
-.cbp-slot.active {
-  border-color: #f1d146;
-  background: #f1d146;
   font-weight: 700;
 }
 
-/* Addon row */
-.cbp-addon {
+.cbp-cal-day.selected.today { border-color: #f8d000; }
+
+.cbp-cal-day.past {
+  background: transparent;
+  border-color: transparent;
+  color: #b8bdc5;
+  cursor: default;
+}
+
+@media (max-width: 1024px) {
+  .cbp-cal-grid { max-width: 350px; }
+  .cbp-cal-day { max-width: 44px; max-height: 44px; }
+}
+
+@media (max-width: 480px) {
+  .cbp-cal-grid { max-width: 300px; gap: 5px; }
+  .cbp-cal-day { max-width: 40px; max-height: 40px; font-size: 0.76rem; }
+  .cbp-cal-nav { gap: 12px; margin-bottom: 10px; }
+  .cbp-cal-nav__month { min-width: 100px; font-size: 0.82rem; }
+}
+
+/* Horarios disponibles — 2-column grid of rounded-rect buttons, not pills,
+   so it reads as a clean, scannable schedule rather than a loose row of
+   tags. */
+.cbp-slots {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.cbp-slot {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1.5px solid #e5e7eb;
+  background: #fff;
+  color: #111;
+  font-size: 0.84rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: center;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+
+.cbp-slot:hover { border-color: #f8d000; background: #fffbe6; }
+
+.cbp-slot.active {
+  border-color: #f8d000;
+  background: #f8d000;
+  color: #111;
+  font-weight: 700;
+}
+
+.cbp-notice--placeholder {
+  border: 1.5px dashed #e5e7eb;
+  border-radius: 12px;
+  padding: 24px 16px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.82rem;
+}
+
+/* Extras — 2-column grid of option cards (1 column on mobile), same
+   bordered/rounded system as .cbp-option-card. A card with qty > 0 gets a
+   yellow border/tint so it's obvious at a glance which extras are active
+   without having to read every counter. */
+.cbp-addons-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .cbp-addons-grid { grid-template-columns: 1fr; }
+}
+
+.cbp-addon-card {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 0;
-  border-bottom: 1px solid rgba(22,22,22,0.06);
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1.5px solid #e5e7eb;
+  background: #fff;
+  transition: background 0.1s, border-color 0.1s;
 }
 
-.cbp-addon:last-child { border-bottom: none; }
+.cbp-addon-card:hover { border-color: #f8d000; }
 
-.cbp-addon__info { flex: 1; min-width: 0; }
+.cbp-addon-card.has-qty {
+  border-color: #f8d000;
+  background: #fff7cc;
+}
 
-.cbp-addon__name {
-  font-size: 0.82rem;
+.cbp-addon-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cbp-addon-card__name {
+  font-size: 0.86rem;
   font-weight: 600;
   color: #111;
-  display: block;
 }
 
-.cbp-addon__price {
-  font-size: 0.72rem;
-  color: #6b6258;
+.cbp-addon-card__desc {
+  font-size: 0.76rem;
+  color: #6b7280;
+}
+
+.cbp-addon-card__price {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #111;
+  margin-top: 2px;
 }
 
 .cbp-qty {
@@ -15206,7 +16396,7 @@ section[id] {
   line-height: 1;
 }
 
-.cbp-qty__btn:hover:not(:disabled) { background: #f1d146; border-color: #f1d146; }
+.cbp-qty__btn:hover:not(:disabled) { background: #f8d000; border-color: #f8d000; }
 .cbp-qty__btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .cbp-qty__val {

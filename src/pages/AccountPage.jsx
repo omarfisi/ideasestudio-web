@@ -57,11 +57,27 @@ export default function AccountPage() {
   const [query, setQuery] = useState("");
   const [activeSection, setActiveSection] = useState("orders");
 
+  // session?.user?.id (not the whole session object) — a token refresh
+  // creates a new session object for the SAME user and must not re-trigger
+  // this, but an actual user change (logout, or a different account
+  // logging in on this same mounted page) must.
+  const userId = session?.user?.id || null;
+
   useEffect(() => {
-    if (!session) return;
     let cancelled = false;
 
     async function load() {
+      // Cleared unconditionally first — a logged-out user, or a second
+      // account logging in right after the first (without a full page
+      // reload), must never see the previous user's orders, not even
+      // briefly while a new request is in flight.
+      setOrders([]);
+
+      if (!userId) {
+        setOrdersState({ status: "idle", message: "" });
+        return;
+      }
+
       setOrdersState({ status: "loading", message: "" });
       try {
         const data = await getMyOrders();
@@ -71,9 +87,14 @@ export default function AccountPage() {
         }
       } catch (error) {
         if (!cancelled) {
+          // Never surface a raw backend detail code (e.g. an old cached
+          // customer_contact_not_found) — always a fixed, friendly message.
+          if (import.meta.env.DEV) {
+            console.error("[account] getMyOrders failed:", error);
+          }
           setOrdersState({
             status: "error",
-            message: error instanceof Error ? error.message : "No se pudieron cargar las órdenes.",
+            message: "No pudimos cargar tus órdenes. Intenta nuevamente.",
           });
         }
       }
@@ -81,13 +102,12 @@ export default function AccountPage() {
 
     load();
     return () => { cancelled = true; };
-  }, [session]);
+  }, [userId]);
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
       const q = query.trim().toLowerCase();
       const matchesQuery = !q || String(order.order_number || "").toLowerCase().includes(q);
-      const doc = getDocument(order);
       const matchesFilter =
         filter === "all" ||
         (filter === "paid" && order.payment_status === "paid") ||
@@ -226,13 +246,18 @@ export default function AccountPage() {
               <div className="account-loading">Cargando órdenes…</div>
             ) : ordersState.status === "error" ? (
               <div className="account-empty-state">
-                <h3>Error al cargar</h3>
+                <h3>No pudimos cargar tus órdenes</h3>
                 <p>{ordersState.message}</p>
+              </div>
+            ) : orders.length === 0 ? (
+              <div className="account-empty-state">
+                <h3>Aún no tienes órdenes.</h3>
+                <p>Cuando contrates un servicio, aparecerá aquí.</p>
               </div>
             ) : filteredOrders.length === 0 ? (
               <div className="account-empty-state">
-                <h3>No hay órdenes para mostrar</h3>
-                <p>Cuando contrates un servicio, aparecerá aquí.</p>
+                <h3>No hay órdenes para este filtro</h3>
+                <p>Prueba con otra búsqueda o quita el filtro aplicado.</p>
               </div>
             ) : (
               <div className="account-orders-list">

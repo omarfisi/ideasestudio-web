@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, Check, ShoppingCart } from "lucide-react";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
 import { Link, useLoaderData, useSearchParams } from "react-router-dom";
@@ -427,7 +428,9 @@ export default function StorePage() {
 
       setCartState({
         status: "success",
-        message: `Servicio agregado. Tu resumen ahora tiene ${cart.summary.totalQuantity} servicios.`,
+        productName: product.name || "",
+        totalQuantity: cart.summary.totalQuantity,
+        sessionToken: cart.sessionToken || null,
       });
     } catch (error) {
       setCartState({
@@ -619,7 +622,39 @@ export default function StorePage() {
           </aside>
 
           <div className="services-market__results">
-            {cartState.status !== "idle" ? (
+            {cartState.status === "success" ? (
+              <div className="services-cart-success">
+                <div className="services-cart-success__content">
+                  <Check size={20} className="services-cart-success__icon" aria-hidden="true" />
+                  <p>
+                    {cartState.productName
+                      ? `${cartState.productName} agregado correctamente.`
+                      : "Servicio agregado correctamente."}{" "}
+                    Tu contratación ahora tiene{" "}
+                    {cartState.totalQuantity === 1
+                      ? "1 servicio."
+                      : `${cartState.totalQuantity} servicios.`}
+                  </p>
+                </div>
+                <div className="services-cart-success__actions">
+                  <Link
+                    to={
+                      cartState.sessionToken
+                        ? `/servicios/checkout?sessionToken=${encodeURIComponent(cartState.sessionToken)}`
+                        : "/servicios/checkout"
+                    }
+                    className="services-cart-success__cta"
+                  >
+                    Continuar al pago
+                    <ArrowRight size={16} aria-hidden="true" />
+                  </Link>
+                  <Link to="/servicios/carrito" className="services-cart-success__secondary">
+                    <ShoppingCart size={16} aria-hidden="true" />
+                    Ver carrito
+                  </Link>
+                </div>
+              </div>
+            ) : cartState.status !== "idle" ? (
               <p className={`form-status form-status--${cartState.status}`}>
                 {cartState.message}
               </p>
