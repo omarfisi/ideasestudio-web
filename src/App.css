@@ -16121,25 +16121,40 @@ section[id] {
    file for similar two-column-to-stacked layouts. */
 .cbp-booking-layout {
   display: grid;
-  grid-template-columns: 45% 55%;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
   gap: 32px;
   align-items: start;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .cbp-booking-layout__calendar {
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .cbp-booking-layout__times {
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
+  box-sizing: border-box;
 }
 
 @media (max-width: 860px) {
   .cbp-booking-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 24px;
+  }
+
+  .cbp-slots {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -16277,8 +16292,12 @@ section[id] {
    tags. */
 .cbp-slots {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .cbp-slot {
@@ -16293,6 +16312,10 @@ section[id] {
   font-family: inherit;
   text-align: center;
   transition: background 0.1s, border-color 0.1s, color 0.1s;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .cbp-slot:hover { border-color: #f8d000; background: #fffbe6; }
@@ -16311,6 +16334,10 @@ section[id] {
   text-align: center;
   color: #9ca3af;
   font-size: 0.82rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* Extras — 2-column grid of option cards (1 column on mobile), same
