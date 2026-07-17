@@ -17,6 +17,9 @@ import {
   shouldPreparePaymentSession,
   isRetryBlocked,
   isBookingConflictError,
+  normalizeToken,
+  mapProfileToCrmFieldValues,
+  mergeProfileValuesWithoutOverwrite,
 } from "./bookingCheckoutSteps.js";
 
 let passed = 0;
@@ -508,6 +511,68 @@ test("isRetryBlocked: errores genericos (red, validacion) permiten 'Intentar nue
   assert.equal(isRetryBlocked("booking_package_invalid"), false);
   assert.equal(isRetryBlocked("network_error"), false);
   assert.equal(isRetryBlocked(null), false);
+});
+
+/* ── normalizeToken ────────────────────────────────────────────────────── */
+test("normalizeToken: acentos, mayusculas y espacios normalizan igual", () => {
+  assert.equal(normalizeToken("Teléfono"), normalizeToken("  TELEFONO "));
+  assert.equal(normalizeToken("Teléfono"), "telefono");
+});
+
+/* ── mapProfileToCrmFieldValues ────────────────────────────────────────── */
+test("mapProfileToCrmFieldValues: mapea por map_to o name usando keywords conocidos", () => {
+  const crmFields = [
+    { name: "full_name", map_to: "nombre" },
+    { name: "email_field", map_to: "email" },
+    { name: "phone_field", map_to: "telefono" },
+    { name: "unrelated_field", map_to: "notas" },
+  ];
+  const profile = { name: "Jane Doe", email: "jane@example.com", phone: "7875551234", company: null };
+
+  const result = mapProfileToCrmFieldValues(crmFields, profile);
+
+  assert.deepEqual(result, {
+    full_name: "Jane Doe",
+    email_field: "jane@example.com",
+    phone_field: "7875551234",
+  });
+});
+
+test("mapProfileToCrmFieldValues: perfil vacio o null no revienta, devuelve objeto vacio", () => {
+  const crmFields = [{ name: "full_name", map_to: "nombre" }];
+  assert.deepEqual(mapProfileToCrmFieldValues(crmFields, null), {});
+  assert.deepEqual(mapProfileToCrmFieldValues(crmFields, {}), {});
+});
+
+test("mapProfileToCrmFieldValues: un valor vacio en el perfil no se incluye (no pisa con vacio)", () => {
+  const crmFields = [{ name: "phone_field", map_to: "telefono" }];
+  const result = mapProfileToCrmFieldValues(crmFields, { phone: "" });
+  assert.deepEqual(result, {});
+});
+
+/* ── mergeProfileValuesWithoutOverwrite ────────────────────────────────── */
+test("mergeProfileValuesWithoutOverwrite: rellena campos vacios con datos del perfil", () => {
+  const current = { name: "", email: "", phone: "" };
+  const profile = { name: "Jane Doe", email: "jane@example.com", phone: "7875551234" };
+  const merged = mergeProfileValuesWithoutOverwrite(current, profile);
+  assert.deepEqual(merged, profile);
+});
+
+test("mergeProfileValuesWithoutOverwrite: NUNCA sobrescribe un dato que el cliente ya escribio", () => {
+  // El caso central del bug: el cliente ya empezo a escribir su telefono
+  // antes de que el perfil terminara de cargar — ese valor debe sobrevivir.
+  const current = { name: "", email: "", phone: "787-000-9999" };
+  const profile = { name: "Jane Doe", email: "jane@example.com", phone: "7875551234" };
+  const merged = mergeProfileValuesWithoutOverwrite(current, profile);
+  assert.equal(merged.phone, "787-000-9999");
+  assert.equal(merged.name, "Jane Doe");
+  assert.equal(merged.email, "jane@example.com");
+});
+
+test("mergeProfileValuesWithoutOverwrite: un valor de solo espacios cuenta como vacio y si se rellena", () => {
+  const current = { name: "   " };
+  const merged = mergeProfileValuesWithoutOverwrite(current, { name: "Jane Doe" });
+  assert.equal(merged.name, "Jane Doe");
 });
 
 console.log(`\n${passed} pruebas OK`);

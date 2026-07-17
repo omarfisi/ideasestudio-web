@@ -7,6 +7,8 @@ import DynamicField from "@/components/forms/DynamicField.jsx";
 import ServiceBookingCheckoutPanel from "@/components/checkout/ServiceBookingCheckoutPanel.jsx";
 import BookingStepper from "@/components/checkout/BookingStepper.jsx";
 import { getFormByPlacement, submitForm } from "@/lib/publicFormsApi.js";
+import { getMyProfile } from "@/lib/accountApi.js";
+import { useAuth } from "@/contexts/AuthContext.jsx";
 import {
   clearStoredCartSessionToken,
   createPublicStorePaymentIntent,
@@ -27,6 +29,9 @@ import {
   shouldPreparePaymentSession,
   isRetryBlocked,
   isBookingConflictError,
+  normalizeToken,
+  mapProfileToCrmFieldValues,
+  mergeProfileValuesWithoutOverwrite,
 } from "@/lib/bookingCheckoutSteps.js";
 
 const INITIAL_BOOKING_STATUS = {
@@ -74,14 +79,6 @@ function formatDateTime(isoString) {
     hour: "numeric",
     minute: "2-digit",
   });
-}
-
-function normalizeToken(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .trim()
-    .toLowerCase();
 }
 
 function isEmptyValue(value) {
@@ -530,6 +527,9 @@ function StoreCheckout({
   initialCouponCode = "",
 }) {
   const canCreateOrder = !createdOrder?.id;
+  const { session } = useAuth();
+  const profilePreloadedRef = useRef(false);
+  const [profileLoadState, setProfileLoadState] = useState({ status: "idle", applied: false });
   const [bookingSelections, setBookingSelections] = useState({});
   const [bookingSummary, setBookingSummary] = useState([]);
   const [bookingStatus, setBookingStatus] = useState(INITIAL_BOOKING_STATUS);
@@ -757,6 +757,53 @@ function StoreCheckout({
     loadCheckoutForm();
     return () => { cancelled = true; };
   }, [cart?.email, cart?.items]);
+
+  // Preloads name/email/phone/company from the authenticated customer's
+  // linked CRM contact (see GET /my/profile, backed by
+  // resolve_customer_contact on the backend) so a returning, logged-in
+  // customer never has to retype their details on a second purchase.
+  // Waits for the CRM form to resolve first so it knows whether to target
+  // crmFormValues (dynamic field names) or the fallback checkoutForm, and
+  // — via profilePreloadedRef — only ever applies once per session, so it
+  // can never clobber something the customer typed after it ran.
+  useEffect(() => {
+    if (!session) return;
+    if (profilePreloadedRef.current) return;
+    if (crmFormState.status === "loading") return;
+
+    profilePreloadedRef.current = true;
+    setProfileLoadState({ status: "loading", applied: false });
+
+    getMyProfile()
+      .then((res) => {
+        const profile = res?.item;
+        if (!profile) {
+          setProfileLoadState({ status: "done", applied: false });
+          return;
+        }
+
+        if (crmFormState.status === "ready" && crmFields.length) {
+          const profileValues = mapProfileToCrmFieldValues(crmFields, profile);
+          setCrmFormValues((current) => mergeProfileValuesWithoutOverwrite(current, profileValues));
+        } else {
+          setCheckoutForm((current) =>
+            mergeProfileValuesWithoutOverwrite(current, {
+              name: profile.name || "",
+              email: profile.email || "",
+              phone: profile.phone || "",
+              company: profile.company || "",
+            })
+          );
+        }
+        setProfileLoadState({ status: "done", applied: true });
+      })
+      .catch(() => {
+        // Never blocks checkout — a failed profile preload just means the
+        // customer types their data manually, same as a guest.
+        setProfileLoadState({ status: "done", applied: false });
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, crmFormState.status, crmFields]);
 
   function handleFallbackChange(event) {
     const { name, value } = event.target;
@@ -1195,6 +1242,12 @@ function StoreCheckout({
               <div className="checkout-step-header">
                 <h2>Tus datos</h2>
                 <p className="checkout-step-header__hint">Completa tu información de contacto.</p>
+                {profileLoadState.status === "loading" && (
+                  <p className="checkout-profile-note">Cargando tus datos guardados...</p>
+                )}
+                {profileLoadState.status === "done" && profileLoadState.applied && (
+                  <p className="checkout-profile-note">Usamos los datos guardados en tu cuenta.</p>
+                )}
               </div>
 
               <div id="checkout-details-form">

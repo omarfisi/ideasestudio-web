@@ -36,6 +36,10 @@ async function accountFetch(path, options = {}) {
   return res.json();
 }
 
+export async function getMyProfile() {
+  return accountFetch("/my/profile");
+}
+
 export async function getMyOrders() {
   return accountFetch("/my/orders");
 }

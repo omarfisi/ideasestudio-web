@@ -294,3 +294,72 @@ export function isRetryBlocked(errorCode) {
 export function isBookingConflictError(errorCode) {
   return errorCode === "booking_time_slot_not_available" || errorCode === "booking_hold_expired";
 }
+
+/**
+ * Accent-insensitive, case-insensitive, whitespace-trimmed comparison key —
+ * used to match a CRM-configured field's name/map_to against a fixed list of
+ * known keywords (e.g. "Teléfono" / "telefono" / "TELEFONO " all normalize
+ * to "telefono") regardless of how the CRM form happens to label it.
+ */
+export function normalizeToken(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+const PROFILE_FIELD_KEYWORDS = {
+  name: ["name", "nombre", "full_name", "fullname", "customer_name", "nombre_completo"],
+  email: ["email", "correo", "correo_electronico"],
+  phone: ["phone", "telefono", "tel", "customer_phone", "whatsapp"],
+  company: ["company", "empresa", "business_name", "negocio"],
+};
+
+/**
+ * Maps a loaded customer profile ({name, email, phone, company}) onto the
+ * dynamic CRM-form field names it corresponds to, by matching each field's
+ * map_to/name against PROFILE_FIELD_KEYWORDS — same matching strategy
+ * CheckoutPage.jsx already uses for the phone-placeholder override, so it
+ * stays correct if the CRM form ever renames/reorders its fields.
+ *
+ * Only returns entries for fields that (a) matched a known profile
+ * attribute and (b) that attribute has a non-empty value on the profile.
+ * Callers are responsible for not overwriting a value the customer already
+ * typed — this function only decides *where* each profile value would go,
+ * not whether it's safe to apply.
+ */
+export function mapProfileToCrmFieldValues(crmFields, profile) {
+  const result = {};
+  if (!profile || !Array.isArray(crmFields)) return result;
+
+  for (const field of crmFields) {
+    const token = normalizeToken(field?.map_to || field?.name);
+    const matchedKey = Object.keys(PROFILE_FIELD_KEYWORDS).find((key) =>
+      PROFILE_FIELD_KEYWORDS[key].includes(token)
+    );
+    if (matchedKey && profile[matchedKey]) {
+      result[field.name] = profile[matchedKey];
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Merges profile-sourced values into the current form values object without
+ * ever overwriting a value the customer already has (typed, or already
+ * defaulted from elsewhere) — the whole point of "no sobrescribir datos que
+ * el usuario ya comenzó a escribir". A value counts as "already present" if
+ * it's a non-empty, non-whitespace-only string.
+ */
+export function mergeProfileValuesWithoutOverwrite(currentValues, profileValues) {
+  const merged = { ...currentValues };
+  for (const [key, value] of Object.entries(profileValues || {})) {
+    const existing = merged[key];
+    if (existing === undefined || existing === null || String(existing).trim() === "") {
+      merged[key] = value;
+    }
+  }
+  return merged;
+}
