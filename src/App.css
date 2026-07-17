@@ -15422,9 +15422,12 @@ section[id] {
 
 .order-detail-shell,
 .order-payment-shell {
+  width: 100%;
+  min-width: 0;
   padding: 28px 34px 34px;
   display: grid;
   gap: 20px;
+  box-sizing: border-box;
 }
 
 .order-detail-link-back {
@@ -15819,12 +15822,17 @@ section[id] {
 }
 
 .order-payment-footer {
+  width: 100%;
   display: flex;
   justify-content: flex-end;
+  box-sizing: border-box;
 }
 
 .order-payment-footer .checkout-pay-button {
-  min-width: 220px;
+  width: auto;
+  max-width: 100%;
+  min-width: 280px;
+  box-sizing: border-box;
 }
 
 @media (max-width: 980px) {
@@ -15888,6 +15896,7 @@ section[id] {
 
   .order-payment-footer .checkout-pay-button {
     width: 100%;
+    min-width: 0;
   }
 }
 
