@@ -15773,7 +15773,7 @@ section[id] {
 .order-reschedule-actions {
   width: 100%;
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   margin-top: 28px;
   padding-top: 24px;
   border-top: 1px solid #e5e7eb;
@@ -15781,9 +15781,9 @@ section[id] {
 }
 
 .order-reschedule-actions .checkout-pay-button {
-  width: auto;
-  min-width: 300px;
-  max-width: 100%;
+  width: min(100%, 360px);
+  min-width: 0;
+  max-width: 360px;
 }
 
 .order-payment-panel h2 {
@@ -15942,6 +15942,7 @@ section[id] {
 
   .order-reschedule-actions .checkout-pay-button {
     width: 100%;
+    max-width: none;
     min-width: 0;
   }
 }
