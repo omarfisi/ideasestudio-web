@@ -37,6 +37,7 @@ import AccountPasswordResetPage from "@/pages/AccountPasswordResetPage.jsx";
 import AccountPage from "@/pages/AccountPage.jsx";
 import AccountOrderDetailPage from "@/pages/AccountOrderDetailPage.jsx";
 import AccountOrderPaymentPage from "@/pages/AccountOrderPaymentPage.jsx";
+import AccountOrderReschedulePage from "@/pages/AccountOrderReschedulePage.jsx";
 import NotFoundPage from "@/pages/NotFoundPage.jsx";
 import CmsPage from "@/pages/CmsPage.jsx";
 import UnsubscribePage from "@/pages/UnsubscribePage.jsx";
@@ -346,6 +347,10 @@ const router = createBrowserRouter([
       {
         path: "mi-cuenta/ordenes/:orderId/pagar",
         element: <AccountOrderPaymentPage />,
+      },
+      {
+        path: "mi-cuenta/ordenes/:orderId/reprogramar",
+        element: <AccountOrderReschedulePage />,
       },
       {
         path: "mi-cuenta",

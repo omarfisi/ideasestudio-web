@@ -51,3 +51,10 @@ export async function getMyOrderDetail(orderId) {
 export async function postMyOrderPaymentSession(orderId) {
   return accountFetch(`/my/orders/${orderId}/payment-session`, { method: "POST" });
 }
+
+export async function postMyOrderReschedule(orderId, startsAt) {
+  return accountFetch(`/my/orders/${orderId}/reschedule`, {
+    method: "POST",
+    body: JSON.stringify({ starts_at: startsAt }),
+  });
+}

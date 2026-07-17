@@ -8,29 +8,7 @@ import {
 import { resolveProductSlugById } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
 import { aggregateBookingStatus, isSelectedSlotStillAvailable } from "@/lib/bookingCheckoutSteps.js";
-
-// ─── helpers ─────────────────────────────────────────────────────────────────
-
-function toYMD(date) {
-  return date.toISOString().slice(0, 10);
-}
-
-function addMonths(date, n) {
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + n);
-  d.setDate(1);
-  return d;
-}
-
-function buildCalendarGrid(year, month) {
-  const first = new Date(year, month, 1);
-  const last = new Date(year, month + 1, 0);
-  const startDow = (first.getDay() + 6) % 7;
-  const cells = [];
-  for (let i = 0; i < startDow; i++) cells.push(null);
-  for (let d = 1; d <= last.getDate(); d++) cells.push(new Date(year, month, d));
-  return cells;
-}
+import { toYMD, addMonths, buildCalendarGrid } from "@/lib/calendarGrid.js";
 
 // ─── reducer ─────────────────────────────────────────────────────────────────
 

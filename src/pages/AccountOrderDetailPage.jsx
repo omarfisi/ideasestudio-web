@@ -62,6 +62,10 @@ export default function AccountOrderDetailPage() {
   const paymentAction = order ? getOrderPaymentAction(order) : null;
   const serviceLabel = order ? serviceStatusLabel[order.service_status] || order.service_status || "—" : "—";
   const hasDocument = Boolean(order?.invoice_id || order?.proposal_id);
+  const hasCta = paymentAction && ["payable", "retryable", "booking_expired"].includes(paymentAction.kind);
+  const ctaHref = paymentAction?.kind === "booking_expired"
+    ? `/mi-cuenta/ordenes/${orderId}/reprogramar`
+    : `/mi-cuenta/ordenes/${orderId}/pagar`;
 
   return (
     <div className="account-dashboard-bg">
@@ -123,7 +127,20 @@ export default function AccountOrderDetailPage() {
                     <p>Completa el pago para confirmar el servicio y generar tus documentos.</p>
                   </div>
                   <div className="order-detail-cta-block__actions">
-                    <Link to={`/mi-cuenta/ordenes/${orderId}/pagar`} className="order-detail-pay-button">
+                    <Link to={ctaHref} className="order-detail-pay-button">
+                      {paymentAction.ctaLabel}
+                    </Link>
+                    <a href="/contacto" className="checkout-secondary-button">Contactar a Ideas Estudio</a>
+                  </div>
+                </div>
+              ) : paymentAction.kind === "booking_expired" ? (
+                <div className="order-detail-cta-block">
+                  <div>
+                    <h2>La reserva anterior expiró antes de completarse el pago</h2>
+                    <p>{paymentAction.message}</p>
+                  </div>
+                  <div className="order-detail-cta-block__actions">
+                    <Link to={ctaHref} className="order-detail-pay-button">
                       {paymentAction.ctaLabel}
                     </Link>
                     <a href="/contacto" className="checkout-secondary-button">Contactar a Ideas Estudio</a>
@@ -217,8 +234,8 @@ export default function AccountOrderDetailPage() {
                       </div>
                     ) : null}
 
-                    {paymentAction.kind === "payable" || paymentAction.kind === "retryable" ? (
-                      <Link to={`/mi-cuenta/ordenes/${orderId}/pagar`} className="order-detail-pay-button order-detail-pay-button--block">
+                    {hasCta ? (
+                      <Link to={ctaHref} className="order-detail-pay-button order-detail-pay-button--block">
                         {paymentAction.ctaLabel}
                       </Link>
                     ) : null}

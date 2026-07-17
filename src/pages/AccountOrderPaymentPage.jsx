@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext.jsx";
 import { getMyOrderDetail, postMyOrderPaymentSession } from "@/lib/accountApi.js";
 import { formatPrice } from "@/lib/formatPrice.js";
 import { stripePromise } from "@/lib/stripeClient.js";
-import { mapOrderPaymentErrorMessage } from "@/lib/orderPaymentState.js";
+import { mapOrderPaymentErrorMessage, getOrderPaymentRecoveryAction } from "@/lib/orderPaymentState.js";
 import StoreCardPaymentForm from "@/components/checkout/StoreCardPaymentForm.jsx";
 import { clearStoredCartSessionToken } from "@/lib/api.js";
 
@@ -132,6 +132,7 @@ export default function AccountOrderPaymentPage() {
   const paymentReady = Boolean(paymentIntent?.clientSecret) && !isPaidNow;
   const currency = order?.currency || "USD";
   const amountDueNow = order?.amount_due_now ?? order?.grand_total ?? 0;
+  const recoveryAction = sessionState.status === "error" ? getOrderPaymentRecoveryAction(sessionState.errorCode) : null;
 
   return (
     <div className="account-dashboard-bg">
@@ -224,10 +225,26 @@ export default function AccountOrderPaymentPage() {
                       Falta `VITE_STRIPE_PUBLISHABLE_KEY` para inicializar Stripe en frontend.
                     </p>
                   )
-                ) : sessionState.status === "error" ? (
+                ) : recoveryAction?.kind === "booking_expired" ? (
+                  <div className="order-payment-expired">
+                    <span className="order-payment-expired__icon" aria-hidden="true">📅</span>
+                    <div>
+                      <h3>{recoveryAction.title}</h3>
+                      <p>{recoveryAction.message}</p>
+                    </div>
+                    <div className="order-payment-expired__actions">
+                      <Link to={`/mi-cuenta/ordenes/${orderId}/reprogramar`} className="order-detail-pay-button">
+                        {recoveryAction.primaryLabel}
+                      </Link>
+                      <Link to={`/mi-cuenta/ordenes/${orderId}`} className="checkout-secondary-button">
+                        Volver al detalle de la orden
+                      </Link>
+                    </div>
+                  </div>
+                ) : recoveryAction ? (
                   <div className="checkout-payment-error">
-                    <p className="form-status form-status--error">{sessionState.message}</p>
-                    {sessionState.errorCode !== "payment_review_required" && (
+                    <p className="form-status form-status--error">{recoveryAction.message}</p>
+                    {recoveryAction.retryAllowed && (
                       <button
                         type="button"
                         className="checkout-secondary-button"

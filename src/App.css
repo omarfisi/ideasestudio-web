@@ -15472,7 +15472,8 @@ section[id] {
 }
 
 .order-detail-badge--payable,
-.order-detail-badge--retryable {
+.order-detail-badge--retryable,
+.order-detail-badge--booking_expired {
   background: #fef3c7;
   color: #b45309;
 }
@@ -15770,6 +15771,46 @@ section[id] {
   font-weight: 700;
 }
 
+/* Deliberately the same amber/neutral treatment as .order-detail-cta-block
+   — this is not a technical failure ("no pudimos conectar"), it's an
+   expected, recoverable state, so it must never look like a red
+   connection-error card. */
+.order-payment-expired {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 22px 24px;
+  border-radius: 16px;
+  background: #fffbeb;
+  border: 1.5px solid #fde68a;
+}
+
+.order-payment-expired__icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.order-payment-expired h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  color: #111827;
+}
+
+.order-payment-expired p {
+  margin: 0;
+  color: #78716c;
+  font-size: 0.9rem;
+}
+
+.order-payment-expired__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
 .order-payment-footer {
   display: flex;
   justify-content: flex-end;
@@ -15819,6 +15860,19 @@ section[id] {
 
   .order-payment-summary {
     grid-template-columns: 1fr;
+  }
+
+  .order-payment-expired__actions {
+    margin-left: 0;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .order-payment-expired__actions .order-detail-pay-button,
+  .order-payment-expired__actions .checkout-secondary-button {
+    justify-content: center;
+    text-align: center;
   }
 
   .order-payment-footer {

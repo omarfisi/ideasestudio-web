@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Button from "@/components/shared/Button.jsx";
 import { useAuth } from "@/contexts/AuthContext.jsx";
 import { getMyOrders } from "@/lib/accountApi.js";
-import { isOrderPayable } from "@/lib/orderPaymentState.js";
+import { hasPendingOrderAction } from "@/lib/orderPaymentState.js";
 import {
   getPublicCart,
   getStoredCartSessionToken,
@@ -111,7 +111,7 @@ export default function CartPage() {
       .then((data) => {
         if (cancelled) return;
         const items = Array.isArray(data?.items) ? data.items : [];
-        setPendingOrder(items.find(isOrderPayable) || null);
+        setPendingOrder(items.find(hasPendingOrderAction) || null);
       })
       .catch(() => {
         if (!cancelled) setPendingOrder(null);

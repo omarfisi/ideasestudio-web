@@ -6,7 +6,9 @@ import assert from "node:assert/strict";
 import {
   getOrderPaymentAction,
   isOrderPayable,
+  hasPendingOrderAction,
   mapOrderPaymentErrorMessage,
+  getOrderPaymentRecoveryAction,
 } from "./orderPaymentState.js";
 
 let passed = 0;
@@ -118,6 +120,75 @@ test("mapOrderPaymentErrorMessage: sin codigo tambien usa el mensaje generico", 
     mapOrderPaymentErrorMessage(null),
     "No pudimos conectar con el sistema de pagos. Intenta nuevamente."
   );
+});
+
+test("mapOrderPaymentErrorMessage: booking_hold_expired_restart_checkout tiene traduccion propia", () => {
+  const msg = mapOrderPaymentErrorMessage("booking_hold_expired_restart_checkout");
+  assert.match(msg, /reserva de horario expiró/);
+  assert.doesNotMatch(msg, /booking_hold_expired_restart_checkout/);
+});
+
+/* ── getOrderPaymentAction: booking_status ─────────────────────────────── */
+test("getOrderPaymentAction: booking_status=expired oculta Completar pago y ofrece reprogramar", () => {
+  const action = getOrderPaymentAction({ status: "pending", payment_status: "pending", booking_status: "expired" });
+  assert.equal(action.kind, "booking_expired");
+  assert.equal(action.ctaLabel, "Seleccionar nueva fecha");
+  assert.equal(action.badgeLabel, "Horario pendiente");
+  assert.match(action.message, /reserva anterior expiró/);
+});
+
+test("getOrderPaymentAction: booking_status=active_hold permite Completar pago normalmente", () => {
+  const action = getOrderPaymentAction({ status: "pending", payment_status: "pending", booking_status: "active_hold" });
+  assert.equal(action.kind, "payable");
+  assert.equal(action.ctaLabel, "Completar pago");
+});
+
+test("getOrderPaymentAction: orden pagada gana incluso si booking_status quedo como expired", () => {
+  const action = getOrderPaymentAction({ status: "paid", payment_status: "paid", booking_status: "expired" });
+  assert.equal(action.kind, "paid");
+});
+
+/* ── isOrderPayable / hasPendingOrderAction ────────────────────────────── */
+test("isOrderPayable: false para reserva expirada (no se puede pagar sin reprogramar primero)", () => {
+  assert.equal(isOrderPayable({ status: "pending", payment_status: "pending", booking_status: "expired" }), false);
+});
+
+test("hasPendingOrderAction: true para reserva expirada (aun requiere accion del cliente)", () => {
+  assert.equal(hasPendingOrderAction({ status: "pending", payment_status: "pending", booking_status: "expired" }), true);
+});
+
+test("hasPendingOrderAction: false para pagada/cancelada, igual que isOrderPayable", () => {
+  assert.equal(hasPendingOrderAction({ status: "paid", payment_status: "paid" }), false);
+  assert.equal(hasPendingOrderAction({ status: "cancelled", payment_status: "pending" }), false);
+});
+
+/* ── getOrderPaymentRecoveryAction ─────────────────────────────────────── */
+test("getOrderPaymentRecoveryAction: booking_hold_expired_restart_checkout bloquea reintento y da CTA de reprogramar", () => {
+  const action = getOrderPaymentRecoveryAction("booking_hold_expired_restart_checkout");
+  assert.equal(action.kind, "booking_expired");
+  assert.equal(action.retryAllowed, false);
+  assert.equal(action.primaryLabel, "Seleccionar nueva fecha");
+  assert.equal(action.title, "Tu reserva de horario expiró");
+});
+
+test("getOrderPaymentRecoveryAction: codigos terminales bloquean reintento sin ofrecer reprogramar", () => {
+  for (const code of [
+    "payment_review_required",
+    "order_requires_manual_review",
+    "order_already_paid",
+    "order_not_payable",
+    "order_deposit_already_paid",
+  ]) {
+    const action = getOrderPaymentRecoveryAction(code);
+    assert.equal(action.retryAllowed, false, `${code} no debe permitir reintento`);
+    assert.equal(action.kind, "blocked");
+  }
+});
+
+test("getOrderPaymentRecoveryAction: error generico (red, timeout) si permite Intentar nuevamente", () => {
+  const action = getOrderPaymentRecoveryAction("some_network_error");
+  assert.equal(action.retryAllowed, true);
+  assert.equal(action.kind, "generic");
 });
 
 console.log(`\n${passed} pruebas OK`);
