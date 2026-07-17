@@ -212,7 +212,7 @@ export default function AccountOrderReschedulePage() {
                 </div>
               </div>
 
-              <div className="order-payment-panel">
+              <div className="order-payment-panel order-reschedule-panel">
                 <h2>Selecciona una nueva fecha y hora</h2>
                 <p className="checkout-payment-intro">
                   El servicio, paquete y extras contratados no cambian — solo la fecha.
@@ -315,17 +315,17 @@ export default function AccountOrderReschedulePage() {
                 {saveState.status === "error" && (
                   <p className="form-status form-status--error" style={{ marginTop: 16 }}>{saveState.message}</p>
                 )}
-              </div>
 
-              <div className="order-payment-footer">
-                <button
-                  type="button"
-                  className="checkout-pay-button"
-                  disabled={!selectedSlot || saveState.status === "loading"}
-                  onClick={handleConfirm}
-                >
-                  {saveState.status === "loading" ? "Guardando…" : "Confirmar nueva fecha"}
-                </button>
+                <div className="order-reschedule-actions">
+                  <button
+                    type="button"
+                    className="checkout-pay-button"
+                    disabled={!selectedSlot || saveState.status === "loading"}
+                    onClick={handleConfirm}
+                  >
+                    {saveState.status === "loading" ? "Guardando…" : "Confirmar nueva fecha"}
+                  </button>
+                </div>
               </div>
             </>
           )}

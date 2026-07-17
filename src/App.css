@@ -15420,6 +15420,13 @@ section[id] {
    as "Mis órdenes", own content classes for the drill-down view.
 ═══════════════════════════════════════════════════════════════ */
 
+/* width/max-width/min-width/overflow-x here were an earlier attempt at
+   fixing the reschedule page's misplaced confirm button — turned out that
+   was a structural JSX issue (the button's wrapper was a sibling of the
+   calendar panel instead of living inside it, see .order-reschedule-panel/
+   .order-reschedule-actions below), not a sizing one. Left in place since
+   this selector is shared with .order-detail-shell (AccountOrderDetailPage)
+   and they're harmless there, but they were not the actual fix. */
 .order-detail-shell,
 .order-payment-shell {
   width: 100%;
@@ -15753,6 +15760,32 @@ section[id] {
   padding: 24px;
 }
 
+/* AccountOrderReschedulePage's confirm button lives inside this same
+   white panel (as a sibling of the calendar, not of .order-payment-shell)
+   — a structural fix, not a width one: the button was rendering visually
+   detached from the calendar card because .order-payment-footer used to
+   be its sibling instead of living inside it. */
+.order-reschedule-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.order-reschedule-actions {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+  box-sizing: border-box;
+}
+
+.order-reschedule-actions .checkout-pay-button {
+  width: auto;
+  min-width: 300px;
+  max-width: 100%;
+}
+
 .order-payment-panel h2 {
   margin: 0 0 6px;
   font-size: 1rem;
@@ -15899,6 +15932,15 @@ section[id] {
   }
 
   .order-payment-footer .checkout-pay-button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .order-reschedule-actions {
+    justify-content: stretch;
+  }
+
+  .order-reschedule-actions .checkout-pay-button {
     width: 100%;
     min-width: 0;
   }
