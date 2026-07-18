@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, useParams, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext.jsx";
-import { getMyOrderDetail } from "@/lib/accountApi.js";
+import { getMyOrderDetail, postMyOrderCancel } from "@/lib/accountApi.js";
 import { formatPrice } from "@/lib/formatPrice.js";
 import { getOrderPaymentAction, mapOrderPaymentErrorMessage } from "@/lib/orderPaymentState.js";
 
@@ -19,6 +19,38 @@ export default function AccountOrderDetailPage() {
   const [order, setOrder] = useState(null);
   const [items, setItems] = useState([]);
   const [state, setState] = useState({ status: "loading", message: "" });
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelState, setCancelState] = useState({ status: "idle", message: "" });
+  const [toastMessage, setToastMessage] = useState("");
+
+  useEffect(() => {
+    if (!toastMessage) return undefined;
+    const timer = setTimeout(() => setToastMessage(""), 4000);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
+
+  useEffect(() => {
+    if (!showCancelModal) return undefined;
+    const onEscape = (event) => {
+      if (event.key === "Escape" && cancelState.status !== "loading") setShowCancelModal(false);
+    };
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, [showCancelModal, cancelState.status]);
+
+  async function handleConfirmCancel() {
+    setCancelState({ status: "loading", message: "" });
+    try {
+      const data = await postMyOrderCancel(orderId);
+      setOrder((prev) => (prev ? { ...prev, ...data.item, can_cancel: false } : prev));
+      setShowCancelModal(false);
+      setCancelState({ status: "idle", message: "" });
+      setToastMessage("La orden fue cancelada.");
+    } catch (error) {
+      const code = error instanceof Error ? error.message : null;
+      setCancelState({ status: "error", message: mapOrderPaymentErrorMessage(code) });
+    }
+  }
 
   useEffect(() => {
     if (!session || !orderId) return;
@@ -69,6 +101,7 @@ export default function AccountOrderDetailPage() {
 
   return (
     <div className="account-dashboard-bg">
+      {toastMessage ? <div className="account-toast account-toast--success">{toastMessage}</div> : null}
       <section className="account-dashboard-card order-detail-card">
         <div className="account-topbar">
           <div className="account-breadcrumb">
@@ -145,6 +178,11 @@ export default function AccountOrderDetailPage() {
                     </Link>
                     <a href="/contacto" className="checkout-secondary-button">Contactar a Ideas Estudio</a>
                   </div>
+                </div>
+              ) : paymentAction.kind === "cancelled" ? (
+                <div className="order-detail-notice">
+                  <p>Esta orden fue cancelada.</p>
+                  <a href="/contacto" className="checkout-secondary-button">Contactar a Ideas Estudio</a>
                 </div>
               ) : paymentAction.message ? (
                 <div className="order-detail-notice">
@@ -239,6 +277,16 @@ export default function AccountOrderDetailPage() {
                         {paymentAction.ctaLabel}
                       </Link>
                     ) : null}
+
+                    {order.can_cancel ? (
+                      <button
+                        type="button"
+                        className="order-cancel-button order-cancel-button--block"
+                        onClick={() => setShowCancelModal(true)}
+                      >
+                        Cancelar orden
+                      </button>
+                    ) : null}
                   </div>
                 </aside>
               </div>
@@ -252,6 +300,36 @@ export default function AccountOrderDetailPage() {
           )}
         </div>
       </section>
+
+      {showCancelModal ? (
+        <div className="order-cancel-modal-overlay" role="presentation">
+          <div className="order-cancel-modal" role="dialog" aria-modal="true" aria-labelledby="order-cancel-modal-title">
+            <h3 id="order-cancel-modal-title">¿Cancelar esta orden?</h3>
+            <p>Se cancelará la orden y se liberará el horario reservado. Esta acción no se puede deshacer.</p>
+            {cancelState.status === "error" ? (
+              <p className="form-status form-status--error">{cancelState.message}</p>
+            ) : null}
+            <div className="order-cancel-modal__actions">
+              <button
+                type="button"
+                className="checkout-secondary-button"
+                disabled={cancelState.status === "loading"}
+                onClick={() => setShowCancelModal(false)}
+              >
+                Volver
+              </button>
+              <button
+                type="button"
+                className="order-cancel-button order-cancel-button--confirm"
+                disabled={cancelState.status === "loading"}
+                onClick={handleConfirmCancel}
+              >
+                {cancelState.status === "loading" ? "Cancelando…" : "Sí, cancelar orden"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -128,6 +128,18 @@ test("mapOrderPaymentErrorMessage: booking_hold_expired_restart_checkout tiene t
   assert.doesNotMatch(msg, /booking_hold_expired_restart_checkout/);
 });
 
+test("mapOrderPaymentErrorMessage: codigos de cancelacion de orden tienen traduccion propia", () => {
+  assert.equal(mapOrderPaymentErrorMessage("order_cancel_not_allowed"), "Esta orden ya no se puede cancelar.");
+  assert.match(
+    mapOrderPaymentErrorMessage("order_has_completed_payment"),
+    /ya tiene un pago registrado.*Contacta a Ideas Estudio/
+  );
+  assert.equal(
+    mapOrderPaymentErrorMessage("payment_cancellation_failed"),
+    "No pudimos cancelar la orden en este momento. Inténtalo nuevamente."
+  );
+});
+
 /* ── getOrderPaymentAction: booking_status ─────────────────────────────── */
 test("getOrderPaymentAction: booking_status=expired oculta Completar pago y ofrece reprogramar", () => {
   const action = getOrderPaymentAction({ status: "pending", payment_status: "pending", booking_status: "expired" });
