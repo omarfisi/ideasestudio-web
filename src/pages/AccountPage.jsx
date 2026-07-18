@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext.jsx";
 import { supabase } from "@/lib/supabaseClient.js";
 import { getMyOrders } from "@/lib/accountApi.js";
 import { formatPrice } from "@/lib/formatPrice.js";
+import { getOrderPaymentAction } from "@/lib/orderPaymentState.js";
 import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
 
 const CRM_BASE_URL = (CRM_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "") || "http://127.0.0.1:8000";
@@ -108,10 +109,11 @@ export default function AccountPage() {
     return orders.filter((order) => {
       const q = query.trim().toLowerCase();
       const matchesQuery = !q || String(order.order_number || "").toLowerCase().includes(q);
+      const isCancelled = getOrderPaymentAction(order).kind === "cancelled";
       const matchesFilter =
         filter === "all" ||
         (filter === "paid" && order.payment_status === "paid") ||
-        (filter === "pending" && order.payment_status !== "paid") ||
+        (filter === "pending" && order.payment_status !== "paid" && !isCancelled) ||
         (filter === "invoice" && Boolean(order.invoice_id)) ||
         (filter === "proposal" && Boolean(order.proposal_id));
       return matchesQuery && matchesFilter;
@@ -264,6 +266,7 @@ export default function AccountPage() {
                 {filteredOrders.map((order) => {
                   const doc = getDocument(order);
                   const paid = order.payment_status === "paid";
+                  const isCancelled = getOrderPaymentAction(order).kind === "cancelled";
                   const done = stepIndex(order, doc);
 
                   return (
@@ -275,8 +278,10 @@ export default function AccountPage() {
                         </div>
                         <div>
                           <span>Estado</span>
-                          <strong className={paid ? "status-paid" : "status-pending"}>
-                            {paid ? "Pagado" : "Pendiente"}
+                          <strong
+                            className={isCancelled ? "status-cancelled" : paid ? "status-paid" : "status-pending"}
+                          >
+                            {isCancelled ? "Cancelada" : paid ? "Pagado" : "Pendiente"}
                           </strong>
                         </div>
                         <div>

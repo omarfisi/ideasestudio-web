@@ -110,6 +110,10 @@ const ORDER_PAYMENT_ERROR_MESSAGES = {
   booking_hold_expired_restart_checkout:
     "Tu reserva de horario expiró. Selecciona nuevamente una fecha disponible para continuar.",
   booking_time_slot_not_available: "Ese horario ya no está disponible. Selecciona otro.",
+  order_cancel_not_allowed: "Esta orden ya no se puede cancelar.",
+  order_has_completed_payment:
+    "Esta orden ya tiene un pago registrado. Contacta a Ideas Estudio para solicitar asistencia.",
+  payment_cancellation_failed: "No pudimos cancelar la orden en este momento. Inténtalo nuevamente.",
 };
 
 /**
