@@ -15,6 +15,7 @@ import {
   isSelectedSlotStillAvailable,
   mergeTrustedOrderTotals,
   shouldPreparePaymentSession,
+  resolveCheckoutOutcome,
   isRetryBlocked,
   isBookingConflictError,
   normalizeToken,
@@ -573,6 +574,69 @@ test("mergeProfileValuesWithoutOverwrite: un valor de solo espacios cuenta como 
   const current = { name: "   " };
   const merged = mergeProfileValuesWithoutOverwrite(current, { name: "Jane Doe" });
   assert.equal(merged.name, "Jane Doe");
+});
+
+/* ── resolveCheckoutOutcome (feat/store-quote-checkout-flow) ───────────── */
+test("resolveCheckoutOutcome: payment_required=false enruta a quote_confirmation con saleMode/proposalId/customerName", () => {
+  const outcome = resolveCheckoutOutcome({
+    paymentRequired: false,
+    saleMode: "cotizacion",
+    proposalId: "prop-1",
+    customerName: "Ana Perez",
+  });
+  assert.deepEqual(outcome, {
+    type: "quote_confirmation",
+    saleMode: "cotizacion",
+    proposalId: "prop-1",
+    customerName: "Ana Perez",
+  });
+});
+
+test("resolveCheckoutOutcome: payment_required=true enruta a continue_to_payment", () => {
+  const outcome = resolveCheckoutOutcome({ paymentRequired: true, saleMode: "compra_directa" });
+  assert.deepEqual(outcome, { type: "continue_to_payment" });
+});
+
+test("resolveCheckoutOutcome: sin payment_required (respuesta legacy) se trata como true", () => {
+  assert.deepEqual(resolveCheckoutOutcome({ saleMode: "compra_directa" }), { type: "continue_to_payment" });
+  assert.deepEqual(resolveCheckoutOutcome(null), { type: "continue_to_payment" });
+  assert.deepEqual(resolveCheckoutOutcome(undefined), { type: "continue_to_payment" });
+});
+
+test("resolveCheckoutOutcome: payment_required no booleano nunca se trata como cotizacion", () => {
+  assert.deepEqual(resolveCheckoutOutcome({ paymentRequired: "false" }), { type: "continue_to_payment" });
+  assert.deepEqual(resolveCheckoutOutcome({ paymentRequired: 0 }), { type: "continue_to_payment" });
+});
+
+test("resolveCheckoutOutcome: saleMode/proposalId/customerName ausentes se normalizan a null", () => {
+  assert.deepEqual(resolveCheckoutOutcome({ paymentRequired: false }), {
+    type: "quote_confirmation",
+    saleMode: null,
+    proposalId: null,
+    customerName: null,
+  });
+});
+
+/* ── isRetryBlocked / mapBookingErrorMessage — cotizacion ───────────────── */
+test("isRetryBlocked: mixed_sale_modes_not_supported bloquea reintentos", () => {
+  assert.equal(isRetryBlocked("mixed_sale_modes_not_supported"), true);
+});
+
+test("isRetryBlocked: order_awaiting_proposal_approval bloquea reintentos", () => {
+  assert.equal(isRetryBlocked("order_awaiting_proposal_approval"), true);
+});
+
+test("mapBookingErrorMessage: mixed_sale_modes_not_supported da mensaje amigable, no el codigo crudo", () => {
+  const message = mapBookingErrorMessage("mixed_sale_modes_not_supported", "fallback");
+  assert.notEqual(message, "mixed_sale_modes_not_supported");
+  assert.ok(message.toLowerCase().includes("compra directa"));
+  assert.ok(message.toLowerCase().includes("cotización"));
+});
+
+test("mapBookingErrorMessage: order_awaiting_proposal_approval da mensaje amigable, no el codigo crudo", () => {
+  const message = mapBookingErrorMessage("order_awaiting_proposal_approval", "fallback");
+  assert.notEqual(message, "order_awaiting_proposal_approval");
+  assert.ok(message.toLowerCase().includes("aprobación"));
 });
 
 console.log(`\n${passed} pruebas OK`);

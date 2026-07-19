@@ -191,6 +191,56 @@ test("getOrderPaymentRecoveryAction: error generico (red, timeout) si permite In
   assert.equal(action.kind, "generic");
 });
 
+/* ── getOrderPaymentAction: cotizacion (feat/store-quote-checkout-flow) ── */
+test("getOrderPaymentAction: proposal pendiente sin invoice_id oculta el boton de pago", () => {
+  const order = { status: "pending", payment_status: "pending", document_type: "proposal", invoice_id: null };
+  const action = getOrderPaymentAction(order);
+  assert.equal(action.kind, "quote_pending_approval");
+  assert.equal(action.ctaLabel, null);
+  assert.equal(isOrderPayable(order), false);
+  assert.equal(hasPendingOrderAction(order), false);
+});
+
+test("getOrderPaymentAction: proposal aprobada (invoice_id enlazado) cae al flujo normal de payment_status", () => {
+  const order = {
+    status: "pending",
+    payment_status: "pending",
+    document_type: "proposal",
+    proposal_id: "prop-1",
+    invoice_id: "inv-1",
+  };
+  const action = getOrderPaymentAction(order);
+  assert.notEqual(action.kind, "quote_pending_approval");
+  assert.equal(action.kind, "payable");
+  assert.equal(isOrderPayable(order), true);
+});
+
+test("getOrderPaymentAction: orden con document_type=proposal ya pagada no se marca como pendiente de aprobacion", () => {
+  const action = getOrderPaymentAction({
+    status: "paid",
+    payment_status: "paid",
+    document_type: "proposal",
+    invoice_id: "inv-1",
+  });
+  assert.equal(action.kind, "paid");
+});
+
+test("getOrderPaymentAction: compra_directa (document_type=invoice) nunca se clasifica como cotizacion pendiente", () => {
+  const action = getOrderPaymentAction({
+    status: "pending",
+    payment_status: "pending",
+    document_type: "invoice",
+    invoice_id: null,
+  });
+  assert.notEqual(action.kind, "quote_pending_approval");
+  assert.equal(action.kind, "payable");
+});
+
+test("getOrderPaymentAction: orden legacy sin document_type no se clasifica como cotizacion pendiente", () => {
+  const action = getOrderPaymentAction({ status: "pending", payment_status: "pending" });
+  assert.notEqual(action.kind, "quote_pending_approval");
+});
+
 console.log(`\n${passed} pruebas OK`);
 if (process.exitCode) {
   console.error("Hay pruebas fallidas.");
