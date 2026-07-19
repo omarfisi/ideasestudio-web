@@ -306,6 +306,51 @@ export function resolveCheckoutOutcome(quoteResult) {
 }
 
 /**
+ * Reconstructs OrderConfirmationPage's quote-confirmation display context
+ * when React Router's navigation state (set once, right after checkout)
+ * is gone — a page refresh, a direct link, or recovering from a failed
+ * navigation. Display framing ONLY: which screen to show, never a source
+ * of truth for money or order status — those always come from the
+ * route's loader (the real backend order), untouched by this.
+ *
+ * Priority: fresh navigation state wins outright (first-party, set by
+ * CheckoutPage itself moments ago — more trustworthy than anything from
+ * localStorage). Falling back to the stored last_store_order recovery
+ * bookmark requires an exact order_number match AND that it still
+ * describes an unapproved cotización (payment_required===false,
+ * sale_mode==="cotizacion") — anything else (no state, no stored record,
+ * a record for a different order, malformed JSON the caller already
+ * failed to parse, or a stored record that no longer says "pending
+ * quote") resolves to null, meaning: show the generic order view.
+ */
+export function resolveQuoteConfirmationContext({ locationState, storedState, orderNumber }) {
+  if (locationState?.fromCheckout) {
+    return locationState;
+  }
+
+  if (!storedState || typeof storedState !== "object") {
+    return null;
+  }
+  if (!orderNumber || storedState.order_number !== orderNumber) {
+    return null;
+  }
+  if (storedState.payment_required !== false) {
+    return null;
+  }
+  if (storedState.sale_mode !== "cotizacion") {
+    return null;
+  }
+
+  return {
+    fromCheckout: true,
+    saleMode: storedState.sale_mode,
+    proposalId: storedState.proposal_id ?? null,
+    paymentRequired: false,
+    customerName: storedState.customer_name ?? null,
+  };
+}
+
+/**
  * payment_review_required means the payment already reached Stripe/the
  * backend and needs manual review — retrying (automatically or via a
  * button) could create a second attempt against a payment that's still

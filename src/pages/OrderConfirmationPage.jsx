@@ -2,20 +2,39 @@ import { useLoaderData, useLocation } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
 import PageHero from "@/components/shared/PageHero.jsx";
 import { formatPrice } from "@/lib/formatPrice.js";
+import { resolveQuoteConfirmationContext } from "@/lib/bookingCheckoutSteps.js";
+import { useAuth } from "@/contexts/AuthContext.jsx";
+
+function readStoredOrderRecovery() {
+  try {
+    const raw = window.localStorage.getItem("last_store_order");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    // Corrupt/unparsable JSON — treated the same as "nothing stored" by
+    // resolveQuoteConfirmationContext (null in, null out).
+    return null;
+  }
+}
 
 export default function OrderConfirmationPage() {
   const { order } = useLoaderData();
   const location = useLocation();
-  // Only present on the very first render right after checkout (React
-  // Router navigation state) — a page refresh or a shared/direct link to
-  // this URL has none of this, and getPublicOrderByNumber's own response
-  // has no sale_mode/payment_required field to fall back on (see
-  // _fetch_order_bundle's explicit column list backend-side). That's a
-  // known, accepted limitation: on refresh this page shows the generic
-  // order view below, not the quote-specific one — never a false "paid"
-  // claim either way, since paymentStatus for an unapproved quote is
-  // never "paid".
-  const checkoutState = location.state?.fromCheckout ? location.state : null;
+  const { session } = useAuth();
+  // React Router navigation state exists only on the very first render
+  // right after checkout — a refresh, direct link, or recovered-navigation
+  // has none of it. resolveQuoteConfirmationContext falls back to the
+  // last_store_order localStorage bookmark in that case, but only when it
+  // exactly matches this order and still describes an unapproved
+  // cotización; otherwise this resolves to null — display framing only,
+  // never a source of truth for money/status, which always come from the
+  // loader's real backend order below.
+  const checkoutState = order
+    ? resolveQuoteConfirmationContext({
+        locationState: location.state,
+        storedState: readStoredOrderRecovery(),
+        orderNumber: order.orderNumber,
+      })
+    : null;
   const isQuoteConfirmation = checkoutState?.paymentRequired === false;
 
   if (!order) {
@@ -103,9 +122,28 @@ export default function OrderConfirmationPage() {
               </div>
 
               <div className="detail-summary__actions">
-                <Button to={`/servicios/ordenes/${order.orderNumber}`} block>
-                  Ver mi orden
-                </Button>
+                {session && order.id ? (
+                  // Authenticated: the real order-detail page (document_
+                  // type/proposal_id/invoice_id-aware, see orderPaymentState.js)
+                  // — never this same confirmation URL, which would be a
+                  // circular "Ver mi orden" that just reloads this page.
+                  <Button to={`/mi-cuenta/ordenes/${order.id}`} block>
+                    Ver mi orden
+                  </Button>
+                ) : (
+                  // Guest: no authenticated order-detail page exists for
+                  // them to navigate to (see AccountOrderDetailPage, which
+                  // requires a session) — a real reload re-runs this page's
+                  // loader instead of linking back to the exact URL already
+                  // open.
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-block"
+                    onClick={() => window.location.reload()}
+                  >
+                    Actualizar estado
+                  </button>
+                )}
                 <Button to="/servicios" variant="secondary" block>
                   Volver a la tienda
                 </Button>

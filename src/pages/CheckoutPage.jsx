@@ -807,10 +807,12 @@ function StoreCheckout({
           // form payload is the only place it's available.
           customerName: checkoutPayload.name || null,
         };
-        // Recovery-only bookmark for navigation failures right after order
-        // creation (FASE 6 case 4) — never read back as a source of truth
-        // for money/status, only to let the customer reopen the
-        // confirmation manually instead of resubmitting checkout.
+        // Recovery bookmark — lets OrderConfirmationPage rebuild the quote-
+        // confirmation screen on refresh/direct-link (resolveQuoteConfirmation
+        // Context), and is also a fallback for navigation failures right
+        // after order creation (FASE 6 case 4). Never read back as a source
+        // of truth for money/status — only display framing; the loader's
+        // real backend order always wins for anything financial.
         try {
           window.localStorage.setItem(
             "last_store_order",
@@ -820,6 +822,7 @@ function StoreCheckout({
               sale_mode: result.saleMode,
               proposal_id: result.proposalId,
               payment_required: result.paymentRequired,
+              customer_name: checkoutPayload.name || null,
             })
           );
         } catch { /* best-effort, never blocks checkout */ }
