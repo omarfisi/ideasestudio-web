@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Elements } from "@stripe/react-stripe-js";
 import Button from "@/components/shared/Button.jsx";
 import DynamicField from "@/components/forms/DynamicField.jsx";
@@ -28,6 +28,7 @@ import {
   mapBookingErrorMessage,
   mergeTrustedOrderTotals,
   shouldPreparePaymentSession,
+  resolveCheckoutOutcome,
   isRetryBlocked,
   isBookingConflictError,
   normalizeToken,
@@ -403,6 +404,7 @@ function StoreCheckout({
 }) {
   const canCreateOrder = !createdOrder?.id;
   const { session } = useAuth();
+  const navigate = useNavigate();
   const profilePreloadedRef = useRef(false);
   const [profileLoadState, setProfileLoadState] = useState({ status: "idle", applied: false });
   const [bookingSelections, setBookingSelections] = useState({});
@@ -420,6 +422,11 @@ function StoreCheckout({
   // intentional double-invoke (and any other re-render) from starting a
   // second order/PaymentIntent creation. See shouldPreparePaymentSession.
   const paymentPreparationRef = useRef({ running: false, completed: false });
+  // Set once submitPublicStoreCheckout resolves, consulted on every
+  // preparePaymentSession() run (whether it just created the order or is
+  // reusing an existing one from a retry) — a cotización order must never
+  // reach ensurePaymentIntent, no matter which path got it there.
+  const quoteResultRef = useRef(null);
   // Bumped on booking_time_slot_not_available / booking_hold_expired so the
   // affected ServiceBookingSection(s) clear their now-stale date/slot and
   // reopen the picker — see ServiceBookingCheckoutPanel's resetSignal prop.
@@ -791,6 +798,59 @@ function StoreCheckout({
         if (!result?.order?.id) throw new Error("No se pudo crear la orden de checkout.");
         setBookingSummary(result.bookingSummary || []);
         order = result.order;
+        quoteResultRef.current = {
+          saleMode: result.saleMode,
+          proposalId: result.proposalId,
+          paymentRequired: result.paymentRequired,
+          // Neither the create-order response's order sub-object nor
+          // getPublicOrderByNumber's response carries customer_name — the
+          // form payload is the only place it's available.
+          customerName: checkoutPayload.name || null,
+        };
+        // Recovery-only bookmark for navigation failures right after order
+        // creation (FASE 6 case 4) — never read back as a source of truth
+        // for money/status, only to let the customer reopen the
+        // confirmation manually instead of resubmitting checkout.
+        try {
+          window.localStorage.setItem(
+            "last_store_order",
+            JSON.stringify({
+              order_id: order.id,
+              order_number: order.orderNumber,
+              sale_mode: result.saleMode,
+              proposal_id: result.proposalId,
+              payment_required: result.paymentRequired,
+            })
+          );
+        } catch { /* best-effort, never blocks checkout */ }
+      }
+
+      // A cotización order never needs a PaymentIntent — the proposal and
+      // its email already exist by the time create-order responds. This
+      // check runs whether the order was just created above or is being
+      // reused (e.g. a retry after a transient error), so a cotización
+      // order can never fall through to Stripe below. See
+      // resolveCheckoutOutcome for the payment_required source-of-truth
+      // rule (defaults to true — continue_to_payment — for a legacy
+      // response with no such field).
+      const outcome = resolveCheckoutOutcome(quoteResultRef.current);
+      if (outcome.type === "quote_confirmation") {
+        paymentPreparationRef.current.completed = true;
+        navigate(`/servicios/ordenes/${order.orderNumber}`, {
+          state: {
+            fromCheckout: true,
+            saleMode: outcome.saleMode,
+            proposalId: outcome.proposalId,
+            paymentRequired: false,
+            // getPublicOrderByNumber's response has no customer_name field
+            // (see _fetch_order_bundle's explicit column list backend-side)
+            // — carried here so the confirmation screen can still show it
+            // on first render; falls back gracefully to email-only if this
+            // state is missing (e.g. a page refresh).
+            customerName: outcome.customerName,
+          },
+        });
+        return;
       }
 
       const latestOrder = await ensureOrderPayable(order.id, order);
