@@ -64,6 +64,22 @@ export function getOrderPaymentAction(order) {
     return { kind: "retryable", badgeLabel: "Pago fallido", ctaLabel: "Intentar pago nuevamente", message: null };
   }
 
+  // A cotización order (document_type='proposal') has no invoice yet until
+  // CRM staff approve the proposal — the backend itself refuses to create a
+  // PaymentIntent for it (order_awaiting_proposal_approval). Once approved,
+  // invoice_id gets linked back and this order falls through to the normal
+  // payment_status-driven classification below, exactly like any other
+  // order — invoice_id existing is never itself read as "Stripe should
+  // open now"; only payment_status is.
+  if (order?.document_type === "proposal" && !order?.invoice_id) {
+    return {
+      kind: "quote_pending_approval",
+      badgeLabel: "Propuesta pendiente de aprobación",
+      ctaLabel: null,
+      message: "La propuesta fue enviada por correo electrónico.",
+    };
+  }
+
   if (["pending", "pending_payment", "authorized"].includes(paymentStatus)) {
     return { kind: "payable", badgeLabel: "Pago pendiente", ctaLabel: "Completar pago", message: null };
   }
