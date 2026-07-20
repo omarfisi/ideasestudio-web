@@ -582,6 +582,14 @@ function normalizeOrder(raw) {
       raw.metadata && typeof raw.metadata === "object" ? raw.metadata : {},
     createdAt: raw.created_at || null,
     updatedAt: raw.updated_at || null,
+    // Present on endpoints that select the full store_orders row (e.g. Mi
+    // cuenta order detail); null on the guest-by-number confirmation
+    // endpoint, which selects an explicit column allowlist that doesn't
+    // include them. A caller must treat null as "unknown", never as "no
+    // proposal/invoice exists".
+    documentType: raw.document_type || raw.documentType || null,
+    proposalId: raw.proposal_id || raw.proposalId || null,
+    invoiceId: raw.invoice_id || raw.invoiceId || null,
     items,
     summary: {
       lineItems: Number(summary.line_items ?? items.length),
@@ -1102,6 +1110,11 @@ export async function submitPublicStoreCheckout(payload) {
     notes: payload.notes || "",
     source: payload.source || "website_store",
     total: data?.order?.grand_total ?? 0,
+    // create-order's own response envelope carries these at the top
+    // level, not nested under order — the order object itself never has
+    // them at this point in the flow.
+    document_type: data?.sale_mode === "cotizacion" ? "proposal" : "invoice",
+    proposal_id: data?.proposal_id ?? null,
   });
   if (order?.id) {
     clearStoredCartSessionToken();
@@ -1111,6 +1124,18 @@ export async function submitPublicStoreCheckout(payload) {
     order,
     bookingSummary: normalizeBookingSummary(data?.booking_summary),
     warnings: [],
+    // The backend is the only source of truth for whether this order needs
+    // payment right now — never inferred from what was sent. A pre-Bloqueo-3
+    // backend response has no payment_required field at all; that must be
+    // treated as true (the legacy compra-directa flow), not false.
+    saleMode: data?.sale_mode || "compra_directa",
+    proposalId: data?.proposal_id ?? null,
+    // "completed" | "failed" | null (compra directa, or a legacy backend
+    // response with no such field) — display framing only, see
+    // resolveCheckoutOutcome.
+    proposalGenerationStatus: data?.proposal_generation_status ?? null,
+    paymentRequired:
+      typeof data?.payment_required === "boolean" ? data.payment_required : true,
   };
 }
 

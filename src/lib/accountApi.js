@@ -58,3 +58,10 @@ export async function postMyOrderReschedule(orderId, startsAt) {
     body: JSON.stringify({ starts_at: startsAt }),
   });
 }
+
+export async function cancelMyOrder(orderId, reason) {
+  return accountFetch(`/my/orders/${orderId}/cancel`, {
+    method: "POST",
+    body: JSON.stringify({ reason: reason || null }),
+  });
+}

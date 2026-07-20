@@ -64,6 +64,22 @@ export function getOrderPaymentAction(order) {
     return { kind: "retryable", badgeLabel: "Pago fallido", ctaLabel: "Intentar pago nuevamente", message: null };
   }
 
+  // A cotización order (document_type='proposal') has no invoice yet until
+  // CRM staff approve the proposal — the backend itself refuses to create a
+  // PaymentIntent for it (order_awaiting_proposal_approval). Once approved,
+  // invoice_id gets linked back and this order falls through to the normal
+  // payment_status-driven classification below, exactly like any other
+  // order — invoice_id existing is never itself read as "Stripe should
+  // open now"; only payment_status is.
+  if (order?.document_type === "proposal" && !order?.invoice_id) {
+    return {
+      kind: "quote_pending_approval",
+      badgeLabel: "Propuesta pendiente de aprobación",
+      ctaLabel: null,
+      message: "La propuesta fue enviada por correo electrónico.",
+    };
+  }
+
   if (["pending", "pending_payment", "authorized"].includes(paymentStatus)) {
     return { kind: "payable", badgeLabel: "Pago pendiente", ctaLabel: "Completar pago", message: null };
   }
@@ -94,6 +110,44 @@ export function hasPendingOrderAction(order) {
   return ["payable", "retryable", "booking_expired"].includes(action.kind);
 }
 
+/**
+ * Mirrors the backend's _compute_cancel_eligibility (store_account.py) —
+ * reads only status/payment_status/deposit_paid_amount, the same order-
+ * state fields getOrderPaymentAction already reads above. Never checks
+ * service_slug/service_tag/document_type: whether an order can still be
+ * cancelled depends on its state (has money been received yet?), not on
+ * what kind of service it's for — a cotización order with no invoice yet
+ * is just as cancellable as a paid-in-full compra directa is not.
+ *
+ * When the order-detail response already carries the server's own
+ * can_cancel (GET /my/orders/{id}), that value wins — it's the exact same
+ * authoritative check store_my_order_cancel re-runs before mutating
+ * anything. This function also has to work standalone on the orders list
+ * (GET /my/orders), whose rows don't select can_cancel/deposit_paid_amount,
+ * so it re-derives the same rule from status/payment_status alone there.
+ */
+export function canCustomerCancelOrder(order) {
+  // No order data at all (not yet loaded) is never cancelable — distinct
+  // from an order object with blank/missing status fields (order = {}),
+  // which mirrors the backend's own fallthrough of "no terminal state
+  // found" as cancelable, same as _compute_cancel_eligibility does.
+  if (!order) return false;
+
+  if (typeof order.can_cancel === "boolean") {
+    return order.can_cancel;
+  }
+
+  const status = String(order?.status || "").toLowerCase();
+  const paymentStatus = String(order?.payment_status || "").toLowerCase();
+  const depositPaidAmount = Number(order?.deposit_paid_amount || 0);
+
+  if (status === "cancelled" || paymentStatus === "cancelled") return false;
+  if (["paid", "deposit_paid"].includes(paymentStatus) || status === "paid") return false;
+  if (depositPaidAmount > 0) return false;
+  if (["completed", "refunded"].includes(status) || paymentStatus === "refunded") return false;
+  return true;
+}
+
 const ORDER_PAYMENT_ERROR_MESSAGES = {
   store_order_not_found: "No encontramos esta orden.",
   order_already_paid: "Esta orden ya fue pagada.",
@@ -110,6 +164,16 @@ const ORDER_PAYMENT_ERROR_MESSAGES = {
   booking_hold_expired_restart_checkout:
     "Tu reserva de horario expiró. Selecciona nuevamente una fecha disponible para continuar.",
   booking_time_slot_not_available: "Ese horario ya no está disponible. Selecciona otro.",
+  // The 4 codes store_my_order_cancel (store_account.py) can actually
+  // raise: 404 store_order_not_found (mapped above), 409
+  // order_has_completed_payment/order_cancel_not_allowed, 502
+  // payment_cancellation_failed. "already_cancelled" is intentionally
+  // absent — the endpoint treats a repeat cancel as an idempotent 200,
+  // never a 409, so the frontend never has to render an error for it.
+  order_has_completed_payment:
+    "Esta orden ya tiene un pago registrado y no se puede cancelar desde aquí. Contáctanos para continuar.",
+  order_cancel_not_allowed: "Esta orden ya no se puede cancelar.",
+  payment_cancellation_failed: "No pudimos cancelar el pago asociado a esta orden. Intenta nuevamente.",
 };
 
 /**

@@ -15,6 +15,8 @@ import {
   isSelectedSlotStillAvailable,
   mergeTrustedOrderTotals,
   shouldPreparePaymentSession,
+  resolveCheckoutOutcome,
+  resolveQuoteConfirmationContext,
   isRetryBlocked,
   isBookingConflictError,
   normalizeToken,
@@ -573,6 +575,150 @@ test("mergeProfileValuesWithoutOverwrite: un valor de solo espacios cuenta como 
   const current = { name: "   " };
   const merged = mergeProfileValuesWithoutOverwrite(current, { name: "Jane Doe" });
   assert.equal(merged.name, "Jane Doe");
+});
+
+/* ── resolveCheckoutOutcome (feat/store-quote-checkout-flow) ───────────── */
+test("resolveCheckoutOutcome: payment_required=false enruta a quote_confirmation con saleMode/proposalId/customerName", () => {
+  const outcome = resolveCheckoutOutcome({
+    paymentRequired: false,
+    saleMode: "cotizacion",
+    proposalId: "prop-1",
+    customerName: "Ana Perez",
+  });
+  assert.deepEqual(outcome, {
+    type: "quote_confirmation",
+    saleMode: "cotizacion",
+    proposalId: "prop-1",
+    customerName: "Ana Perez",
+    proposalGenerationStatus: null,
+  });
+});
+
+test("resolveCheckoutOutcome: proposalGenerationStatus se pasa a la pantalla de confirmacion", () => {
+  const outcome = resolveCheckoutOutcome({
+    paymentRequired: false,
+    saleMode: "cotizacion",
+    proposalId: "prop-1",
+    proposalGenerationStatus: "completed",
+  });
+  assert.equal(outcome.proposalGenerationStatus, "completed");
+});
+
+test("resolveQuoteConfirmationContext: proposal_generation_status se recupera desde last_store_order", () => {
+  const storedState = {
+    order_number: "ORD-1",
+    sale_mode: "cotizacion",
+    payment_required: false,
+    proposal_generation_status: "failed",
+  };
+  const result = resolveQuoteConfirmationContext({ locationState: null, storedState, orderNumber: "ORD-1" });
+  assert.equal(result.proposalGenerationStatus, "failed");
+});
+
+test("resolveCheckoutOutcome: payment_required=true enruta a continue_to_payment", () => {
+  const outcome = resolveCheckoutOutcome({ paymentRequired: true, saleMode: "compra_directa" });
+  assert.deepEqual(outcome, { type: "continue_to_payment" });
+});
+
+test("resolveCheckoutOutcome: sin payment_required (respuesta legacy) se trata como true", () => {
+  assert.deepEqual(resolveCheckoutOutcome({ saleMode: "compra_directa" }), { type: "continue_to_payment" });
+  assert.deepEqual(resolveCheckoutOutcome(null), { type: "continue_to_payment" });
+  assert.deepEqual(resolveCheckoutOutcome(undefined), { type: "continue_to_payment" });
+});
+
+test("resolveCheckoutOutcome: payment_required no booleano nunca se trata como cotizacion", () => {
+  assert.deepEqual(resolveCheckoutOutcome({ paymentRequired: "false" }), { type: "continue_to_payment" });
+  assert.deepEqual(resolveCheckoutOutcome({ paymentRequired: 0 }), { type: "continue_to_payment" });
+});
+
+test("resolveCheckoutOutcome: saleMode/proposalId/customerName ausentes se normalizan a null", () => {
+  assert.deepEqual(resolveCheckoutOutcome({ paymentRequired: false }), {
+    type: "quote_confirmation",
+    saleMode: null,
+    proposalId: null,
+    customerName: null,
+    proposalGenerationStatus: null,
+  });
+});
+
+/* ── resolveQuoteConfirmationContext (refresh recovery) ─────────────────── */
+test("resolveQuoteConfirmationContext: prefiere location.state por encima de localStorage", () => {
+  const locationState = { fromCheckout: true, saleMode: "cotizacion", proposalId: "prop-fresh", paymentRequired: false };
+  const storedState = { order_number: "ORD-1", sale_mode: "cotizacion", payment_required: false, proposal_id: "prop-stale" };
+  const result = resolveQuoteConfirmationContext({ locationState, storedState, orderNumber: "ORD-1" });
+  assert.equal(result, locationState);
+});
+
+// 1. refresh recupera cotización desde last_store_order
+test("resolveQuoteConfirmationContext: sin location.state, reconstruye desde last_store_order si coincide y sigue pendiente", () => {
+  const storedState = {
+    order_number: "ORD-1",
+    sale_mode: "cotizacion",
+    payment_required: false,
+    proposal_id: "prop-1",
+    customer_name: "Ana Perez",
+  };
+  const result = resolveQuoteConfirmationContext({ locationState: null, storedState, orderNumber: "ORD-1" });
+  assert.deepEqual(result, {
+    fromCheckout: true,
+    saleMode: "cotizacion",
+    proposalId: "prop-1",
+    paymentRequired: false,
+    customerName: "Ana Perez",
+    proposalGenerationStatus: null,
+  });
+});
+
+// 2. stored order_number distinto se ignora
+test("resolveQuoteConfirmationContext: order_number distinto al de la ruta se ignora", () => {
+  const storedState = { order_number: "ORD-OTHER", sale_mode: "cotizacion", payment_required: false };
+  assert.equal(resolveQuoteConfirmationContext({ locationState: null, storedState, orderNumber: "ORD-1" }), null);
+});
+
+// 3. JSON corrupto / storedState invalido se ignora
+test("resolveQuoteConfirmationContext: storedState nulo, no-objeto o ausente se ignora", () => {
+  assert.equal(resolveQuoteConfirmationContext({ locationState: null, storedState: null, orderNumber: "ORD-1" }), null);
+  assert.equal(resolveQuoteConfirmationContext({ locationState: null, storedState: undefined, orderNumber: "ORD-1" }), null);
+  assert.equal(resolveQuoteConfirmationContext({ locationState: null, storedState: "not-an-object", orderNumber: "ORD-1" }), null);
+});
+
+// 4. stored payment_required=true se ignora
+test("resolveQuoteConfirmationContext: payment_required=true en localStorage se ignora (no es cotizacion pendiente)", () => {
+  const storedState = { order_number: "ORD-1", sale_mode: "cotizacion", payment_required: true };
+  assert.equal(resolveQuoteConfirmationContext({ locationState: null, storedState, orderNumber: "ORD-1" }), null);
+});
+
+// 5. stored sale_mode distinto de cotizacion se ignora
+test("resolveQuoteConfirmationContext: sale_mode distinto de cotizacion en localStorage se ignora", () => {
+  const storedState = { order_number: "ORD-1", sale_mode: "compra_directa", payment_required: false };
+  assert.equal(resolveQuoteConfirmationContext({ locationState: null, storedState, orderNumber: "ORD-1" }), null);
+});
+
+test("resolveQuoteConfirmationContext: sin location.state y sin orderNumber de la ruta, ignora cualquier storedState", () => {
+  const storedState = { order_number: "ORD-1", sale_mode: "cotizacion", payment_required: false };
+  assert.equal(resolveQuoteConfirmationContext({ locationState: null, storedState, orderNumber: null }), null);
+});
+
+/* ── isRetryBlocked / mapBookingErrorMessage — cotizacion ───────────────── */
+test("isRetryBlocked: mixed_sale_modes_not_supported bloquea reintentos", () => {
+  assert.equal(isRetryBlocked("mixed_sale_modes_not_supported"), true);
+});
+
+test("isRetryBlocked: order_awaiting_proposal_approval bloquea reintentos", () => {
+  assert.equal(isRetryBlocked("order_awaiting_proposal_approval"), true);
+});
+
+test("mapBookingErrorMessage: mixed_sale_modes_not_supported da mensaje amigable, no el codigo crudo", () => {
+  const message = mapBookingErrorMessage("mixed_sale_modes_not_supported", "fallback");
+  assert.notEqual(message, "mixed_sale_modes_not_supported");
+  assert.ok(message.toLowerCase().includes("compra directa"));
+  assert.ok(message.toLowerCase().includes("cotización"));
+});
+
+test("mapBookingErrorMessage: order_awaiting_proposal_approval da mensaje amigable, no el codigo crudo", () => {
+  const message = mapBookingErrorMessage("order_awaiting_proposal_approval", "fallback");
+  assert.notEqual(message, "order_awaiting_proposal_approval");
+  assert.ok(message.toLowerCase().includes("aprobación"));
 });
 
 console.log(`\n${passed} pruebas OK`);

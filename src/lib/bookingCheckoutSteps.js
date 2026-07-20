@@ -226,6 +226,10 @@ const BOOKING_ERROR_MESSAGES = {
   booking_hold_expired: "El tiempo para completar el pago expiró. Selecciona nuevamente la fecha y hora.",
   store_order_amount_due_now_zero: "El monto a pagar quedó en cero. Revisa tu cupón o selección.",
   payment_review_required: "El pago necesita revisión. No intentes pagar nuevamente.",
+  mixed_sale_modes_not_supported:
+    "No puedes combinar productos de compra directa y servicios por cotización en la misma orden. Completa cada tipo por separado.",
+  order_awaiting_proposal_approval:
+    "Esta cotización todavía está pendiente de aprobación. Cuando sea aprobada, recibirás la factura correspondiente.",
 };
 
 export function mapBookingErrorMessage(errorCode, fallbackMessage) {
@@ -275,13 +279,99 @@ export function shouldPreparePaymentSession({
 }
 
 /**
+ * Decides what preparePaymentSession() does right after create-order
+ * resolves (or is reused from a prior call) — continue toward Stripe
+ * (ensureOrderPayable + ensurePaymentIntent), or skip straight to the
+ * quote confirmation screen without ever touching Stripe.
+ *
+ * The backend's payment_required is the only source of truth — read
+ * defensively (missing/non-boolean => true) so a legacy backend response
+ * with no payment_required field at all keeps following the existing
+ * compra-directa path, never accidentally skipping payment.
+ */
+export function resolveCheckoutOutcome(quoteResult) {
+  const paymentRequired =
+    typeof quoteResult?.paymentRequired === "boolean" ? quoteResult.paymentRequired : true;
+
+  if (paymentRequired) {
+    return { type: "continue_to_payment" };
+  }
+
+  return {
+    type: "quote_confirmation",
+    saleMode: quoteResult?.saleMode ?? null,
+    proposalId: quoteResult?.proposalId ?? null,
+    customerName: quoteResult?.customerName ?? null,
+    // "completed" | "failed" | null — display framing only (which badge/
+    // copy OrderConfirmationPage shows), never re-derived or used to
+    // decide payment/blocking behavior.
+    proposalGenerationStatus: quoteResult?.proposalGenerationStatus ?? null,
+  };
+}
+
+/**
+ * Reconstructs OrderConfirmationPage's quote-confirmation display context
+ * when React Router's navigation state (set once, right after checkout)
+ * is gone — a page refresh, a direct link, or recovering from a failed
+ * navigation. Display framing ONLY: which screen to show, never a source
+ * of truth for money or order status — those always come from the
+ * route's loader (the real backend order), untouched by this.
+ *
+ * Priority: fresh navigation state wins outright (first-party, set by
+ * CheckoutPage itself moments ago — more trustworthy than anything from
+ * localStorage). Falling back to the stored last_store_order recovery
+ * bookmark requires an exact order_number match AND that it still
+ * describes an unapproved cotización (payment_required===false,
+ * sale_mode==="cotizacion") — anything else (no state, no stored record,
+ * a record for a different order, malformed JSON the caller already
+ * failed to parse, or a stored record that no longer says "pending
+ * quote") resolves to null, meaning: show the generic order view.
+ */
+export function resolveQuoteConfirmationContext({ locationState, storedState, orderNumber }) {
+  if (locationState?.fromCheckout) {
+    return locationState;
+  }
+
+  if (!storedState || typeof storedState !== "object") {
+    return null;
+  }
+  if (!orderNumber || storedState.order_number !== orderNumber) {
+    return null;
+  }
+  if (storedState.payment_required !== false) {
+    return null;
+  }
+  if (storedState.sale_mode !== "cotizacion") {
+    return null;
+  }
+
+  return {
+    fromCheckout: true,
+    saleMode: storedState.sale_mode,
+    proposalId: storedState.proposal_id ?? null,
+    paymentRequired: false,
+    customerName: storedState.customer_name ?? null,
+    proposalGenerationStatus: storedState.proposal_generation_status ?? null,
+  };
+}
+
+/**
  * payment_review_required means the payment already reached Stripe/the
  * backend and needs manual review — retrying (automatically or via a
  * button) could create a second attempt against a payment that's still
  * being sorted out, so it must stay permanently blocked.
+ *
+ * mixed_sale_modes_not_supported and order_awaiting_proposal_approval are
+ * also blocked: retrying the same request changes nothing — the cart
+ * composition (mixed modes) or the CRM approval state (awaiting approval)
+ * has to change first, not the request itself.
  */
 export function isRetryBlocked(errorCode) {
-  return errorCode === "payment_review_required";
+  return (
+    errorCode === "payment_review_required" ||
+    errorCode === "mixed_sale_modes_not_supported" ||
+    errorCode === "order_awaiting_proposal_approval"
+  );
 }
 
 /**

@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext.jsx";
 import { supabase } from "@/lib/supabaseClient.js";
 import { getMyOrders } from "@/lib/accountApi.js";
 import { formatPrice } from "@/lib/formatPrice.js";
+import { getOrderPaymentAction } from "@/lib/orderPaymentState.js";
 import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
 
 const CRM_BASE_URL = (CRM_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "") || "http://127.0.0.1:8000";
@@ -264,6 +265,11 @@ export default function AccountPage() {
                 {filteredOrders.map((order) => {
                   const doc = getDocument(order);
                   const paid = order.payment_status === "paid";
+                  // Reuses the same centralized classifier the order-detail
+                  // page uses (getOrderPaymentAction) rather than a second
+                  // paid/pending-only check here — a cancelled order must
+                  // never read as "Pendiente" in this list.
+                  const cancelled = getOrderPaymentAction(order).kind === "cancelled";
                   const done = stepIndex(order, doc);
 
                   return (
@@ -275,8 +281,10 @@ export default function AccountPage() {
                         </div>
                         <div>
                           <span>Estado</span>
-                          <strong className={paid ? "status-paid" : "status-pending"}>
-                            {paid ? "Pagado" : "Pendiente"}
+                          <strong
+                            className={cancelled ? "status-cancelled" : paid ? "status-paid" : "status-pending"}
+                          >
+                            {cancelled ? "Cancelada" : paid ? "Pagado" : "Pendiente"}
                           </strong>
                         </div>
                         <div>
