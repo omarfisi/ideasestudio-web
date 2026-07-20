@@ -1130,6 +1130,10 @@ export async function submitPublicStoreCheckout(payload) {
     // treated as true (the legacy compra-directa flow), not false.
     saleMode: data?.sale_mode || "compra_directa",
     proposalId: data?.proposal_id ?? null,
+    // "completed" | "failed" | null (compra directa, or a legacy backend
+    // response with no such field) — display framing only, see
+    // resolveCheckoutOutcome.
+    proposalGenerationStatus: data?.proposal_generation_status ?? null,
     paymentRequired:
       typeof data?.payment_required === "boolean" ? data.payment_required : true,
   };

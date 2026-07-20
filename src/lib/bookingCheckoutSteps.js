@@ -302,6 +302,10 @@ export function resolveCheckoutOutcome(quoteResult) {
     saleMode: quoteResult?.saleMode ?? null,
     proposalId: quoteResult?.proposalId ?? null,
     customerName: quoteResult?.customerName ?? null,
+    // "completed" | "failed" | null — display framing only (which badge/
+    // copy OrderConfirmationPage shows), never re-derived or used to
+    // decide payment/blocking behavior.
+    proposalGenerationStatus: quoteResult?.proposalGenerationStatus ?? null,
   };
 }
 
@@ -347,6 +351,7 @@ export function resolveQuoteConfirmationContext({ locationState, storedState, or
     proposalId: storedState.proposal_id ?? null,
     paymentRequired: false,
     customerName: storedState.customer_name ?? null,
+    proposalGenerationStatus: storedState.proposal_generation_status ?? null,
   };
 }
 

@@ -590,7 +590,29 @@ test("resolveCheckoutOutcome: payment_required=false enruta a quote_confirmation
     saleMode: "cotizacion",
     proposalId: "prop-1",
     customerName: "Ana Perez",
+    proposalGenerationStatus: null,
   });
+});
+
+test("resolveCheckoutOutcome: proposalGenerationStatus se pasa a la pantalla de confirmacion", () => {
+  const outcome = resolveCheckoutOutcome({
+    paymentRequired: false,
+    saleMode: "cotizacion",
+    proposalId: "prop-1",
+    proposalGenerationStatus: "completed",
+  });
+  assert.equal(outcome.proposalGenerationStatus, "completed");
+});
+
+test("resolveQuoteConfirmationContext: proposal_generation_status se recupera desde last_store_order", () => {
+  const storedState = {
+    order_number: "ORD-1",
+    sale_mode: "cotizacion",
+    payment_required: false,
+    proposal_generation_status: "failed",
+  };
+  const result = resolveQuoteConfirmationContext({ locationState: null, storedState, orderNumber: "ORD-1" });
+  assert.equal(result.proposalGenerationStatus, "failed");
 });
 
 test("resolveCheckoutOutcome: payment_required=true enruta a continue_to_payment", () => {
@@ -615,6 +637,7 @@ test("resolveCheckoutOutcome: saleMode/proposalId/customerName ausentes se norma
     saleMode: null,
     proposalId: null,
     customerName: null,
+    proposalGenerationStatus: null,
   });
 });
 
@@ -642,6 +665,7 @@ test("resolveQuoteConfirmationContext: sin location.state, reconstruye desde las
     proposalId: "prop-1",
     paymentRequired: false,
     customerName: "Ana Perez",
+    proposalGenerationStatus: null,
   });
 });
 

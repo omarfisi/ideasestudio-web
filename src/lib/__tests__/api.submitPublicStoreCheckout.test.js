@@ -69,6 +69,37 @@ describe("submitPublicStoreCheckout — sale_mode / payment_required contract", 
     expect(result.order.id).toBe("order-1");
   });
 
+  it("surfaces proposal_generation_status from the backend response", async () => {
+    mockCartLookup();
+    createStoreOrder.mockResolvedValue({
+      order: { id: "order-1b", order_number: "ORD-1B", grand_total: 500, status: "pending", payment_status: "pending" },
+      sale_mode: "cotizacion",
+      proposal_id: "prop-1b",
+      payment_required: false,
+      proposal_generation_status: "failed",
+      booking_summary: [],
+    });
+
+    const result = await submitPublicStoreCheckout(checkoutPayload());
+
+    expect(result.proposalGenerationStatus).toBe("failed");
+  });
+
+  it("defaults proposal_generation_status to null when absent (compra directa)", async () => {
+    mockCartLookup();
+    createStoreOrder.mockResolvedValue({
+      order: { id: "order-1c", order_number: "ORD-1C", grand_total: 200, status: "pending", payment_status: "pending" },
+      sale_mode: "compra_directa",
+      proposal_id: null,
+      payment_required: true,
+      booking_summary: [],
+    });
+
+    const result = await submitPublicStoreCheckout(checkoutPayload());
+
+    expect(result.proposalGenerationStatus).toBeNull();
+  });
+
   it("surfaces sale_mode=compra_directa and payment_required=true", async () => {
     mockCartLookup();
     createStoreOrder.mockResolvedValue({

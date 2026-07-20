@@ -801,6 +801,7 @@ function StoreCheckout({
         quoteResultRef.current = {
           saleMode: result.saleMode,
           proposalId: result.proposalId,
+          proposalGenerationStatus: result.proposalGenerationStatus,
           paymentRequired: result.paymentRequired,
           // Neither the create-order response's order sub-object nor
           // getPublicOrderByNumber's response carries customer_name — the
@@ -821,6 +822,7 @@ function StoreCheckout({
               order_number: order.orderNumber,
               sale_mode: result.saleMode,
               proposal_id: result.proposalId,
+              proposal_generation_status: result.proposalGenerationStatus,
               payment_required: result.paymentRequired,
               customer_name: checkoutPayload.name || null,
             })
@@ -844,6 +846,7 @@ function StoreCheckout({
             fromCheckout: true,
             saleMode: outcome.saleMode,
             proposalId: outcome.proposalId,
+            proposalGenerationStatus: outcome.proposalGenerationStatus,
             paymentRequired: false,
             // getPublicOrderByNumber's response has no customer_name field
             // (see _fetch_order_bundle's explicit column list backend-side)
