@@ -15179,6 +15179,10 @@ section[id] {
   color: #d97706 !important;
 }
 
+.status-cancelled {
+  color: #64748b !important;
+}
+
 /* ── Progress steps ──────────────────────────────────────────────────────── */
 .account-progress {
   display: grid;
@@ -15615,6 +15619,111 @@ section[id] {
   display: flex;
   width: 100%;
   margin-top: 16px;
+}
+
+.order-detail-cancel-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 24px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1.5px solid #e2e8f0;
+  color: #64748b;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.order-detail-cancel-button:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.order-detail-cancel-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.order-detail-cancel-button--block {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.order-detail-cancel-button--confirm {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
+.order-detail-cancel-button--confirm:hover {
+  background: #b91c1c;
+}
+
+.order-cancel-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+}
+
+.order-cancel-modal {
+  width: 100%;
+  max-width: 440px;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 26px;
+}
+
+.order-cancel-modal h3 {
+  margin: 0 0 10px;
+  font-size: 1.1rem;
+  color: #111827;
+}
+
+.order-cancel-modal p {
+  margin: 0 0 16px;
+  color: #475569;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.order-cancel-modal__label {
+  display: block;
+  margin: 0 0 6px;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.order-cancel-modal__textarea {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  padding: 10px 12px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.order-cancel-modal__error {
+  margin: 12px 0 0;
+  color: #b91c1c;
+  font-size: 0.85rem;
+}
+
+.order-cancel-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
 }
 
 /* ── Grid principal / lateral ─────────────────────────────────── */

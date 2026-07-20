@@ -9,6 +9,7 @@ import {
   hasPendingOrderAction,
   mapOrderPaymentErrorMessage,
   getOrderPaymentRecoveryAction,
+  canCustomerCancelOrder,
 } from "./orderPaymentState.js";
 
 let passed = 0;
@@ -239,6 +240,81 @@ test("getOrderPaymentAction: compra_directa (document_type=invoice) nunca se cla
 test("getOrderPaymentAction: orden legacy sin document_type no se clasifica como cotizacion pendiente", () => {
   const action = getOrderPaymentAction({ status: "pending", payment_status: "pending" });
   assert.notEqual(action.kind, "quote_pending_approval");
+});
+
+/* ── canCustomerCancelOrder ────────────────────────────────────────────── */
+test("canCustomerCancelOrder: orden pendiente sin pago es cancelable", () => {
+  assert.equal(canCustomerCancelOrder({ status: "pending", payment_status: "pending" }), true);
+});
+
+test("canCustomerCancelOrder: orden pagada no es cancelable", () => {
+  assert.equal(canCustomerCancelOrder({ status: "paid", payment_status: "paid" }), false);
+});
+
+test("canCustomerCancelOrder: orden ya cancelada no es cancelable de nuevo", () => {
+  assert.equal(canCustomerCancelOrder({ status: "cancelled", payment_status: "cancelled" }), false);
+});
+
+test("canCustomerCancelOrder: payment_status=deposit_paid bloquea la cancelacion", () => {
+  assert.equal(canCustomerCancelOrder({ status: "pending", payment_status: "deposit_paid" }), false);
+});
+
+test("canCustomerCancelOrder: deposit_paid_amount > 0 bloquea aunque el status siga pendiente", () => {
+  assert.equal(
+    canCustomerCancelOrder({ status: "pending", payment_status: "pending", deposit_paid_amount: 50 }),
+    false
+  );
+});
+
+test("canCustomerCancelOrder: deposit_paid_amount en 0 no bloquea", () => {
+  assert.equal(
+    canCustomerCancelOrder({ status: "pending", payment_status: "pending", deposit_paid_amount: 0 }),
+    true
+  );
+});
+
+test("canCustomerCancelOrder: status completed no es cancelable", () => {
+  assert.equal(canCustomerCancelOrder({ status: "completed", payment_status: "paid" }), false);
+});
+
+test("canCustomerCancelOrder: reembolsada no es cancelable (status o payment_status)", () => {
+  assert.equal(canCustomerCancelOrder({ status: "refunded", payment_status: "refunded" }), false);
+  assert.equal(canCustomerCancelOrder({ status: "pending", payment_status: "refunded" }), false);
+});
+
+test("canCustomerCancelOrder: cotizacion pendiente de aprobacion (sin invoice_id) SI es cancelable", () => {
+  assert.equal(
+    canCustomerCancelOrder({
+      status: "pending",
+      payment_status: "pending",
+      document_type: "proposal",
+      invoice_id: null,
+    }),
+    true
+  );
+});
+
+test("canCustomerCancelOrder: nunca depende de service_slug/service_tag, solo del estado", () => {
+  const base = { status: "pending", payment_status: "pending" };
+  assert.equal(canCustomerCancelOrder({ ...base, service_slug: "fotografia" }), true);
+  assert.equal(canCustomerCancelOrder({ ...base, service_slug: "video" }), true);
+  assert.equal(canCustomerCancelOrder({ ...base, service_slug: "diseno-web" }), true);
+  assert.equal(canCustomerCancelOrder({ ...base, service_tag: "multi-servicio" }), true);
+});
+
+test("canCustomerCancelOrder: el can_cancel del backend (GET /my/orders/{id}) manda cuando esta presente", () => {
+  // Server-authoritative override: even though this order otherwise looks
+  // pending/cancelable from status alone, an explicit can_cancel: false
+  // from the detail endpoint wins — never re-derived client-side once the
+  // server has already computed it.
+  assert.equal(canCustomerCancelOrder({ status: "pending", payment_status: "pending", can_cancel: false }), false);
+  assert.equal(canCustomerCancelOrder({ status: "paid", payment_status: "paid", can_cancel: true }), true);
+});
+
+test("canCustomerCancelOrder: orden vacia/null no revienta y no es cancelable", () => {
+  assert.equal(canCustomerCancelOrder(null), false);
+  assert.equal(canCustomerCancelOrder(undefined), false);
+  assert.equal(canCustomerCancelOrder({}), true);
 });
 
 console.log(`\n${passed} pruebas OK`);

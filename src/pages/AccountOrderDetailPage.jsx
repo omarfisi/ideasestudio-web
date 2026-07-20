@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import { Navigate, useParams, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext.jsx";
-import { getMyOrderDetail } from "@/lib/accountApi.js";
+import { cancelMyOrder, getMyOrderDetail } from "@/lib/accountApi.js";
 import { formatPrice } from "@/lib/formatPrice.js";
-import { getOrderPaymentAction, mapOrderPaymentErrorMessage } from "@/lib/orderPaymentState.js";
+import {
+  canCustomerCancelOrder,
+  getOrderPaymentAction,
+  mapOrderPaymentErrorMessage,
+} from "@/lib/orderPaymentState.js";
 
 const serviceStatusLabel = {
   pending: "Servicio pendiente",
@@ -19,6 +23,10 @@ export default function AccountOrderDetailPage() {
   const [order, setOrder] = useState(null);
   const [items, setItems] = useState([]);
   const [state, setState] = useState({ status: "loading", message: "" });
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState("");
 
   useEffect(() => {
     if (!session || !orderId) return;
@@ -66,6 +74,50 @@ export default function AccountOrderDetailPage() {
   const ctaHref = paymentAction?.kind === "booking_expired"
     ? `/mi-cuenta/ordenes/${orderId}/reprogramar`
     : `/mi-cuenta/ordenes/${orderId}/pagar`;
+  // Driven purely by order state (never service_slug/service_tag) — true
+  // for a still-pending cotización just as much as for any other unpaid
+  // order, independent of hasCta (a pending quote has no "Completar pago"
+  // CTA yet, but must still be cancellable).
+  const canCancel = order ? canCustomerCancelOrder(order) : false;
+
+  function openCancelModal() {
+    setCancelError("");
+    setCancelReason("");
+    setCancelModalOpen(true);
+  }
+
+  function closeCancelModal() {
+    if (cancelling) return;
+    setCancelModalOpen(false);
+  }
+
+  async function handleConfirmCancel() {
+    setCancelling(true);
+    setCancelError("");
+    try {
+      const res = await cancelMyOrder(orderId, cancelReason);
+      // _cancel_response_item only returns {id, order_number, status,
+      // payment_status, booking_status} — merge rather than replace so the
+      // rest of the already-loaded order (total, items, email, documents)
+      // isn't wiped out. can_cancel/cancel_block_reason are set explicitly
+      // here because that minimal response doesn't include them and the
+      // value already in `order` (from the detail load) would otherwise be
+      // stale — a successful cancel is always terminal, never re-checked.
+      setOrder((prev) => ({
+        ...prev,
+        ...res.item,
+        can_cancel: false,
+        cancel_block_reason: "already_cancelled",
+      }));
+      setCancelModalOpen(false);
+      setCancelReason("");
+    } catch (error) {
+      const code = error instanceof Error ? error.message : null;
+      setCancelError(mapOrderPaymentErrorMessage(code));
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   return (
     <div className="account-dashboard-bg">
@@ -239,6 +291,17 @@ export default function AccountOrderDetailPage() {
                         {paymentAction.ctaLabel}
                       </Link>
                     ) : null}
+
+                    {canCancel ? (
+                      <button
+                        type="button"
+                        className="order-detail-cancel-button order-detail-cancel-button--block"
+                        onClick={openCancelModal}
+                        disabled={cancelling}
+                      >
+                        Cancelar orden
+                      </button>
+                    ) : null}
                   </div>
                 </aside>
               </div>
@@ -248,6 +311,63 @@ export default function AccountOrderDetailPage() {
                   Explorar otros servicios →
                 </Link>
               </div>
+
+              {cancelModalOpen ? (
+                <div
+                  className="order-cancel-modal-overlay"
+                  role="presentation"
+                  onClick={closeCancelModal}
+                >
+                  <div
+                    className="order-cancel-modal"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="order-cancel-modal-title"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <h3 id="order-cancel-modal-title">Cancelar esta orden</h3>
+                    <p>
+                      ¿Estás seguro de que deseas cancelar esta orden? Esta acción no se
+                      puede deshacer. La orden seguirá visible en tu historial como
+                      cancelada.
+                    </p>
+
+                    <label htmlFor="order-cancel-reason" className="order-cancel-modal__label">
+                      Motivo (opcional)
+                    </label>
+                    <textarea
+                      id="order-cancel-reason"
+                      className="order-cancel-modal__textarea"
+                      rows={3}
+                      maxLength={500}
+                      value={cancelReason}
+                      onChange={(event) => setCancelReason(event.target.value)}
+                      disabled={cancelling}
+                    />
+
+                    {cancelError ? <p className="order-cancel-modal__error">{cancelError}</p> : null}
+
+                    <div className="order-cancel-modal__actions">
+                      <button
+                        type="button"
+                        className="checkout-secondary-button"
+                        onClick={closeCancelModal}
+                        disabled={cancelling}
+                      >
+                        Volver
+                      </button>
+                      <button
+                        type="button"
+                        className="order-detail-cancel-button order-detail-cancel-button--confirm"
+                        onClick={handleConfirmCancel}
+                        disabled={cancelling}
+                      >
+                        {cancelling ? "Cancelando…" : "Confirmar cancelación"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </>
           )}
         </div>
