@@ -1337,6 +1337,21 @@ export async function getPublicPortfolioItems(params = {}) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Membresías público
+// ─────────────────────────────────────────────────────────────
+
+// Deliberately does NOT swallow errors into an empty array (unlike
+// getPublicPortfolioItems above) — the membership page must show a
+// distinct "something went wrong" state from a genuine "zero plans
+// published" state, so the caller needs to be able to tell a failed
+// fetch apart from a successful empty one.
+export async function getPublicMembershipPlans() {
+  const url = buildUrl("/public/membership-plans");
+  const data = await apiFetch(url);
+  return Array.isArray(data?.items) ? data.items : [];
+}
+
+// ─────────────────────────────────────────────────────────────
 // Blog público
 // ─────────────────────────────────────────────────────────────
 
