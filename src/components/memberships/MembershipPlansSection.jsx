@@ -2,6 +2,13 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getPublicMembershipPlans } from "@/lib/api.js";
 
+// service.slug exists on every included-service item (see
+// getPublicMembershipPlans()) but is deliberately NOT turned into a link
+// to /servicios/{slug} here yet — that route's real public data source is
+// public.store_products, not the abandoned public.products table, and
+// wiring the link is a separate, out-of-scope fix. See the backend
+// migration/router comments for the full story.
+
 const FALLBACK_CTA_LABEL = "Solicitar información";
 const FALLBACK_CTA_URL = "/contacto";
 
@@ -18,6 +25,7 @@ function formatPrice(price, currency) {
 function PlanCard({ plan }) {
   const featured = Boolean(plan.is_featured);
   const features = Array.isArray(plan.features_json) ? plan.features_json : [];
+  const services = Array.isArray(plan.services) ? plan.services : [];
   const ctaLabel = plan.cta_label || FALLBACK_CTA_LABEL;
   const ctaUrl = plan.cta_url || FALLBACK_CTA_URL;
   const isExternal = /^https?:\/\//i.test(ctaUrl);
@@ -60,18 +68,40 @@ function PlanCard({ plan }) {
         </p>
       ) : null}
 
-      {features.length > 0 ? (
-        <ul className="list-ideas mb-6 flex-1">
-          {features.map((feature) => (
-            <li key={feature.key || feature.label}>
-              {feature.label}
-              {feature.quantity != null ? ` (${feature.quantity}${feature.period ? `/${feature.period}` : ""})` : ""}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="mb-6 flex-1" />
-      )}
+      <div className="mb-6 flex-1">
+        {features.length > 0 ? (
+          <ul className="list-ideas">
+            {features.map((feature) => (
+              <li key={feature.key || feature.label}>
+                {feature.label}
+                {feature.quantity != null ? ` (${feature.quantity}${feature.period ? `/${feature.period}` : ""})` : ""}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {services.length > 0 ? (
+          <div className={features.length > 0 ? "mt-5" : undefined}>
+            <p className="label-text mb-2" style={{ color: "var(--ideas-black)" }}>
+              Servicios incluidos
+            </p>
+            <ul className="list-ideas">
+              {services.map((service) => (
+                <li key={service.id} className="flex items-center gap-2">
+                  {service.image_url ? (
+                    <img
+                      src={service.image_url}
+                      alt=""
+                      className="h-6 w-6 flex-shrink-0 rounded-full object-cover"
+                    />
+                  ) : null}
+                  {service.is_featured ? <strong>{service.label}</strong> : <span>{service.label}</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
 
       {isExternal ? (
         <a

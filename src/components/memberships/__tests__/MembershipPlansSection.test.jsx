@@ -40,6 +40,23 @@ function plan(overrides = {}) {
     cta_label: null,
     cta_url: null,
     badge_text: null,
+    services: [],
+    ...overrides,
+  };
+}
+
+function serviceItem(overrides = {}) {
+  return {
+    id: `service-${Math.random().toString(36).slice(2)}`,
+    name: "Diseño de Logotipo",
+    slug: "diseno-de-logotipo",
+    short_description: "Diseño profesional de logotipo.",
+    image_url: null,
+    quantity: null,
+    period: null,
+    label: "Diseño de Logotipo",
+    is_featured: false,
+    sort_order: 10,
     ...overrides,
   };
 }
@@ -221,5 +238,110 @@ describe("MembershipPlansSection — responsive grid + internal fields", () => {
     expect(container.innerHTML).not.toMatch(/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/);
     expect(container.innerHTML).not.toMatch(/prod_test_123/);
     expect(container.innerHTML).not.toMatch(/is_test/);
+  });
+});
+
+describe("MembershipPlansSection — included services", () => {
+  it("shows no 'Servicios incluidos' block for a plan with zero linked services", async () => {
+    getPublicMembershipPlansMock.mockResolvedValue([plan({ name: "Sin servicios", services: [] })]);
+    renderSection();
+    await screen.findByText("Sin servicios");
+    expect(screen.queryByText("Servicios incluidos")).not.toBeInTheDocument();
+    // benefits must still render — the services block is additive, never a replacement
+    expect(screen.getByText(/Piezas gráficas/)).toBeInTheDocument();
+  });
+
+  it("renders a single included service", async () => {
+    getPublicMembershipPlansMock.mockResolvedValue([
+      plan({ name: "Un servicio", services: [serviceItem({ label: "Diseño de Logotipo" })] }),
+    ]);
+    renderSection();
+    await screen.findByText("Un servicio");
+    expect(screen.getByText("Servicios incluidos")).toBeInTheDocument();
+    expect(screen.getByText("Diseño de Logotipo")).toBeInTheDocument();
+  });
+
+  it("renders multiple included services", async () => {
+    getPublicMembershipPlansMock.mockResolvedValue([
+      plan({
+        name: "Varios servicios",
+        services: [
+          serviceItem({ id: "s1", label: "Diseño de Logotipo" }),
+          serviceItem({ id: "s2", label: "Video corto (2/month)" }),
+          serviceItem({ id: "s3", label: "Reunión estratégica" }),
+        ],
+      }),
+    ]);
+    renderSection();
+    await screen.findByText("Varios servicios");
+    expect(screen.getByText("Diseño de Logotipo")).toBeInTheDocument();
+    expect(screen.getByText("Video corto (2/month)")).toBeInTheDocument();
+    expect(screen.getByText("Reunión estratégica")).toBeInTheDocument();
+  });
+
+  it("does not render service items as links yet (the /servicios/:slug route is a separate, unresolved issue)", async () => {
+    getPublicMembershipPlansMock.mockResolvedValue([
+      plan({ name: "Plan con enlace pendiente", services: [serviceItem({ label: "Diseño de Logotipo", slug: "diseno-de-logotipo" })] }),
+    ]);
+    renderSection();
+    await screen.findByText("Diseño de Logotipo");
+    expect(screen.queryByRole("link", { name: /Diseño de Logotipo/ })).not.toBeInTheDocument();
+  });
+
+  it("the quantity/period phrase is already baked into label — rendered verbatim, not reconstructed client-side", async () => {
+    getPublicMembershipPlansMock.mockResolvedValue([
+      plan({ name: "Con cantidad", services: [serviceItem({ label: "Diseño de Logotipo (6/month)", quantity: "6.00", period: "month" })] }),
+    ]);
+    renderSection();
+    expect(await screen.findByText("Diseño de Logotipo (6/month)")).toBeInTheDocument();
+  });
+
+  it("a custom label_override is rendered exactly as provided by the API", async () => {
+    getPublicMembershipPlansMock.mockResolvedValue([
+      plan({ name: "Con etiqueta", services: [serviceItem({ label: "6 piezas gráficas mensuales" })] }),
+    ]);
+    renderSection();
+    expect(await screen.findByText("6 piezas gráficas mensuales")).toBeInTheDocument();
+  });
+
+  it("a featured included service is visually distinguished (bold)", async () => {
+    getPublicMembershipPlansMock.mockResolvedValue([
+      plan({ name: "Con destacado", services: [serviceItem({ label: "Diseño de Logotipo", is_featured: true })] }),
+    ]);
+    const { container } = renderSection();
+    await screen.findByText("Diseño de Logotipo");
+    const strong = container.querySelector("strong");
+    expect(strong?.textContent).toBe("Diseño de Logotipo");
+  });
+
+  it("a service without an image renders no thumbnail element", async () => {
+    getPublicMembershipPlansMock.mockResolvedValue([
+      plan({ name: "Sin imagen", services: [serviceItem({ label: "Diseño de Logotipo", image_url: null })] }),
+    ]);
+    const { container } = renderSection();
+    await screen.findByText("Diseño de Logotipo");
+    expect(container.querySelector("img")).not.toBeInTheDocument();
+  });
+
+  it("a service with an image renders its thumbnail", async () => {
+    getPublicMembershipPlansMock.mockResolvedValue([
+      plan({
+        name: "Con imagen",
+        services: [serviceItem({ label: "Diseño de Logotipo", image_url: "https://example.com/logo.jpg" })],
+      }),
+    ]);
+    const { container } = renderSection();
+    await screen.findByText("Diseño de Logotipo");
+    expect(container.querySelector("img")).toHaveAttribute("src", "https://example.com/logo.jpg");
+  });
+
+  it("never hardcodes service names — the list is always rendered from the fetched services array", () => {
+    expect(componentSource).toMatch(/services\.map\(/);
+    expect(componentSource).not.toMatch(/"Diseño gráfico"/);
+    expect(componentSource).not.toMatch(/"Manejo básico de redes"/);
+  });
+
+  it("still never references Stripe after adding the services block", () => {
+    expect(componentSource.toLowerCase()).not.toMatch(/stripe/);
   });
 });
