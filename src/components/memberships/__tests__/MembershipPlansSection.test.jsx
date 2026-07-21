@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { MemoryRouter } from "react-router-dom";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,20 +12,12 @@ vi.mock("@/lib/api.js", () => ({
   getPublicMembershipPlans: (...args) => getPublicMembershipPlansMock(...args),
 }));
 
-// SEO plumbing is unrelated to this page's own data/rendering logic, and
-// react-helmet-async's <Helmet> requires a <HelmetProvider> ancestor this
-// test doesn't otherwise need — mocked out to keep the test focused.
-vi.mock("@/components/seo/SEOHead.jsx", () => ({
-  default: () => null,
-}));
-vi.mock("@/hooks/usePageSeo.js", () => ({
-  usePageSeo: () => null,
-}));
+const { default: MembershipPlansSection } = await import(
+  "@/components/memberships/MembershipPlansSection.jsx"
+);
 
-const { default: MembershipsPage } = await import("@/pages/MembershipsPage.jsx");
-
-const pageSource = readFileSync(
-  path.join(__dirname, "../MembershipsPage.jsx"),
+const componentSource = readFileSync(
+  path.join(__dirname, "../MembershipPlansSection.jsx"),
   "utf8"
 );
 
@@ -52,12 +44,10 @@ function plan(overrides = {}) {
   };
 }
 
-function renderPage() {
+function renderSection() {
   return render(
-    <MemoryRouter initialEntries={["/membresias"]}>
-      <Routes>
-        <Route path="/membresias" element={<MembershipsPage />} />
-      </Routes>
+    <MemoryRouter>
+      <MembershipPlansSection />
     </MemoryRouter>
   );
 }
@@ -66,16 +56,18 @@ beforeEach(() => {
   getPublicMembershipPlansMock.mockReset();
 });
 
-describe("MembershipsPage — plan counts", () => {
+describe("MembershipPlansSection — plan counts", () => {
   it("shows the empty state with zero plans", async () => {
     getPublicMembershipPlansMock.mockResolvedValue([]);
-    renderPage();
-    expect(await screen.findByText("Próximamente tendremos nuevos planes disponibles.")).toBeInTheDocument();
+    renderSection();
+    expect(
+      await screen.findByText("Próximamente tendremos servicios mensuales disponibles.")
+    ).toBeInTheDocument();
   });
 
   it("renders a single card for one plan", async () => {
     getPublicMembershipPlansMock.mockResolvedValue([plan({ name: "Solo Plan" })]);
-    renderPage();
+    renderSection();
     expect(await screen.findByText("Solo Plan")).toBeInTheDocument();
     expect(screen.queryAllByRole("heading", { level: 3 })).toHaveLength(1);
   });
@@ -86,7 +78,7 @@ describe("MembershipsPage — plan counts", () => {
       plan({ name: "Crecimiento" }),
       plan({ name: "Premium" }),
     ]);
-    renderPage();
+    renderSection();
     await screen.findByText("Presencia");
     expect(screen.getByText("Crecimiento")).toBeInTheDocument();
     expect(screen.getByText("Premium")).toBeInTheDocument();
@@ -99,7 +91,7 @@ describe("MembershipsPage — plan counts", () => {
       plan({ name: "Plan C" }),
       plan({ name: "Plan D" }),
     ]);
-    renderPage();
+    renderSection();
     await screen.findByText("Plan A");
     for (const name of ["Plan B", "Plan C", "Plan D"]) {
       expect(screen.getByText(name)).toBeInTheDocument();
@@ -107,10 +99,10 @@ describe("MembershipsPage — plan counts", () => {
   });
 });
 
-describe("MembershipsPage — featured plan", () => {
+describe("MembershipPlansSection — featured plan", () => {
   it("shows a badge for the featured plan", async () => {
     getPublicMembershipPlansMock.mockResolvedValue([plan({ name: "Destacado", is_featured: true })]);
-    renderPage();
+    renderSection();
     await screen.findByText("Destacado");
     expect(screen.getByText("Más popular")).toBeInTheDocument();
   });
@@ -119,48 +111,48 @@ describe("MembershipsPage — featured plan", () => {
     getPublicMembershipPlansMock.mockResolvedValue([
       plan({ name: "Premium", is_featured: true, badge_text: "Mejor valor" }),
     ]);
-    renderPage();
+    renderSection();
     await screen.findByText("Premium");
     expect(screen.getByText("Mejor valor")).toBeInTheDocument();
     expect(screen.queryByText("Más popular")).not.toBeInTheDocument();
   });
 });
 
-describe("MembershipsPage — trial copy", () => {
+describe("MembershipPlansSection — trial copy", () => {
   it("does not show trial text when trial_period_days is 0", async () => {
     getPublicMembershipPlansMock.mockResolvedValue([plan({ name: "Sin prueba", trial_period_days: 0 })]);
-    renderPage();
+    renderSection();
     await screen.findByText("Sin prueba");
     expect(screen.queryByText(/días de prueba/)).not.toBeInTheDocument();
   });
 
   it("shows trial text when trial_period_days is 7", async () => {
     getPublicMembershipPlansMock.mockResolvedValue([plan({ name: "Con prueba", trial_period_days: 7 })]);
-    renderPage();
+    renderSection();
     await screen.findByText("Con prueba");
     expect(screen.getByText("7 días de prueba")).toBeInTheDocument();
   });
 });
 
-describe("MembershipsPage — CTA", () => {
+describe("MembershipPlansSection — CTA", () => {
   it("uses the plan's custom CTA label and URL", async () => {
     getPublicMembershipPlansMock.mockResolvedValue([
       plan({ name: "Con CTA", cta_label: "Suscribirme ahora", cta_url: "/mi-cuenta" }),
     ]);
-    renderPage();
+    renderSection();
     const link = await screen.findByRole("link", { name: /Suscribirme ahora/ });
     expect(link).toHaveAttribute("href", "/mi-cuenta");
   });
 
   it("falls back to the default label and /contacto when the plan has none", async () => {
     getPublicMembershipPlansMock.mockResolvedValue([plan({ name: "Sin CTA", cta_label: null, cta_url: null })]);
-    renderPage();
+    renderSection();
     const link = await screen.findByRole("link", { name: /Solicitar información/ });
     expect(link).toHaveAttribute("href", "/contacto");
   });
 });
 
-describe("MembershipsPage — loading and error states", () => {
+describe("MembershipPlansSection — loading and error states", () => {
   it("shows skeletons while the request is in flight", async () => {
     let resolvePromise;
     getPublicMembershipPlansMock.mockReturnValue(
@@ -168,7 +160,7 @@ describe("MembershipsPage — loading and error states", () => {
         resolvePromise = resolve;
       })
     );
-    const { container } = renderPage();
+    const { container } = renderSection();
     expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
     resolvePromise([]);
     await waitFor(() => expect(container.querySelectorAll(".animate-pulse").length).toBe(0));
@@ -176,7 +168,7 @@ describe("MembershipsPage — loading and error states", () => {
 
   it("shows a generic error message on API failure, no technical detail", async () => {
     getPublicMembershipPlansMock.mockRejectedValue(new Error("membership_plan_service_unreachable_at_10.0.0.5"));
-    renderPage();
+    renderSection();
     expect(
       await screen.findByText("No pudimos cargar los planes de membresía en este momento. Intenta de nuevo más tarde.")
     ).toBeInTheDocument();
@@ -184,27 +176,35 @@ describe("MembershipsPage — loading and error states", () => {
   });
 });
 
-describe("MembershipsPage — no Stripe, no hardcoded plans", () => {
-  it("never references Stripe anywhere in the page source", () => {
-    expect(pageSource.toLowerCase()).not.toMatch(/stripe/);
+describe("MembershipPlansSection — no Stripe, no hardcoded plans, no own chrome", () => {
+  it("never references Stripe anywhere in the component source", () => {
+    expect(componentSource.toLowerCase()).not.toMatch(/stripe/);
   });
 
   it("never hardcodes the known TEST plan slugs", () => {
-    expect(pageSource).not.toMatch(/membresia-presencia-test/);
-    expect(pageSource).not.toMatch(/membresia-crecimiento-test/);
-    expect(pageSource).not.toMatch(/membresia-premium-test/);
+    expect(componentSource).not.toMatch(/membresia-presencia-test/);
+    expect(componentSource).not.toMatch(/membresia-crecimiento-test/);
+    expect(componentSource).not.toMatch(/membresia-premium-test/);
   });
 
   it("renders the grid by mapping over the fetched list, not a fixed array", () => {
-    expect(pageSource).toMatch(/plans\.map\(/);
+    expect(componentSource).toMatch(/plans\.map\(/);
+  });
+
+  it("does not render its own SEO, Header, Footer or route", () => {
+    expect(componentSource).not.toMatch(/SEOHead/);
+    expect(componentSource).not.toMatch(/usePageSeo/);
+    expect(componentSource).not.toMatch(/<Header/);
+    expect(componentSource).not.toMatch(/<Footer/);
+    expect(componentSource).not.toMatch(/createBrowserRouter|<Route/);
   });
 });
 
-describe("MembershipsPage — responsive grid + internal fields", () => {
+describe("MembershipPlansSection — responsive grid + internal fields", () => {
   it("chooses a different grid class depending on plan count", () => {
-    expect(pageSource).toMatch(/grid-cols-1 max-w-md mx-auto/);
-    expect(pageSource).toMatch(/sm:grid-cols-2 max-w-3xl mx-auto/);
-    expect(pageSource).toMatch(/lg:grid-cols-3/);
+    expect(componentSource).toMatch(/grid-cols-1 max-w-md mx-auto/);
+    expect(componentSource).toMatch(/sm:grid-cols-2 max-w-3xl mx-auto/);
+    expect(componentSource).toMatch(/lg:grid-cols-3/);
   });
 
   it("never renders workspace_id, metadata_json or Stripe IDs even if present in the API response", async () => {
@@ -216,7 +216,7 @@ describe("MembershipsPage — responsive grid + internal fields", () => {
         stripe_test_product_id: "prod_test_123",
       }),
     ]);
-    const { container } = renderPage();
+    const { container } = renderSection();
     await screen.findByText("Con campos internos");
     expect(container.innerHTML).not.toMatch(/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/);
     expect(container.innerHTML).not.toMatch(/prod_test_123/);

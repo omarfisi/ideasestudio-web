@@ -23,7 +23,6 @@ import ProductDetailPage from "@/pages/ProductDetailPage.jsx";
 import PortfolioPage from "@/pages/PortfolioPage.jsx";
 import PortfolioProjectPage from "@/pages/PortfolioProjectPage.jsx";
 import TeamPage from "@/pages/TeamPage.jsx";
-import MembershipsPage from "@/pages/MembershipsPage.jsx";
 import BlogPage from "@/pages/BlogPage.jsx";
 import BlogPostDetailPage from "@/pages/BlogPostDetailPage.jsx";
 import BlogPostPreviewPage from "@/pages/BlogPostPreviewPage.jsx";
@@ -291,7 +290,7 @@ const router = createBrowserRouter([
       },
       {
         path: "membresias",
-        element: <MembershipsPage />,
+        element: <Navigate to="/servicios#mensualidades" replace />,
       },
       {
         path: "blog",

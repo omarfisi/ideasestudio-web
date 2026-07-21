@@ -907,10 +907,6 @@ export default function Header() {
                 Blog
               </NavLink>
 
-              <NavLink className={navLinkClass} to="/membresias">
-                Membresías
-              </NavLink>
-
               <NavLink className={navLinkClass} to="/contacto" onClick={closeMenus}>
                 Contacto
               </NavLink>
@@ -1053,10 +1049,6 @@ export default function Header() {
 
                 <NavLink className={mobileLinkClass} to="/blog" onClick={closeMenus}>
                   <span>Blog</span>
-                </NavLink>
-
-                <NavLink className={mobileLinkClass} to="/membresias" onClick={closeMenus}>
-                  <span>Membresías</span>
                 </NavLink>
 
                 <NavLink className={mobileLinkClass} to="/contacto" onClick={closeMenus}>

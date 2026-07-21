@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import SEOHead from "@/components/seo/SEOHead.jsx";
-import { usePageSeo } from "@/hooks/usePageSeo.js";
 import { getPublicMembershipPlans } from "@/lib/api.js";
 
 const FALLBACK_CTA_LABEL = "Solicitar información";
@@ -112,8 +110,7 @@ function PlanCardSkeleton() {
   );
 }
 
-export default function MembershipsPage() {
-  const pageSeo = usePageSeo();
+export default function MembershipPlansSection() {
   const [status, setStatus] = useState("loading");
   const [plans, setPlans] = useState([]);
 
@@ -144,52 +141,39 @@ export default function MembershipsPage() {
       ? "grid-cols-1 sm:grid-cols-2 max-w-3xl mx-auto"
       : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
 
+  if (status === "loading") {
+    return (
+      <div className={`grid gap-6 ${gridColsClass || "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"}`}>
+        <PlanCardSkeleton />
+        <PlanCardSkeleton />
+        <PlanCardSkeleton />
+      </div>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <div className="card-light max-w-xl" role="alert">
+        <p className="body-md">
+          No pudimos cargar los planes de membresía en este momento. Intenta de nuevo más tarde.
+        </p>
+      </div>
+    );
+  }
+
+  if (plans.length === 0) {
+    return (
+      <div className="card-light max-w-xl">
+        <p className="body-md">Próximamente tendremos servicios mensuales disponibles.</p>
+      </div>
+    );
+  }
+
   return (
-    <>
-      <SEOHead
-        title="Membresías | Ideas Estudio"
-        description="Planes de membresía mensual de Ideas Estudio: contenido gráfico, video y soporte creativo para tu marca."
-        canonical="https://www.ideasestudio.com/membresias"
-        seoEntry={pageSeo}
-      />
-
-      <section className="block-light section-space">
-        <div className="page-shell">
-          <div className="mb-10 max-w-2xl">
-            <span className="eyebrow-yellow mb-4 inline-flex">Membresías</span>
-            <h1 className="hero-title mb-4" style={{ fontSize: "38px" }}>
-              Planes para crecer tu marca todos los meses
-            </h1>
-            <p className="body-lg">
-              Elige el plan que mejor se ajusta a las necesidades creativas de tu negocio.
-            </p>
-          </div>
-
-          {status === "loading" ? (
-            <div className={`grid gap-6 ${gridColsClass || "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"}`}>
-              <PlanCardSkeleton />
-              <PlanCardSkeleton />
-              <PlanCardSkeleton />
-            </div>
-          ) : status === "error" ? (
-            <div className="card-light max-w-xl" role="alert">
-              <p className="body-md">
-                No pudimos cargar los planes de membresía en este momento. Intenta de nuevo más tarde.
-              </p>
-            </div>
-          ) : plans.length === 0 ? (
-            <div className="card-light max-w-xl">
-              <p className="body-md">Próximamente tendremos nuevos planes disponibles.</p>
-            </div>
-          ) : (
-            <div className={`grid gap-6 ${gridColsClass}`}>
-              {plans.map((plan) => (
-                <PlanCard key={plan.id} plan={plan} />
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-    </>
+    <div className={`grid gap-6 ${gridColsClass}`}>
+      {plans.map((plan) => (
+        <PlanCard key={plan.id} plan={plan} />
+      ))}
+    </div>
   );
 }
