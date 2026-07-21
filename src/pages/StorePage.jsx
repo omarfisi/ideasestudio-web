@@ -2,10 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Check, ShoppingCart } from "lucide-react";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
-import { Link, useLoaderData, useLocation, useSearchParams } from "react-router-dom";
+import { Link, useLoaderData, useSearchParams } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
 import ProductsGrid from "@/components/shared/ProductsGrid.jsx";
-import MembershipPlansSection from "@/components/memberships/MembershipPlansSection.jsx";
 import {
   addProductToPublicCart,
   getPublicProductCategories,
@@ -89,7 +88,6 @@ export default function StorePage() {
   const pageSeo = usePageSeo();
   const loaderData = useLoaderData();
   const loaderFilters = loaderData?.filters || {};
-  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchDraft, setSearchDraft] = useState(
     searchParams.get("q") || loaderFilters.search || ""
@@ -123,20 +121,6 @@ export default function StorePage() {
   useEffect(() => {
     setSearchDraft(filters.search);
   }, [filters.search]);
-
-  useEffect(() => {
-    if (!location.hash) return;
-    const id = location.hash.slice(1);
-    const raf = requestAnimationFrame(() => {
-      const el = document.getElementById(id);
-      if (!el || typeof el.scrollIntoView !== "function") return;
-      const prefersReducedMotion =
-        typeof window.matchMedia === "function" &&
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      el.scrollIntoView({ behavior: prefersReducedMotion ? "auto" : "smooth", block: "start" });
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [location.hash]);
 
   function updateFilter(key, value) {
     setSearchParams((current) => {
@@ -465,7 +449,7 @@ export default function StorePage() {
     <section className="section services-market">
       <SEOHead
         title="Servicios Creativos | Ideas Estudio"
-        description="Explora fotografía, video, diseño gráfico y branding profesional para tu marca, negocio o evento en Puerto Rico. Incluye servicios mensuales para apoyo creativo continuo."
+        description="Explora fotografía, video, diseño gráfico y branding profesional para tu marca, negocio o evento en Puerto Rico."
         canonical="https://ideasestudio.com/servicios"
         seoEntry={pageSeo}
       />
@@ -703,20 +687,6 @@ export default function StorePage() {
             )}
           </div>
         </div>
-
-        <section id="mensualidades" className="block-light section-space">
-          <div className="mb-10 max-w-2xl">
-            <span className="eyebrow-yellow mb-4 inline-flex">Servicios mensuales</span>
-            <h2 className="hero-title mb-4" style={{ fontSize: "32px" }}>
-              Servicios mensuales
-            </h2>
-            <p className="body-lg">
-              Planes mensuales para marcas que necesitan apoyo creativo continuo.
-            </p>
-          </div>
-
-          <MembershipPlansSection />
-        </section>
       </div>
     </section>
   );

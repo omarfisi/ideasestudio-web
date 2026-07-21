@@ -290,7 +290,7 @@ const router = createBrowserRouter([
       },
       {
         path: "membresias",
-        element: <Navigate to="/servicios#mensualidades" replace />,
+        element: <Navigate to="/servicios" replace />,
       },
       {
         path: "blog",

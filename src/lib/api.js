@@ -432,6 +432,11 @@ function normalizeProduct(raw) {
         : raw.metadata && typeof raw.metadata === "object"
         ? raw.metadata
         : {},
+    // The public.services row this product was synced from, if any — see
+    // GET /api/store/products/{slug}'s service_id field. Null for
+    // products with no such link (nothing to look up "Conocer planes"
+    // against).
+    serviceId: raw.service_id || null,
     createdAt: raw.created_at || null,
     updatedAt: raw.updated_at || null,
     raw,
@@ -1347,6 +1352,15 @@ export async function getPublicPortfolioItems(params = {}) {
 // fetch apart from a successful empty one.
 export async function getPublicMembershipPlans() {
   const url = buildUrl("/public/membership-plans");
+  const data = await apiFetch(url);
+  return Array.isArray(data?.items) ? data.items : [];
+}
+
+// Same "never swallow errors" reasoning as getPublicMembershipPlans above
+// — the "Conocer planes" modal needs to tell a failed fetch apart from a
+// genuine "this service isn't in any plan yet" empty list.
+export async function getPublicMembershipPlansByService(serviceId) {
+  const url = buildUrl(`/public/services/${encodeURIComponent(serviceId)}/membership-plans`);
   const data = await apiFetch(url);
   return Array.isArray(data?.items) ? data.items : [];
 }

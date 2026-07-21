@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Link, useLoaderData, useNavigate } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
+import ServiceMembershipPlansModal from "@/components/memberships/ServiceMembershipPlansModal.jsx";
 
 import { addProductToPublicCart, getPublicProducts } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
@@ -118,6 +119,7 @@ export default function ProductDetailPage() {
   const [includesExpanded, setIncludesExpanded] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [footerVisible, setFooterVisible] = useState(false);
+  const [plansModalOpen, setPlansModalOpen] = useState(false);
 
   const galleryImages = useMemo(() => getGalleryImages(product), [product]);
   const hasGallery = galleryImages.length > 0;
@@ -443,6 +445,16 @@ export default function ProductDetailPage() {
                 </Button>
               </div>
 
+              {product.serviceId ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => setPlansModalOpen(true)}
+                  className="service-detail-purchase__plans-btn"
+                >
+                  Conocer planes
+                </Button>
+              ) : null}
+
               <ul className="service-detail-purchase__trust">
                 <li>
                   <ShieldCheck size={16} />
@@ -624,6 +636,15 @@ export default function ProductDetailPage() {
           {pendingAction === "checkout" ? "Procesando..." : primaryCtaLabel}
         </Button>
       </div>
+
+      {product.serviceId ? (
+        <ServiceMembershipPlansModal
+          serviceId={product.serviceId}
+          serviceName={product.name}
+          open={plansModalOpen}
+          onClose={() => setPlansModalOpen(false)}
+        />
+      ) : null}
     </section>
   );
 }

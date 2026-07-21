@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -10,13 +10,11 @@ const __dirname = path.dirname(fileURLToPath(new URL(import.meta.url)));
 const getPublicProductCategoriesMock = vi.fn();
 const getPublicProductsMock = vi.fn();
 const addProductToPublicCartMock = vi.fn();
-const getPublicMembershipPlansMock = vi.fn();
 
 vi.mock("@/lib/api.js", () => ({
   getPublicProductCategories: (...args) => getPublicProductCategoriesMock(...args),
   getPublicProducts: (...args) => getPublicProductsMock(...args),
   addProductToPublicCart: (...args) => addProductToPublicCartMock(...args),
-  getPublicMembershipPlans: (...args) => getPublicMembershipPlansMock(...args),
 }));
 
 vi.mock("@/components/seo/SEOHead.jsx", () => ({ default: () => null }));
@@ -25,27 +23,6 @@ vi.mock("@/hooks/usePageSeo.js", () => ({ usePageSeo: () => null }));
 const { default: StorePage } = await import("@/pages/StorePage.jsx");
 
 const pageSource = readFileSync(path.join(__dirname, "../StorePage.jsx"), "utf8");
-
-function membershipPlan(overrides = {}) {
-  return {
-    id: `plan-${Math.random().toString(36).slice(2)}`,
-    name: "Membresía Crecimiento",
-    slug: "membresia-crecimiento",
-    description: "Contenido gráfico y video cada mes.",
-    price: "79.00",
-    currency: "USD",
-    billing_interval: "month",
-    trial_period_days: 0,
-    is_featured: false,
-    sort_order: 20,
-    features_json: [],
-    limits_json: null,
-    cta_label: null,
-    cta_url: null,
-    badge_text: null,
-    ...overrides,
-  };
-}
 
 function renderStorePage({ initialEntry = "/servicios" } = {}) {
   const router = createMemoryRouter(
@@ -65,68 +42,57 @@ beforeEach(() => {
   getPublicProductCategoriesMock.mockReset().mockResolvedValue([]);
   getPublicProductsMock.mockReset().mockResolvedValue({ items: [] });
   addProductToPublicCartMock.mockReset();
-  getPublicMembershipPlansMock.mockReset();
 });
 
 describe("StorePage — services catalog is untouched", () => {
   it("still renders the main services catalog heading", async () => {
-    getPublicMembershipPlansMock.mockResolvedValue([]);
     renderStorePage();
     expect(await screen.findByText("Servicios profesionales")).toBeInTheDocument();
   });
 });
 
-describe("StorePage — monthly plans section", () => {
-  it("renders a 'Servicios mensuales' section with id=mensualidades", async () => {
-    getPublicMembershipPlansMock.mockResolvedValue([membershipPlan({ name: "Crecimiento" })]);
+// fix(memberships): show plans from service detail — the general
+// "Servicios mensuales" grid at the bottom of /servicios is gone. Plans
+// are now reached per-service via the "Conocer planes" button on
+// ProductDetailPage (see ProductDetailPage.test.jsx and
+// ServiceMembershipPlansModal.test.jsx), not as a catalog-wide section.
+
+describe("StorePage — no general plans section", () => {
+  it("does not render a #mensualidades section", async () => {
     const { container } = renderStorePage();
-    await screen.findByText("Crecimiento");
-    const section = container.querySelector("#mensualidades");
-    expect(section).not.toBeNull();
-    expect(section.textContent).toMatch(/Servicios mensuales/);
+    await screen.findByText("Servicios profesionales");
+    expect(container.querySelector("#mensualidades")).toBeNull();
   });
 
-  it("shows the required intro copy", async () => {
-    getPublicMembershipPlansMock.mockResolvedValue([]);
+  it("does not show the old 'Servicios mensuales' heading or intro copy", async () => {
     renderStorePage();
+    await screen.findByText("Servicios profesionales");
+    expect(screen.queryByText("Servicios mensuales")).not.toBeInTheDocument();
     expect(
-      await screen.findByText("Planes mensuales para marcas que necesitan apoyo creativo continuo.")
-    ).toBeInTheDocument();
+      screen.queryByText("Planes mensuales para marcas que necesitan apoyo creativo continuo.")
+    ).not.toBeInTheDocument();
   });
 
-  it("fetches plans via getPublicMembershipPlans (GET /public/membership-plans)", async () => {
-    getPublicMembershipPlansMock.mockResolvedValue([]);
-    renderStorePage();
-    await waitFor(() => expect(getPublicMembershipPlansMock).toHaveBeenCalledTimes(1));
+  it("does not import or render MembershipPlansSection", () => {
+    expect(pageSource).not.toMatch(/MembershipPlansSection/);
   });
 
-  it("renders three plans inside the mensualidades section without breaking the catalog", async () => {
-    getPublicMembershipPlansMock.mockResolvedValue([
-      membershipPlan({ name: "Presencia" }),
-      membershipPlan({ name: "Crecimiento" }),
-      membershipPlan({ name: "Premium" }),
-    ]);
-    renderStorePage();
-    await screen.findByText("Presencia");
-    expect(screen.getByText("Crecimiento")).toBeInTheDocument();
-    expect(screen.getByText("Premium")).toBeInTheDocument();
-    expect(screen.getByText("Servicios profesionales")).toBeInTheDocument();
+  it("does not import getPublicMembershipPlans — no membership fetch happens on this page anymore", () => {
+    expect(pageSource).not.toMatch(/getPublicMembershipPlans/);
   });
 
-  it("shows the empty-state copy with zero plans instead of hardcoded ones", async () => {
-    getPublicMembershipPlansMock.mockResolvedValue([]);
-    renderStorePage();
-    expect(
-      await screen.findByText("Próximamente tendremos servicios mensuales disponibles.")
-    ).toBeInTheDocument();
+  it("no longer has a scroll-to-hash effect (there is no in-page anchor left to scroll to)", () => {
+    expect(pageSource).not.toMatch(/scrollIntoView/);
+    expect(pageSource).not.toMatch(/location\.hash/);
+    expect(pageSource).not.toMatch(/useLocation/);
+  });
+
+  it("SEO description no longer references a monthly-services section that no longer exists on this page", () => {
+    expect(pageSource).not.toMatch(/servicios mensuales/i);
   });
 });
 
-describe("StorePage — no duplicated / no Stripe / no hardcoded plans", () => {
-  it("delegates plan rendering to MembershipPlansSection instead of duplicating markup", () => {
-    expect(pageSource).toMatch(/<MembershipPlansSection\s*\/>/);
-  });
-
+describe("StorePage — no Stripe, no hardcoded plans", () => {
   it("never references Stripe in its own source", () => {
     expect(pageSource.toLowerCase()).not.toMatch(/stripe/);
   });
