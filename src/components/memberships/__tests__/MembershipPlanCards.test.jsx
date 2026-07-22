@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -165,14 +165,24 @@ describe("MembershipPlanCards — services array (general/multi-service shape)",
         name: "Varios servicios",
         services: [
           serviceItem({ id: "s1", label: "Diseño de Logotipo" }),
+          // Raw fallback shape from the backend (no label_override set) —
+          // must render humanized, never the raw "/month" suffix.
           serviceItem({ id: "s2", label: "Video corto (2/month)" }),
           serviceItem({ id: "s3", label: "Reunión estratégica" }),
         ],
       }),
     ]);
     expect(screen.getByText("Diseño de Logotipo")).toBeInTheDocument();
-    expect(screen.getByText("Video corto (2/month)")).toBeInTheDocument();
+    expect(screen.getByText("Video corto — 2 por mes")).toBeInTheDocument();
     expect(screen.getByText("Reunión estratégica")).toBeInTheDocument();
+  });
+
+  it("never renders a raw '/month'-style technical suffix for included services", () => {
+    renderCards([
+      plan({ services: [serviceItem({ label: "Gestión de Redes Sociales (4/month)" })] }),
+    ]);
+    expect(screen.queryByText(/\/month/)).not.toBeInTheDocument();
+    expect(screen.getByText("Gestión de Redes Sociales — 4 por mes")).toBeInTheDocument();
   });
 
   it("does not render service items as links yet (the /servicios/:slug route is a separate, unresolved issue)", () => {
@@ -247,5 +257,90 @@ describe("MembershipPlanCards — no leaks, no hardcoding", () => {
 
   it("never references Stripe", () => {
     expect(componentSource.toLowerCase()).not.toMatch(/stripe/);
+  });
+});
+
+describe("MembershipPlanCards — sort order", () => {
+  it("orders cards by sort_order, ignoring is_featured", () => {
+    renderCards([
+      plan({ name: "Premium", sort_order: 30, is_featured: false }),
+      plan({ name: "Presencia", sort_order: 10, is_featured: false }),
+      plan({ name: "Crecimiento", sort_order: 20, is_featured: true }),
+    ]);
+    const names = screen.getAllByRole("heading", { level: 3 }).map((el) => el.textContent);
+    expect(names).toEqual(["Presencia", "Crecimiento", "Premium"]);
+  });
+
+  it("a featured plan keeps its badge without jumping ahead of an earlier plan", () => {
+    renderCards([
+      plan({ name: "Presencia", sort_order: 10, is_featured: false }),
+      plan({ name: "Crecimiento", sort_order: 20, is_featured: true }),
+    ]);
+    const names = screen.getAllByRole("heading", { level: 3 }).map((el) => el.textContent);
+    expect(names).toEqual(["Presencia", "Crecimiento"]);
+    expect(screen.getByText("Más popular")).toBeInTheDocument();
+  });
+});
+
+describe("MembershipPlanCards — feature quantities never show a raw technical period", () => {
+  it("shows just the quantity, never a '/month'-style suffix", () => {
+    renderCards([
+      plan({
+        features_json: [
+          { key: "graphic_pieces", label: "Piezas gráficas mensuales", quantity: 6, period: "month" },
+        ],
+      }),
+    ]);
+    expect(screen.getByText(/Piezas gráficas mensuales/)).toBeInTheDocument();
+    expect(screen.getByText(/\(6\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/\/month/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/quantity|period/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("MembershipPlanCards — onSelectPlan (used by ServiceMembershipPlansModal)", () => {
+  it("shows 'Seleccionar este plan' and calls onSelectPlan with the plan when provided", () => {
+    const onSelectPlan = vi.fn();
+    const target = plan({ name: "Membresía Crecimiento — TEST" });
+    render(
+      <MemoryRouter>
+        <MembershipPlanCards plans={[target]} onSelectPlan={onSelectPlan} />
+      </MemoryRouter>
+    );
+    const btn = screen.getByRole("button", { name: "Seleccionar este plan" });
+    fireEvent.click(btn);
+    expect(onSelectPlan).toHaveBeenCalledWith(target);
+  });
+
+  it("falls back to the contact-link CTA when onSelectPlan is not provided", () => {
+    renderCards([plan({ name: "Membresía Crecimiento — TEST" })]);
+    expect(screen.queryByRole("button", { name: "Seleccionar este plan" })).not.toBeInTheDocument();
+    expect(screen.getByText("Solicitar información")).toBeInTheDocument();
+  });
+
+  it("shows 'Añadiendo…' and disables the button for the plan currently being selected", () => {
+    const target = plan({ name: "Membresía Crecimiento — TEST" });
+    render(
+      <MemoryRouter>
+        <MembershipPlanCards plans={[target]} onSelectPlan={vi.fn()} selectingPlanId={target.id} />
+      </MemoryRouter>
+    );
+    const btn = screen.getByRole("button", { name: "Añadiendo…" });
+    expect(btn).toBeDisabled();
+  });
+
+  it("shows the error message only under the plan that failed", () => {
+    const target = plan({ name: "Membresía Crecimiento — TEST" });
+    render(
+      <MemoryRouter>
+        <MembershipPlanCards
+          plans={[target]}
+          onSelectPlan={vi.fn()}
+          selectErrorPlanId={target.id}
+          selectErrorMessage="No pudimos añadir el plan."
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("No pudimos añadir el plan.");
   });
 });

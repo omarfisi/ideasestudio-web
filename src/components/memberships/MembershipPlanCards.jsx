@@ -3,6 +3,20 @@ import { Link } from "react-router-dom";
 const FALLBACK_CTA_LABEL = "Solicitar información";
 const FALLBACK_CTA_URL = "/contacto";
 
+const PERIOD_LABELS = {
+  month: "mes",
+  week: "semana",
+  project: "proyecto",
+  piece: "pieza",
+  session: "sesión",
+  unlimited: "ilimitado",
+};
+
+function translatePeriod(period) {
+  if (!period) return "";
+  return PERIOD_LABELS[period] || period;
+}
+
 function formatPrice(price, currency) {
   const amount = Number(price);
   if (!Number.isFinite(amount)) return "";
@@ -13,7 +27,36 @@ function formatPrice(price, currency) {
   return `${currency === "USD" ? "$" : ""}${formatted}`;
 }
 
-function PlanCard({ plan }) {
+// Sorted by sort_order only — a featured plan keeps its "Más popular"
+// badge, but never jumps ahead of an earlier, non-featured plan in the
+// lineup (Presencia → Crecimiento → Premium reads left to right
+// regardless of which one is marked featured).
+function sortBySortOrder(plans) {
+  return [...plans].sort((a, b) => {
+    const left = Number.isFinite(a?.sort_order) ? a.sort_order : 0;
+    const right = Number.isFinite(b?.sort_order) ? b.sort_order : 0;
+    return left - right;
+  });
+}
+
+// The public endpoint falls back to "{service_name} ({quantity}/{period})"
+// when a plan-service link has no label_override — a raw, English-suffixed
+// string never meant to reach a customer. Reformats that exact shape into
+// plain Spanish; anything else (a real label_override) passes through
+// untouched.
+const RAW_FALLBACK_LABEL = /^(.*)\s\(([\d.,]+)\/(\w+)\)$/;
+
+function humanizeIncludedServiceLabel(label) {
+  const text = String(label || "");
+  const match = text.match(RAW_FALLBACK_LABEL);
+  if (!match) return text;
+  const [, prefix, quantityRaw, period] = match;
+  const quantity = Number(quantityRaw);
+  const quantityLabel = Number.isFinite(quantity) ? quantity.toLocaleString("es-PR") : quantityRaw;
+  return `${prefix} — ${quantityLabel} por ${translatePeriod(period)}`;
+}
+
+function PlanCard({ plan, onSelectPlan, selecting, selectError }) {
   const featured = Boolean(plan.is_featured);
   const features = Array.isArray(plan.features_json) ? plan.features_json : [];
   const services = Array.isArray(plan.services) ? plan.services : [];
@@ -24,7 +67,7 @@ function PlanCard({ plan }) {
 
   return (
     <article
-      className="card-light flex h-full flex-col"
+      className="card-light flex h-full min-w-0 flex-col"
       style={
         featured
           ? { border: "2px solid var(--ideas-yellow)", boxShadow: "0 14px 34px rgba(249, 208, 1, 0.22)" }
@@ -37,7 +80,7 @@ function PlanCard({ plan }) {
       </div>
 
       <h3
-        className="mb-2"
+        className="mb-2 break-words"
         style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "22px", letterSpacing: "-0.03em", color: "var(--ideas-black)" }}
       >
         {plan.name}
@@ -65,7 +108,7 @@ function PlanCard({ plan }) {
           className="label-text mb-4 rounded-lg px-3 py-2"
           style={{ color: "var(--ideas-black)", backgroundColor: "rgba(249, 208, 1, 0.14)" }}
         >
-          Incluye: {includedService.label}
+          Incluye: {humanizeIncludedServiceLabel(includedService.label)}
         </p>
       ) : null}
 
@@ -73,9 +116,9 @@ function PlanCard({ plan }) {
         {features.length > 0 ? (
           <ul className="list-ideas">
             {features.map((feature) => (
-              <li key={feature.key || feature.label}>
+              <li key={feature.key || feature.label} className="break-words">
                 {feature.label}
-                {feature.quantity != null ? ` (${feature.quantity}${feature.period ? `/${feature.period}` : ""})` : ""}
+                {feature.quantity != null ? ` (${Number(feature.quantity).toLocaleString("es-PR")})` : ""}
               </li>
             ))}
           </ul>
@@ -96,7 +139,11 @@ function PlanCard({ plan }) {
                       className="h-6 w-6 flex-shrink-0 rounded-full object-cover"
                     />
                   ) : null}
-                  {service.is_featured ? <strong>{service.label}</strong> : <span>{service.label}</span>}
+                  {service.is_featured ? (
+                    <strong className="break-words">{humanizeIncludedServiceLabel(service.label)}</strong>
+                  ) : (
+                    <span className="break-words">{humanizeIncludedServiceLabel(service.label)}</span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -104,27 +151,44 @@ function PlanCard({ plan }) {
         ) : null}
       </div>
 
-      {isExternal ? (
-        <a
-          href={ctaUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="button-text inline-flex items-center justify-center rounded-full px-6 py-3 text-center transition"
-          style={{ backgroundColor: "var(--ideas-yellow)", color: "var(--ideas-black)" }}
-          aria-label={`${ctaLabel} — ${plan.name}`}
-        >
-          {ctaLabel}
-        </a>
-      ) : (
-        <Link
-          to={ctaUrl}
-          className="button-text inline-flex items-center justify-center rounded-full px-6 py-3 text-center transition"
-          style={{ backgroundColor: "var(--ideas-yellow)", color: "var(--ideas-black)" }}
-          aria-label={`${ctaLabel} — ${plan.name}`}
-        >
-          {ctaLabel}
-        </Link>
-      )}
+      <div style={{ marginTop: "auto" }}>
+        {onSelectPlan ? (
+          <button
+            type="button"
+            onClick={() => onSelectPlan(plan)}
+            disabled={selecting}
+            className="button-text inline-flex w-full items-center justify-center rounded-full px-6 py-3 text-center transition disabled:opacity-60"
+            style={{ backgroundColor: "var(--ideas-yellow)", color: "var(--ideas-black)" }}
+          >
+            {selecting ? "Añadiendo…" : "Seleccionar este plan"}
+          </button>
+        ) : isExternal ? (
+          <a
+            href={ctaUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="button-text inline-flex w-full items-center justify-center rounded-full px-6 py-3 text-center transition"
+            style={{ backgroundColor: "var(--ideas-yellow)", color: "var(--ideas-black)" }}
+            aria-label={`${ctaLabel} — ${plan.name}`}
+          >
+            {ctaLabel}
+          </a>
+        ) : (
+          <Link
+            to={ctaUrl}
+            className="button-text inline-flex w-full items-center justify-center rounded-full px-6 py-3 text-center transition"
+            style={{ backgroundColor: "var(--ideas-yellow)", color: "var(--ideas-black)" }}
+            aria-label={`${ctaLabel} — ${plan.name}`}
+          >
+            {ctaLabel}
+          </Link>
+        )}
+        {selectError ? (
+          <p className="mt-2 text-center text-sm" style={{ color: "#b91c1c" }} role="alert">
+            {selectError}
+          </p>
+        ) : null}
+      </div>
     </article>
   );
 }
@@ -153,13 +217,24 @@ function planCardsGridClass(count) {
  * caller (MembershipPlansSection for the full catalog,
  * ServiceMembershipPlansModal for a single service) owns loading/error/
  * empty state and data-fetching.
+ *
+ * `onSelectPlan`, `selectingPlanId` and `selectError` are optional — only
+ * ServiceMembershipPlansModal passes them, to turn each card's CTA into
+ * "Seleccionar este plan" (adds that specific plan to the cart) instead
+ * of the general contact-link CTA used elsewhere.
  */
-export default function MembershipPlanCards({ plans }) {
-  const items = Array.isArray(plans) ? plans : [];
+export default function MembershipPlanCards({ plans, onSelectPlan, selectingPlanId, selectErrorPlanId, selectErrorMessage }) {
+  const items = sortBySortOrder(Array.isArray(plans) ? plans : []);
   return (
     <div className={`grid gap-6 ${planCardsGridClass(items.length)}`}>
       {items.map((plan) => (
-        <PlanCard key={plan.id} plan={plan} />
+        <PlanCard
+          key={plan.id}
+          plan={plan}
+          onSelectPlan={onSelectPlan}
+          selecting={selectingPlanId === plan.id}
+          selectError={selectErrorPlanId === plan.id ? selectErrorMessage : null}
+        />
       ))}
     </div>
   );

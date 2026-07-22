@@ -122,9 +122,12 @@ export default function ServiceMembershipPlansModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="service-membership-plans-modal-title"
-        className="card-light flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl p-0 sm:rounded-2xl"
+        className="card-light flex max-h-[92vh] w-full sm:w-[min(96vw,1400px)] max-w-full sm:max-w-7xl flex-col overflow-hidden rounded-t-2xl p-0 sm:rounded-2xl"
       >
-        <div className="flex items-start justify-between gap-4 border-b p-5" style={{ borderColor: "rgba(11,11,13,0.1)" }}>
+        <div
+          className="flex flex-shrink-0 items-start justify-between gap-4 border-b p-5"
+          style={{ borderColor: "rgba(11,11,13,0.1)" }}
+        >
           <div>
             <h2 id="service-membership-plans-modal-title" className="hero-title" style={{ fontSize: "24px" }}>
               Planes disponibles para este servicio
