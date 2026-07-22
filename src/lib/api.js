@@ -394,6 +394,12 @@ function normalizeProduct(raw) {
   const gallery = Array.isArray(gallerySource)
     ? gallerySource.filter(Boolean)
     : [];
+  const metadataSource =
+    raw.metadata_json && typeof raw.metadata_json === "object"
+      ? raw.metadata_json
+      : raw.metadata && typeof raw.metadata === "object"
+      ? raw.metadata
+      : {};
 
   return {
     id: raw.id,
@@ -426,17 +432,25 @@ function normalizeProduct(raw) {
     productType: raw.product_type || "digital",
     coverImage: raw.cover_image || raw.cover_image_url || null,
     gallery,
-    metadata:
-      raw.metadata_json && typeof raw.metadata_json === "object"
-        ? raw.metadata_json
-        : raw.metadata && typeof raw.metadata === "object"
-        ? raw.metadata
-        : {},
-    // The public.services row this product was synced from, if any — see
-    // GET /api/store/products/{slug}'s service_id field. Null for
-    // products with no such link (nothing to look up "Conocer planes"
-    // against).
-    serviceId: raw.service_id || null,
+    metadata: metadataSource,
+    // The public.services row this product was synced from, if any.
+    // GET /api/store/products/{slug} (single-product detail) includes a
+    // top-level service_id — but GET /api/store/products (the catalog
+    // LIST endpoint, what the storefront grid actually calls) does NOT;
+    // it only carries metadata_json.source_service_id. Both endpoints
+    // share this one normalizer, so it must check both shapes — reading
+    // only raw.service_id silently produced serviceId: null for every
+    // catalog card (never the detail page, which is why the bug only
+    // showed up on /servicios and not on a service's own detail page),
+    // which in turn disabled the membership-plans fetch entirely and
+    // forced the "no plans" fallback even when real, published plans
+    // existed.
+    serviceId:
+      raw.service_id ||
+      raw.source_service_id ||
+      metadataSource.source_service_id ||
+      metadataSource.service_id ||
+      null,
     createdAt: raw.created_at || null,
     updatedAt: raw.updated_at || null,
     raw,

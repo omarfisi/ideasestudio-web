@@ -3,7 +3,12 @@ import { Link } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
 import ServiceMembershipPlansTrigger from "@/components/memberships/ServiceMembershipPlansTrigger.jsx";
 import { formatPrice } from "@/lib/formatPrice.js";
-import { SERVICE_FLOW_TYPES, getServiceFlowConfig, getServiceFlowType } from "@/lib/serviceFlowType.js";
+import {
+  SERVICE_FLOW_TYPES,
+  getServiceFlowConfig,
+  getServiceFlowType,
+  resolveProductServiceId,
+} from "@/lib/serviceFlowType.js";
 import { useServiceMembershipPlans } from "@/lib/useServiceMembershipPlans.js";
 
 function toReadableLabel(value) {
@@ -102,19 +107,23 @@ export default function ProductCard({
     product.compareAtPrice !== null && product.compareAtPrice > product.price;
 
   const flowConfig = getServiceFlowConfig(product);
-  // Monthly-flow products (e.g. "Gestión de Redes Sociales") have their
-  // own catalog CTA ("Conocer planes") that used to add the base service
-  // straight to the cart via onAddToCart — mixing the plain checkout
-  // flow with the membership system. Once the service actually has
-  // published plans, that CTA opens the plans modal instead; the base
-  // service is never added from here. Falls back to the existing
-  // behavior when the service has no plans yet, exactly like
-  // ProductDetailPage.
+  // Monthly-flow products (e.g. "Gestión de Redes Sociales") are billed as
+  // a membership subscription, never as a one-time cart purchase — this
+  // CTA area never adds the base service to the cart, in any state
+  // (loading/error/empty included). See resolveProductServiceId's
+  // docstring for why the service link can't be read via product.serviceId
+  // directly.
   const isMonthlyFlow = getServiceFlowType(product) === SERVICE_FLOW_TYPES.E_MONTHLY;
-  const { plans: membershipPlans, loading: membershipPlansLoading, error: membershipPlansError, hasPlans: hasMembershipPlans } =
-    useServiceMembershipPlans(product?.serviceId, {
-      enabled: isMonthlyFlow && Boolean(product?.serviceId),
-    });
+  const resolvedServiceId = resolveProductServiceId(product);
+  const {
+    plans: membershipPlans,
+    loading: membershipPlansLoading,
+    error: membershipPlansError,
+    hasPlans: hasMembershipPlans,
+    retry: retryMembershipPlans,
+  } = useServiceMembershipPlans(resolvedServiceId, {
+    enabled: isMonthlyFlow && Boolean(resolvedServiceId),
+  });
   // Every state below is mutually exclusive and covers the full
   // isMonthlyFlow lifecycle explicitly — no fallback branch may ever
   // render a button labeled "Conocer planes" (flowConfig.cta for
@@ -227,12 +236,21 @@ export default function ProductCard({
                 Cargando planes…
               </Button>
             ) : monthlyPlansState === "error" ? (
-              <Button type="button" disabled className="product-card__booking-btn">
-                No se pudieron cargar los planes
-              </Button>
+              <div className="product-card__plans-fallback">
+                <Button type="button" disabled className="product-card__booking-btn">
+                  No se pudieron cargar los planes
+                </Button>
+                <button
+                  type="button"
+                  className="product-card__plans-retry"
+                  onClick={retryMembershipPlans}
+                >
+                  Reintentar
+                </button>
+              </div>
             ) : monthlyPlansState === "ready" ? (
               <ServiceMembershipPlansTrigger
-                serviceId={product.serviceId}
+                serviceId={resolvedServiceId}
                 serviceName={product.name}
                 plans={membershipPlans}
                 loading={membershipPlansLoading}
@@ -242,21 +260,30 @@ export default function ProductCard({
               >
                 Conocer planes
               </ServiceMembershipPlansTrigger>
+            ) : monthlyPlansState === "empty" ? (
+              <div className="product-card__plans-fallback">
+                <Button type="button" disabled className="product-card__booking-btn">
+                  Planes no disponibles temporalmente
+                </Button>
+                <button
+                  type="button"
+                  className="product-card__plans-retry"
+                  onClick={retryMembershipPlans}
+                >
+                  Reintentar
+                </button>
+              </div>
             ) : onAddToCart ? (
               <Button
                 onClick={() => onAddToCart(product)}
                 disabled={addState === "loading"}
                 className="product-card__booking-btn"
               >
-                {addState === "loading"
-                  ? "Agregando..."
-                  : monthlyPlansState === "empty"
-                  ? "Contratar servicio mensual"
-                  : flowConfig.cta}
+                {addState === "loading" ? "Agregando..." : flowConfig.cta}
               </Button>
             ) : (
               <Button to={`/servicios/${product.slug}`} className="product-card__booking-btn">
-                {monthlyPlansState === "empty" ? "Contratar servicio mensual" : flowConfig.cta}
+                {flowConfig.cta}
               </Button>
             )}
           </div>

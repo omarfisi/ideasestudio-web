@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getPublicMembershipPlansByService } from "@/lib/api.js";
 
 /**
@@ -15,6 +15,7 @@ const INERT_STATE = { plans: [], loading: false, error: null };
 export function useServiceMembershipPlans(serviceId, { enabled = true } = {}) {
   const active = Boolean(enabled && serviceId);
   const [state, setState] = useState({ plans: [], loading: active, error: null });
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     if (!active) return undefined;
@@ -38,8 +39,15 @@ export function useServiceMembershipPlans(serviceId, { enabled = true } = {}) {
     return () => {
       cancelled = true;
     };
-  }, [serviceId, active]);
+  }, [serviceId, active, retryToken]);
+
+  // Monthly-flow services never fall back to direct purchase, so a failed
+  // or empty plans fetch must offer a real way forward instead of a dead
+  // end — retry() re-runs the same request on demand.
+  const retry = useCallback(() => {
+    setRetryToken((token) => token + 1);
+  }, []);
 
   const effective = active ? state : INERT_STATE;
-  return { ...effective, hasPlans: effective.plans.length > 0 };
+  return { ...effective, hasPlans: effective.plans.length > 0, retry };
 }
