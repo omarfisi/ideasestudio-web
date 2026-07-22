@@ -14,6 +14,7 @@ import {
 import { Link, useLoaderData, useNavigate } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
 import ServiceMembershipPlansModal from "@/components/memberships/ServiceMembershipPlansModal.jsx";
+import ServiceMembershipPlansTrigger from "@/components/memberships/ServiceMembershipPlansTrigger.jsx";
 
 import { addProductToPublicCart, getPublicProducts } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
@@ -464,14 +465,18 @@ export default function ProductDetailPage() {
 
               <div className="service-detail-purchase__actions">
                 {showPlansAsPrimaryCta ? (
-                  <button
+                  <ServiceMembershipPlansTrigger
                     key="plans-cta"
-                    type="button"
-                    onClick={handleOpenPlansModal}
+                    serviceId={product.serviceId}
+                    serviceName={product.name}
+                    plans={membershipPlans}
+                    loading={membershipPlansLoading}
+                    error={membershipPlansError}
+                    hasPlans={hasMembershipPlans}
                     className="btn btn-primary service-detail-purchase__plans-btn"
                   >
                     Ver planes disponibles
-                  </button>
+                  </ServiceMembershipPlansTrigger>
                 ) : (
                   <Button
                     key="checkout-cta"
@@ -676,14 +681,18 @@ export default function ProductDetailPage() {
           <span>{product.name}</span>
         </div>
         {showPlansAsPrimaryCta ? (
-          <button
+          <ServiceMembershipPlansTrigger
             key="plans-cta"
-            type="button"
-            onClick={handleOpenPlansModal}
+            serviceId={product.serviceId}
+            serviceName={product.name}
+            plans={membershipPlans}
+            loading={membershipPlansLoading}
+            error={membershipPlansError}
+            hasPlans={hasMembershipPlans}
             className="btn btn-primary service-detail-mobile-cta__btn"
           >
             Ver planes disponibles
-          </button>
+          </ServiceMembershipPlansTrigger>
         ) : (
           <Button
             key="checkout-cta"
@@ -696,15 +705,12 @@ export default function ProductDetailPage() {
         )}
       </div>
 
-      {product.serviceId ? (
+      {!isMonthlyFlow && product.serviceId ? (
         <ServiceMembershipPlansModal
           serviceId={product.serviceId}
           serviceName={product.name}
           open={plansModalOpen}
           onClose={() => setPlansModalOpen(false)}
-          {...(isMonthlyFlow
-            ? { plans: membershipPlans, loading: membershipPlansLoading, error: membershipPlansError }
-            : {})}
         />
       ) : null}
     </section>
