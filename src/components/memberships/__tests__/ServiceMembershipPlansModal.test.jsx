@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { useState } from "react";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { readFileSync } from "node:fs";
@@ -323,5 +324,118 @@ describe("ServiceMembershipPlansModal — accessibility, no Stripe, responsive, 
   it("does not use alert() or window.confirm()", () => {
     expect(componentSource).not.toMatch(/\balert\(/);
     expect(componentSource).not.toMatch(/window\.confirm\(/);
+  });
+});
+
+// Regression tests for a real bug found in production: the caller
+// (ServiceMembershipPlansTrigger, ProductDetailPage) passed onClose as a
+// plain inline arrow function — a NEW function identity on every one of
+// THEIR renders, not just when open/close actually toggled. Since the
+// old code closed over `onClose` directly inside a useEffect keyed on
+// [open, onClose], any unrelated parent re-render while the modal was
+// open tore the effect down and rebuilt it: unlocking then re-locking
+// body scroll, removing then re-adding the Escape listener, and
+// re-running the focus/restore-focus logic — which, because .focus()
+// scrolls its target into view by default, made the page visibly jump
+// every single time. This is reproduced here with a wrapper that forces
+// unrelated re-renders while passing a fresh onClose each time, exactly
+// like the real callers did.
+describe("ServiceMembershipPlansModal — stable across unrelated parent re-renders", () => {
+  function RerenderingHost({ onEscapeClose }) {
+    const [tick, setTick] = useState(0);
+    return (
+      <MemoryRouter>
+        <button type="button" data-testid="force-rerender" onClick={() => setTick((t) => t + 1)}>
+          force rerender #{tick}
+        </button>
+        <ServiceMembershipPlansModal
+          serviceId="svc-1"
+          serviceName="Gestión de Redes Sociales"
+          open
+          // Deliberately a fresh arrow function every render — the exact
+          // shape of the real bug.
+          onClose={() => onEscapeClose()}
+        />
+      </MemoryRouter>
+    );
+  }
+
+  it("stays open and mounted across several unrelated parent re-renders", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValue([planByService({ name: "Plan Básico" })]);
+    const onEscapeClose = vi.fn();
+    render(<RerenderingHost onEscapeClose={onEscapeClose} />);
+    await screen.findByText("Plan Básico");
+
+    const forceRerender = screen.getByTestId("force-rerender");
+    for (let i = 0; i < 5; i += 1) {
+      fireEvent.click(forceRerender);
+    }
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Plan Básico")).toBeInTheDocument();
+    expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("sets body scroll lock exactly once, never toggling it off and back on during unrelated parent re-renders", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValue([]);
+    const onEscapeClose = vi.fn();
+
+    // Spies on every assignment to body.style.overflow (not just its
+    // value after the fact) — the old bug's teardown/rebuild cycle briefly
+    // restored the previous value before re-locking, which a simple
+    // post-hoc check of the final value can't detect since React runs
+    // the effect cleanup + re-run synchronously within the same
+    // fireEvent.click call.
+    const overflowSetSpy = vi.fn();
+    const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(document.body.style), "overflow");
+    Object.defineProperty(document.body.style, "overflow", {
+      configurable: true,
+      get() {
+        return descriptor.get.call(this);
+      },
+      set(value) {
+        overflowSetSpy(value);
+        descriptor.set.call(this, value);
+      },
+    });
+
+    render(<RerenderingHost onEscapeClose={onEscapeClose} />);
+    await screen.findByText("Planes disponibles para este servicio");
+    expect(document.body.style.overflow).toBe("hidden");
+
+    overflowSetSpy.mockClear();
+    const forceRerender = screen.getByTestId("force-rerender");
+    for (let i = 0; i < 5; i += 1) {
+      fireEvent.click(forceRerender);
+    }
+
+    expect(overflowSetSpy).not.toHaveBeenCalled();
+    delete document.body.style.overflow;
+  });
+
+  it("Escape still calls the latest onClose after unrelated parent re-renders (not a stale closure)", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValue([]);
+    const onEscapeClose = vi.fn();
+    render(<RerenderingHost onEscapeClose={onEscapeClose} />);
+    await screen.findByText("Planes disponibles para este servicio");
+
+    const forceRerender = screen.getByTestId("force-rerender");
+    for (let i = 0; i < 3; i += 1) {
+      fireEvent.click(forceRerender);
+    }
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onEscapeClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("focuses the close button with preventScroll on open (never causes the page to jump)", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValue([]);
+    const focusSpy = vi.spyOn(HTMLElement.prototype, "focus");
+    renderModal();
+    await screen.findByText("Planes disponibles para este servicio");
+    await waitFor(() =>
+      expect(focusSpy).toHaveBeenCalledWith(expect.objectContaining({ preventScroll: true }))
+    );
+    focusSpy.mockRestore();
   });
 });
