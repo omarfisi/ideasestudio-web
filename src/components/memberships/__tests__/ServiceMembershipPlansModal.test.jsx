@@ -242,6 +242,44 @@ describe("ServiceMembershipPlansModal — CTA", () => {
   });
 });
 
+describe("ServiceMembershipPlansModal — controlled mode (preloaded plans from the caller)", () => {
+  it("uses the plans prop directly and never fetches when plans is provided", async () => {
+    renderModal({ plans: [planByService({ name: "Plan Precargado" })], loading: false, error: null });
+    expect(await screen.findByText("Plan Precargado")).toBeInTheDocument();
+    expect(getPublicMembershipPlansByServiceMock).not.toHaveBeenCalled();
+  });
+
+  it("shows the loading skeleton when the controlled loading prop is true, without fetching", async () => {
+    const { container } = renderModal({ plans: [], loading: true, error: null });
+    await screen.findByText("Planes disponibles para este servicio");
+    expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
+    expect(getPublicMembershipPlansByServiceMock).not.toHaveBeenCalled();
+  });
+
+  it("shows the empty state when controlled plans resolved to an empty list", async () => {
+    renderModal({ plans: [], loading: false, error: null });
+    expect(
+      await screen.findByText("Este servicio todavía no está disponible dentro de un plan mensual.")
+    ).toBeInTheDocument();
+    expect(getPublicMembershipPlansByServiceMock).not.toHaveBeenCalled();
+  });
+
+  it("shows the error state when the controlled error prop is set, without fetching on its own first", async () => {
+    renderModal({ plans: [], loading: false, error: new Error("boom") });
+    expect(await screen.findByText("No pudimos cargar los planes disponibles.")).toBeInTheDocument();
+    expect(getPublicMembershipPlansByServiceMock).not.toHaveBeenCalled();
+  });
+
+  it("retry from a controlled error state falls back to the component's own fetch", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValue([planByService({ name: "Plan Recuperado" })]);
+    renderModal({ plans: [], loading: false, error: new Error("boom") });
+    const retryBtn = await screen.findByText("Reintentar");
+    fireEvent.click(retryBtn);
+    expect(await screen.findByText("Plan Recuperado")).toBeInTheDocument();
+    expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("ServiceMembershipPlansModal — accessibility, no Stripe, responsive, no hardcoding", () => {
   it("is a labeled dialog", async () => {
     getPublicMembershipPlansByServiceMock.mockResolvedValue([]);

@@ -19,11 +19,13 @@ import { addProductToPublicCart, getPublicProducts } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
 import { allowsServiceQuantity } from "@/lib/serviceFlowType.js";
 import {
+  getFlowBucket,
   getHowItWorksSteps,
   getIncludesItems,
   getPrimaryCtaLabel,
   getQuickFacts,
 } from "@/lib/serviceContentLabels.js";
+import { useServiceMembershipPlans } from "@/lib/useServiceMembershipPlans.js";
 
 const MAX_ADDITIONAL_GALLERY_IMAGES = 3;
 const MAX_VISIBLE_INCLUDES = 8;
@@ -133,6 +135,26 @@ export default function ProductDetailPage() {
     () => parseLongDescription(product?.longDescription),
     [product]
   );
+
+  // Services on the "monthly" purchase flow already have their own
+  // checkout-flow CTA labeled "Conocer planes" (CTA_LABELS.monthly in
+  // serviceContentLabels.js) — a real cart/checkout action, unrelated to
+  // membership plans. Once such a service actually has published plans,
+  // that checkout CTA is replaced by a single "Ver planes disponibles"
+  // button that opens the plans modal instead, so the page never shows
+  // two differently-behaved buttons with the same label. Only fetches
+  // when it can actually change what renders — non-monthly flows never
+  // pay for this request, exactly like before this change.
+  const isMonthlyFlow = useMemo(() => getFlowBucket(product) === "monthly", [product]);
+  const {
+    plans: membershipPlans,
+    loading: membershipPlansLoading,
+    error: membershipPlansError,
+    hasPlans: hasMembershipPlans,
+  } = useServiceMembershipPlans(product?.serviceId, {
+    enabled: isMonthlyFlow && Boolean(product?.serviceId),
+  });
+  const showPlansAsPrimaryCta = isMonthlyFlow && hasMembershipPlans && !membershipPlansLoading;
 
   const visibleIncludes = includesExpanded
     ? includesItems
@@ -428,13 +450,22 @@ export default function ProductDetailPage() {
               ) : null}
 
               <div className="service-detail-purchase__actions">
-                <Button
-                  onClick={() => handleCartAction("checkout")}
-                  disabled={pendingAction !== ""}
-                  className="service-detail-purchase__checkout-btn"
-                >
-                  {pendingAction === "checkout" ? "Procesando..." : primaryCtaLabel}
-                </Button>
+                {showPlansAsPrimaryCta ? (
+                  <Button
+                    onClick={() => setPlansModalOpen(true)}
+                    className="service-detail-purchase__plans-btn"
+                  >
+                    Ver planes disponibles
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => handleCartAction("checkout")}
+                    disabled={pendingAction !== ""}
+                    className="service-detail-purchase__checkout-btn"
+                  >
+                    {pendingAction === "checkout" ? "Procesando..." : primaryCtaLabel}
+                  </Button>
+                )}
                 <Button
                   variant="secondary"
                   onClick={() => handleCartAction("cart")}
@@ -445,7 +476,7 @@ export default function ProductDetailPage() {
                 </Button>
               </div>
 
-              {product.serviceId ? (
+              {!isMonthlyFlow && product.serviceId ? (
                 <Button
                   variant="secondary"
                   onClick={() => setPlansModalOpen(true)}
@@ -629,11 +660,17 @@ export default function ProductDetailPage() {
           <span>{product.name}</span>
         </div>
         <Button
-          onClick={() => handleCartAction("checkout")}
+          onClick={() =>
+            showPlansAsPrimaryCta ? setPlansModalOpen(true) : handleCartAction("checkout")
+          }
           disabled={pendingAction !== ""}
           className="service-detail-mobile-cta__btn"
         >
-          {pendingAction === "checkout" ? "Procesando..." : primaryCtaLabel}
+          {showPlansAsPrimaryCta
+            ? "Ver planes disponibles"
+            : pendingAction === "checkout"
+            ? "Procesando..."
+            : primaryCtaLabel}
         </Button>
       </div>
 
@@ -643,6 +680,9 @@ export default function ProductDetailPage() {
           serviceName={product.name}
           open={plansModalOpen}
           onClose={() => setPlansModalOpen(false)}
+          {...(isMonthlyFlow
+            ? { plans: membershipPlans, loading: membershipPlansLoading, error: membershipPlansError }
+            : {})}
         />
       ) : null}
     </section>
