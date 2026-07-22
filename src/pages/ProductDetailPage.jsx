@@ -292,6 +292,19 @@ export default function ProductDetailPage() {
     }
   }
 
+  // Native <button type="button"> on purpose, not the shared Button
+  // component — Button renders a plain <button> with no explicit `type`
+  // when it's given onClick but no `to`/`href`, which the browser
+  // defaults to type="submit". This opens ONLY the plans modal: it must
+  // never add anything to the cart or navigate to checkout, so it stops
+  // the click here instead of letting it bubble or (in a form context)
+  // submit anything.
+  function handleOpenPlansModal(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    setPlansModalOpen(true);
+  }
+
   function handleImageStep(direction) {
     if (!hasGallery) return;
     const lastIndex = galleryImages.length - 1;
@@ -451,14 +464,17 @@ export default function ProductDetailPage() {
 
               <div className="service-detail-purchase__actions">
                 {showPlansAsPrimaryCta ? (
-                  <Button
-                    onClick={() => setPlansModalOpen(true)}
-                    className="service-detail-purchase__plans-btn"
+                  <button
+                    key="plans-cta"
+                    type="button"
+                    onClick={handleOpenPlansModal}
+                    className="btn btn-primary service-detail-purchase__plans-btn"
                   >
                     Ver planes disponibles
-                  </Button>
+                  </button>
                 ) : (
                   <Button
+                    key="checkout-cta"
                     onClick={() => handleCartAction("checkout")}
                     disabled={pendingAction !== ""}
                     className="service-detail-purchase__checkout-btn"
@@ -477,13 +493,13 @@ export default function ProductDetailPage() {
               </div>
 
               {!isMonthlyFlow && product.serviceId ? (
-                <Button
-                  variant="secondary"
-                  onClick={() => setPlansModalOpen(true)}
-                  className="service-detail-purchase__plans-btn"
+                <button
+                  type="button"
+                  onClick={handleOpenPlansModal}
+                  className="btn btn-secondary service-detail-purchase__plans-btn"
                 >
                   Conocer planes
-                </Button>
+                </button>
               ) : null}
 
               <ul className="service-detail-purchase__trust">
@@ -659,19 +675,25 @@ export default function ProductDetailPage() {
           <strong>{getPriceLabel(product)}</strong>
           <span>{product.name}</span>
         </div>
-        <Button
-          onClick={() =>
-            showPlansAsPrimaryCta ? setPlansModalOpen(true) : handleCartAction("checkout")
-          }
-          disabled={pendingAction !== ""}
-          className="service-detail-mobile-cta__btn"
-        >
-          {showPlansAsPrimaryCta
-            ? "Ver planes disponibles"
-            : pendingAction === "checkout"
-            ? "Procesando..."
-            : primaryCtaLabel}
-        </Button>
+        {showPlansAsPrimaryCta ? (
+          <button
+            key="plans-cta"
+            type="button"
+            onClick={handleOpenPlansModal}
+            className="btn btn-primary service-detail-mobile-cta__btn"
+          >
+            Ver planes disponibles
+          </button>
+        ) : (
+          <Button
+            key="checkout-cta"
+            onClick={() => handleCartAction("checkout")}
+            disabled={pendingAction !== ""}
+            className="service-detail-mobile-cta__btn"
+          >
+            {pendingAction === "checkout" ? "Procesando..." : primaryCtaLabel}
+          </Button>
+        )}
       </div>
 
       {product.serviceId ? (

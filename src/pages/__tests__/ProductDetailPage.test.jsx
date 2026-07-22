@@ -181,6 +181,79 @@ describe("ProductDetailPage — single CTA for monthly-flow services with member
     expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalledTimes(1);
   });
 
+  // Regression test for a real bug found in manual testing: clicking
+  // "Ver planes disponibles" was triggering handleCartAction("checkout")
+  // instead of opening the modal, because the shared Button component
+  // renders a plain <button> with no explicit `type` when given onClick
+  // but no to/href — which the browser defaults to type="submit" — and
+  // both branches of the checkout/plans-modal ternary occupied the same
+  // position, so React could reuse the same DOM node across the async
+  // swap from "checkout CTA" to "plans CTA". Fixed with a native
+  // <button type="button">, explicit preventDefault/stopPropagation, and
+  // distinct `key`s on each ternary branch so the two are never the same
+  // element.
+  it("clicking 'Ver planes disponibles' never adds to cart or navigates to checkout — it is type=button and stays on the detail page", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValue([
+      { id: "plan-1", name: "Membresía Presencia — TEST" },
+      { id: "plan-2", name: "Membresía Crecimiento — TEST" },
+      { id: "plan-3", name: "Membresía Premium — TEST" },
+    ]);
+    renderPage(monthlyProduct());
+    await screen.findByRole("heading", { level: 1, name: "Gestión de Redes Sociales" });
+    await waitFor(() => expect(plansButton()).toHaveTextContent("Ver planes disponibles"));
+
+    expect(plansButton().type).toBe("button");
+
+    fireEvent.click(plansButton());
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Membresía Presencia — TEST")).toBeInTheDocument();
+    expect(screen.getByText("Membresía Crecimiento — TEST")).toBeInTheDocument();
+    expect(screen.getByText("Membresía Premium — TEST")).toBeInTheDocument();
+
+    // Never touched the cart / checkout flow.
+    expect(addProductToPublicCartMock).not.toHaveBeenCalled();
+    // Still on the product detail page — a real navigation to
+    // /servicios/checkout would unmount this heading (no matching route
+    // is registered for it in this test's router).
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Gestión de Redes Sociales" })
+    ).toBeInTheDocument();
+  });
+
+  it("the mobile sticky CTA also opens the modal (type=button) instead of checkout when plans are available", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValue([{ id: "plan-1", name: "Plan Básico" }]);
+    renderPage(monthlyProduct());
+    await screen.findByRole("heading", { level: 1, name: "Gestión de Redes Sociales" });
+    const mobileBtn = await waitFor(() => {
+      const el = document.querySelector(".service-detail-mobile-cta__btn");
+      expect(el).toHaveTextContent("Ver planes disponibles");
+      return el;
+    });
+
+    expect(mobileBtn.type).toBe("button");
+
+    fireEvent.click(mobileBtn);
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(addProductToPublicCartMock).not.toHaveBeenCalled();
+  });
+
+  it("closing the modal after opening it via 'Ver planes disponibles' does not navigate away", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValue([{ id: "plan-1", name: "Plan Básico" }]);
+    renderPage(monthlyProduct());
+    await screen.findByRole("heading", { level: 1, name: "Gestión de Redes Sociales" });
+    await waitFor(() => expect(plansButton()).toHaveTextContent("Ver planes disponibles"));
+    fireEvent.click(plansButton());
+    await screen.findByRole("dialog");
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Gestión de Redes Sociales" })
+    ).toBeInTheDocument();
+    expect(addProductToPublicCartMock).not.toHaveBeenCalled();
+  });
+
   it("falls back to the original checkout CTA when the service has no published plans — no 'Ver planes disponibles', no plans button", async () => {
     getPublicMembershipPlansByServiceMock.mockResolvedValue([]);
     renderPage(monthlyProduct());
