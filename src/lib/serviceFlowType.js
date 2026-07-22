@@ -223,6 +223,38 @@ export function allowsServiceQuantity(product) {
 }
 
 /**
+ * Resolves the public.services UUID a product is linked to, checking every
+ * naming convention this codebase's normalizers have used for it (camelCase
+ * and snake_case, top-level and nested in metadata) — never product.id,
+ * which is the store_products row's own id, not a service link.
+ *
+ * Defense-in-depth on top of normalizeProduct() (src/lib/api.js), which
+ * already resolves this correctly at the API-response layer: a real bug
+ * slipped through because the catalog LIST endpoint (GET /api/store/
+ * products) never included a top-level service_id — only
+ * metadata_json.source_service_id — while the single-product DETAIL
+ * endpoint did, so every catalog card silently got serviceId: null and
+ * fell back to a "no plans" state even though the linked service had
+ * published plans. Call sites (ProductCard, ProductDetailPage, membership
+ * hooks) should resolve through this function rather than reading
+ * product.serviceId directly, so a future normalizer gap in any one of
+ * them can't reintroduce the same silent failure.
+ */
+export function resolveProductServiceId(product) {
+  if (!product) return null;
+  const metadata = product.metadata || {};
+  return (
+    product.sourceServiceId ||
+    product.source_service_id ||
+    product.serviceId ||
+    product.service_id ||
+    metadata.source_service_id ||
+    metadata.service_id ||
+    null
+  );
+}
+
+/**
  * True when the product should surface a delivery cost line.
  */
 export function showsDeliveryCost(product) {

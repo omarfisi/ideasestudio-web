@@ -2999,6 +2999,28 @@
   color: #111111;
 }
 
+.product-card__plans-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.product-card__plans-retry {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #2f2f2f;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.product-card__plans-retry:hover {
+  color: #111111;
+}
+
 .service-detail-page {
   background: #ffffff;
 }
@@ -3316,6 +3338,28 @@
 
 .service-detail-purchase__checkout-btn {
   background: linear-gradient(180deg, #f7d95c 0%, #f1d146 100%);
+  color: #111111;
+}
+
+.service-detail-purchase__plans-fallback {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.service-detail-purchase__plans-retry {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #2f2f2f;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  text-align: left;
+}
+
+.service-detail-purchase__plans-retry:hover {
   color: #111111;
 }
 
@@ -3740,6 +3784,25 @@
   .service-detail-mobile-cta__btn {
     flex-shrink: 0;
     min-height: 44px;
+  }
+
+  .service-detail-mobile-cta__plans-fallback {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .service-detail-mobile-cta__plans-retry {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #2f2f2f;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
   }
 }
 

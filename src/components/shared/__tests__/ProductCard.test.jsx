@@ -78,6 +78,22 @@ describe("ProductCard — 'Ver detalles' link", () => {
 });
 
 describe("ProductCard — 'Conocer planes' opens the plans modal, never checkout", () => {
+  // Defense-in-depth companion to src/lib/__tests__/api.normalizeProduct.test.js
+  // (which proves the real API-layer bug — the catalog LIST endpoint never
+  // returning a top-level service_id — is fixed): confirms this component
+  // resolves the service link via resolveProductServiceId(), not just
+  // product.serviceId, so a future normalizer gap can't silently disable
+  // the plans fetch again.
+  it("resolves the service id via source_service_id when serviceId is missing from the product data", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValue([{ id: "plan-1", name: "Plan Básico" }]);
+    renderCard({
+      product: monthlyProduct({ serviceId: undefined, source_service_id: "svc-redes-raw" }),
+      onAddToCart: vi.fn(),
+    });
+    await waitFor(() => expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalledWith("svc-redes-raw"));
+    await waitFor(() => expect(catalogPlansButton()).toHaveTextContent("Conocer planes"));
+  });
+
   it("shows 'Conocer planes' and opens the modal directly when the service has published plans", async () => {
     getPublicMembershipPlansByServiceMock.mockResolvedValue([
       { id: "plan-1", name: "Membresía Crecimiento — TEST" },
@@ -136,25 +152,35 @@ describe("ProductCard — 'Conocer planes' opens the plans modal, never checkout
     expect(screen.queryByTestId("location")).not.toHaveTextContent("gestion-de-redes-sociales");
   });
 
-  // Regression test for a real bug found in manual testing: the fallback
-  // button for a monthly-flow service with no published plans used to
-  // render flowConfig.cta ("Conocer planes" for E_MONTHLY —
-  // serviceFlowType.js) wired to onAddToCart — a button with the SAME
-  // text as the plans-modal trigger that silently added the base service
-  // to the cart. Relabeled "Contratar servicio mensual" so it can never
-  // be confused with the modal CTA.
-  it("falls back to a relabeled 'Contratar servicio mensual' CTA when the service has no published plans yet — never 'Conocer planes'", async () => {
-    getPublicMembershipPlansByServiceMock.mockResolvedValue([]);
+  // Regression test for the second real bug found in production: even
+  // after relabeling the empty-state fallback to "Contratar servicio
+  // mensual", it was STILL wired to onAddToCart — clicking it added the
+  // base service straight to the cart, exactly what a monthly-flow
+  // service must never do. E_MONTHLY now has zero direct-purchase path in
+  // any state, including empty: only a disabled status message and a
+  // "Reintentar" button that re-runs the plans fetch.
+  it("shows a disabled 'Planes no disponibles temporalmente' placeholder with a working Reintentar — never calls onAddToCart, never 'Conocer planes'", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      { id: "plan-1", name: "Membresía Crecimiento — TEST" },
+    ]);
     const onAddToCart = vi.fn();
     renderCard({ onAddToCart });
-    await waitFor(() => expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalled());
+    await waitFor(() => expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.queryByText("Conocer planes")).not.toBeInTheDocument();
+
     const btn = catalogPlansButton();
     expect(btn).not.toBeNull();
-    expect(btn).toHaveTextContent("Contratar servicio mensual");
+    expect(btn).toHaveTextContent("Planes no disponibles temporalmente");
+    expect(btn).toBeDisabled();
     fireEvent.click(btn);
-    expect(onAddToCart).toHaveBeenCalledWith(expect.objectContaining({ slug: "gestion-de-redes-sociales" }));
+    expect(onAddToCart).not.toHaveBeenCalled();
+
+    const retryBtn = screen.getByRole("button", { name: "Reintentar" });
+    fireEvent.click(retryBtn);
+    await waitFor(() => expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(catalogPlansButton()).toHaveTextContent("Conocer planes"));
+    expect(onAddToCart).not.toHaveBeenCalled();
   });
 
   // Regression test for the actual root cause: while the plans request is
@@ -187,8 +213,10 @@ describe("ProductCard — 'Conocer planes' opens the plans modal, never checkout
     await waitFor(() => expect(catalogPlansButton()).toHaveTextContent("Conocer planes"));
   });
 
-  it("shows a disabled error placeholder if the plans request fails — never falls back to onAddToCart", async () => {
-    getPublicMembershipPlansByServiceMock.mockRejectedValue(new Error("boom"));
+  it("shows a disabled error placeholder if the plans request fails, with a Reintentar that retries — never falls back to onAddToCart", async () => {
+    getPublicMembershipPlansByServiceMock
+      .mockRejectedValueOnce(new Error("boom"))
+      .mockResolvedValueOnce([{ id: "plan-1", name: "Membresía Crecimiento — TEST" }]);
     const onAddToCart = vi.fn();
     renderCard({ onAddToCart });
 
@@ -201,6 +229,11 @@ describe("ProductCard — 'Conocer planes' opens the plans modal, never checkout
     expect(screen.queryByText("Conocer planes")).not.toBeInTheDocument();
 
     fireEvent.click(btn);
+    expect(onAddToCart).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    await waitFor(() => expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(catalogPlansButton()).toHaveTextContent("Conocer planes"));
     expect(onAddToCart).not.toHaveBeenCalled();
   });
 });

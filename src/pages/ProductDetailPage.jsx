@@ -18,7 +18,7 @@ import ServiceMembershipPlansTrigger from "@/components/memberships/ServiceMembe
 
 import { addProductToPublicCart, getPublicProducts } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
-import { allowsServiceQuantity } from "@/lib/serviceFlowType.js";
+import { allowsServiceQuantity, resolveProductServiceId } from "@/lib/serviceFlowType.js";
 import {
   getFlowBucket,
   getHowItWorksSteps,
@@ -147,13 +147,15 @@ export default function ProductDetailPage() {
   // when it can actually change what renders — non-monthly flows never
   // pay for this request, exactly like before this change.
   const isMonthlyFlow = useMemo(() => getFlowBucket(product) === "monthly", [product]);
+  const resolvedServiceId = useMemo(() => resolveProductServiceId(product), [product]);
   const {
     plans: membershipPlans,
     loading: membershipPlansLoading,
     error: membershipPlansError,
     hasPlans: hasMembershipPlans,
-  } = useServiceMembershipPlans(product?.serviceId, {
-    enabled: isMonthlyFlow && Boolean(product?.serviceId),
+    retry: retryMembershipPlans,
+  } = useServiceMembershipPlans(resolvedServiceId, {
+    enabled: isMonthlyFlow && Boolean(resolvedServiceId),
   });
   // Every state below is mutually exclusive and covers the full
   // isMonthlyFlow lifecycle explicitly — no fallback branch may ever
@@ -489,18 +491,22 @@ export default function ProductDetailPage() {
                     Cargando planes…
                   </Button>
                 ) : monthlyPlansState === "error" ? (
-                  <Button
-                    key="plans-error"
-                    type="button"
-                    disabled
-                    className="service-detail-purchase__checkout-btn"
-                  >
-                    No se pudieron cargar los planes
-                  </Button>
+                  <div key="plans-error" className="service-detail-purchase__plans-fallback">
+                    <Button type="button" disabled className="service-detail-purchase__checkout-btn">
+                      No se pudieron cargar los planes
+                    </Button>
+                    <button
+                      type="button"
+                      className="service-detail-purchase__plans-retry"
+                      onClick={retryMembershipPlans}
+                    >
+                      Reintentar
+                    </button>
+                  </div>
                 ) : monthlyPlansState === "ready" ? (
                   <ServiceMembershipPlansTrigger
                     key="plans-cta"
-                    serviceId={product.serviceId}
+                    serviceId={resolvedServiceId}
                     serviceName={product.name}
                     plans={membershipPlans}
                     loading={membershipPlansLoading}
@@ -510,6 +516,19 @@ export default function ProductDetailPage() {
                   >
                     Ver planes disponibles
                   </ServiceMembershipPlansTrigger>
+                ) : monthlyPlansState === "empty" ? (
+                  <div key="plans-empty" className="service-detail-purchase__plans-fallback">
+                    <Button type="button" disabled className="service-detail-purchase__checkout-btn">
+                      Planes no disponibles temporalmente
+                    </Button>
+                    <button
+                      type="button"
+                      className="service-detail-purchase__plans-retry"
+                      onClick={retryMembershipPlans}
+                    >
+                      Reintentar
+                    </button>
+                  </div>
                 ) : (
                   <Button
                     key="checkout-cta"
@@ -517,24 +536,22 @@ export default function ProductDetailPage() {
                     disabled={pendingAction !== ""}
                     className="service-detail-purchase__checkout-btn"
                   >
-                    {pendingAction === "checkout"
-                      ? "Procesando..."
-                      : monthlyPlansState === "empty"
-                      ? "Contratar servicio mensual"
-                      : primaryCtaLabel}
+                    {pendingAction === "checkout" ? "Procesando..." : primaryCtaLabel}
                   </Button>
                 )}
-                <Button
-                  variant="secondary"
-                  onClick={() => handleCartAction("cart")}
-                  disabled={pendingAction !== ""}
-                  className="service-detail-purchase__summary-btn"
-                >
-                  {pendingAction === "cart" ? "Añadiendo..." : "Añadir al resumen"}
-                </Button>
+                {!isMonthlyFlow ? (
+                  <Button
+                    variant="secondary"
+                    onClick={() => handleCartAction("cart")}
+                    disabled={pendingAction !== ""}
+                    className="service-detail-purchase__summary-btn"
+                  >
+                    {pendingAction === "cart" ? "Añadiendo..." : "Añadir al resumen"}
+                  </Button>
+                ) : null}
               </div>
 
-              {!isMonthlyFlow && product.serviceId ? (
+              {!isMonthlyFlow && resolvedServiceId ? (
                 <button
                   type="button"
                   onClick={handleOpenPlansModal}
@@ -722,13 +739,22 @@ export default function ProductDetailPage() {
             Cargando planes…
           </Button>
         ) : monthlyPlansState === "error" ? (
-          <Button key="plans-error" type="button" disabled className="service-detail-mobile-cta__btn">
-            No se pudieron cargar los planes
-          </Button>
+          <div key="plans-error" className="service-detail-mobile-cta__plans-fallback">
+            <Button type="button" disabled className="service-detail-mobile-cta__btn">
+              No se pudieron cargar los planes
+            </Button>
+            <button
+              type="button"
+              className="service-detail-mobile-cta__plans-retry"
+              onClick={retryMembershipPlans}
+            >
+              Reintentar
+            </button>
+          </div>
         ) : monthlyPlansState === "ready" ? (
           <ServiceMembershipPlansTrigger
             key="plans-cta"
-            serviceId={product.serviceId}
+            serviceId={resolvedServiceId}
             serviceName={product.name}
             plans={membershipPlans}
             loading={membershipPlansLoading}
@@ -738,6 +764,19 @@ export default function ProductDetailPage() {
           >
             Ver planes disponibles
           </ServiceMembershipPlansTrigger>
+        ) : monthlyPlansState === "empty" ? (
+          <div key="plans-empty" className="service-detail-mobile-cta__plans-fallback">
+            <Button type="button" disabled className="service-detail-mobile-cta__btn">
+              Planes no disponibles temporalmente
+            </Button>
+            <button
+              type="button"
+              className="service-detail-mobile-cta__plans-retry"
+              onClick={retryMembershipPlans}
+            >
+              Reintentar
+            </button>
+          </div>
         ) : (
           <Button
             key="checkout-cta"
@@ -745,18 +784,14 @@ export default function ProductDetailPage() {
             disabled={pendingAction !== ""}
             className="service-detail-mobile-cta__btn"
           >
-            {pendingAction === "checkout"
-              ? "Procesando..."
-              : monthlyPlansState === "empty"
-              ? "Contratar servicio mensual"
-              : primaryCtaLabel}
+            {pendingAction === "checkout" ? "Procesando..." : primaryCtaLabel}
           </Button>
         )}
       </div>
 
-      {!isMonthlyFlow && product.serviceId ? (
+      {!isMonthlyFlow && resolvedServiceId ? (
         <ServiceMembershipPlansModal
-          serviceId={product.serviceId}
+          serviceId={resolvedServiceId}
           serviceName={product.name}
           open={plansModalOpen}
           onClose={() => setPlansModalOpen(false)}

@@ -161,6 +161,20 @@ function monthlyProduct(overrides = {}) {
 }
 
 describe("ProductDetailPage — single CTA for monthly-flow services with membership plans", () => {
+  // Defense-in-depth companion to src/lib/__tests__/api.normalizeProduct.test.js
+  // (which proves the real API-layer bug is fixed): confirms this page
+  // resolves the service link via resolveProductServiceId() — checking
+  // source_service_id, not just serviceId — rather than trusting
+  // product.serviceId directly, so a future gap in the normalizer can't
+  // silently disable the plans fetch again.
+  it("resolves the service id via source_service_id when serviceId is missing from the product data", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValue([{ id: "plan-1", name: "Plan Básico" }]);
+    renderPage(monthlyProduct({ serviceId: undefined, source_service_id: "svc-redes-raw" }));
+    await screen.findByRole("heading", { level: 1, name: "Gestión de Redes Sociales" });
+    await waitFor(() => expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalledWith("svc-redes-raw"));
+    await waitFor(() => expect(plansButton()).toHaveTextContent("Ver planes disponibles"));
+  });
+
   it("shows only 'Ver planes disponibles' when the service has published plans — no duplicate 'Conocer planes'", async () => {
     getPublicMembershipPlansByServiceMock.mockResolvedValue([{ id: "plan-1", name: "Plan Básico" }]);
     renderPage(monthlyProduct());
@@ -254,33 +268,40 @@ describe("ProductDetailPage — single CTA for monthly-flow services with member
     expect(addProductToPublicCartMock).not.toHaveBeenCalled();
   });
 
-  // Regression test for a real bug found in manual testing: when a
-  // monthly-flow service genuinely has no published plans, the fallback
-  // button used to render primaryCtaLabel ("Conocer planes" for
-  // E_MONTHLY — CTA_LABELS.monthly in serviceContentLabels.js) wired to
-  // handleCartAction("checkout"), so a button with the SAME text as the
-  // plans-modal trigger silently added the base service to the cart and
-  // navigated straight to /servicios/checkout. The fallback is now
-  // relabeled "Contratar servicio mensual" so it can never be confused
-  // with the plans-modal CTA, in any state.
-  it("relabels the direct-purchase fallback to 'Contratar servicio mensual' when the service has no published plans — never 'Conocer planes'", async () => {
-    getPublicMembershipPlansByServiceMock.mockResolvedValue([]);
+  // Regression test for the second real bug found in production: even
+  // after relabeling the empty-state fallback to "Contratar servicio
+  // mensual", it was STILL wired to handleCartAction("checkout") — clicking
+  // it added the base service to the cart and navigated to
+  // /servicios/checkout, exactly what a monthly-flow service must never
+  // do. E_MONTHLY now has zero direct-purchase path in any state,
+  // including empty: only a disabled status message and a working
+  // "Reintentar" that re-runs the plans fetch. "Añadir al resumen" is
+  // also hidden entirely for monthly-flow services — that secondary
+  // button used to render unconditionally regardless of flow type.
+  it("shows a disabled 'Planes no disponibles temporalmente' placeholder with a working Reintentar when the service has no published plans — never 'Conocer planes', never a cart/checkout action, no 'Añadir al resumen'", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      { id: "plan-1", name: "Plan Básico" },
+    ]);
     renderPage(monthlyProduct());
     await screen.findByRole("heading", { level: 1, name: "Gestión de Redes Sociales" });
-    await waitFor(() => expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalled());
+    await waitFor(() => expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalledTimes(1));
     expect(screen.queryByText("Ver planes disponibles")).not.toBeInTheDocument();
     expect(plansButton()).toBeNull();
     expect(screen.queryByText("Conocer planes")).not.toBeInTheDocument();
-    expect(checkoutButton()).toHaveTextContent("Contratar servicio mensual");
-    // The mobile sticky bar mirrors the same single logical CTA in the
-    // DOM (visibility is CSS-controlled, not a second conditional
-    // branch) — so exactly two "Contratar servicio mensual" elements is
-    // correct (desktop + mobile), never a third from a stray plans
-    // button.
-    expect(screen.getAllByText("Contratar servicio mensual").length).toBe(2);
-    expect(document.querySelector(".service-detail-mobile-cta__btn")).toHaveTextContent(
-      "Contratar servicio mensual"
-    );
+    expect(screen.queryByText("Añadir al resumen")).not.toBeInTheDocument();
+
+    const placeholders = screen.getAllByText("Planes no disponibles temporalmente");
+    expect(placeholders.length).toBe(2); // desktop + mobile
+    placeholders.forEach((el) => expect(el.closest("button")).toBeDisabled());
+    fireEvent.click(placeholders[0]);
+    expect(addProductToPublicCartMock).not.toHaveBeenCalled();
+
+    const retryButtons = screen.getAllByRole("button", { name: "Reintentar" });
+    expect(retryButtons.length).toBe(2); // desktop + mobile
+    fireEvent.click(retryButtons[0]);
+    await waitFor(() => expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(plansButton()).toHaveTextContent("Ver planes disponibles"));
+    expect(addProductToPublicCartMock).not.toHaveBeenCalled();
   });
 
   // Regression test for the actual root cause of the reported bug: while
@@ -314,11 +335,13 @@ describe("ProductDetailPage — single CTA for monthly-flow services with member
     expect(screen.queryByText("Cargando planes…")).not.toBeInTheDocument();
   });
 
-  it("shows a disabled error placeholder if the plans request fails — never falls back to the checkout CTA", async () => {
-    getPublicMembershipPlansByServiceMock.mockRejectedValue(new Error("boom"));
+  it("shows a disabled error placeholder with a working Reintentar if the plans request fails — never falls back to the checkout CTA", async () => {
+    getPublicMembershipPlansByServiceMock
+      .mockRejectedValueOnce(new Error("boom"))
+      .mockResolvedValueOnce([{ id: "plan-1", name: "Plan Básico" }]);
     renderPage(monthlyProduct());
     await screen.findByRole("heading", { level: 1, name: "Gestión de Redes Sociales" });
-    await waitFor(() => expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalled());
+    await waitFor(() => expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalledTimes(1));
 
     const errorButtons = screen.getAllByText("No se pudieron cargar los planes");
     expect(errorButtons.length).toBe(2); // desktop + mobile
@@ -327,6 +350,13 @@ describe("ProductDetailPage — single CTA for monthly-flow services with member
     expect(screen.queryByText("Conocer planes")).not.toBeInTheDocument();
 
     fireEvent.click(errorButtons[0]);
+    expect(addProductToPublicCartMock).not.toHaveBeenCalled();
+
+    const retryButtons = screen.getAllByRole("button", { name: "Reintentar" });
+    expect(retryButtons.length).toBe(2); // desktop + mobile
+    fireEvent.click(retryButtons[0]);
+    await waitFor(() => expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(plansButton()).toHaveTextContent("Ver planes disponibles"));
     expect(addProductToPublicCartMock).not.toHaveBeenCalled();
   });
 
