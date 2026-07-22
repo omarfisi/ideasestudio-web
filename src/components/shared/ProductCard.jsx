@@ -115,7 +115,21 @@ export default function ProductCard({
     useServiceMembershipPlans(product?.serviceId, {
       enabled: isMonthlyFlow && Boolean(product?.serviceId),
     });
-  const showPlansTrigger = isMonthlyFlow && hasMembershipPlans;
+  // Every state below is mutually exclusive and covers the full
+  // isMonthlyFlow lifecycle explicitly — no fallback branch may ever
+  // render a button labeled "Conocer planes" (flowConfig.cta for
+  // E_MONTHLY) wired to onAddToCart, which is what silently added the
+  // base service to the cart while plans were still loading, errored,
+  // or genuinely didn't exist.
+  const monthlyPlansState = !isMonthlyFlow
+    ? null
+    : membershipPlansLoading
+    ? "loading"
+    : membershipPlansError
+    ? "error"
+    : hasMembershipPlans
+    ? "ready"
+    : "empty";
   const duration = getDurationLabel(product);
   const segment = getSegmentLabel(product);
   // Category is already shown as an overlay badge — avoid repeating it in the subtitle
@@ -208,7 +222,15 @@ export default function ProductCard({
             <Link to={`/servicios/${product.slug}`} className="product-card__details-link">
               Ver detalles
             </Link>
-            {showPlansTrigger ? (
+            {monthlyPlansState === "loading" ? (
+              <Button type="button" disabled className="product-card__booking-btn">
+                Cargando planes…
+              </Button>
+            ) : monthlyPlansState === "error" ? (
+              <Button type="button" disabled className="product-card__booking-btn">
+                No se pudieron cargar los planes
+              </Button>
+            ) : monthlyPlansState === "ready" ? (
               <ServiceMembershipPlansTrigger
                 serviceId={product.serviceId}
                 serviceName={product.name}
@@ -226,11 +248,15 @@ export default function ProductCard({
                 disabled={addState === "loading"}
                 className="product-card__booking-btn"
               >
-                {addState === "loading" ? "Agregando..." : flowConfig.cta}
+                {addState === "loading"
+                  ? "Agregando..."
+                  : monthlyPlansState === "empty"
+                  ? "Contratar servicio mensual"
+                  : flowConfig.cta}
               </Button>
             ) : (
               <Button to={`/servicios/${product.slug}`} className="product-card__booking-btn">
-                {flowConfig.cta}
+                {monthlyPlansState === "empty" ? "Contratar servicio mensual" : flowConfig.cta}
               </Button>
             )}
           </div>

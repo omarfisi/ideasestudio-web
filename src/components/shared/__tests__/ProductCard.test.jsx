@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 
 const getPublicMembershipPlansByServiceMock = vi.fn();
 vi.mock("@/lib/api.js", () => ({
@@ -45,10 +45,16 @@ function bookingProduct(overrides = {}) {
   };
 }
 
+function LocationDisplay() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname}</div>;
+}
+
 function renderCard(props = {}) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={["/servicios"]}>
       <ProductCard product={monthlyProduct()} {...props} />
+      <LocationDisplay />
     </MemoryRouter>
   );
 }
@@ -108,16 +114,94 @@ describe("ProductCard — 'Conocer planes' opens the plans modal, never checkout
     expect(screen.getByText("Gestión de Redes Sociales")).toBeInTheDocument();
   });
 
-  it("falls back to the existing onAddToCart CTA when the service has no published plans yet", async () => {
+  it("does not change the URL when the modal opens", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValue([{ id: "plan-1", name: "Plan Básico" }]);
+    renderCard({ onAddToCart: vi.fn() });
+    await waitFor(() => expect(catalogPlansButton()).toHaveTextContent("Conocer planes"));
+    expect(screen.getByTestId("location")).toHaveTextContent("/servicios");
+    fireEvent.click(catalogPlansButton());
+    await screen.findByRole("dialog");
+    expect(screen.getByTestId("location")).toHaveTextContent("/servicios");
+  });
+
+  it("clicking the CTA does not trigger the card's 'Ver detalles' Link", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValue([{ id: "plan-1", name: "Plan Básico" }]);
+    renderCard({ onAddToCart: vi.fn() });
+    await waitFor(() => expect(catalogPlansButton()).toHaveTextContent("Conocer planes"));
+    fireEvent.click(catalogPlansButton());
+    await screen.findByRole("dialog");
+    // A click on "Ver detalles" would have navigated to the product slug —
+    // still on /servicios confirms the CTA click never reached that Link.
+    expect(screen.getByTestId("location")).toHaveTextContent("/servicios");
+    expect(screen.queryByTestId("location")).not.toHaveTextContent("gestion-de-redes-sociales");
+  });
+
+  // Regression test for a real bug found in manual testing: the fallback
+  // button for a monthly-flow service with no published plans used to
+  // render flowConfig.cta ("Conocer planes" for E_MONTHLY —
+  // serviceFlowType.js) wired to onAddToCart — a button with the SAME
+  // text as the plans-modal trigger that silently added the base service
+  // to the cart. Relabeled "Contratar servicio mensual" so it can never
+  // be confused with the modal CTA.
+  it("falls back to a relabeled 'Contratar servicio mensual' CTA when the service has no published plans yet — never 'Conocer planes'", async () => {
     getPublicMembershipPlansByServiceMock.mockResolvedValue([]);
     const onAddToCart = vi.fn();
     renderCard({ onAddToCart });
     await waitFor(() => expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalled());
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByText("Conocer planes")).not.toBeInTheDocument();
     const btn = catalogPlansButton();
     expect(btn).not.toBeNull();
+    expect(btn).toHaveTextContent("Contratar servicio mensual");
     fireEvent.click(btn);
     expect(onAddToCart).toHaveBeenCalledWith(expect.objectContaining({ slug: "gestion-de-redes-sociales" }));
+  });
+
+  // Regression test for the actual root cause: while the plans request is
+  // still in flight, hasMembershipPlans is false (useServiceMembershipPlans
+  // starts with plans: []), which used to fall through to the SAME
+  // checkout-wired "Conocer planes" button described above — a real race
+  // every catalog page load hits, however briefly.
+  it("shows a disabled 'Cargando planes…' placeholder while the request is in flight — never calls onAddToCart", async () => {
+    let resolvePromise;
+    getPublicMembershipPlansByServiceMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolvePromise = resolve;
+      })
+    );
+    const onAddToCart = vi.fn();
+    renderCard({ onAddToCart });
+
+    const btn = await waitFor(() => {
+      const el = catalogPlansButton();
+      expect(el).toHaveTextContent("Cargando planes…");
+      return el;
+    });
+    expect(btn).toBeDisabled();
+    expect(screen.queryByText("Conocer planes")).not.toBeInTheDocument();
+
+    fireEvent.click(btn);
+    expect(onAddToCart).not.toHaveBeenCalled();
+
+    resolvePromise([{ id: "plan-1", name: "Plan Básico" }]);
+    await waitFor(() => expect(catalogPlansButton()).toHaveTextContent("Conocer planes"));
+  });
+
+  it("shows a disabled error placeholder if the plans request fails — never falls back to onAddToCart", async () => {
+    getPublicMembershipPlansByServiceMock.mockRejectedValue(new Error("boom"));
+    const onAddToCart = vi.fn();
+    renderCard({ onAddToCart });
+
+    const btn = await waitFor(() => {
+      const el = catalogPlansButton();
+      expect(el).toHaveTextContent("No se pudieron cargar los planes");
+      return el;
+    });
+    expect(btn).toBeDisabled();
+    expect(screen.queryByText("Conocer planes")).not.toBeInTheDocument();
+
+    fireEvent.click(btn);
+    expect(onAddToCart).not.toHaveBeenCalled();
   });
 });
 

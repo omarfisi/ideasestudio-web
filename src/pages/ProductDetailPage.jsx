@@ -155,7 +155,22 @@ export default function ProductDetailPage() {
   } = useServiceMembershipPlans(product?.serviceId, {
     enabled: isMonthlyFlow && Boolean(product?.serviceId),
   });
-  const showPlansAsPrimaryCta = isMonthlyFlow && hasMembershipPlans && !membershipPlansLoading;
+  // Every state below is mutually exclusive and covers the full
+  // isMonthlyFlow lifecycle explicitly — no fallback branch may ever
+  // render a button labeled with primaryCtaLabel (which equals
+  // "Conocer planes" for E_MONTHLY) wired to handleCartAction, which is
+  // what silently added the base service to the cart (and, on
+  // "checkout", navigated straight to /servicios/checkout) while plans
+  // were still loading, errored, or genuinely didn't exist.
+  const monthlyPlansState = !isMonthlyFlow
+    ? null
+    : membershipPlansLoading
+    ? "loading"
+    : membershipPlansError
+    ? "error"
+    : hasMembershipPlans
+    ? "ready"
+    : "empty";
 
   const visibleIncludes = includesExpanded
     ? includesItems
@@ -464,7 +479,25 @@ export default function ProductDetailPage() {
               ) : null}
 
               <div className="service-detail-purchase__actions">
-                {showPlansAsPrimaryCta ? (
+                {monthlyPlansState === "loading" ? (
+                  <Button
+                    key="plans-loading"
+                    type="button"
+                    disabled
+                    className="service-detail-purchase__checkout-btn"
+                  >
+                    Cargando planes…
+                  </Button>
+                ) : monthlyPlansState === "error" ? (
+                  <Button
+                    key="plans-error"
+                    type="button"
+                    disabled
+                    className="service-detail-purchase__checkout-btn"
+                  >
+                    No se pudieron cargar los planes
+                  </Button>
+                ) : monthlyPlansState === "ready" ? (
                   <ServiceMembershipPlansTrigger
                     key="plans-cta"
                     serviceId={product.serviceId}
@@ -484,7 +517,11 @@ export default function ProductDetailPage() {
                     disabled={pendingAction !== ""}
                     className="service-detail-purchase__checkout-btn"
                   >
-                    {pendingAction === "checkout" ? "Procesando..." : primaryCtaLabel}
+                    {pendingAction === "checkout"
+                      ? "Procesando..."
+                      : monthlyPlansState === "empty"
+                      ? "Contratar servicio mensual"
+                      : primaryCtaLabel}
                   </Button>
                 )}
                 <Button
@@ -680,7 +717,15 @@ export default function ProductDetailPage() {
           <strong>{getPriceLabel(product)}</strong>
           <span>{product.name}</span>
         </div>
-        {showPlansAsPrimaryCta ? (
+        {monthlyPlansState === "loading" ? (
+          <Button key="plans-loading" type="button" disabled className="service-detail-mobile-cta__btn">
+            Cargando planes…
+          </Button>
+        ) : monthlyPlansState === "error" ? (
+          <Button key="plans-error" type="button" disabled className="service-detail-mobile-cta__btn">
+            No se pudieron cargar los planes
+          </Button>
+        ) : monthlyPlansState === "ready" ? (
           <ServiceMembershipPlansTrigger
             key="plans-cta"
             serviceId={product.serviceId}
@@ -700,7 +745,11 @@ export default function ProductDetailPage() {
             disabled={pendingAction !== ""}
             className="service-detail-mobile-cta__btn"
           >
-            {pendingAction === "checkout" ? "Procesando..." : primaryCtaLabel}
+            {pendingAction === "checkout"
+              ? "Procesando..."
+              : monthlyPlansState === "empty"
+              ? "Contratar servicio mensual"
+              : primaryCtaLabel}
           </Button>
         )}
       </div>
