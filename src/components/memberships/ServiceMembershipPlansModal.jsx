@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getPublicMembershipPlansByService } from "@/lib/api.js";
 import MembershipPlanCards, { PlanCardSkeleton } from "@/components/memberships/MembershipPlanCards.jsx";
 
@@ -7,19 +8,50 @@ const FOCUSABLE_SELECTOR =
 
 /**
  * Modal showing only the membership plans that include one specific
- * service. Fetches on open (does not depend on the general catalog or
- * any route), closes on Escape/backdrop click, traps focus while open,
+ * service. Closes on Escape/backdrop click, traps focus while open,
  * locks background scroll, and restores focus to whatever triggered it.
+ *
+ * By default it fetches on open (does not depend on the general catalog
+ * or any route) — but a caller that already knows the plans (e.g.
+ * ProductDetailPage, which needs that same answer to decide which CTA to
+ * show before the modal even opens) can pass `plans`/`loading`/`error`
+ * directly, and this component uses them as-is instead of firing its own
+ * request. If the controlled `error` state is hit, "Reintentar" falls
+ * back to the component's own fetch — the caller isn't expected to wire
+ * up a retry path for a modal it isn't rendering yet.
  */
-export default function ServiceMembershipPlansModal({ serviceId, serviceName, open, onClose }) {
+export default function ServiceMembershipPlansModal({
+  serviceId,
+  serviceName,
+  open,
+  onClose,
+  plans: controlledPlans,
+  loading: controlledLoading,
+  error: controlledError,
+}) {
+  const isControlled = controlledPlans !== undefined;
   const [status, setStatus] = useState("idle");
   const [plans, setPlans] = useState([]);
+  const [useLocalState, setUseLocalState] = useState(!isControlled);
   const panelRef = useRef(null);
   const closeButtonRef = useRef(null);
   const previouslyFocusedRef = useRef(null);
+  const navigate = useNavigate();
+
+  // "Seleccionar este plan" never adds anything to a cart and never
+  // calls the backend from here — it only carries the selection to the
+  // dedicated membership checkout via router state. That destination
+  // page re-validates plan+service against the backend itself (see
+  // MembershipCheckoutPage) rather than trusting this payload alone.
+  function handleSelectPlan(plan) {
+    navigate("/membresias/checkout", {
+      state: { membershipPlanId: plan.id, serviceId },
+    });
+  }
 
   async function load() {
     if (!serviceId) return;
+    setUseLocalState(true);
     setStatus("loading");
     try {
       const items = await getPublicMembershipPlansByService(serviceId);
@@ -33,9 +65,21 @@ export default function ServiceMembershipPlansModal({ serviceId, serviceName, op
   useEffect(() => {
     if (!open) return;
     previouslyFocusedRef.current = document.activeElement;
-    load();
+    setUseLocalState(!isControlled);
+    if (!isControlled) {
+      load();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, serviceId]);
+
+  const effectivePlans = useLocalState ? plans : controlledPlans;
+  const effectiveStatus = useLocalState
+    ? status
+    : controlledError
+    ? "error"
+    : controlledLoading
+    ? "loading"
+    : "ready";
 
   useEffect(() => {
     if (!open) return undefined;
@@ -91,9 +135,12 @@ export default function ServiceMembershipPlansModal({ serviceId, serviceName, op
         role="dialog"
         aria-modal="true"
         aria-labelledby="service-membership-plans-modal-title"
-        className="card-light flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl p-0 sm:rounded-2xl"
+        className="card-light flex max-h-[92vh] w-full sm:w-[min(96vw,1400px)] max-w-full sm:max-w-7xl flex-col overflow-hidden rounded-t-2xl p-0 sm:rounded-2xl"
       >
-        <div className="flex items-start justify-between gap-4 border-b p-5" style={{ borderColor: "rgba(11,11,13,0.1)" }}>
+        <div
+          className="flex flex-shrink-0 items-start justify-between gap-4 border-b p-5"
+          style={{ borderColor: "rgba(11,11,13,0.1)" }}
+        >
           <div>
             <h2 id="service-membership-plans-modal-title" className="hero-title" style={{ fontSize: "24px" }}>
               Planes disponibles para este servicio
@@ -114,13 +161,13 @@ export default function ServiceMembershipPlansModal({ serviceId, serviceName, op
         </div>
 
         <div className="overflow-y-auto p-5">
-          {status === "loading" || status === "idle" ? (
+          {effectiveStatus === "loading" || effectiveStatus === "idle" ? (
             <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               <PlanCardSkeleton />
               <PlanCardSkeleton />
               <PlanCardSkeleton />
             </div>
-          ) : status === "error" ? (
+          ) : effectiveStatus === "error" ? (
             <div className="card-light max-w-xl" role="alert">
               <p className="body-md mb-4">No pudimos cargar los planes disponibles.</p>
               <button
@@ -132,12 +179,12 @@ export default function ServiceMembershipPlansModal({ serviceId, serviceName, op
                 Reintentar
               </button>
             </div>
-          ) : plans.length === 0 ? (
+          ) : effectivePlans.length === 0 ? (
             <div className="card-light max-w-xl">
               <p className="body-md">Este servicio todavía no está disponible dentro de un plan mensual.</p>
             </div>
           ) : (
-            <MembershipPlanCards plans={plans} />
+            <MembershipPlanCards plans={effectivePlans} onSelectPlan={handleSelectPlan} />
           )}
         </div>
       </div>

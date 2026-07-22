@@ -20,6 +20,9 @@ import WeddingsPage from "@/pages/WeddingsPage.jsx";
 import ServiceNichePage from "@/pages/ServiceNichePage.jsx";
 import StorePage from "@/pages/StorePage.jsx";
 import ProductDetailPage from "@/pages/ProductDetailPage.jsx";
+import MembershipCheckoutPage from "@/pages/MembershipCheckoutPage.jsx";
+import MembershipCheckoutSuccessPage from "@/pages/MembershipCheckoutSuccessPage.jsx";
+import MembershipCheckoutCancelPage from "@/pages/MembershipCheckoutCancelPage.jsx";
 import PortfolioPage from "@/pages/PortfolioPage.jsx";
 import PortfolioProjectPage from "@/pages/PortfolioProjectPage.jsx";
 import TeamPage from "@/pages/TeamPage.jsx";
@@ -291,6 +294,18 @@ const router = createBrowserRouter([
       {
         path: "membresias",
         element: <Navigate to="/servicios" replace />,
+      },
+      {
+        path: "membresias/checkout",
+        element: <MembershipCheckoutPage />,
+      },
+      {
+        path: "membresias/checkout/exito",
+        element: <MembershipCheckoutSuccessPage />,
+      },
+      {
+        path: "membresias/checkout/cancelado",
+        element: <MembershipCheckoutCancelPage />,
       },
       {
         path: "blog",

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -47,11 +47,17 @@ function planByService(overrides = {}) {
   };
 }
 
+function LocationDisplay() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname}|{JSON.stringify(location.state)}</div>;
+}
+
 function renderModal(props = {}) {
   return render(
     <MemoryRouter>
       <button type="button">Conocer planes</button>
       <ServiceMembershipPlansModal serviceId="svc-1" serviceName="Gestión de Redes Sociales" open onClose={() => {}} {...props} />
+      <LocationDisplay />
     </MemoryRouter>
   );
 }
@@ -222,23 +228,65 @@ describe("ServiceMembershipPlansModal — closing", () => {
   });
 });
 
-describe("ServiceMembershipPlansModal — CTA", () => {
-  it("uses the plan's custom CTA when provided", async () => {
+describe("ServiceMembershipPlansModal — plan selection", () => {
+  it("always shows 'Seleccionar este plan', ignoring legacy cta_label/cta_url fields", async () => {
     getPublicMembershipPlansByServiceMock.mockResolvedValue([
       planByService({ name: "Con CTA", cta_label: "Seleccionar plan", cta_url: "/contacto" }),
     ]);
     renderModal();
-    const link = await screen.findByRole("link", { name: /Seleccionar plan/ });
-    expect(link).toHaveAttribute("href", "/contacto");
+    expect(await screen.findByRole("button", { name: "Seleccionar este plan" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Seleccionar plan/ })).not.toBeInTheDocument();
   });
 
-  it("falls back to the default CTA when the plan has none", async () => {
+  it("navigates to /membresias/checkout with the plan and service ids on selection", async () => {
     getPublicMembershipPlansByServiceMock.mockResolvedValue([
-      planByService({ name: "Sin CTA", cta_label: null, cta_url: null }),
+      planByService({ id: "plan-123", name: "Sin CTA", cta_label: null, cta_url: null }),
     ]);
     renderModal();
-    const link = await screen.findByRole("link", { name: /Solicitar información/ });
-    expect(link).toHaveAttribute("href", "/contacto");
+    const button = await screen.findByRole("button", { name: "Seleccionar este plan" });
+    fireEvent.click(button);
+    const location = await screen.findByTestId("location");
+    expect(location).toHaveTextContent("/membresias/checkout");
+    expect(location).toHaveTextContent("plan-123");
+    expect(location).toHaveTextContent("svc-1");
+  });
+});
+
+describe("ServiceMembershipPlansModal — controlled mode (preloaded plans from the caller)", () => {
+  it("uses the plans prop directly and never fetches when plans is provided", async () => {
+    renderModal({ plans: [planByService({ name: "Plan Precargado" })], loading: false, error: null });
+    expect(await screen.findByText("Plan Precargado")).toBeInTheDocument();
+    expect(getPublicMembershipPlansByServiceMock).not.toHaveBeenCalled();
+  });
+
+  it("shows the loading skeleton when the controlled loading prop is true, without fetching", async () => {
+    const { container } = renderModal({ plans: [], loading: true, error: null });
+    await screen.findByText("Planes disponibles para este servicio");
+    expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
+    expect(getPublicMembershipPlansByServiceMock).not.toHaveBeenCalled();
+  });
+
+  it("shows the empty state when controlled plans resolved to an empty list", async () => {
+    renderModal({ plans: [], loading: false, error: null });
+    expect(
+      await screen.findByText("Este servicio todavía no está disponible dentro de un plan mensual.")
+    ).toBeInTheDocument();
+    expect(getPublicMembershipPlansByServiceMock).not.toHaveBeenCalled();
+  });
+
+  it("shows the error state when the controlled error prop is set, without fetching on its own first", async () => {
+    renderModal({ plans: [], loading: false, error: new Error("boom") });
+    expect(await screen.findByText("No pudimos cargar los planes disponibles.")).toBeInTheDocument();
+    expect(getPublicMembershipPlansByServiceMock).not.toHaveBeenCalled();
+  });
+
+  it("retry from a controlled error state falls back to the component's own fetch", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValue([planByService({ name: "Plan Recuperado" })]);
+    renderModal({ plans: [], loading: false, error: new Error("boom") });
+    const retryBtn = await screen.findByText("Reintentar");
+    fireEvent.click(retryBtn);
+    expect(await screen.findByText("Plan Recuperado")).toBeInTheDocument();
+    expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalledTimes(1);
   });
 });
 

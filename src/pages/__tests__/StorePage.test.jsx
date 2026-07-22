@@ -10,11 +10,13 @@ const __dirname = path.dirname(fileURLToPath(new URL(import.meta.url)));
 const getPublicProductCategoriesMock = vi.fn();
 const getPublicProductsMock = vi.fn();
 const addProductToPublicCartMock = vi.fn();
+const getPublicMembershipPlansByServiceMock = vi.fn();
 
 vi.mock("@/lib/api.js", () => ({
   getPublicProductCategories: (...args) => getPublicProductCategoriesMock(...args),
   getPublicProducts: (...args) => getPublicProductsMock(...args),
   addProductToPublicCart: (...args) => addProductToPublicCartMock(...args),
+  getPublicMembershipPlansByService: (...args) => getPublicMembershipPlansByServiceMock(...args),
 }));
 
 vi.mock("@/components/seo/SEOHead.jsx", () => ({ default: () => null }));
@@ -42,6 +44,7 @@ beforeEach(() => {
   getPublicProductCategoriesMock.mockReset().mockResolvedValue([]);
   getPublicProductsMock.mockReset().mockResolvedValue({ items: [] });
   addProductToPublicCartMock.mockReset();
+  getPublicMembershipPlansByServiceMock.mockReset().mockResolvedValue([]);
 });
 
 describe("StorePage — services catalog is untouched", () => {

@@ -137,24 +137,224 @@ describe("ProductDetailPage — 'Conocer planes' button", () => {
     const nearby = pageSource.slice(Math.max(0, idx - 200), idx + 200);
     expect(nearby.toLowerCase()).not.toMatch(/stripe/);
   });
+});
 
-  // Documents a real, pre-existing naming collision discovered while
-  // building this: services whose name/category infer the "monthly" flow
-  // bucket (serviceFlowType.js — matches "redes sociales", "mensual",
-  // "mantenimiento", etc.) already have an UNRELATED primary purchase
-  // button that also reads "Conocer planes" (CTA_LABELS.monthly in
-  // serviceContentLabels.js) and triggers handleCartAction("checkout") —
-  // a real cart/checkout flow, not this feature's payment-free modal.
-  // Not fixed here (that legacy CTA copy is a separate, unrelated
-  // decision) — this test only proves the two buttons stay
-  // distinguishable via className despite the identical visible text.
-  it("stays distinguishable by className from the unrelated pre-existing 'monthly flow' checkout CTA that shares the same label", async () => {
-    renderPage(product({ name: "Gestión de Redes Sociales", slug: "gestion-de-redes-sociales" }));
+function checkoutButton() {
+  return document.querySelector(".service-detail-purchase__checkout-btn");
+}
+
+// "Gestión de Redes Sociales" infers the "monthly" flow bucket
+// (serviceFlowType.js — matches "redes sociales"), which has its OWN
+// primary checkout CTA also labeled "Conocer planes"
+// (CTA_LABELS.monthly in serviceContentLabels.js) — a real cart/checkout
+// action, unrelated to this feature's plans modal. Previously both
+// buttons rendered at once with identical text (fixed in
+// fix/membership-service-cta): now only one CTA shows at a time, chosen
+// by whether the service actually has published membership plans.
+function monthlyProduct(overrides = {}) {
+  return product({
+    name: "Gestión de Redes Sociales",
+    slug: "gestion-de-redes-sociales",
+    serviceId: "svc-redes",
+    ...overrides,
+  });
+}
+
+describe("ProductDetailPage — single CTA for monthly-flow services with membership plans", () => {
+  it("shows only 'Ver planes disponibles' when the service has published plans — no duplicate 'Conocer planes'", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValue([{ id: "plan-1", name: "Plan Básico" }]);
+    renderPage(monthlyProduct());
     await screen.findByRole("heading", { level: 1, name: "Gestión de Redes Sociales" });
-    const allConocerPlanes = screen.getAllByText("Conocer planes");
-    expect(allConocerPlanes.length).toBeGreaterThan(1);
-    expect(plansButton()).not.toBeNull();
+    await waitFor(() => expect(plansButton()).toHaveTextContent("Ver planes disponibles"));
+    expect(checkoutButton()).toBeNull();
+    expect(screen.queryByText("Conocer planes")).not.toBeInTheDocument();
+  });
+
+  it("clicking 'Ver planes disponibles' opens the modal without a second fetch", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValue([{ id: "plan-1", name: "Plan Básico" }]);
+    renderPage(monthlyProduct());
+    await screen.findByRole("heading", { level: 1, name: "Gestión de Redes Sociales" });
+    await waitFor(() => expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalledTimes(1));
+    fireEvent.click(plansButton());
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Plan Básico")).toBeInTheDocument();
+    expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalledTimes(1);
+  });
+
+  // Regression test for a real bug found in manual testing: clicking
+  // "Ver planes disponibles" was triggering handleCartAction("checkout")
+  // instead of opening the modal, because the shared Button component
+  // renders a plain <button> with no explicit `type` when given onClick
+  // but no to/href — which the browser defaults to type="submit" — and
+  // both branches of the checkout/plans-modal ternary occupied the same
+  // position, so React could reuse the same DOM node across the async
+  // swap from "checkout CTA" to "plans CTA". Fixed with a native
+  // <button type="button">, explicit preventDefault/stopPropagation, and
+  // distinct `key`s on each ternary branch so the two are never the same
+  // element.
+  it("clicking 'Ver planes disponibles' never adds to cart or navigates to checkout — it is type=button and stays on the detail page", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValue([
+      { id: "plan-1", name: "Membresía Presencia — TEST" },
+      { id: "plan-2", name: "Membresía Crecimiento — TEST" },
+      { id: "plan-3", name: "Membresía Premium — TEST" },
+    ]);
+    renderPage(monthlyProduct());
+    await screen.findByRole("heading", { level: 1, name: "Gestión de Redes Sociales" });
+    await waitFor(() => expect(plansButton()).toHaveTextContent("Ver planes disponibles"));
+
+    expect(plansButton().type).toBe("button");
+
+    fireEvent.click(plansButton());
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Membresía Presencia — TEST")).toBeInTheDocument();
+    expect(screen.getByText("Membresía Crecimiento — TEST")).toBeInTheDocument();
+    expect(screen.getByText("Membresía Premium — TEST")).toBeInTheDocument();
+
+    // Never touched the cart / checkout flow.
+    expect(addProductToPublicCartMock).not.toHaveBeenCalled();
+    // Still on the product detail page — a real navigation to
+    // /servicios/checkout would unmount this heading (no matching route
+    // is registered for it in this test's router).
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Gestión de Redes Sociales" })
+    ).toBeInTheDocument();
+  });
+
+  it("the mobile sticky CTA also opens the modal (type=button) instead of checkout when plans are available", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValue([{ id: "plan-1", name: "Plan Básico" }]);
+    renderPage(monthlyProduct());
+    await screen.findByRole("heading", { level: 1, name: "Gestión de Redes Sociales" });
+    const mobileBtn = await waitFor(() => {
+      const el = document.querySelector(".service-detail-mobile-cta__btn");
+      expect(el).toHaveTextContent("Ver planes disponibles");
+      return el;
+    });
+
+    expect(mobileBtn.type).toBe("button");
+
+    fireEvent.click(mobileBtn);
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(addProductToPublicCartMock).not.toHaveBeenCalled();
+  });
+
+  it("closing the modal after opening it via 'Ver planes disponibles' does not navigate away", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValue([{ id: "plan-1", name: "Plan Básico" }]);
+    renderPage(monthlyProduct());
+    await screen.findByRole("heading", { level: 1, name: "Gestión de Redes Sociales" });
+    await waitFor(() => expect(plansButton()).toHaveTextContent("Ver planes disponibles"));
+    fireEvent.click(plansButton());
+    await screen.findByRole("dialog");
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Gestión de Redes Sociales" })
+    ).toBeInTheDocument();
+    expect(addProductToPublicCartMock).not.toHaveBeenCalled();
+  });
+
+  // Regression test for a real bug found in manual testing: when a
+  // monthly-flow service genuinely has no published plans, the fallback
+  // button used to render primaryCtaLabel ("Conocer planes" for
+  // E_MONTHLY — CTA_LABELS.monthly in serviceContentLabels.js) wired to
+  // handleCartAction("checkout"), so a button with the SAME text as the
+  // plans-modal trigger silently added the base service to the cart and
+  // navigated straight to /servicios/checkout. The fallback is now
+  // relabeled "Contratar servicio mensual" so it can never be confused
+  // with the plans-modal CTA, in any state.
+  it("relabels the direct-purchase fallback to 'Contratar servicio mensual' when the service has no published plans — never 'Conocer planes'", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValue([]);
+    renderPage(monthlyProduct());
+    await screen.findByRole("heading", { level: 1, name: "Gestión de Redes Sociales" });
+    await waitFor(() => expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalled());
+    expect(screen.queryByText("Ver planes disponibles")).not.toBeInTheDocument();
+    expect(plansButton()).toBeNull();
+    expect(screen.queryByText("Conocer planes")).not.toBeInTheDocument();
+    expect(checkoutButton()).toHaveTextContent("Contratar servicio mensual");
+    // The mobile sticky bar mirrors the same single logical CTA in the
+    // DOM (visibility is CSS-controlled, not a second conditional
+    // branch) — so exactly two "Contratar servicio mensual" elements is
+    // correct (desktop + mobile), never a third from a stray plans
+    // button.
+    expect(screen.getAllByText("Contratar servicio mensual").length).toBe(2);
+    expect(document.querySelector(".service-detail-mobile-cta__btn")).toHaveTextContent(
+      "Contratar servicio mensual"
+    );
+  });
+
+  // Regression test for the actual root cause of the reported bug: while
+  // the plans request is still in flight, hasMembershipPlans is false
+  // (useServiceMembershipPlans starts with plans: []), which used to make
+  // the page fall through to the SAME checkout-wired button described
+  // above — so clicking "Conocer planes" during the loading window (a
+  // real, if brief, race every page load hits) added to cart/navigated
+  // to checkout instead of doing nothing until the modal button appears.
+  it("shows a disabled 'Cargando planes…' placeholder while the request is in flight — never a checkout-wired button", async () => {
+    let resolvePromise;
+    getPublicMembershipPlansByServiceMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolvePromise = resolve;
+      })
+    );
+    renderPage(monthlyProduct());
+    await screen.findByRole("heading", { level: 1, name: "Gestión de Redes Sociales" });
+
+    const loadingButtons = screen.getAllByText("Cargando planes…");
+    expect(loadingButtons.length).toBe(2); // desktop + mobile
+    loadingButtons.forEach((el) => expect(el.closest("button")).toBeDisabled());
+    expect(screen.queryByText("Ver planes disponibles")).not.toBeInTheDocument();
+    expect(screen.queryByText("Conocer planes")).not.toBeInTheDocument();
+
+    fireEvent.click(loadingButtons[0]);
+    expect(addProductToPublicCartMock).not.toHaveBeenCalled();
+
+    resolvePromise([{ id: "plan-1", name: "Plan Básico" }]);
+    await waitFor(() => expect(plansButton()).toHaveTextContent("Ver planes disponibles"));
+    expect(screen.queryByText("Cargando planes…")).not.toBeInTheDocument();
+  });
+
+  it("shows a disabled error placeholder if the plans request fails — never falls back to the checkout CTA", async () => {
+    getPublicMembershipPlansByServiceMock.mockRejectedValue(new Error("boom"));
+    renderPage(monthlyProduct());
+    await screen.findByRole("heading", { level: 1, name: "Gestión de Redes Sociales" });
+    await waitFor(() => expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalled());
+
+    const errorButtons = screen.getAllByText("No se pudieron cargar los planes");
+    expect(errorButtons.length).toBe(2); // desktop + mobile
+    errorButtons.forEach((el) => expect(el.closest("button")).toBeDisabled());
+    expect(screen.queryByText("Ver planes disponibles")).not.toBeInTheDocument();
+    expect(screen.queryByText("Conocer planes")).not.toBeInTheDocument();
+
+    fireEvent.click(errorButtons[0]);
+    expect(addProductToPublicCartMock).not.toHaveBeenCalled();
+  });
+
+  it("fetches membership plans exactly once per service, including after opening the modal (no duplicate calls)", async () => {
+    getPublicMembershipPlansByServiceMock.mockResolvedValue([{ id: "plan-1", name: "Plan Básico" }]);
+    renderPage(monthlyProduct());
+    await screen.findByRole("heading", { level: 1, name: "Gestión de Redes Sociales" });
+    await waitFor(() => expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalledTimes(1));
+    fireEvent.click(plansButton());
+    await screen.findByRole("dialog");
+    expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalledWith("svc-redes");
+    expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ProductDetailPage — other purchase flows are unaffected", () => {
+  it("non-monthly service keeps its own primary CTA plus the separate 'Conocer planes' button, unconditionally", async () => {
+    renderPage();
+    await screen.findByRole("heading", { level: 1, name: "Diseño de Logotipo" });
+    expect(checkoutButton()).not.toBeNull();
     expect(plansButton()).toHaveTextContent("Conocer planes");
-    expect(document.querySelector(".service-detail-purchase__checkout-btn")).toHaveTextContent("Conocer planes");
+  });
+
+  it("never fetches membership plans for a non-monthly service until its modal is opened", async () => {
+    renderPage();
+    await screen.findByRole("heading", { level: 1, name: "Diseño de Logotipo" });
+    expect(getPublicMembershipPlansByServiceMock).not.toHaveBeenCalled();
+    fireEvent.click(plansButton());
+    await waitFor(() => expect(getPublicMembershipPlansByServiceMock).toHaveBeenCalledTimes(1));
   });
 });

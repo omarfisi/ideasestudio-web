@@ -14,16 +14,19 @@ import {
 import { Link, useLoaderData, useNavigate } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
 import ServiceMembershipPlansModal from "@/components/memberships/ServiceMembershipPlansModal.jsx";
+import ServiceMembershipPlansTrigger from "@/components/memberships/ServiceMembershipPlansTrigger.jsx";
 
 import { addProductToPublicCart, getPublicProducts } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
 import { allowsServiceQuantity } from "@/lib/serviceFlowType.js";
 import {
+  getFlowBucket,
   getHowItWorksSteps,
   getIncludesItems,
   getPrimaryCtaLabel,
   getQuickFacts,
 } from "@/lib/serviceContentLabels.js";
+import { useServiceMembershipPlans } from "@/lib/useServiceMembershipPlans.js";
 
 const MAX_ADDITIONAL_GALLERY_IMAGES = 3;
 const MAX_VISIBLE_INCLUDES = 8;
@@ -133,6 +136,41 @@ export default function ProductDetailPage() {
     () => parseLongDescription(product?.longDescription),
     [product]
   );
+
+  // Services on the "monthly" purchase flow already have their own
+  // checkout-flow CTA labeled "Conocer planes" (CTA_LABELS.monthly in
+  // serviceContentLabels.js) — a real cart/checkout action, unrelated to
+  // membership plans. Once such a service actually has published plans,
+  // that checkout CTA is replaced by a single "Ver planes disponibles"
+  // button that opens the plans modal instead, so the page never shows
+  // two differently-behaved buttons with the same label. Only fetches
+  // when it can actually change what renders — non-monthly flows never
+  // pay for this request, exactly like before this change.
+  const isMonthlyFlow = useMemo(() => getFlowBucket(product) === "monthly", [product]);
+  const {
+    plans: membershipPlans,
+    loading: membershipPlansLoading,
+    error: membershipPlansError,
+    hasPlans: hasMembershipPlans,
+  } = useServiceMembershipPlans(product?.serviceId, {
+    enabled: isMonthlyFlow && Boolean(product?.serviceId),
+  });
+  // Every state below is mutually exclusive and covers the full
+  // isMonthlyFlow lifecycle explicitly — no fallback branch may ever
+  // render a button labeled with primaryCtaLabel (which equals
+  // "Conocer planes" for E_MONTHLY) wired to handleCartAction, which is
+  // what silently added the base service to the cart (and, on
+  // "checkout", navigated straight to /servicios/checkout) while plans
+  // were still loading, errored, or genuinely didn't exist.
+  const monthlyPlansState = !isMonthlyFlow
+    ? null
+    : membershipPlansLoading
+    ? "loading"
+    : membershipPlansError
+    ? "error"
+    : hasMembershipPlans
+    ? "ready"
+    : "empty";
 
   const visibleIncludes = includesExpanded
     ? includesItems
@@ -268,6 +306,19 @@ export default function ProductDetailPage() {
     } finally {
       setPendingAction("");
     }
+  }
+
+  // Native <button type="button"> on purpose, not the shared Button
+  // component — Button renders a plain <button> with no explicit `type`
+  // when it's given onClick but no `to`/`href`, which the browser
+  // defaults to type="submit". This opens ONLY the plans modal: it must
+  // never add anything to the cart or navigate to checkout, so it stops
+  // the click here instead of letting it bubble or (in a form context)
+  // submit anything.
+  function handleOpenPlansModal(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    setPlansModalOpen(true);
   }
 
   function handleImageStep(direction) {
@@ -428,13 +479,51 @@ export default function ProductDetailPage() {
               ) : null}
 
               <div className="service-detail-purchase__actions">
-                <Button
-                  onClick={() => handleCartAction("checkout")}
-                  disabled={pendingAction !== ""}
-                  className="service-detail-purchase__checkout-btn"
-                >
-                  {pendingAction === "checkout" ? "Procesando..." : primaryCtaLabel}
-                </Button>
+                {monthlyPlansState === "loading" ? (
+                  <Button
+                    key="plans-loading"
+                    type="button"
+                    disabled
+                    className="service-detail-purchase__checkout-btn"
+                  >
+                    Cargando planes…
+                  </Button>
+                ) : monthlyPlansState === "error" ? (
+                  <Button
+                    key="plans-error"
+                    type="button"
+                    disabled
+                    className="service-detail-purchase__checkout-btn"
+                  >
+                    No se pudieron cargar los planes
+                  </Button>
+                ) : monthlyPlansState === "ready" ? (
+                  <ServiceMembershipPlansTrigger
+                    key="plans-cta"
+                    serviceId={product.serviceId}
+                    serviceName={product.name}
+                    plans={membershipPlans}
+                    loading={membershipPlansLoading}
+                    error={membershipPlansError}
+                    hasPlans={hasMembershipPlans}
+                    className="btn btn-primary service-detail-purchase__plans-btn"
+                  >
+                    Ver planes disponibles
+                  </ServiceMembershipPlansTrigger>
+                ) : (
+                  <Button
+                    key="checkout-cta"
+                    onClick={() => handleCartAction("checkout")}
+                    disabled={pendingAction !== ""}
+                    className="service-detail-purchase__checkout-btn"
+                  >
+                    {pendingAction === "checkout"
+                      ? "Procesando..."
+                      : monthlyPlansState === "empty"
+                      ? "Contratar servicio mensual"
+                      : primaryCtaLabel}
+                  </Button>
+                )}
                 <Button
                   variant="secondary"
                   onClick={() => handleCartAction("cart")}
@@ -445,14 +534,14 @@ export default function ProductDetailPage() {
                 </Button>
               </div>
 
-              {product.serviceId ? (
-                <Button
-                  variant="secondary"
-                  onClick={() => setPlansModalOpen(true)}
-                  className="service-detail-purchase__plans-btn"
+              {!isMonthlyFlow && product.serviceId ? (
+                <button
+                  type="button"
+                  onClick={handleOpenPlansModal}
+                  className="btn btn-secondary service-detail-purchase__plans-btn"
                 >
                   Conocer planes
-                </Button>
+                </button>
               ) : null}
 
               <ul className="service-detail-purchase__trust">
@@ -628,16 +717,44 @@ export default function ProductDetailPage() {
           <strong>{getPriceLabel(product)}</strong>
           <span>{product.name}</span>
         </div>
-        <Button
-          onClick={() => handleCartAction("checkout")}
-          disabled={pendingAction !== ""}
-          className="service-detail-mobile-cta__btn"
-        >
-          {pendingAction === "checkout" ? "Procesando..." : primaryCtaLabel}
-        </Button>
+        {monthlyPlansState === "loading" ? (
+          <Button key="plans-loading" type="button" disabled className="service-detail-mobile-cta__btn">
+            Cargando planes…
+          </Button>
+        ) : monthlyPlansState === "error" ? (
+          <Button key="plans-error" type="button" disabled className="service-detail-mobile-cta__btn">
+            No se pudieron cargar los planes
+          </Button>
+        ) : monthlyPlansState === "ready" ? (
+          <ServiceMembershipPlansTrigger
+            key="plans-cta"
+            serviceId={product.serviceId}
+            serviceName={product.name}
+            plans={membershipPlans}
+            loading={membershipPlansLoading}
+            error={membershipPlansError}
+            hasPlans={hasMembershipPlans}
+            className="btn btn-primary service-detail-mobile-cta__btn"
+          >
+            Ver planes disponibles
+          </ServiceMembershipPlansTrigger>
+        ) : (
+          <Button
+            key="checkout-cta"
+            onClick={() => handleCartAction("checkout")}
+            disabled={pendingAction !== ""}
+            className="service-detail-mobile-cta__btn"
+          >
+            {pendingAction === "checkout"
+              ? "Procesando..."
+              : monthlyPlansState === "empty"
+              ? "Contratar servicio mensual"
+              : primaryCtaLabel}
+          </Button>
+        )}
       </div>
 
-      {product.serviceId ? (
+      {!isMonthlyFlow && product.serviceId ? (
         <ServiceMembershipPlansModal
           serviceId={product.serviceId}
           serviceName={product.name}
