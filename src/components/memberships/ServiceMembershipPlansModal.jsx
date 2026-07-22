@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getPublicMembershipPlansByService } from "@/lib/api.js";
 import MembershipPlanCards, { PlanCardSkeleton } from "@/components/memberships/MembershipPlanCards.jsx";
 
@@ -35,6 +36,18 @@ export default function ServiceMembershipPlansModal({
   const panelRef = useRef(null);
   const closeButtonRef = useRef(null);
   const previouslyFocusedRef = useRef(null);
+  const navigate = useNavigate();
+
+  // "Seleccionar este plan" never adds anything to a cart and never
+  // calls the backend from here — it only carries the selection to the
+  // dedicated membership checkout via router state. That destination
+  // page re-validates plan+service against the backend itself (see
+  // MembershipCheckoutPage) rather than trusting this payload alone.
+  function handleSelectPlan(plan) {
+    navigate("/membresias/checkout", {
+      state: { membershipPlanId: plan.id, serviceId },
+    });
+  }
 
   async function load() {
     if (!serviceId) return;
@@ -171,7 +184,7 @@ export default function ServiceMembershipPlansModal({
               <p className="body-md">Este servicio todavía no está disponible dentro de un plan mensual.</p>
             </div>
           ) : (
-            <MembershipPlanCards plans={effectivePlans} />
+            <MembershipPlanCards plans={effectivePlans} onSelectPlan={handleSelectPlan} />
           )}
         </div>
       </div>
