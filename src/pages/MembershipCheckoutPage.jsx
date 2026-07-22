@@ -1,26 +1,15 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
-import PageHero from "@/components/shared/PageHero.jsx";
+import MembershipCheckoutHero from "@/components/memberships/MembershipCheckoutHero.jsx";
+import MembershipCheckoutProgress from "@/components/memberships/MembershipCheckoutProgress.jsx";
+import MembershipPlanSummary from "@/components/memberships/MembershipPlanSummary.jsx";
+import MembershipCustomerPanel from "@/components/memberships/MembershipCustomerPanel.jsx";
+import MembershipCheckoutTrust from "@/components/memberships/MembershipCheckoutTrust.jsx";
 import {
   createMembershipCheckoutSession,
   getMembershipPlanSelection,
 } from "@/lib/api.js";
-import { formatPrice } from "@/lib/formatPrice.js";
-
-const PERIOD_LABELS = {
-  month: "mes",
-  week: "semana",
-  project: "proyecto",
-  piece: "pieza",
-  session: "sesión",
-  unlimited: "ilimitado",
-};
-
-function translatePeriod(period) {
-  if (!period) return "";
-  return PERIOD_LABELS[period] || period;
-}
 
 /**
  * Dedicated membership subscription checkout — deliberately NOT the
@@ -79,7 +68,7 @@ export default function MembershipCheckoutPage() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    if (!selection) return;
+    if (!selection || submitState.status === "loading") return;
 
     setSubmitState({ status: "loading", message: "" });
 
@@ -108,11 +97,7 @@ export default function MembershipCheckoutPage() {
   if (effectiveStatus === "missing_selection") {
     return (
       <>
-        <PageHero
-          eyebrow="Membresías"
-          title="Selecciona un plan primero"
-          subtitle="Vuelve al servicio y elige un plan desde 'Conocer planes' para continuar."
-        />
+        <MembershipCheckoutHero status="missing_selection" />
         <section className="section">
           <div className="container">
             <div className="empty-state">
@@ -127,7 +112,7 @@ export default function MembershipCheckoutPage() {
   if (effectiveStatus === "loading") {
     return (
       <>
-        <PageHero eyebrow="Membresías" title="Cargando tu plan…" />
+        <MembershipCheckoutHero status="loading" />
         <section className="section">
           <div className="container">
             <p className="body-md">Un momento…</p>
@@ -140,11 +125,7 @@ export default function MembershipCheckoutPage() {
   if (effectiveStatus === "error") {
     return (
       <>
-        <PageHero
-          eyebrow="Membresías"
-          title="No pudimos cargar este plan"
-          subtitle="El plan seleccionado ya no está disponible, o el servicio ya no forma parte de él."
-        />
+        <MembershipCheckoutHero status="error" />
         <section className="section">
           <div className="container">
             <div className="empty-state">
@@ -157,90 +138,31 @@ export default function MembershipCheckoutPage() {
   }
 
   const { plan, service } = selection;
-  const benefits = (plan.features_json || []).filter((f) => f.label);
 
   return (
     <>
-      <PageHero eyebrow="Membresías" title={plan.name} subtitle="Revisa el resumen antes de continuar al pago seguro." />
+      <MembershipCheckoutHero status="ready" />
 
       <section className="section">
-        <div className="container membership-checkout">
-          <div className="card-light membership-checkout__summary">
-            <p className="label-text" style={{ color: "rgba(11,11,13,0.6)" }}>
-              Servicio
-            </p>
-            <p className="body-md" style={{ fontWeight: 600 }}>
-              {service.name}
-            </p>
+        <div className="container">
+          <MembershipCheckoutProgress currentStep="cuenta" />
 
-            <div className="mt-4 flex items-baseline gap-1">
-              <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 900, fontSize: "32px" }}>
-                {formatPrice(plan.price, plan.currency)}
-              </span>
-              <span className="body-md" style={{ color: "rgba(11,11,13,0.6)" }}>
-                /{translatePeriod(plan.billing_interval)}
-              </span>
+          <div className="membership-checkout">
+            <div className="membership-checkout__summary-col">
+              <MembershipPlanSummary plan={plan} service={service} />
             </div>
-
-            {plan.trial_period_days > 0 ? (
-              <p className="label-text mt-2">{plan.trial_period_days} días de prueba</p>
-            ) : null}
-
-            {benefits.length > 0 ? (
-              <div className="mt-4">
-                <p className="label-text mb-2" style={{ color: "var(--ideas-black)" }}>
-                  Beneficios principales
-                </p>
-                <ul className="list-ideas">
-                  {benefits.map((benefit) => (
-                    <li key={benefit.key || benefit.label}>
-                      {benefit.label}
-                      {benefit.quantity != null ? ` (${Number(benefit.quantity).toLocaleString("es-PR")})` : ""}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
+            <div className="membership-checkout__panel-col">
+              <MembershipCustomerPanel
+                customerEmail={customerEmail}
+                customerName={customerName}
+                onEmailChange={setCustomerEmail}
+                onNameChange={setCustomerName}
+                onSubmit={handleSubmit}
+                submitState={submitState}
+              />
+              <MembershipCheckoutTrust />
+            </div>
           </div>
-
-          <form className="card-light membership-checkout__form" onSubmit={handleSubmit}>
-            <p className="label-text mb-4" style={{ color: "var(--ideas-black)" }}>
-              Datos del cliente
-            </p>
-
-            <label className="membership-checkout__field">
-              <span>Correo electrónico</span>
-              <input
-                type="email"
-                required
-                value={customerEmail}
-                onChange={(event) => setCustomerEmail(event.target.value)}
-                disabled={submitState.status === "loading"}
-                placeholder="tu@correo.com"
-              />
-            </label>
-
-            <label className="membership-checkout__field">
-              <span>Nombre (opcional)</span>
-              <input
-                type="text"
-                value={customerName}
-                onChange={(event) => setCustomerName(event.target.value)}
-                disabled={submitState.status === "loading"}
-                placeholder="Tu nombre"
-              />
-            </label>
-
-            <Button type="submit" disabled={submitState.status === "loading"} block>
-              {submitState.status === "loading" ? "Redirigiendo…" : "Continuar al pago seguro"}
-            </Button>
-
-            {submitState.status === "error" ? (
-              <p className="form-status form-status--error" role="alert">
-                {submitState.message}
-              </p>
-            ) : null}
-          </form>
         </div>
       </section>
     </>

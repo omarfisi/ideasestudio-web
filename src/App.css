@@ -3363,16 +3363,194 @@
   color: #111111;
 }
 
+/* ── Membership checkout — Fase 1 redesign ───────────────────────────
+   Breakpoint intentionally 1024px (not the 640/768px used elsewhere on
+   this page) — a two-column payment layout needs more room to breathe
+   than a marketing section does before it stops looking cramped. */
+
+.membership-checkout-hero {
+  padding-top: 32px;
+}
+
+.membership-checkout-hero__breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 0.82rem;
+  /* 0.6, not 0.5 — 0.5 measured ~3.7:1 against white, under the 4.5:1
+     WCAG AA minimum for this normal-weight small text. */
+  color: rgba(11, 11, 13, 0.6);
+}
+
+.membership-checkout-hero__breadcrumb a {
+  color: rgba(11, 11, 13, 0.6);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.membership-checkout-hero__breadcrumb a:hover {
+  color: var(--ideas-black);
+}
+
+.membership-checkout-hero__breadcrumb [aria-current="page"] {
+  color: var(--ideas-black);
+  font-weight: 600;
+}
+
+.membership-checkout-hero__title {
+  margin: 12px 0 8px;
+  font-family: "Manrope", sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  font-size: 28px;
+  color: var(--ideas-black);
+}
+
+.membership-checkout-hero__subtitle {
+  max-width: 560px;
+}
+
+@media (min-width: 640px) {
+  .membership-checkout-hero__title {
+    font-size: 34px;
+  }
+}
+
+.membership-checkout-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+  margin: 0 0 32px;
+  padding: 0;
+}
+
+.membership-checkout-progress__step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.membership-checkout-progress__marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: rgba(11, 11, 13, 0.08);
+  /* 0.7, not the 0.45 this started at — 0.45 measured ~3.15:1 against
+     white, under the 4.5:1 WCAG AA minimum for this non-bold small text. */
+  color: rgba(11, 11, 13, 0.7);
+}
+
+.membership-checkout-progress__label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(11, 11, 13, 0.7);
+  white-space: nowrap;
+}
+
+.membership-checkout-progress__step:not(:last-child)::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(11, 11, 13, 0.12);
+  margin: 0 4px;
+}
+
+.membership-checkout-progress__step--done .membership-checkout-progress__marker {
+  background: var(--ideas-black);
+  color: var(--ideas-white);
+}
+
+.membership-checkout-progress__step--done .membership-checkout-progress__label {
+  color: var(--ideas-black);
+}
+
+.membership-checkout-progress__step--current .membership-checkout-progress__marker {
+  background: var(--ideas-yellow);
+  color: var(--ideas-black);
+}
+
+.membership-checkout-progress__step--current .membership-checkout-progress__label {
+  color: var(--ideas-black);
+}
+
+@media (max-width: 639px) {
+  .membership-checkout-progress__label {
+    display: none;
+  }
+}
+
 .membership-checkout {
   display: grid;
   gap: 24px;
   align-items: start;
+  min-width: 0;
 }
 
-@media (min-width: 900px) {
+.membership-checkout__summary-col,
+.membership-checkout__panel-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+@media (min-width: 1024px) {
   .membership-checkout {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: 11fr 9fr;
+    gap: 32px;
   }
+
+  .membership-checkout__summary-col {
+    position: sticky;
+    top: 96px;
+    align-self: start;
+  }
+}
+
+.membership-checkout-summary__plan-name {
+  margin: 4px 0 0;
+  font-family: "Manrope", sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-size: 22px;
+  color: var(--ideas-black);
+  overflow-wrap: anywhere;
+}
+
+.membership-checkout-summary__renewal {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  /* 0.6, not 0.55 — 0.55 measured ~4.37:1 against white, just under the
+     4.5:1 WCAG AA minimum for this normal-weight small text. */
+  color: rgba(11, 11, 13, 0.6);
+}
+
+.membership-checkout-panel__hint {
+  margin: 0 0 20px;
+  color: rgba(11, 11, 13, 0.6);
+}
+
+.membership-checkout-trust {
+  margin-top: 4px !important;
+}
+
+.membership-checkout-trust li {
+  font-size: 0.85rem;
+  color: rgba(11, 11, 13, 0.65);
+}
+
+.membership-checkout-trust li + li {
+  margin-top: 10px !important;
 }
 
 .membership-checkout__field {
@@ -3390,6 +3568,7 @@
 }
 
 .membership-checkout__field input {
+  min-height: 44px;
   padding: 12px 14px;
   border-radius: 12px;
   border: 1px solid rgba(17, 17, 17, 0.16);
@@ -3397,9 +3576,14 @@
   background: #ffffff;
 }
 
+/* Black outline, not yellow: --ideas-yellow (#F9D001) against a white
+   input background measures ~1.5:1 contrast — well under the 3:1 WCAG
+   2.1 SC 1.4.11 minimum for a non-text focus indicator. Black gives full
+   contrast in both light states this input ever renders in. */
 .membership-checkout__field input:focus {
-  outline: none;
-  border-color: rgba(17, 17, 17, 0.4);
+  outline: 2px solid var(--ideas-black);
+  outline-offset: 1px;
+  border-color: var(--ideas-black);
 }
 
 .service-detail-purchase__checkout-btn:hover {
