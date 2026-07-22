@@ -38,6 +38,22 @@ export default function ServiceMembershipPlansModal({
   const previouslyFocusedRef = useRef(null);
   const navigate = useNavigate();
 
+  // Callers (ServiceMembershipPlansTrigger, ProductDetailPage) pass
+  // onClose as a plain inline arrow function, so its identity is new on
+  // every one of THEIR renders — not just when open/close actually
+  // toggles. Reading it through a ref (kept current on every render, no
+  // dependency array) instead of closing over it directly means the
+  // effect below can depend on [open] alone: it no longer tears down and
+  // rebuilds (re-locking scroll, re-focusing, re-attaching the keydown
+  // listener) on every incidental parent re-render while the modal is
+  // open — which is what was producing the flicker/scroll-jump reported
+  // in production (the background "Conocer planes" button re-stealing
+  // focus, and the browser auto-scrolling to it, on every such re-render).
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
   // "Seleccionar este plan" never adds anything to a cart and never
   // calls the backend from here — it only carries the selection to the
   // dedicated membership checkout via router state. That destination
@@ -81,20 +97,37 @@ export default function ServiceMembershipPlansModal({
     ? "loading"
     : "ready";
 
+  // Scroll lock — reacts to `open` only. Split out from the focus-trap
+  // effect below so a re-render that doesn't actually change `open`
+  // never toggles body.style.overflow off and back on.
   useEffect(() => {
     if (!open) return undefined;
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
+  // Focus trap + Escape — reacts to `open` only (onClose is read through
+  // onCloseRef, never as a dependency here — see its declaration above).
+  useEffect(() => {
+    if (!open) return undefined;
+
     const focusTimer = setTimeout(() => {
-      closeButtonRef.current?.focus();
+      // preventScroll: this element may already be visible behind the
+      // modal — without it, focusing programmatically can make the
+      // browser scroll the page to bring it into view, which reads as
+      // the background content "jumping" while the modal is open.
+      closeButtonRef.current?.focus({ preventScroll: true });
     }, 0);
 
     function handleKeyDown(event) {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== "Tab" || !panelRef.current) return;
@@ -114,12 +147,11 @@ export default function ServiceMembershipPlansModal({
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleKeyDown);
       clearTimeout(focusTimer);
-      previouslyFocusedRef.current?.focus?.();
+      previouslyFocusedRef.current?.focus?.({ preventScroll: true });
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -160,7 +192,7 @@ export default function ServiceMembershipPlansModal({
           </button>
         </div>
 
-        <div className="overflow-y-auto p-5">
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-5">
           {effectiveStatus === "loading" || effectiveStatus === "idle" ? (
             <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               <PlanCardSkeleton />

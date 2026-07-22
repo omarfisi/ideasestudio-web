@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BadgeCheck,
   Check,
@@ -123,6 +123,10 @@ export default function ProductDetailPage() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [footerVisible, setFooterVisible] = useState(false);
   const [plansModalOpen, setPlansModalOpen] = useState(false);
+  // Stable identity across every re-render of this page, not just when
+  // the modal actually opens/closes — passed straight through to
+  // ServiceMembershipPlansModal's onClose prop below.
+  const handleClosePlansModal = useCallback(() => setPlansModalOpen(false), []);
 
   const galleryImages = useMemo(() => getGalleryImages(product), [product]);
   const hasGallery = galleryImages.length > 0;
@@ -794,7 +798,7 @@ export default function ProductDetailPage() {
           serviceId={resolvedServiceId}
           serviceName={product.name}
           open={plansModalOpen}
-          onClose={() => setPlansModalOpen(false)}
+          onClose={handleClosePlansModal}
         />
       ) : null}
     </section>

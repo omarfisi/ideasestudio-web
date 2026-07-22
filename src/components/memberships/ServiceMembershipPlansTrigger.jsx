@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import ServiceMembershipPlansModal from "@/components/memberships/ServiceMembershipPlansModal.jsx";
 
 /**
@@ -24,6 +24,10 @@ export default function ServiceMembershipPlansTrigger({
   onOpen,
 }) {
   const [open, setOpen] = useState(false);
+  // Stable identity across every re-render of this component, not just
+  // when open/close actually changes — passed straight through to
+  // ServiceMembershipPlansModal's onClose prop.
+  const handleClose = useCallback(() => setOpen(false), []);
 
   if (!serviceId || !hasPlans) return null;
 
@@ -43,7 +47,7 @@ export default function ServiceMembershipPlansTrigger({
         serviceId={serviceId}
         serviceName={serviceName}
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={handleClose}
         plans={plans}
         loading={loading}
         error={error}
