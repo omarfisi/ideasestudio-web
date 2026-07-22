@@ -153,10 +153,12 @@ describe("ServiceMembershipPlansModal — loading, error, retry", () => {
         resolvePromise = resolve;
       })
     );
-    const { container } = renderModal();
-    expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
+    renderModal();
+    // Portaled to document.body (see ServiceMembershipPlansModal), so it
+    // renders outside RTL's local `container` — query the body instead.
+    expect(document.body.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
     resolvePromise([]);
-    await waitFor(() => expect(container.querySelectorAll(".animate-pulse").length).toBe(0));
+    await waitFor(() => expect(document.body.querySelectorAll(".animate-pulse").length).toBe(0));
   });
 
   it("shows a generic error message on failure", async () => {
@@ -261,9 +263,10 @@ describe("ServiceMembershipPlansModal — controlled mode (preloaded plans from 
   });
 
   it("shows the loading skeleton when the controlled loading prop is true, without fetching", async () => {
-    const { container } = renderModal({ plans: [], loading: true, error: null });
+    renderModal({ plans: [], loading: true, error: null });
     await screen.findByText("Planes disponibles para este servicio");
-    expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
+    // Portaled to document.body — see the note above.
+    expect(document.body.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
     expect(getPublicMembershipPlansByServiceMock).not.toHaveBeenCalled();
   });
 

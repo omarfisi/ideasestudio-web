@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { getPublicMembershipPlansByService } from "@/lib/api.js";
 import MembershipPlanCards, { PlanCardSkeleton } from "@/components/memberships/MembershipPlanCards.jsx";
@@ -155,7 +156,18 @@ export default function ServiceMembershipPlansModal({
 
   if (!open) return null;
 
-  return (
+  // Portal to document.body: this modal is rendered from inside per-card
+  // trigger components (catalog ProductCard, ProductDetailPage's sticky
+  // mobile CTA), and those ancestors use `transform`/`backdrop-filter`
+  // for hover/slide effects (see .product-card:hover and
+  // .service-detail-mobile-cta in App.css). Per the CSS spec, ANY
+  // transform/filter/backdrop-filter/perspective on an ancestor makes
+  // it the containing block for a `position: fixed` descendant — so
+  // without a portal, this modal was positioned and clipped relative to
+  // that small card instead of the viewport the instant the ancestor's
+  // hover state toggled, producing the fragmented/duplicated-looking
+  // render reported in production.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
       onMouseDown={(event) => {
@@ -220,6 +232,7 @@ export default function ServiceMembershipPlansModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
