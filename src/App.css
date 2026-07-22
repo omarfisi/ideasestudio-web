@@ -3319,6 +3319,45 @@
   color: #111111;
 }
 
+.membership-checkout {
+  display: grid;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .membership-checkout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.membership-checkout__field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.membership-checkout__field span {
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(17, 17, 17, 0.58);
+  font-weight: 700;
+}
+
+.membership-checkout__field input {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(17, 17, 17, 0.16);
+  font-size: 0.95rem;
+  background: #ffffff;
+}
+
+.membership-checkout__field input:focus {
+  outline: none;
+  border-color: rgba(17, 17, 17, 0.4);
+}
+
 .service-detail-purchase__checkout-btn:hover {
   background: linear-gradient(180deg, #f4d54e 0%, #ebc933 100%);
   color: #111111;

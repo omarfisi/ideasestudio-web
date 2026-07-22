@@ -1366,6 +1366,50 @@ export async function getPublicMembershipPlansByService(serviceId) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Checkout de suscripción de membresías — flujo separado del carrito de
+// la tienda (nunca pasa por store_carts/store_orders/PaymentIntent). Ver
+// app/routers/membership_subscriptions_public.py en el backend.
+// ─────────────────────────────────────────────────────────────
+
+// Re-validates a plan+service selection server-side. Never trust the
+// modal's own in-memory plan data alone once the user has navigated away
+// from it — the checkout page always re-fetches this before rendering
+// anything.
+export async function getMembershipPlanSelection({ membershipPlanId, serviceId }) {
+  const url = buildUrl(`/public/membership-plans/${encodeURIComponent(membershipPlanId)}/selection`, {
+    service_id: serviceId,
+  });
+  return apiFetch(url);
+}
+
+export async function createMembershipCheckoutSession({
+  membershipPlanId,
+  serviceId,
+  customerEmail,
+  customerName,
+  successUrl,
+  cancelUrl,
+}) {
+  const url = buildUrl("/membership-subscriptions/checkout-session");
+  return apiFetch(url, {
+    method: "POST",
+    body: JSON.stringify({
+      membership_plan_id: membershipPlanId,
+      service_id: serviceId,
+      customer_email: customerEmail,
+      customer_name: customerName || null,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+    }),
+  });
+}
+
+export async function getMembershipCheckoutSessionStatus(sessionId) {
+  const url = buildUrl(`/membership-subscriptions/checkout-session/${encodeURIComponent(sessionId)}`);
+  return apiFetch(url);
+}
+
+// ─────────────────────────────────────────────────────────────
 // Blog público
 // ─────────────────────────────────────────────────────────────
 
