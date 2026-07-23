@@ -3586,6 +3586,121 @@
   border-color: var(--ideas-black);
 }
 
+/* ── Membership checkout — Fase 2 auth gate ──────────────────────────── */
+
+.membership-checkout-authgate__hint {
+  margin: 4px 0 20px;
+  color: rgba(11, 11, 13, 0.7);
+}
+
+.membership-checkout-authgate__tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(11, 11, 13, 0.12);
+}
+
+.membership-checkout-authgate__tab {
+  padding: 10px 4px;
+  min-height: 44px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: rgba(11, 11, 13, 0.6);
+  cursor: pointer;
+}
+
+.membership-checkout-authgate__tab:hover {
+  color: var(--ideas-black);
+}
+
+/* Active tab differs by weight + underline, not color alone. */
+.membership-checkout-authgate__tab--active {
+  color: var(--ideas-black);
+  font-weight: 800;
+  border-bottom-color: var(--ideas-black);
+}
+
+.membership-checkout-authgate__form {
+  display: block;
+}
+
+.membership-checkout-authgate__alt {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 12px;
+  background: transparent;
+  border: 1px solid rgba(11, 11, 13, 0.16);
+  border-radius: 9999px;
+  font-family: "Inter", sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ideas-black);
+  cursor: pointer;
+}
+
+.membership-checkout-authgate__alt:hover {
+  border-color: var(--ideas-black);
+}
+
+.membership-checkout-authgate__alt:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.membership-checkout-authgate__forgot {
+  display: inline-block;
+  margin-top: 14px;
+  font-size: 0.85rem;
+  color: rgba(11, 11, 13, 0.6);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.membership-checkout-authgate__forgot:hover {
+  color: var(--ideas-black);
+}
+
+.membership-checkout-authgate__sent {
+  padding: 8px 0;
+  color: rgba(11, 11, 13, 0.8);
+}
+
+.membership-checkout-account__email {
+  margin: 4px 0 12px;
+  font-family: "Manrope", sans-serif;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--ideas-black);
+  overflow-wrap: anywhere;
+}
+
+.membership-checkout-account__switch {
+  min-height: 44px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(11, 11, 13, 0.6);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.membership-checkout-account__switch:hover {
+  color: var(--ideas-black);
+}
+
+.membership-checkout-account__switch:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .service-detail-purchase__checkout-btn:hover {
   background: linear-gradient(180deg, #f4d54e 0%, #ebc933 100%);
   color: #111111;

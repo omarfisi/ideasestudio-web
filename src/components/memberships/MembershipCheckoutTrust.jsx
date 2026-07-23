@@ -1,8 +1,11 @@
+// A single Stripe statement (not two overlapping ones), and a neutral
+// renewal claim — this component never receives billing_interval, so it
+// must never assert "mensual" when a plan could just as well be anual
+// (see MembershipPlanSummary's own precise renewalCopy for that detail).
 const TRUST_ITEMS = [
-  "Pago seguro procesado por Stripe.",
-  "Renovación mensual automática mientras la membresía esté activa.",
+  "Stripe procesa tu pago de forma segura.",
+  "Renovación automática según las condiciones del plan.",
   "Cancelación sujeta a las condiciones de tu plan.",
-  "Stripe procesa tus datos de pago de forma segura.",
 ];
 
 export default function MembershipCheckoutTrust() {

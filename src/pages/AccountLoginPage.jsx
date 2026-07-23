@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient.js";
 import { useAuth } from "@/contexts/AuthContext.jsx";
 import { TESTIMONIALS } from "@/data/testimonials.js";
@@ -14,7 +14,11 @@ const TESTIMONIAL = TESTIMONIALS["maria-del-mar"];
 export default function AccountLoginPage() {
   const { session, loading } = useAuth();
 
-  const [mode, setMode] = useState("password");
+  // ?mode=recovery lets a caller (e.g. the membership checkout's auth gate)
+  // deep-link straight into the recovery form instead of dumping the
+  // visitor on the password tab and making them find their way there.
+  const [searchParams] = useSearchParams();
+  const [mode, setMode] = useState(searchParams.get("mode") === "recovery" ? "recovery" : "password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);

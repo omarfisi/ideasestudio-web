@@ -30,6 +30,9 @@ vi.mock("@/lib/api.js", () => ({
 
 vi.mock("@/components/seo/SEOHead.jsx", () => ({ default: () => null }));
 vi.mock("@/hooks/usePageSeo.js", () => ({ usePageSeo: () => null }));
+vi.mock("@/contexts/AuthContext.jsx", () => ({
+  useAuth: () => ({ session: null, loading: false }),
+}));
 
 const routerSource = readFileSync(path.join(__dirname, "../AppRouter.jsx"), "utf8");
 
