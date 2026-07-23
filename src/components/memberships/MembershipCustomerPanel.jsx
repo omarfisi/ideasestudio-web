@@ -7,18 +7,13 @@ const SUBMIT_LABELS = {
 };
 
 /**
- * Right-column panel — same fields/payload as before (email required, name
- * optional). No registration/login here yet; that's a later phase. Only
- * copy, labels, focus states and error presentation change in this pass.
+ * Right-column panel — only renders once a Supabase session exists
+ * (MembershipCheckoutPage gates that). No email field here anymore: the
+ * account's email is shown once, in MembershipAuthenticatedAccount, and
+ * MembershipCheckoutPage reads session.user.email directly when calling
+ * createMembershipCheckoutSession — this panel never sees or edits it.
  */
-export default function MembershipCustomerPanel({
-  customerEmail,
-  customerName,
-  onEmailChange,
-  onNameChange,
-  onSubmit,
-  submitState,
-}) {
+export default function MembershipCustomerPanel({ customerName, onNameChange, onSubmit, submitState }) {
   const isSubmitting = submitState.status === "loading";
 
   return (
@@ -27,21 +22,8 @@ export default function MembershipCustomerPanel({
         Tus datos
       </p>
       <p className="body-md membership-checkout-panel__hint">
-        Usaremos este correo para confirmar tu membresía y enviarte el recibo de pago.
+        Confirma tu nombre para personalizar el recibo de pago.
       </p>
-
-      <label className="membership-checkout__field">
-        <span>Correo electrónico *</span>
-        <input
-          type="email"
-          required
-          autoComplete="email"
-          value={customerEmail}
-          onChange={(event) => onEmailChange(event.target.value)}
-          disabled={isSubmitting}
-          placeholder="tu@correo.com"
-        />
-      </label>
 
       <label className="membership-checkout__field">
         <span>Nombre (opcional)</span>
