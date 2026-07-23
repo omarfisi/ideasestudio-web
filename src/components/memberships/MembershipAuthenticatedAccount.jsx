@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient.js";
 import { translateSupabaseAuthError } from "@/lib/membershipAuthErrors.js";
 import { withAuthTimeout } from "@/lib/authRequestTimeout.js";
+import { dedupeByKey, resolveCustomerProfile } from "@/lib/authenticatedApi.js";
+import { classifyProfileError, translateProfileError } from "@/lib/membershipProfileErrors.js";
 
 /**
  * Identity strip shown once a Supabase session exists. "Usar otra cuenta"
@@ -12,10 +14,20 @@ import { withAuthTimeout } from "@/lib/authRequestTimeout.js";
  * changed — this surfaces that explicitly rather than leaving the visitor
  * thinking the switch happened. Never touches sessionStorage either way,
  * so the plan selection survives regardless of outcome.
+ *
+ * Fase 3 — also owns resolving the authenticated customer's CRM contact
+ * (POST /public/customer-profile/resolve) right after a session appears.
+ * Reports its outcome via onProfileStatusChange("resolving"|"ready"|
+ * "conflict"|"error") so MembershipCheckoutPage/MembershipCustomerPanel can
+ * gate the "Continuar al pago seguro" button on it — checkout must never
+ * proceed before the contact is actually linked. dedupeByKey (keyed by
+ * email) shares the same in-flight promise across React StrictMode's dev
+ * mount→cleanup→remount simulation, so that never sends two real POSTs.
  */
-export default function MembershipAuthenticatedAccount({ email }) {
+export default function MembershipAuthenticatedAccount({ email, onProfileStatusChange }) {
   const [signingOut, setSigningOut] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [profileState, setProfileState] = useState({ status: "resolving", message: "" });
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -27,6 +39,30 @@ export default function MembershipAuthenticatedAccount({ email }) {
       isMountedRef.current = false;
     };
   }, []);
+
+  function reportStatus(status, message = "") {
+    setProfileState({ status, message });
+    onProfileStatusChange?.(status);
+  }
+
+  async function runResolveProfile() {
+    reportStatus("resolving");
+    try {
+      await dedupeByKey(`membership-profile-resolve:${email}`, () => resolveCustomerProfile());
+      if (!isMountedRef.current) return;
+      reportStatus("ready");
+    } catch (error) {
+      if (!isMountedRef.current) return;
+      const classified = classifyProfileError(error);
+      reportStatus(classified === "conflict" ? "conflict" : "error", translateProfileError(error));
+    }
+  }
+
+  useEffect(() => {
+    runResolveProfile();
+    return () => {};
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email]);
 
   async function handleUseAnotherAccount() {
     if (!supabase || signingOut) return;
@@ -59,6 +95,30 @@ export default function MembershipAuthenticatedAccount({ email }) {
         Cuenta
       </p>
       <p className="membership-checkout-account__email">{email}</p>
+
+      {profileState.status === "resolving" ? (
+        <p className="body-md membership-checkout-account__profile-status" aria-busy="true">
+          Vinculando tu cuenta…
+        </p>
+      ) : profileState.status === "ready" ? (
+        <p className="body-md membership-checkout-account__profile-status membership-checkout-account__profile-status--ok">
+          Cuenta vinculada.
+        </p>
+      ) : (
+        <div className="form-status form-status--error" role="alert">
+          <p>{profileState.message}</p>
+          {profileState.status === "error" ? (
+            <button
+              type="button"
+              className="membership-checkout-account__retry"
+              onClick={runResolveProfile}
+            >
+              Reintentar
+            </button>
+          ) : null}
+        </div>
+      )}
+
       <button
         type="button"
         className="membership-checkout-account__switch"

@@ -2,6 +2,7 @@ import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
 import { PUBLIC_WORKSPACE_ID } from "@/lib/workspace.js";
 import { getClientRouteByKey } from "@/data/routes.js";
 import { mapOrderTotals } from "@/lib/bookingCheckoutSteps.js";
+import { authenticatedFetch } from "@/lib/authenticatedApi.js";
 import {
   addStoreCartItem,
   createStoreOrder,
@@ -1396,6 +1397,16 @@ export async function getMembershipPlanSelection({ membershipPlanId, serviceId }
   return apiFetch(url);
 }
 
+// Fase 3 — requires a Supabase session: uses authenticatedFetch, never the
+// plain apiFetch above, so every call always carries
+// `Authorization: Bearer <access_token>`. customer_email is kept in the
+// payload only for backend backward-compatibility (the caller must always
+// pass session.user.email here, never a free-typed value — the backend
+// independently derives the real identity from the JWT and rejects a
+// mismatch). Never retried automatically on 401 — see authenticatedFetch's
+// retryOn401 docstring: a checkout session may have already been created
+// server-side, so this always surfaces the error and lets the visitor
+// retry manually instead.
 export async function createMembershipCheckoutSession({
   membershipPlanId,
   serviceId,
@@ -1404,8 +1415,7 @@ export async function createMembershipCheckoutSession({
   successUrl,
   cancelUrl,
 }) {
-  const url = buildUrl("/membership-subscriptions/checkout-session");
-  return apiFetch(url, {
+  return authenticatedFetch("/membership-subscriptions/checkout-session", {
     method: "POST",
     body: JSON.stringify({
       membership_plan_id: membershipPlanId,
