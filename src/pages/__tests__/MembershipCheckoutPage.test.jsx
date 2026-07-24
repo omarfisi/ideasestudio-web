@@ -77,6 +77,14 @@ function renderPage({ state = { membershipPlanId: "plan-1", serviceId: "svc-1" }
   return render(<RouterProvider router={router} />);
 }
 
+function renderPageAtSearch(search) {
+  const router = createMemoryRouter(
+    [{ path: "/membresias/checkout", element: <MembershipCheckoutPage /> }],
+    { initialEntries: [{ pathname: "/membresias/checkout", search, state: null }] }
+  );
+  return render(<RouterProvider router={router} />);
+}
+
 const originalLocation = window.location;
 const assignMock = vi.fn();
 
@@ -354,5 +362,36 @@ describe("MembershipCheckoutPage — sessionStorage restoration", () => {
 
     await waitFor(() => expect(assignMock).toHaveBeenCalled());
     expect(sessionStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+});
+
+describe("MembershipCheckoutPage — direct link via URL query params", () => {
+  it("loads the plan from ?membershipPlanId=&serviceId= when there is no navigation state", async () => {
+    getMembershipPlanSelectionMock.mockResolvedValue(selectionResponse());
+
+    renderPageAtSearch("?membershipPlanId=plan-1&serviceId=svc-1");
+
+    await waitFor(() =>
+      expect(getMembershipPlanSelectionMock).toHaveBeenCalledWith({
+        membershipPlanId: "plan-1",
+        serviceId: "svc-1",
+      })
+    );
+    expect(await screen.findByText("Gestión de Redes Sociales")).toBeInTheDocument();
+  });
+
+  it("still re-validates against the backend and shows the ordinary error state for a query-param plan the backend rejects", async () => {
+    getMembershipPlanSelectionMock.mockRejectedValue(new Error("not_found"));
+
+    renderPageAtSearch("?membershipPlanId=plan-private&serviceId=svc-1");
+
+    await waitFor(() => expect(getMembershipPlanSelectionMock).toHaveBeenCalled());
+    expect(await screen.findByRole("link", { name: "Volver a servicios" })).toBeInTheDocument();
+  });
+
+  it("shows the missing-selection message when only one of the two query params is present", async () => {
+    renderPageAtSearch("?membershipPlanId=plan-1");
+    expect(await screen.findByRole("link", { name: "Ver servicios" })).toBeInTheDocument();
+    expect(getMembershipPlanSelectionMock).not.toHaveBeenCalled();
   });
 });
