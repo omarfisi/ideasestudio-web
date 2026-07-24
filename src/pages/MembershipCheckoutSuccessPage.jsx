@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
 import PageHero from "@/components/shared/PageHero.jsx";
 import { getMembershipCheckoutSessionStatus } from "@/lib/api.js";
+import { clearMembershipCheckoutSelection } from "@/lib/membershipCheckoutSession.js";
 
 const STATUS_LABELS = {
   incomplete: "Pendiente de confirmación",
@@ -14,6 +15,14 @@ const STATUS_LABELS = {
   canceled: "Cancelada",
   paused: "Pausada",
 };
+
+// A brand-new Embedded Checkout completion typically lands here before
+// Stripe's webhook has finished updating customer_subscriptions — status
+// still reads "incomplete" for a moment. Poll a bounded number of times
+// rather than showing a stale/uncertain answer; give up gracefully (never
+// spin forever) if the webhook still hasn't caught up.
+const MAX_POLL_ATTEMPTS = 6;
+const POLL_INTERVAL_MS = 2500;
 
 function formatDate(value) {
   if (!value) return null;
@@ -27,7 +36,10 @@ function formatDate(value) {
  * itself (Stripe's redirect could in principle be spoofed/replayed):
  * always re-queries our own backend, which reads the persisted
  * customer_subscriptions row (kept in sync by the Stripe webhook), not
- * the query param.
+ * the query param. Never shows a confirmed/active state until the
+ * backend itself reports a status other than "incomplete" — see the
+ * poll loop below. The stored plan/service selection (sessionStorage) is
+ * cleared only once that definitive answer arrives, never earlier.
  */
 export default function MembershipCheckoutSuccessPage() {
   const [searchParams] = useSearchParams();
@@ -42,12 +54,29 @@ export default function MembershipCheckoutSuccessPage() {
     }
 
     let cancelled = false;
+    let timeoutId;
 
-    async function load() {
-      setStatus("loading");
+    async function poll(attemptNumber) {
       try {
         const data = await getMembershipCheckoutSessionStatus(sessionId);
         if (cancelled) return;
+
+        if (data.status === "incomplete") {
+          setResult(data);
+          if (attemptNumber >= MAX_POLL_ATTEMPTS) {
+            setStatus("processing_timeout");
+            return;
+          }
+          setStatus("processing");
+          timeoutId = setTimeout(() => poll(attemptNumber + 1), POLL_INTERVAL_MS);
+          return;
+        }
+
+        // A definitive answer from the webhook (active/trialing/past_due/
+        // canceled/etc — anything but "incomplete"): the stored selection
+        // has done its job, and a later, separate checkout attempt must
+        // start clean rather than resuming this one.
+        clearMembershipCheckoutSelection();
         setResult(data);
         setStatus("ready");
       } catch {
@@ -56,10 +85,12 @@ export default function MembershipCheckoutSuccessPage() {
       }
     }
 
-    load();
+    setStatus("loading");
+    poll(0);
 
     return () => {
       cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
     };
   }, [sessionId]);
 
@@ -84,7 +115,26 @@ export default function MembershipCheckoutSuccessPage() {
     );
   }
 
-  if (effectiveStatus === "loading") {
+  if (effectiveStatus === "processing_timeout") {
+    return (
+      <>
+        <PageHero
+          eyebrow="Membresías"
+          title="Tu pago sigue en proceso"
+          subtitle="Esto puede tardar unos minutos más. Te avisaremos por correo en cuanto se confirme, o revisa el estado en tu cuenta."
+        />
+        <section className="section">
+          <div className="container">
+            <div className="empty-state">
+              <Button to="/mi-cuenta">Ir a mi cuenta</Button>
+            </div>
+          </div>
+        </section>
+      </>
+    );
+  }
+
+  if (effectiveStatus === "loading" || effectiveStatus === "processing") {
     return (
       <>
         <PageHero eyebrow="Membresías" title="Confirmando tu suscripción…" />

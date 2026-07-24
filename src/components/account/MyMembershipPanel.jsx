@@ -9,6 +9,17 @@ import {
 import { classifyProfileError, translateProfileError } from "@/lib/membershipProfileErrors.js";
 import MembershipActionConfirmModal from "@/components/account/MembershipActionConfirmModal.jsx";
 
+// Temporarily hidden: "Administrar facturación" today only opens Stripe's
+// externally-hosted Billing Portal (billing.stripe.com) — the same thing
+// the Embedded Checkout migration is moving away from for the payment
+// flow itself. Cancel/reactivate are already fully internal ("Mi
+// membresía") and stay visible regardless of this flag. Flip this back to
+// true once payment-method updates are handled internally (Stripe
+// Elements/SetupIntent) instead of via the hosted portal — the backend
+// endpoint (POST /public/my-membership/billing-portal) is untouched and
+// keeps working; only this button's visibility changes.
+const SHOW_BILLING_PORTAL_BUTTON = false;
+
 const STATUS_LABELS = {
   trialing: "Periodo de prueba",
   active: "Activa",
@@ -236,7 +247,7 @@ export default function MyMembershipPanel({ userId }) {
         </p>
       ) : null}
 
-      {membership.can_cancel || membership.can_reactivate || membership.can_manage_billing ? (
+      {membership.can_cancel || membership.can_reactivate || (membership.can_manage_billing && SHOW_BILLING_PORTAL_BUTTON) ? (
         <div className="account-membership-actions">
           {membership.can_cancel ? (
             <button type="button" onClick={openCancelConfirm} disabled={anyActionPending}>
@@ -248,7 +259,7 @@ export default function MyMembershipPanel({ userId }) {
               Reactivar membresía
             </button>
           ) : null}
-          {membership.can_manage_billing ? (
+          {membership.can_manage_billing && SHOW_BILLING_PORTAL_BUTTON ? (
             <button type="button" onClick={handleBillingPortal} disabled={anyActionPending}>
               {portalPending ? "Abriendo portal…" : "Administrar facturación"}
             </button>

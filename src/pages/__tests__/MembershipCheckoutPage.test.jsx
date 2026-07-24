@@ -11,6 +11,16 @@ vi.mock("@/lib/api.js", () => ({
   createMembershipCheckoutSession: (...args) => createMembershipCheckoutSessionMock(...args),
 }));
 
+// MembershipEmbeddedCheckout mounts Stripe's own hosted iframe component —
+// never exercised for real in jsdom (no network, no real publishable
+// key). Stubbed to a simple marker element so tests can assert it mounted
+// without needing a real Stripe.js instance.
+vi.mock("@/lib/stripeClient.js", () => ({ stripePromise: Promise.resolve({}) }));
+vi.mock("@stripe/react-stripe-js", () => ({
+  EmbeddedCheckoutProvider: ({ children }) => <div data-testid="embedded-checkout-provider">{children}</div>,
+  EmbeddedCheckout: () => <div data-testid="embedded-checkout" />,
+}));
+
 // MembershipAuthenticatedAccount (rendered once a session exists) resolves
 // the CRM profile on its own via authenticatedApi.js — dedupeByKey is left
 // as the REAL implementation (StrictMode-dedup tests below rely on it),
@@ -172,12 +182,13 @@ async function waitForSubmitEnabled() {
 }
 
 describe("MembershipCheckoutPage — authenticated: starting the subscription checkout", () => {
-  it("submits with customer_email from session.user.email, creates a Checkout Session, and redirects to Stripe's hosted page", async () => {
+  it("submits with customer_email from session.user.email and mounts Stripe's Embedded Checkout — never navigates away", async () => {
     getMembershipPlanSelectionMock.mockResolvedValue(selectionResponse());
     createMembershipCheckoutSessionMock.mockResolvedValue({
       ok: true,
       session_id: "cs_test_123",
-      session_url: "https://checkout.stripe.com/c/pay/cs_test_123",
+      checkout_ui_mode: "embedded",
+      client_secret: "cs_test_123_secret_fake",
     });
     renderPage();
     await screen.findByText("Gestión de Redes Sociales");
@@ -189,19 +200,37 @@ describe("MembershipCheckoutPage — authenticated: starting the subscription ch
     fireEvent.click(await waitForSubmitEnabled());
 
     await waitFor(() =>
-      expect(createMembershipCheckoutSessionMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          membershipPlanId: "plan-1",
-          serviceId: "svc-1",
-          customerEmail: "cliente@example.com",
-          successUrl: expect.stringContaining("/membresias/checkout/exito?session_id={CHECKOUT_SESSION_ID}"),
-          cancelUrl: expect.stringContaining("/membresias/checkout/cancelado"),
-        })
-      )
+      expect(createMembershipCheckoutSessionMock).toHaveBeenCalledWith({
+        membershipPlanId: "plan-1",
+        serviceId: "svc-1",
+        customerEmail: "cliente@example.com",
+        customerName: "",
+      })
     );
+    expect(await screen.findByTestId("embedded-checkout")).toBeInTheDocument();
+    // The whole point of Embedded Checkout: never a navigation away from
+    // ideasestudio.com.
+    expect(assignMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Continuar al pago seguro" })).not.toBeInTheDocument();
+  });
+
+  it("redirects via window.location.assign only when the backend falls back to checkout_ui_mode=hosted (rollback path)", async () => {
+    getMembershipPlanSelectionMock.mockResolvedValue(selectionResponse());
+    createMembershipCheckoutSessionMock.mockResolvedValue({
+      ok: true,
+      session_id: "cs_test_123",
+      checkout_ui_mode: "hosted",
+      session_url: "https://checkout.stripe.com/c/pay/cs_test_123",
+    });
+    renderPage();
+    await screen.findByText("Gestión de Redes Sociales");
+
+    fireEvent.click(await waitForSubmitEnabled());
+
     await waitFor(() =>
       expect(assignMock).toHaveBeenCalledWith("https://checkout.stripe.com/c/pay/cs_test_123")
     );
+    expect(screen.queryByTestId("embedded-checkout")).not.toBeInTheDocument();
   });
 
   it("keeps the form on screen and shows a safe, friendly error when session creation fails — never the backend's raw code", async () => {
@@ -217,6 +246,7 @@ describe("MembershipCheckoutPage — authenticated: starting the subscription ch
     expect(alert).toHaveTextContent("El pago no está disponible en este momento. Intenta más tarde.");
     expect(assignMock).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Continuar al pago seguro" })).toBeInTheDocument();
+    expect(screen.queryByTestId("embedded-checkout")).not.toBeInTheDocument();
   });
 
   it("blocks checkout and shows a session-expired message if the authenticated user somehow has no email", async () => {
@@ -348,11 +378,32 @@ describe("MembershipCheckoutPage — sessionStorage restoration", () => {
     });
   });
 
-  it("clears the stored selection once a Checkout Session is created", async () => {
+  it("does NOT clear the stored selection once Embedded Checkout mounts — only a confirmed success does (Fase 7)", async () => {
+    // A mid-payment reload must still land back on the same plan/service
+    // (and reuse the same pending Checkout Session server-side) — clearing
+    // the selection the instant the embedded form mounts would break that.
     getMembershipPlanSelectionMock.mockResolvedValue(selectionResponse());
     createMembershipCheckoutSessionMock.mockResolvedValue({
       ok: true,
       session_id: "cs_test_123",
+      checkout_ui_mode: "embedded",
+      client_secret: "cs_test_123_secret_fake",
+    });
+    renderPage();
+    await screen.findByText("Gestión de Redes Sociales");
+
+    fireEvent.click(await waitForSubmitEnabled());
+
+    await screen.findByTestId("embedded-checkout");
+    expect(sessionStorage.getItem(STORAGE_KEY)).not.toBeNull();
+  });
+
+  it("clears the stored selection for the hosted rollback redirect (matches the pre-Embedded-Checkout behavior)", async () => {
+    getMembershipPlanSelectionMock.mockResolvedValue(selectionResponse());
+    createMembershipCheckoutSessionMock.mockResolvedValue({
+      ok: true,
+      session_id: "cs_test_123",
+      checkout_ui_mode: "hosted",
       session_url: "https://checkout.stripe.com/c/pay/cs_test_123",
     });
     renderPage();

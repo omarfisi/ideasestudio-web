@@ -1407,13 +1407,17 @@ export async function getMembershipPlanSelection({ membershipPlanId, serviceId }
 // retryOn401 docstring: a checkout session may have already been created
 // server-side, so this always surfaces the error and lets the visitor
 // retry manually instead.
+//
+// Embedded Checkout migration: no successUrl/cancelUrl parameters — the
+// backend always resolves a fixed, server-side redirect target by Stripe
+// mode. Response is either { checkout_ui_mode: "embedded", client_secret }
+// or { checkout_ui_mode: "hosted", session_url } (rollback path only) —
+// never both.
 export async function createMembershipCheckoutSession({
   membershipPlanId,
   serviceId,
   customerEmail,
   customerName,
-  successUrl,
-  cancelUrl,
 }) {
   return authenticatedFetch("/membership-subscriptions/checkout-session", {
     method: "POST",
@@ -1422,8 +1426,6 @@ export async function createMembershipCheckoutSession({
       service_id: serviceId,
       customer_email: customerEmail,
       customer_name: customerName || null,
-      success_url: successUrl,
-      cancel_url: cancelUrl,
     }),
   });
 }
