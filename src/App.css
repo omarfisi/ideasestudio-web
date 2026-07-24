@@ -15689,6 +15689,53 @@ section[id] {
   background: #1f2937;
 }
 
+/* ── Membership actions (cancel/reactivate/billing portal) ───────────────── */
+.account-membership-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.account-membership-actions button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: none;
+  background: #f1f5f9;
+  color: #111827;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.12s, opacity 0.12s;
+}
+
+.account-membership-actions button:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+.account-membership-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.account-membership-actions button:first-child {
+  background: #111827;
+  color: #f1d146;
+}
+
+.account-membership-actions button:first-child:hover:not(:disabled) {
+  background: #1f2937;
+}
+
+.account-membership-notice--error {
+  color: #b91c1c;
+}
+
 /* ── Empty / loading states ──────────────────────────────────────────────── */
 .account-shell {
   min-height: 60vh;

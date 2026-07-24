@@ -1,7 +1,13 @@
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { getMyMembership } from "@/lib/authenticatedApi.js";
+import { useCallback, useEffect, useState } from "react";
+import {
+  cancelMyMembership,
+  createBillingPortalSession,
+  getMyMembership,
+  reactivateMyMembership,
+} from "@/lib/authenticatedApi.js";
 import { classifyProfileError, translateProfileError } from "@/lib/membershipProfileErrors.js";
+import MembershipActionConfirmModal from "@/components/account/MembershipActionConfirmModal.jsx";
 
 const STATUS_LABELS = {
   trialing: "Periodo de prueba",
@@ -29,37 +35,114 @@ function formatDate(value) {
  * subscription_id, Stripe ids, contact_id or metadata_json, even though
  * the backend response happens to include subscription_id — this simply
  * never reads that field.
+ *
+ * can_cancel/can_reactivate/can_manage_billing always come from the
+ * backend's own computation (see MyMembershipDetail) — this component
+ * never re-derives button visibility from raw status/date fields itself.
  */
 export default function MyMembershipPanel({ userId }) {
   const [state, setState] = useState({ status: "loading", membership: null, message: "", classified: null });
+  const [confirmMode, setConfirmMode] = useState(null); // null | "cancel" | "reactivate"
+  const [actionPending, setActionPending] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [noticeMessage, setNoticeMessage] = useState("");
+  const [portalPending, setPortalPending] = useState(false);
+  const [portalError, setPortalError] = useState("");
+
+  const load = useCallback(async () => {
+    setState((prev) => ({ status: "loading", membership: prev.membership, message: "", classified: null }));
+    try {
+      const data = await getMyMembership();
+      setState({ status: "ready", membership: data?.membership || null, message: "", classified: null });
+    } catch (error) {
+      setState({
+        status: "error",
+        membership: null,
+        message: translateProfileError(error),
+        classified: classifyProfileError(error),
+      });
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-
-    async function load() {
-      setState({ status: "loading", membership: null, message: "", classified: null });
-      try {
-        const data = await getMyMembership();
-        if (cancelled) return;
-        setState({ status: "ready", membership: data?.membership || null, message: "", classified: null });
-      } catch (error) {
-        if (cancelled) return;
-        setState({
-          status: "error",
-          membership: null,
-          message: translateProfileError(error),
-          classified: classifyProfileError(error),
-        });
-      }
+    async function run() {
+      if (cancelled) return;
+      await load();
     }
-
-    if (userId) load();
+    if (userId) run();
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, load]);
 
-  if (state.status === "loading") {
+  function openCancelConfirm() {
+    setActionError("");
+    setNoticeMessage("");
+    setConfirmMode("cancel");
+  }
+
+  function openReactivateConfirm() {
+    setActionError("");
+    setNoticeMessage("");
+    setConfirmMode("reactivate");
+  }
+
+  function closeConfirm() {
+    if (actionPending) return;
+    setConfirmMode(null);
+    setActionError("");
+  }
+
+  async function confirmCancel() {
+    setActionPending(true);
+    setActionError("");
+    try {
+      const result = await cancelMyMembership();
+      setConfirmMode(null);
+      setNoticeMessage(result?.membership?.message || "Tu membresía se cancelará al final del periodo actual.");
+      await load();
+    } catch (error) {
+      setActionError(translateProfileError(error));
+    } finally {
+      setActionPending(false);
+    }
+  }
+
+  async function confirmReactivate() {
+    setActionPending(true);
+    setActionError("");
+    try {
+      const result = await reactivateMyMembership();
+      setConfirmMode(null);
+      setNoticeMessage(result?.membership?.message || "Tu membresía continuará renovándose normalmente.");
+      await load();
+    } catch (error) {
+      setActionError(translateProfileError(error));
+    } finally {
+      setActionPending(false);
+    }
+  }
+
+  async function handleBillingPortal() {
+    if (portalPending) return;
+    setPortalPending(true);
+    setPortalError("");
+    try {
+      const result = await createBillingPortalSession();
+      if (result?.portal_url) {
+        window.location.assign(result.portal_url);
+        return;
+      }
+      setPortalError("No pudimos abrir el portal de facturación. Intenta nuevamente.");
+      setPortalPending(false);
+    } catch (error) {
+      setPortalError(translateProfileError(error));
+      setPortalPending(false);
+    }
+  }
+
+  if (state.status === "loading" && !state.membership) {
     return <div className="account-loading">Cargando tu membresía…</div>;
   }
 
@@ -95,6 +178,7 @@ export default function MyMembershipPanel({ userId }) {
   const startDate = formatDate(membership.created_at);
   const nextRenewal = formatDate(membership.current_period_end);
   const trialEnd = formatDate(membership.trial_end);
+  const anyActionPending = actionPending || portalPending;
 
   return (
     <div className="account-membership-card">
@@ -139,6 +223,60 @@ export default function MyMembershipPanel({ userId }) {
       {membership.cancel_at_period_end ? (
         <p className="account-membership-notice">Se cancelará al final del periodo actual.</p>
       ) : null}
+
+      {noticeMessage ? (
+        <p className="account-membership-notice" role="status">
+          {noticeMessage}
+        </p>
+      ) : null}
+
+      {portalError ? (
+        <p className="account-membership-notice account-membership-notice--error" role="alert">
+          {portalError}
+        </p>
+      ) : null}
+
+      {membership.can_cancel || membership.can_reactivate || membership.can_manage_billing ? (
+        <div className="account-membership-actions">
+          {membership.can_cancel ? (
+            <button type="button" onClick={openCancelConfirm} disabled={anyActionPending}>
+              Cancelar membresía
+            </button>
+          ) : null}
+          {membership.can_reactivate ? (
+            <button type="button" onClick={openReactivateConfirm} disabled={anyActionPending}>
+              Reactivar membresía
+            </button>
+          ) : null}
+          {membership.can_manage_billing ? (
+            <button type="button" onClick={handleBillingPortal} disabled={anyActionPending}>
+              {portalPending ? "Abriendo portal…" : "Administrar facturación"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      <MembershipActionConfirmModal
+        open={confirmMode === "cancel"}
+        title="¿Cancelar tu membresía?"
+        description="Tu membresía seguirá activa hasta el final del periodo ya pagado. No se te cobrará de nuevo después de esa fecha."
+        confirmLabel="Sí, cancelar al final del periodo"
+        pending={actionPending}
+        error={actionError}
+        onConfirm={confirmCancel}
+        onClose={closeConfirm}
+      />
+
+      <MembershipActionConfirmModal
+        open={confirmMode === "reactivate"}
+        title="¿Reactivar tu membresía?"
+        description="Tu membresía continuará renovándose automáticamente al final de cada periodo."
+        confirmLabel="Sí, reactivar"
+        pending={actionPending}
+        error={actionError}
+        onConfirm={confirmReactivate}
+        onClose={closeConfirm}
+      />
     </div>
   );
 }

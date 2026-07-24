@@ -172,3 +172,21 @@ export async function updateCustomerProfile({ name, phone } = {}) {
 export async function getMyMembership() {
   return authenticatedFetch("/public/my-membership", { retryOn401: true });
 }
+
+// Cancel/reactivate/billing-portal are mutating POSTs — same rule as
+// resolveCustomerProfile/updateCustomerProfile above, never retryOn401
+// (a request that already took effect on Stripe's side must never be
+// silently repeated after a token refresh). No body: identity and the
+// target subscription are always resolved server-side from the JWT.
+
+export async function cancelMyMembership() {
+  return authenticatedFetch("/public/my-membership/cancel", { method: "POST" });
+}
+
+export async function reactivateMyMembership() {
+  return authenticatedFetch("/public/my-membership/reactivate", { method: "POST" });
+}
+
+export async function createBillingPortalSession() {
+  return authenticatedFetch("/public/my-membership/billing-portal", { method: "POST" });
+}
