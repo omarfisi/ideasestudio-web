@@ -8,17 +8,14 @@ import MembershipPlanSummary from "@/components/memberships/MembershipPlanSummar
 import MembershipAuthGate from "@/components/memberships/MembershipAuthGate.jsx";
 import MembershipAuthenticatedAccount from "@/components/memberships/MembershipAuthenticatedAccount.jsx";
 import MembershipCustomerPanel from "@/components/memberships/MembershipCustomerPanel.jsx";
+import MembershipEmbeddedCheckout from "@/components/memberships/MembershipEmbeddedCheckout.jsx";
 import MembershipCheckoutTrust from "@/components/memberships/MembershipCheckoutTrust.jsx";
-import {
-  createMembershipCheckoutSession,
-  getMembershipPlanSelection,
-} from "@/lib/api.js";
+import { getMembershipPlanSelection } from "@/lib/api.js";
 import {
   saveMembershipCheckoutSelection,
   readMembershipCheckoutSelection,
   clearMembershipCheckoutSelection,
 } from "@/lib/membershipCheckoutSession.js";
-import { translateCheckoutError } from "@/lib/membershipCheckoutErrors.js";
 
 /**
  * Dedicated membership subscription checkout — deliberately NOT the
@@ -45,11 +42,11 @@ import { translateCheckoutError } from "@/lib/membershipCheckoutErrors.js";
  * id for a plan the backend doesn't consider selectable still renders the
  * ordinary "missing_selection"/error state, never a special-cased bypass.
  *
- * Fase 2 — auth gate: createMembershipCheckoutSession only ever runs with
- * a real Supabase session in hand, and customer_email is always
- * session.user.email (never a free-typed field).
+ * Fase 2 — auth gate: the embedded checkout session only ever gets
+ * requested with a real Supabase session in hand, and customer_email is
+ * always session.user.email (never a free-typed field).
  *
- * Fase 3 — createMembershipCheckoutSession (api.js) now sends
+ * Fase 3 — createMembershipCheckoutSession (api.js) sends
  * Authorization: Bearer <access_token> via authenticatedFetch, and the
  * backend verifies that JWT, derives auth_user_id, and links it to
  * contacts.user_id server-side — customer_email is compatibility-only from
@@ -57,6 +54,17 @@ import { translateCheckoutError } from "@/lib/membershipCheckoutErrors.js";
  * additionally resolves the CRM contact (POST /public/customer-profile/
  * resolve) as soon as a session appears; profileStatus below gates the
  * submit button so checkout can never fire before that link exists.
+ *
+ * Embedded Checkout migration: clicking "Continuar al pago seguro" no
+ * longer calls the backend directly from here — it only flips
+ * checkoutStarted, which swaps MembershipCustomerPanel's form for
+ * MembershipEmbeddedCheckout. That child component is the one that
+ * requests the Checkout Session and mounts Stripe's own embedded UI —
+ * the visitor enters card details without ever leaving ideasestudio.com.
+ * The stored plan/service selection (sessionStorage) is deliberately NOT
+ * cleared here — only once the success page confirms the subscription is
+ * actually active, so a mid-payment reload still reuses the same
+ * checkout attempt (see the backend's idempotent-reuse logic).
  */
 export default function MembershipCheckoutPage() {
   const location = useLocation();
@@ -86,6 +94,12 @@ export default function MembershipCheckoutPage() {
   // MembershipCustomerPanel's submit button — checkout must never fire
   // before the authenticated user's CRM contact is actually linked.
   const [profileStatus, setProfileStatus] = useState("resolving");
+  // Embedded Checkout migration — true once the visitor submits the form:
+  // swaps MembershipCustomerPanel for MembershipEmbeddedCheckout, which
+  // owns the actual Checkout Session request. Reset back to false if
+  // that request fails, so the visitor lands back on the ordinary form
+  // (with the error shown) and can retry.
+  const [checkoutStarted, setCheckoutStarted] = useState(false);
 
   useEffect(() => {
     if (!hasSelectionIds) {
@@ -119,13 +133,12 @@ export default function MembershipCheckoutPage() {
 
   const effectiveStatus = hasSelectionIds ? status : "missing_selection";
 
-  async function handleSubmit(event) {
+  function handleSubmit(event) {
     event.preventDefault();
-    if (!selection || submitState.status === "loading") return;
+    if (!selection || checkoutStarted) return;
     if (profileStatus !== "ready") return;
 
-    const customerEmail = session?.user?.email;
-    if (!customerEmail) {
+    if (!session?.user?.email) {
       setSubmitState({
         status: "error",
         message: "Tu sesión no es válida o expiró. Vuelve a iniciar sesión.",
@@ -133,23 +146,13 @@ export default function MembershipCheckoutPage() {
       return;
     }
 
-    setSubmitState({ status: "loading", message: "" });
+    setSubmitState({ status: "idle", message: "" });
+    setCheckoutStarted(true);
+  }
 
-    try {
-      const origin = window.location.origin;
-      const checkoutSession = await createMembershipCheckoutSession({
-        membershipPlanId: selection.plan.id,
-        serviceId: selection.service.id,
-        customerEmail,
-        customerName,
-        successUrl: `${origin}/membresias/checkout/exito?session_id={CHECKOUT_SESSION_ID}`,
-        cancelUrl: `${origin}/membresias/checkout/cancelado`,
-      });
-      clearMembershipCheckoutSelection();
-      window.location.assign(checkoutSession.session_url);
-    } catch (error) {
-      setSubmitState({ status: "error", message: translateCheckoutError(error) });
-    }
+  function handleEmbeddedCheckoutError(message) {
+    setCheckoutStarted(false);
+    setSubmitState({ status: "error", message });
   }
 
   if (effectiveStatus === "missing_selection") {
@@ -223,13 +226,24 @@ export default function MembershipCheckoutPage() {
                     email={session.user.email}
                     onProfileStatusChange={setProfileStatus}
                   />
-                  <MembershipCustomerPanel
-                    customerName={customerName}
-                    onNameChange={setCustomerName}
-                    onSubmit={handleSubmit}
-                    submitState={submitState}
-                    profileReady={profileStatus === "ready"}
-                  />
+                  {checkoutStarted ? (
+                    <MembershipEmbeddedCheckout
+                      userId={session.user.id}
+                      membershipPlanId={selection.plan.id}
+                      serviceId={selection.service.id}
+                      customerEmail={session.user.email}
+                      customerName={customerName}
+                      onError={handleEmbeddedCheckoutError}
+                    />
+                  ) : (
+                    <MembershipCustomerPanel
+                      customerName={customerName}
+                      onNameChange={setCustomerName}
+                      onSubmit={handleSubmit}
+                      submitState={submitState}
+                      profileReady={profileStatus === "ready"}
+                    />
+                  )}
                 </>
               )}
               <MembershipCheckoutTrust />

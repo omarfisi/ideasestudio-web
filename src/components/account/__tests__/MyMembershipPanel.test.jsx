@@ -147,10 +147,14 @@ describe("MyMembershipPanel — cancel/reactivate/billing-portal actions", () =>
     expect(await screen.findByRole("button", { name: "Reactivar membresía" })).toBeInTheDocument();
   });
 
-  it("shows 'Administrar facturación' when can_manage_billing is true", async () => {
-    getMyMembershipMock.mockResolvedValue({ ok: true, membership: membership({ can_manage_billing: true }) });
+  it("never shows 'Administrar facturación' even when can_manage_billing is true — temporarily hidden until payment-method updates are handled internally", async () => {
+    getMyMembershipMock.mockResolvedValue({
+      ok: true,
+      membership: membership({ can_cancel: true, can_manage_billing: true }),
+    });
     renderPanel();
-    expect(await screen.findByRole("button", { name: "Administrar facturación" })).toBeInTheDocument();
+    await screen.findByRole("button", { name: "Cancelar membresía" });
+    expect(screen.queryByRole("button", { name: "Administrar facturación" })).not.toBeInTheDocument();
   });
 
   it("clicking 'Cancelar membresía' opens a confirmation dialog, not a native confirm()", async () => {
@@ -255,47 +259,6 @@ describe("MyMembershipPanel — cancel/reactivate/billing-portal actions", () =>
 
     await waitFor(() => expect(reactivateMyMembershipMock).toHaveBeenCalledTimes(1));
     expect(await screen.findByText("Tu membresía continuará renovándose normalmente.")).toBeInTheDocument();
-  });
-
-  it("clicking 'Administrar facturación' redirects to the returned portal_url", async () => {
-    getMyMembershipMock.mockResolvedValue({ ok: true, membership: membership({ can_manage_billing: true }) });
-    createBillingPortalSessionMock.mockResolvedValue({ ok: true, portal_url: "https://billing.stripe.com/session/fake" });
-    renderPanel();
-    fireEvent.click(await screen.findByRole("button", { name: "Administrar facturación" }));
-
-    await waitFor(() => expect(assignMock).toHaveBeenCalledWith("https://billing.stripe.com/session/fake"));
-  });
-
-  it("shows an inline error banner when the billing portal request fails, without redirecting", async () => {
-    getMyMembershipMock.mockResolvedValue({ ok: true, membership: membership({ can_manage_billing: true }) });
-    const error = new Error("billing_customer_not_found");
-    error.code = "billing_customer_not_found";
-    createBillingPortalSessionMock.mockRejectedValue(error);
-    renderPanel();
-    fireEvent.click(await screen.findByRole("button", { name: "Administrar facturación" }));
-
-    expect(
-      await screen.findByText("Todavía no hay información de facturación asociada a tu cuenta.")
-    ).toBeInTheDocument();
-    expect(assignMock).not.toHaveBeenCalled();
-  });
-
-  it("disables the billing-portal button while its own request is in flight (no double-submit)", async () => {
-    getMyMembershipMock.mockResolvedValue({ ok: true, membership: membership({ can_manage_billing: true }) });
-    let resolvePromise;
-    createBillingPortalSessionMock.mockReturnValue(
-      new Promise((resolve) => {
-        resolvePromise = resolve;
-      })
-    );
-    renderPanel();
-    const button = await screen.findByRole("button", { name: "Administrar facturación" });
-    fireEvent.click(button);
-    fireEvent.click(button);
-    fireEvent.click(button);
-
-    expect(createBillingPortalSessionMock).toHaveBeenCalledTimes(1);
-    resolvePromise({ ok: true, portal_url: "https://billing.stripe.com/session/fake" });
   });
 
   it("closing the confirm dialog with Escape does not call cancelMyMembership", async () => {
