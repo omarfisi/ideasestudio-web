@@ -4,11 +4,27 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 
 const getMembershipPlanSelectionMock = vi.fn();
 const createMembershipCheckoutSessionMock = vi.fn();
+const resolveCustomerProfileMock = vi.fn();
 
 vi.mock("@/lib/api.js", () => ({
   getMembershipPlanSelection: (...args) => getMembershipPlanSelectionMock(...args),
   createMembershipCheckoutSession: (...args) => createMembershipCheckoutSessionMock(...args),
 }));
+
+// MembershipAuthenticatedAccount (rendered once a session exists) resolves
+// the CRM profile on its own via authenticatedApi.js — dedupeByKey is left
+// as the REAL implementation (StrictMode-dedup tests below rely on it),
+// only resolveCustomerProfile itself is mocked. Defaults to success so the
+// existing "authenticated" test cases below (written before profile
+// resolution existed) keep passing without every one of them having to
+// know about it.
+vi.mock("@/lib/authenticatedApi.js", async () => {
+  const actual = await vi.importActual("@/lib/authenticatedApi.js");
+  return {
+    ...actual,
+    resolveCustomerProfile: (...args) => resolveCustomerProfileMock(...args),
+  };
+});
 
 // Starts authenticated by default — most of this suite is about plan
 // loading/submission, not auth itself. Tests that care about the auth
@@ -67,6 +83,7 @@ const assignMock = vi.fn();
 beforeEach(() => {
   getMembershipPlanSelectionMock.mockReset();
   createMembershipCheckoutSessionMock.mockReset();
+  resolveCustomerProfileMock.mockReset().mockResolvedValue({ ok: true, name: null, email: "cliente@example.com", phone: null });
   assignMock.mockReset();
   sessionStorage.clear();
   mockAuthState = {
@@ -133,6 +150,19 @@ describe("MembershipCheckoutPage — loading the plan", () => {
   });
 });
 
+// Profile resolution (MembershipAuthenticatedAccount) runs independently
+// of the plan-selection load and settles asynchronously (even with a
+// same-tick-resolving mock, it's still a microtask) — waiting only for
+// the plan text risks a race where the submit button is still disabled
+// when the click fires, especially under a slower/parallel test run.
+// Every test below that clicks "Continuar al pago seguro" waits for it to
+// actually be enabled first, exactly like a real user would only be able to.
+async function waitForSubmitEnabled() {
+  const button = await screen.findByRole("button", { name: "Continuar al pago seguro" });
+  await waitFor(() => expect(button).not.toBeDisabled());
+  return button;
+}
+
 describe("MembershipCheckoutPage — authenticated: starting the subscription checkout", () => {
   it("submits with customer_email from session.user.email, creates a Checkout Session, and redirects to Stripe's hosted page", async () => {
     getMembershipPlanSelectionMock.mockResolvedValue(selectionResponse());
@@ -148,7 +178,7 @@ describe("MembershipCheckoutPage — authenticated: starting the subscription ch
     expect(screen.getByText("cliente@example.com")).toBeInTheDocument();
     expect(screen.queryByPlaceholderText("tu@correo.com")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Continuar al pago seguro" }));
+    fireEvent.click(await waitForSubmitEnabled());
 
     await waitFor(() =>
       expect(createMembershipCheckoutSessionMock).toHaveBeenCalledWith(
@@ -172,7 +202,7 @@ describe("MembershipCheckoutPage — authenticated: starting the subscription ch
     renderPage();
     await screen.findByText("Gestión de Redes Sociales");
 
-    fireEvent.click(screen.getByRole("button", { name: "Continuar al pago seguro" }));
+    fireEvent.click(await waitForSubmitEnabled());
 
     const alert = await screen.findByRole("alert");
     expect(alert).not.toHaveTextContent("membership_plan_not_synced_to_stripe_test");
@@ -187,13 +217,47 @@ describe("MembershipCheckoutPage — authenticated: starting the subscription ch
     renderPage();
     await screen.findByText("Gestión de Redes Sociales");
 
-    fireEvent.click(screen.getByRole("button", { name: "Continuar al pago seguro" }));
+    fireEvent.click(await waitForSubmitEnabled());
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Tu sesión no es válida o expiró. Vuelve a iniciar sesión."
     );
     expect(createMembershipCheckoutSessionMock).not.toHaveBeenCalled();
     expect(assignMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the submit button disabled while the profile is still resolving", async () => {
+    getMembershipPlanSelectionMock.mockResolvedValue(selectionResponse());
+    let resolveProfile;
+    resolveCustomerProfileMock.mockReturnValue(new Promise((resolve) => { resolveProfile = resolve; }));
+    renderPage();
+    await screen.findByText("Gestión de Redes Sociales");
+
+    expect(screen.getByRole("button", { name: "Continuar al pago seguro" })).toBeDisabled();
+
+    resolveProfile({ ok: true, name: null, email: "cliente@example.com", phone: null });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Continuar al pago seguro" })).not.toBeDisabled()
+    );
+    expect(createMembershipCheckoutSessionMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks checkout when the profile resolve conflicts (409) and never calls createMembershipCheckoutSession", async () => {
+    getMembershipPlanSelectionMock.mockResolvedValue(selectionResponse());
+    const conflictError = new Error("customer_contact_conflict");
+    conflictError.code = "customer_contact_conflict";
+    conflictError.status = 409;
+    resolveCustomerProfileMock.mockRejectedValue(conflictError);
+    renderPage();
+    await screen.findByText("Gestión de Redes Sociales");
+
+    expect(
+      await screen.findByText("No pudimos vincular tu cuenta automáticamente. Comunícate con soporte.")
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continuar al pago seguro" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continuar al pago seguro" }));
+    expect(createMembershipCheckoutSessionMock).not.toHaveBeenCalled();
   });
 });
 
@@ -286,7 +350,7 @@ describe("MembershipCheckoutPage — sessionStorage restoration", () => {
     renderPage();
     await screen.findByText("Gestión de Redes Sociales");
 
-    fireEvent.click(screen.getByRole("button", { name: "Continuar al pago seguro" }));
+    fireEvent.click(await waitForSubmitEnabled());
 
     await waitFor(() => expect(assignMock).toHaveBeenCalled());
     expect(sessionStorage.getItem(STORAGE_KEY)).toBeNull();

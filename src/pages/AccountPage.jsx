@@ -6,6 +6,8 @@ import { getMyOrders } from "@/lib/accountApi.js";
 import { formatPrice } from "@/lib/formatPrice.js";
 import { getOrderPaymentAction } from "@/lib/orderPaymentState.js";
 import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
+import MyMembershipPanel from "@/components/account/MyMembershipPanel.jsx";
+import CustomerProfilePanel from "@/components/account/CustomerProfilePanel.jsx";
 
 const CRM_BASE_URL = (CRM_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "") || "http://127.0.0.1:8000";
 
@@ -199,7 +201,16 @@ export default function AccountPage() {
               >
                 Propuestas
               </button>
-              <button disabled style={{ opacity: 0.45, cursor: "not-allowed" }}>
+              <button
+                className={activeSection === "membership" ? "is-active" : ""}
+                onClick={() => setActiveSection("membership")}
+              >
+                Mi membresía
+              </button>
+              <button
+                className={activeSection === "profile" ? "is-active" : ""}
+                onClick={() => setActiveSection("profile")}
+              >
                 Datos personales
               </button>
               <Link to="/mi-cuenta/reset-password">Cambiar contraseña</Link>
@@ -210,6 +221,27 @@ export default function AccountPage() {
           </aside>
 
           {/* Main content */}
+          {activeSection === "membership" ? (
+            <section className="account-main">
+              <div className="account-main-head">
+                <div>
+                  <h1>Mi membresía</h1>
+                  <p>Consulta el estado de tu membresía activa.</p>
+                </div>
+              </div>
+              <MyMembershipPanel userId={session.user?.id} />
+            </section>
+          ) : activeSection === "profile" ? (
+            <section className="account-main">
+              <div className="account-main-head">
+                <div>
+                  <h1>Datos personales</h1>
+                  <p>Actualiza tu nombre y teléfono de contacto.</p>
+                </div>
+              </div>
+              <CustomerProfilePanel userId={session.user?.id} email={userEmail} />
+            </section>
+          ) : (
           <section className="account-main">
             <div className="account-main-head">
               <div>
@@ -335,6 +367,7 @@ export default function AccountPage() {
               </div>
             )}
           </section>
+          )}
 
         </div>
       </section>

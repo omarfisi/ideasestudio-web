@@ -39,11 +39,16 @@ import { translateCheckoutError } from "@/lib/membershipCheckoutErrors.js";
  *
  * Fase 2 — auth gate: createMembershipCheckoutSession only ever runs with
  * a real Supabase session in hand, and customer_email is always
- * session.user.email (never a free-typed field) — the backend does not
- * verify a JWT for this endpoint yet, so this is a frontend-only gate.
- * Sending Authorization: Bearer <access_token> and verifying it
- * server-side, deriving auth_user_id, and linking it to contacts.user_id
- * are Fase 3 — deliberately not done here.
+ * session.user.email (never a free-typed field).
+ *
+ * Fase 3 — createMembershipCheckoutSession (api.js) now sends
+ * Authorization: Bearer <access_token> via authenticatedFetch, and the
+ * backend verifies that JWT, derives auth_user_id, and links it to
+ * contacts.user_id server-side — customer_email is compatibility-only from
+ * here on, never the source of identity. MembershipAuthenticatedAccount
+ * additionally resolves the CRM contact (POST /public/customer-profile/
+ * resolve) as soon as a session appears; profileStatus below gates the
+ * submit button so checkout can never fire before that link exists.
  */
 export default function MembershipCheckoutPage() {
   const location = useLocation();
@@ -62,6 +67,11 @@ export default function MembershipCheckoutPage() {
   const [selection, setSelection] = useState(null);
   const [customerName, setCustomerName] = useState("");
   const [submitState, setSubmitState] = useState({ status: "idle", message: "" });
+  // Fase 3 — reported by MembershipAuthenticatedAccount's own resolve
+  // lifecycle ("resolving" | "ready" | "conflict" | "error"). Gates
+  // MembershipCustomerPanel's submit button — checkout must never fire
+  // before the authenticated user's CRM contact is actually linked.
+  const [profileStatus, setProfileStatus] = useState("resolving");
 
   useEffect(() => {
     if (!hasSelectionIds) {
@@ -98,6 +108,7 @@ export default function MembershipCheckoutPage() {
   async function handleSubmit(event) {
     event.preventDefault();
     if (!selection || submitState.status === "loading") return;
+    if (profileStatus !== "ready") return;
 
     const customerEmail = session?.user?.email;
     if (!customerEmail) {
@@ -194,12 +205,16 @@ export default function MembershipCheckoutPage() {
                 <MembershipAuthGate />
               ) : (
                 <>
-                  <MembershipAuthenticatedAccount email={session.user.email} />
+                  <MembershipAuthenticatedAccount
+                    email={session.user.email}
+                    onProfileStatusChange={setProfileStatus}
+                  />
                   <MembershipCustomerPanel
                     customerName={customerName}
                     onNameChange={setCustomerName}
                     onSubmit={handleSubmit}
                     submitState={submitState}
+                    profileReady={profileStatus === "ready"}
                   />
                 </>
               )}

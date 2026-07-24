@@ -3,7 +3,9 @@
 // to the customer — only a fixed, friendly message. The technical detail is
 // only ever logged to the console in development, never rendered.
 const MESSAGE_MAP = [
-  [/session_expired|unauthorized|forbidden/i, "Tu sesión expiró. Inicia sesión nuevamente."],
+  [/session_expired|unauthorized|forbidden|auth_required|missing_session/i, "Tu sesión expiró. Inicia sesión nuevamente."],
+  [/customer_email_mismatch/i, "El correo de la sesión no coincide con el correo del checkout."],
+  [/customer_contact_conflict/i, "No pudimos vincular tu cuenta automáticamente. Comunícate con soporte."],
   [/not_synced_to_stripe|stripe_price|stripe_customer|stripe_checkout_session/i, "El pago no está disponible en este momento. Intenta más tarde."],
   [/selection_not_found|plan_not_found|not_found/i, "Este plan ya no está disponible."],
 ];

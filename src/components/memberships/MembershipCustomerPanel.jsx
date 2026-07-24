@@ -12,9 +12,15 @@ const SUBMIT_LABELS = {
  * account's email is shown once, in MembershipAuthenticatedAccount, and
  * MembershipCheckoutPage reads session.user.email directly when calling
  * createMembershipCheckoutSession — this panel never sees or edits it.
+ *
+ * Fase 3 — profileReady (from MembershipAuthenticatedAccount's own resolve
+ * lifecycle) gates the submit button in addition to isSubmitting: checkout
+ * must never fire before the authenticated user's CRM contact is actually
+ * linked (POST /public/customer-profile/resolve succeeded).
  */
-export default function MembershipCustomerPanel({ customerName, onNameChange, onSubmit, submitState }) {
+export default function MembershipCustomerPanel({ customerName, onNameChange, onSubmit, submitState, profileReady }) {
   const isSubmitting = submitState.status === "loading";
+  const canSubmit = profileReady && !isSubmitting;
 
   return (
     <form className="card-light membership-checkout-panel" onSubmit={onSubmit} noValidate>
@@ -37,7 +43,7 @@ export default function MembershipCustomerPanel({ customerName, onNameChange, on
         />
       </label>
 
-      <Button type="submit" disabled={isSubmitting} block aria-busy={isSubmitting}>
+      <Button type="submit" disabled={!canSubmit} block aria-busy={isSubmitting}>
         {SUBMIT_LABELS[submitState.status] || SUBMIT_LABELS.idle}
       </Button>
 
