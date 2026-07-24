@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
 import { useAuth } from "@/contexts/AuthContext.jsx";
 import MembershipCheckoutHero from "@/components/memberships/MembershipCheckoutHero.jsx";
@@ -37,6 +37,14 @@ import { translateCheckoutError } from "@/lib/membershipCheckoutErrors.js";
  * never the plan's price/benefits/trial, only the two ids — and still go
  * through that same backend re-validation before anything renders.
  *
+ * A third source, ?membershipPlanId=&serviceId= query params, exists only
+ * for administrative direct links to a plan that is deliberately unlisted
+ * (is_public=false, allow_direct_checkout=true server-side — see
+ * scripts/create_membership_validation_plan.py) — there is no in-app UI
+ * that ever produces such a link. Same re-validation applies: a query-param
+ * id for a plan the backend doesn't consider selectable still renders the
+ * ordinary "missing_selection"/error state, never a special-cased bypass.
+ *
  * Fase 2 — auth gate: createMembershipCheckoutSession only ever runs with
  * a real Supabase session in hand, and customer_email is always
  * session.user.email (never a free-typed field).
@@ -52,15 +60,21 @@ import { translateCheckoutError } from "@/lib/membershipCheckoutErrors.js";
  */
 export default function MembershipCheckoutPage() {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { session, loading: authLoading } = useAuth();
 
   const stateMembershipPlanId = location.state?.membershipPlanId || null;
   const stateServiceId = location.state?.serviceId || null;
   const hasStateIds = Boolean(stateMembershipPlanId && stateServiceId);
-  const storedIds = hasStateIds ? null : readMembershipCheckoutSelection();
 
-  const membershipPlanId = stateMembershipPlanId || storedIds?.membershipPlanId || null;
-  const serviceId = stateServiceId || storedIds?.serviceId || null;
+  const paramMembershipPlanId = searchParams.get("membershipPlanId") || null;
+  const paramServiceId = searchParams.get("serviceId") || null;
+  const hasParamIds = Boolean(paramMembershipPlanId && paramServiceId);
+
+  const storedIds = hasStateIds || hasParamIds ? null : readMembershipCheckoutSelection();
+
+  const membershipPlanId = stateMembershipPlanId || paramMembershipPlanId || storedIds?.membershipPlanId || null;
+  const serviceId = stateServiceId || paramServiceId || storedIds?.serviceId || null;
   const hasSelectionIds = Boolean(membershipPlanId && serviceId);
 
   const [status, setStatus] = useState(hasSelectionIds ? "loading" : "missing_selection");
