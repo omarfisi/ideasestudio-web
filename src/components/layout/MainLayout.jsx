@@ -1,6 +1,7 @@
 import { Outlet, ScrollRestoration } from "react-router-dom";
 import Header from "@/components/layout/Header.jsx";
 import Footer from "@/components/layout/Footer.jsx";
+import HashScrollHandler from "@/components/layout/HashScrollHandler.jsx";
 
 export default function MainLayout() {
   return (
@@ -11,6 +12,7 @@ export default function MainLayout() {
       </main>
       <Footer />
       <ScrollRestoration />
+      <HashScrollHandler />
     </div>
   );
 }

@@ -183,16 +183,16 @@ export default function Footer() {
             </p>
 
             <div className="site-footer__socials" aria-label="Redes sociales">
-              {socialLinks.map(({ label, href, Icon }) => (
+              {socialLinks.map((item) => (
                 <a
-                  key={label}
+                  key={item.label}
                   className="site-footer__social"
-                  href={href}
+                  href={item.href}
                   target="_blank"
                   rel="noreferrer"
-                  aria-label={label}
+                  aria-label={item.label}
                 >
-                  <Icon />
+                  <item.Icon />
                 </a>
               ))}
             </div>

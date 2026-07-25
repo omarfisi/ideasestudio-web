@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
 const API_BASE = (
@@ -61,19 +61,14 @@ function IconError() {
 // ("No, volver al inicio" / "Volver a Ideas Estudio" / "Contactar"), so the
 // footer-audit's "add a clear way back to home" requirement is already met
 // without adding the marketing footer here.
-export default function UnsubscribePage() {
-  const [token, setToken] = useState(null);
-  // ready | submitting | success | invalid | error
-  const [status, setStatus] = useState("ready");
+function getTokenFromLocation() {
+  return new URLSearchParams(window.location.search).get("token");
+}
 
-  useEffect(() => {
-    const t = new URLSearchParams(window.location.search).get("token");
-    if (!t) {
-      setStatus("invalid");
-    } else {
-      setToken(t);
-    }
-  }, []);
+export default function UnsubscribePage() {
+  const [token] = useState(getTokenFromLocation);
+  // ready | submitting | success | invalid | error
+  const [status, setStatus] = useState(() => (getTokenFromLocation() ? "ready" : "invalid"));
 
   async function confirmUnsubscribe() {
     if (!token) return;
