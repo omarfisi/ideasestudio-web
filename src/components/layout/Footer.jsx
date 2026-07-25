@@ -1,36 +1,46 @@
+import { Link } from "react-router-dom";
+import { SITE_CONTACT } from "@/lib/siteContact.js";
+
 const BRAND_LOGO_URL =
   "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/logos/favicon_ideasestudio.webp";
 
+// Real routes confirmed against src/data/clientNiches.js and the router
+// (src/router/AppRouter.jsx) — these previously all pointed at the same
+// "/#caminos" anchor instead of each solution's own page.
 const serviceLinks = [
-  { label: "Marca o negocio", href: "/#caminos" },
-  { label: "Presencia visual", href: "/#caminos" },
-  { label: "Momentos especiales", href: "/#caminos" },
-  { label: "Solucion a medida", href: "/#caminos" },
+  { label: "Marca o negocio", to: "/servicios/marca-o-negocio" },
+  { label: "Presencia visual", to: "/servicios/presencia-visual-profesional" },
+  { label: "Momentos especiales", to: "/servicios/momento-especial" },
+  { label: "Solucion a medida", to: "/servicios/solucion-creativa" },
 ];
 
+// "/#servicios" and "/#blog" pointed at section ids that don't exist on the
+// live HomePage (only in an unused HomePage.backup.jsx) — fixed to their
+// real index pages instead. "/#portafolio" and "/#contacto" are kept as-is:
+// both ids genuinely exist on HomePage.jsx today.
 const quickLinks = [
-  { label: "Inicio", href: "/" },
-  { label: "Servicios", href: "/#servicios" },
-  { label: "Conoce tu negocio", href: "/conoce-tu-negocio" },
-  { label: "Portafolio", href: "/#portafolio" },
-  { label: "Blog", href: "/#blog" },
-  { label: "Contacto", href: "/#contacto" },
+  { label: "Inicio", to: "/" },
+  { label: "Servicios", to: "/servicios" },
+  { label: "Conoce tu negocio", to: "/conoce-tu-negocio" },
+  { label: "Portafolio", to: "/#portafolio" },
+  { label: "Blog", to: "/blog" },
+  { label: "Contacto", to: "/#contacto" },
 ];
 
 const socialLinks = [
   {
     label: "Facebook",
-    href: "https://www.facebook.com/ideasestudiopr",
+    href: SITE_CONTACT.social.facebook,
     Icon: FacebookIcon,
   },
   {
     label: "Instagram",
-    href: "https://www.instagram.com/ideasestudiopr/",
+    href: SITE_CONTACT.social.instagram,
     Icon: InstagramIcon,
   },
   {
     label: "YouTube",
-    href: "https://www.youtube.com/@ideasestudio",
+    href: SITE_CONTACT.social.youtube,
     Icon: YouTubeIcon,
   },
 ];
@@ -156,7 +166,7 @@ export default function Footer() {
       <div className="container site-footer__shell">
         <div className="site-footer__grid">
           <div className="site-footer__brand">
-            <a className="site-footer__brand-link" href="/" aria-label="Ideas Estudio">
+            <Link className="site-footer__brand-link" to="/" aria-label="Ideas Estudio">
               <span className="site-footer__brand-mark">
                 <img src={BRAND_LOGO_URL} alt="" loading="lazy" />
               </span>
@@ -164,7 +174,7 @@ export default function Footer() {
                 <strong>Ideas Estudio</strong>
                 <small>La idea que tu negocio necesita</small>
               </span>
-            </a>
+            </Link>
 
             <p className="site-footer__copy">
               Un estudio creativo con soluciones visuales y digitales para marcas,
@@ -173,16 +183,16 @@ export default function Footer() {
             </p>
 
             <div className="site-footer__socials" aria-label="Redes sociales">
-              {socialLinks.map(({ label, href, Icon }) => (
+              {socialLinks.map((item) => (
                 <a
-                  key={label}
+                  key={item.label}
                   className="site-footer__social"
-                  href={href}
+                  href={item.href}
                   target="_blank"
                   rel="noreferrer"
-                  aria-label={label}
+                  aria-label={item.label}
                 >
-                  <Icon />
+                  <item.Icon />
                 </a>
               ))}
             </div>
@@ -193,10 +203,10 @@ export default function Footer() {
             <ul className="site-footer__list">
               {serviceLinks.map((item) => (
                 <li key={item.label}>
-                  <a className="site-footer__link" href={item.href}>
+                  <Link className="site-footer__link" to={item.to}>
                     <ArrowRightIcon />
                     <span>{item.label}</span>
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -207,10 +217,10 @@ export default function Footer() {
             <ul className="site-footer__list">
               {quickLinks.map((item) => (
                 <li key={item.label}>
-                  <a className="site-footer__link" href={item.href}>
+                  <Link className="site-footer__link" to={item.to}>
                     <ArrowRightIcon />
                     <span>{item.label}</span>
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -219,14 +229,14 @@ export default function Footer() {
           <div className="site-footer__column">
             <h2 className="site-footer__title">Contacto</h2>
             <div className="site-footer__contact">
-              <a className="site-footer__contact-row" href="mailto:omarfisi@ideasestudiopr.com">
+              <a className="site-footer__contact-row" href={`mailto:${SITE_CONTACT.email}`}>
                 <EmailIcon />
-                <span>omarfisi@ideasestudiopr.com</span>
+                <span>{SITE_CONTACT.email}</span>
               </a>
 
-              <a className="site-footer__contact-row" href="tel:17875030349">
+              <a className="site-footer__contact-row" href={SITE_CONTACT.phone.href}>
                 <PhoneIcon />
-                <span>1-787-503-0349</span>
+                <span>{SITE_CONTACT.phone.display}</span>
               </a>
 
               <div className="site-footer__contact-row">
@@ -235,9 +245,12 @@ export default function Footer() {
               </div>
             </div>
 
-            <a className="site-footer__cta-link" href="/#contacto">
+            {/* Real standalone /contacto route (same convention as Header.jsx's
+                primary nav) rather than "/#contacto" — guarantees this CTA works
+                identically from any page, no hash-scroll dependency. */}
+            <Link className="site-footer__cta-link" to="/contacto">
               Hablemos de tu idea
-            </a>
+            </Link>
           </div>
         </div>
       </div>
@@ -250,11 +263,11 @@ export default function Footer() {
           </div>
 
           <div className="site-footer__bottom-meta">
-            <a href="/#servicios">Servicios</a>
+            <Link to="/servicios">Servicios</Link>
             <span aria-hidden="true">|</span>
-            <a href="/#portafolio">Portafolio</a>
+            <Link to="/#portafolio">Portafolio</Link>
             <span aria-hidden="true">|</span>
-            <a href="/#contacto">Contacto</a>
+            <Link to="/#contacto">Contacto</Link>
           </div>
 
           <button

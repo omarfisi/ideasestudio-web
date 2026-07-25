@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { APP_CRM_URL } from "@/lib/constants.js";
+import { SITE_CONTACT } from "@/lib/siteContact.js";
 
 const CLIENT_PATHS = [
   {
@@ -800,24 +801,24 @@ export default function Header() {
       <div className="ie-topbar">
         <div className="ie-topbar__inner">
           <div className="ie-topbar__left">
-            <a href="mailto:omarfisi@ideasestudiopr.com" className="ie-topbar__item">
+            <a href={`mailto:${SITE_CONTACT.email}`} className="ie-topbar__item">
               <span className="ie-topbar__icon ie-topbar__icon--social" aria-hidden="true">
                 <EmailIcon />
               </span>
-              <span>omarfisi@ideasestudiopr.com</span>
+              <span>{SITE_CONTACT.email}</span>
             </a>
 
-            <a href="tel:17875030349" className="ie-topbar__item">
+            <a href={SITE_CONTACT.phone.href} className="ie-topbar__item">
               <span className="ie-topbar__icon ie-topbar__icon--social" aria-hidden="true">
                 <PhoneIcon />
               </span>
-              <span>1-787-503-0349</span>
+              <span>{SITE_CONTACT.phone.display}</span>
             </a>
           </div>
 
           <div className="ie-topbar__right">
             <a
-              href="https://www.facebook.com/ideasestudiopr"
+              href={SITE_CONTACT.social.facebook}
               target="_blank"
               rel="noreferrer"
               className="ie-topbar__social"
@@ -827,7 +828,7 @@ export default function Header() {
             </a>
 
             <a
-              href="https://www.instagram.com/ideasestudiopr/"
+              href={SITE_CONTACT.social.instagram}
               target="_blank"
               rel="noreferrer"
               className="ie-topbar__social"
@@ -837,7 +838,7 @@ export default function Header() {
             </a>
 
             <a
-              href="https://www.youtube.com/@ideasestudio"
+              href={SITE_CONTACT.social.youtube}
               target="_blank"
               rel="noreferrer"
               className="ie-topbar__social"
