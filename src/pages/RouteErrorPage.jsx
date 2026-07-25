@@ -1,8 +1,14 @@
-import { isRouteErrorResponse, useRouteError } from "react-router-dom";
+import { isRouteErrorResponse, useNavigate, useRouteError } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
 
+// Deliberately no Header/Footer here: this page replaces the entire
+// MainLayout (errorElement is only declared on the root route) whenever a
+// loader/render error bubbles up uncaught, and the full marketing footer
+// could read as "everything is fine" during a critical error. Instead it
+// keeps three explicit, always-visible ways out: home, retry, and back.
 export default function RouteErrorPage() {
   const error = useRouteError();
+  const navigate = useNavigate();
 
   let title = "No se pudo cargar la informacion";
   let message =
@@ -33,6 +39,9 @@ export default function RouteErrorPage() {
             <Button to="/">Volver al inicio</Button>
             <Button to="/servicios" variant="secondary">
               Reintentar desde catalogo
+            </Button>
+            <Button type="button" variant="ghost" onClick={() => navigate(-1)}>
+              Volver atras
             </Button>
           </div>
         </div>

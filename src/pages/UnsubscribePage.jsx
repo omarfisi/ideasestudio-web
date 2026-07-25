@@ -54,6 +54,13 @@ function IconError() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+// Deliberately rendered outside MainLayout (no site Header/Footer): this is
+// a one-purpose email-compliance confirmation page, not a marketing page —
+// keeping it isolated avoids distracting nav/CTAs during an unsubscribe
+// flow. Every state below already includes its own explicit way back
+// ("No, volver al inicio" / "Volver a Ideas Estudio" / "Contactar"), so the
+// footer-audit's "add a clear way back to home" requirement is already met
+// without adding the marketing footer here.
 export default function UnsubscribePage() {
   const [token, setToken] = useState(null);
   // ready | submitting | success | invalid | error
