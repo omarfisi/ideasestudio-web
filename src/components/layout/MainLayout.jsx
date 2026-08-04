@@ -2,6 +2,7 @@ import { Outlet, ScrollRestoration } from "react-router-dom";
 import Header from "@/components/layout/Header.jsx";
 import Footer from "@/components/layout/Footer.jsx";
 import HashScrollHandler from "@/components/layout/HashScrollHandler.jsx";
+import PublicChatWidget from "@/components/chat/PublicChatWidget.jsx";
 
 export default function MainLayout() {
   return (
@@ -13,6 +14,7 @@ export default function MainLayout() {
       <Footer />
       <ScrollRestoration />
       <HashScrollHandler />
+      <PublicChatWidget />
     </div>
   );
 }
