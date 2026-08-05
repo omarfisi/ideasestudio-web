@@ -56,3 +56,13 @@ export async function getPublicChatEvents(sessionId, after) {
   if (after) params.set("after", after);
   return publicChatFetch(`/events?${params.toString()}`, { method: "GET" });
 }
+
+// Valoración 1-5 al resolverse la conversación — el backend solo la acepta
+// una vez support_status es resolved/closed (ver
+// support_conversations.py::submit_satisfaction_rating).
+export async function ratePublicChat(sessionId, score, comment) {
+  return publicChatFetch("/rate", {
+    method: "POST",
+    body: JSON.stringify({ session_id: sessionId, score, comment: comment || null }),
+  });
+}
