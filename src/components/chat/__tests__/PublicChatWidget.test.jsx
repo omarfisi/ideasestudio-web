@@ -132,6 +132,32 @@ describe("PublicChatWidget — manejo de errores", () => {
   });
 });
 
+describe("PublicChatWidget — seguridad", () => {
+  it("nunca ejecuta HTML/scripts en una respuesta del backend, siempre lo muestra como texto plano", async () => {
+    // El backend nunca debería devolver esto, pero el widget no debe
+    // confiar en eso: PublicChatWidget renderiza message.content vía JSX
+    // de texto plano (nunca dangerouslySetInnerHTML), así que aunque un
+    // backend comprometido o un documento mal saneado devolviera markup,
+    // debe quedar inerte en el DOM en vez de ejecutarse.
+    const malicious = '<img src=x onerror="window.__xss_fired = true">Hola<script>window.__xss_fired = true</script>';
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: malicious, knowledge_used: false, citations: [], request_id: "req-xss",
+    });
+    window.__xss_fired = undefined;
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+
+    await typeAndSend("intento de inyección");
+
+    expect(await screen.findByText(malicious)).toBeInTheDocument();
+    expect(document.querySelector(".public-chat-widget script")).toBeNull();
+    expect(document.querySelector(".public-chat-widget img")).toBeNull();
+    expect(window.__xss_fired).toBeUndefined();
+  });
+});
+
 describe("PublicChatWidget — accesibilidad y límites", () => {
   it("el diálogo tiene aria-label y aria-modal", () => {
     render(<PublicChatWidget />);
