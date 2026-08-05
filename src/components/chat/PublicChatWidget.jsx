@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy, MessageCircle, Send, X } from "lucide-react";
-import { sendPublicChatMessage, startPublicChat } from "@/services/publicChatApi.js";
+import { getPublicChatEvents, sendPublicChatMessage, startPublicChat } from "@/services/publicChatApi.js";
 import "./PublicChatWidget.css";
 
 const SESSION_STORAGE_KEY = "aira_public_chat_session_v1";
 const HISTORY_STORAGE_KEY = "aira_public_chat_history_v1";
 const MAX_MESSAGE_CHARS = 800;
+// Centro de Conversaciones: mientras el widget está abierto, se sondea
+// periódicamente por si un agente humano respondió (AIRA no envía nada por
+// su cuenta mientras un agente tiene el control — ver
+// app/routers/public_chat.py). Intervalo modesto para no generar carga
+// innecesaria en un chat que normalmente está inactivo entre mensajes.
+const EVENTS_POLL_INTERVAL_MS = 5000;
 
 function loadStoredSession() {
   try {
@@ -69,10 +75,37 @@ export default function PublicChatWidget() {
 
   const inputRef = useRef(null);
   const scrollRef = useRef(null);
+  const pollCursorRef = useRef(null);
+  const seenServerIdsRef = useRef(new Set());
 
   useEffect(() => {
     persistHistory(messages);
   }, [messages]);
+
+  // Polling con cursor: mientras el widget está abierto y hay una sesión,
+  // pregunta por mensajes nuevos que no llegaron como respuesta directa a
+  // /message — el caso real es la respuesta de un agente humano, que puede
+  // llegar minutos después de que el visitante escribió. Filtra los
+  // mensajes propios del visitante (role "user") — esos ya se muestran de
+  // forma optimista al enviarlos, nunca se duplican acá.
+  useEffect(() => {
+    if (!isOpen || !sessionId) return undefined;
+    const interval = setInterval(async () => {
+      try {
+        const data = await getPublicChatEvents(sessionId, pollCursorRef.current);
+        const events = data?.events || [];
+        if (events.length === 0) return;
+        pollCursorRef.current = events[events.length - 1].created_at || pollCursorRef.current;
+        const newOnes = events.filter((e) => e.role !== "user" && !seenServerIdsRef.current.has(e.id));
+        if (newOnes.length === 0) return;
+        newOnes.forEach((e) => seenServerIdsRef.current.add(e.id));
+        setMessages((prev) => [...prev, ...newOnes.map((e) => ({ role: e.role === "agent" ? "assistant" : e.role, content: e.content, citations: [] }))]);
+      } catch {
+        // Poll silencioso — un fallo transitorio no debe interrumpir la sesión del visitante.
+      }
+    }, EVENTS_POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [isOpen, sessionId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -137,6 +170,10 @@ export default function PublicChatWidget() {
         ...prev,
         { role: "assistant", content: data.response_text, citations: data.citations || [] },
       ]);
+      // La respuesta directa ya se mostró — el polling solo debe traer lo
+      // que llegue DESPUÉS de este momento (ej. un agente respondiendo más
+      // tarde), nunca reprocesar/duplicar esta misma respuesta.
+      pollCursorRef.current = new Date().toISOString();
     } catch (err) {
       if (err.status === 404) {
         // La sesión ya no existe del lado del servidor (reinicio, TTL, etc.)
@@ -151,6 +188,7 @@ export default function PublicChatWidget() {
               ...prev,
               { role: "assistant", content: retryData.response_text, citations: retryData.citations || [] },
             ]);
+            pollCursorRef.current = new Date().toISOString();
           } catch {
             setError("No pude procesar tu mensaje. Intenta de nuevo.");
           }

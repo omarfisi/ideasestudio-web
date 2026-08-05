@@ -1,13 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 
 vi.mock("@/services/publicChatApi.js", () => ({
   startPublicChat: vi.fn(),
   sendPublicChatMessage: vi.fn(),
+  getPublicChatEvents: vi.fn(),
 }));
 
 const { default: PublicChatWidget } = await import("@/components/chat/PublicChatWidget.jsx");
-const { startPublicChat, sendPublicChatMessage } = await import("@/services/publicChatApi.js");
+const { startPublicChat, sendPublicChatMessage, getPublicChatEvents } = await import("@/services/publicChatApi.js");
 
 function openWidget() {
   fireEvent.click(screen.getByRole("button", { name: /abrir chat/i }));
@@ -35,6 +36,7 @@ beforeEach(() => {
     citations: [{ citation_id: "C1", document_title: "Servicios", section_title: null, label: "Servicios" }],
     request_id: "req-1",
   });
+  getPublicChatEvents.mockResolvedValue({ events: [] });
 });
 
 describe("PublicChatWidget — estado inicial", () => {
@@ -129,6 +131,71 @@ describe("PublicChatWidget — manejo de errores", () => {
 
     expect(await screen.findByText("Respuesta tras reintento.")).toBeInTheDocument();
     expect(startPublicChat).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("PublicChatWidget — Centro de Conversaciones (toma de control humano)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("sondea periódicamente y muestra la respuesta de un agente humano sin que el visitante escriba de nuevo", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    getPublicChatEvents.mockResolvedValue({
+      events: [{ id: "srv-1", role: "agent", content: "¡Hola! Soy Ana, ¿en qué te ayudo?", created_at: "2026-08-05T10:00:05Z" }],
+    });
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+
+    await vi.advanceTimersByTimeAsync(5000);
+
+    expect(await screen.findByText("¡Hola! Soy Ana, ¿en qué te ayudo?")).toBeInTheDocument();
+  });
+
+  it("nunca duplica un mensaje ya mostrado por la respuesta directa de /message", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    // El servidor real solo devuelve eventos creados DESPUÉS del cursor
+    // "after" — se simula acá devolviendo el evento solo mientras no se
+    // haya pasado ningún cursor, igual que haría una consulta real
+    // `created_at > after`. Tras enviar un mensaje, el widget avanza el
+    // cursor a "ahora", así que un poll posterior ya no debería verlo.
+    getPublicChatEvents.mockImplementation((_sessionId, after) =>
+      Promise.resolve({
+        events: after ? [] : [{ id: "srv-2", role: "assistant", content: "Ofrecemos fotografía y video.", created_at: "2026-08-05T10:00:00Z" }],
+      })
+    );
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+
+    const input = screen.getByLabelText(/escribe tu mensaje/i);
+    fireEvent.change(input, { target: { value: "hola" } });
+    fireEvent.click(screen.getByRole("button", { name: /enviar mensaje/i }));
+    await screen.findByText("Ofrecemos fotografía y video.");
+
+    await vi.advanceTimersByTimeAsync(5000);
+
+    const matches = await screen.findAllByText("Ofrecemos fotografía y video.");
+    expect(matches).toHaveLength(1);
+  });
+
+  it("nunca muestra los mensajes del propio visitante devueltos por el polling (evita eco duplicado)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    getPublicChatEvents.mockResolvedValue({
+      events: [{ id: "srv-3", role: "user", content: "hola", created_at: "2026-08-05T10:00:00Z" }],
+    });
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+
+    await vi.advanceTimersByTimeAsync(5000);
+
+    const matches = screen.queryAllByText("hola");
+    expect(matches).toHaveLength(0);
   });
 });
 

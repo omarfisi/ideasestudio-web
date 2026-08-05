@@ -44,3 +44,15 @@ export async function sendPublicChatMessage(sessionId, message) {
     body: JSON.stringify({ session_id: sessionId, message }),
   });
 }
+
+// Centro de Conversaciones: mientras un agente humano tiene el control de
+// la conversación, AIRA no responde automáticamente — el widget debe
+// enterarse de la respuesta del agente sin que el visitante tenga que
+// escribir otro mensaje. Polling con cursor (after=ISO timestamp del
+// último evento visto), nunca WebSocket/SSE — ver
+// app/routers/public_chat.py::get_events para el porqué.
+export async function getPublicChatEvents(sessionId, after) {
+  const params = new URLSearchParams({ session_id: sessionId });
+  if (after) params.set("after", after);
+  return publicChatFetch(`/events?${params.toString()}`, { method: "GET" });
+}
