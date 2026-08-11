@@ -164,6 +164,36 @@ describe("PublicChatWidget — pre-chat gate", () => {
     expect(startPublicChat).not.toHaveBeenCalled();
   });
 
+  it("si /public/chat/prechat rechaza la submission ya usada (409), no reintenta automáticamente y deja al usuario reintentar a mano", async () => {
+    const conflict = new Error("Este formulario ya fue utilizado para iniciar una conversación.");
+    conflict.status = 409;
+    verifyPrechat.mockRejectedValueOnce(conflict);
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await fillPrechatForm();
+    fireEvent.click(screen.getByRole("button", { name: /comenzar conversación/i }));
+
+    // 1-4: se completó y envió el prechat, y se muestra el mensaje del backend.
+    expect(await screen.findByText("Este formulario ya fue utilizado para iniciar una conversación.")).toBeInTheDocument();
+    expect(submitPublicForm).toHaveBeenCalledTimes(1);
+    expect(verifyPrechat).toHaveBeenCalledTimes(1);
+
+    // 5-7: nada se reintenta solo, y jamás se llega a abrir sesión.
+    expect(submitPublicForm).toHaveBeenCalledTimes(1);
+    expect(verifyPrechat).toHaveBeenCalledTimes(1);
+    expect(startPublicChat).not.toHaveBeenCalled();
+
+    // 8: el usuario sigue en la pantalla de pre-chat, con el formulario
+    // interactivo de nuevo (no atascado en "Enviando…"), listo para
+    // completar un envío nuevo por su cuenta si quiere — nunca se reutiliza
+    // el submission_id anterior.
+    expect(screen.getByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument();
+    const retryButton = screen.getByRole("button", { name: /comenzar conversación/i });
+    expect(retryButton).not.toBeDisabled();
+    expect(retryButton).toHaveTextContent("Comenzar conversación");
+  });
+
   it("si /public/chat/start rechaza el prechat_token (401), vuelve a mostrar el formulario", async () => {
     const error = new Error("Verificación previa requerida.");
     error.status = 401;
