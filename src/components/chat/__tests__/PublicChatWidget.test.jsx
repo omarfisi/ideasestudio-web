@@ -4,10 +4,16 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 vi.mock("@/services/publicChatApi.js", () => ({
   startPublicChat: vi.fn(),
   sendPublicChatMessage: vi.fn(),
+  verifyPrechat: vi.fn(),
+}));
+
+vi.mock("@/lib/publicFormsApi.js", () => ({
+  submitPublicForm: vi.fn(),
 }));
 
 const { default: PublicChatWidget } = await import("@/components/chat/PublicChatWidget.jsx");
-const { startPublicChat, sendPublicChatMessage } = await import("@/services/publicChatApi.js");
+const { startPublicChat, sendPublicChatMessage, verifyPrechat } = await import("@/services/publicChatApi.js");
+const { submitPublicForm } = await import("@/lib/publicFormsApi.js");
 
 function openWidget() {
   fireEvent.click(screen.getByRole("button", { name: /abrir chat/i }));
@@ -20,9 +26,26 @@ async function typeAndSend(text) {
   return input;
 }
 
+async function fillPrechatForm({ name = "Ana Pérez", email = "ana@example.com", phone = "" } = {}) {
+  fireEvent.change(screen.getByLabelText(/nombre completo/i), { target: { value: name } });
+  fireEvent.change(screen.getByLabelText(/correo electrónico/i), { target: { value: email } });
+  if (phone) {
+    fireEvent.change(screen.getByLabelText(/teléfono/i), { target: { value: phone } });
+  }
+  fireEvent.click(screen.getByLabelText(/acepto que ideas estudio/i));
+}
+
+async function completePrechat() {
+  await fillPrechatForm();
+  fireEvent.click(screen.getByRole("button", { name: /comenzar conversación/i }));
+  await waitFor(() => expect(startPublicChat).toHaveBeenCalled());
+}
+
 beforeEach(() => {
   sessionStorage.clear();
   vi.clearAllMocks();
+  submitPublicForm.mockResolvedValue({ ok: true, submission_id: "sub-1", contact_id: "contact-1" });
+  verifyPrechat.mockResolvedValue({ prechat_token: "token-1", expires_in: 900 });
   startPublicChat.mockResolvedValue({
     session_id: "session-1",
     visitor_id: "visitor-1",
@@ -44,23 +67,125 @@ describe("PublicChatWidget — estado inicial", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(startPublicChat).not.toHaveBeenCalled();
   });
+
+  it("al abrir sin sesión previa, muestra el formulario de pre-chat en vez de iniciar sesión directamente", () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument();
+    expect(startPublicChat).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText(/escribe tu mensaje/i)).not.toBeInTheDocument();
+  });
 });
 
-describe("PublicChatWidget — apertura e inicio de sesión", () => {
-  it("al abrir, inicia sesión y muestra el saludo", async () => {
+describe("PublicChatWidget — pre-chat gate", () => {
+  it("completa el pre-chat, verifica el submission y solo entonces inicia sesión con el prechat_token", async () => {
     render(<PublicChatWidget />);
     openWidget();
 
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-    await waitFor(() => expect(startPublicChat).toHaveBeenCalledTimes(1));
+    await completePrechat();
+
+    expect(submitPublicForm).toHaveBeenCalledWith(
+      "aira-prechat",
+      expect.objectContaining({ full_name: "Ana Pérez", email: "ana@example.com", consent: true })
+    );
+    expect(verifyPrechat).toHaveBeenCalledWith("sub-1");
+    expect(startPublicChat).toHaveBeenCalledWith("token-1");
     expect(await screen.findByText("¡Hola! ¿En qué puedo ayudarte?")).toBeInTheDocument();
   });
 
-  it("reutiliza la sesión existente en sessionStorage sin volver a llamar a start", async () => {
+  it("nunca envía nombre/email/teléfono a /public/chat/start — solo el token opaco", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+
+    const [tokenArg] = startPublicChat.mock.calls[0];
+    expect(tokenArg).toBe("token-1");
+    expect(tokenArg).not.toMatch(/ana|example\.com/i);
+  });
+
+  it("no permite enviar el formulario sin nombre, email o consentimiento", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+
+    fireEvent.click(screen.getByRole("button", { name: /comenzar conversación/i }));
+
+    expect(await screen.findByText(/escribe tu nombre/i)).toBeInTheDocument();
+    expect(screen.getByText(/escribe tu correo electrónico/i)).toBeInTheDocument();
+    expect(screen.getByText(/debes aceptar para continuar/i)).toBeInTheDocument();
+    expect(submitPublicForm).not.toHaveBeenCalled();
+  });
+
+  it("rechaza un email con formato inválido", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+
+    fireEvent.change(screen.getByLabelText(/nombre completo/i), { target: { value: "Ana" } });
+    fireEvent.change(screen.getByLabelText(/correo electrónico/i), { target: { value: "no-es-un-email" } });
+    fireEvent.click(screen.getByLabelText(/acepto que ideas estudio/i));
+    fireEvent.click(screen.getByRole("button", { name: /comenzar conversación/i }));
+
+    expect(await screen.findByText(/correo electrónico válido/i)).toBeInTheDocument();
+    expect(submitPublicForm).not.toHaveBeenCalled();
+  });
+
+  it("si el honeypot tiene valor, no llama al backend (bot silencioso)", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await fillPrechatForm();
+    const honeypot = document.querySelector('input[name="website"]');
+    fireEvent.change(honeypot, { target: { value: "http://spam.example" } });
+    fireEvent.click(screen.getByRole("button", { name: /comenzar conversación/i }));
+
+    await waitFor(() => expect(submitPublicForm).not.toHaveBeenCalled());
+    expect(startPublicChat).not.toHaveBeenCalled();
+  });
+
+  it("muestra un error si el submit del formulario falla y no intenta iniciar sesión", async () => {
+    submitPublicForm.mockRejectedValueOnce(new Error("Formulario no encontrado."));
+    render(<PublicChatWidget />);
+    openWidget();
+    await fillPrechatForm();
+    fireEvent.click(screen.getByRole("button", { name: /comenzar conversación/i }));
+
+    expect(await screen.findByText("Formulario no encontrado.")).toBeInTheDocument();
+    expect(verifyPrechat).not.toHaveBeenCalled();
+    expect(startPublicChat).not.toHaveBeenCalled();
+  });
+
+  it("muestra un error si la verificación del pre-chat falla y no inicia sesión", async () => {
+    verifyPrechat.mockRejectedValueOnce(new Error("Consentimiento requerido."));
+    render(<PublicChatWidget />);
+    openWidget();
+    await fillPrechatForm();
+    fireEvent.click(screen.getByRole("button", { name: /comenzar conversación/i }));
+
+    expect(await screen.findByText("Consentimiento requerido.")).toBeInTheDocument();
+    expect(startPublicChat).not.toHaveBeenCalled();
+  });
+
+  it("si /public/chat/start rechaza el prechat_token (401), vuelve a mostrar el formulario", async () => {
+    const error = new Error("Verificación previa requerida.");
+    error.status = 401;
+    startPublicChat.mockRejectedValueOnce(error);
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+
+    expect(await screen.findByText(/completa el formulario de nuevo/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument();
+  });
+});
+
+describe("PublicChatWidget — apertura e inicio de sesión con sesión existente", () => {
+  it("reutiliza la sesión existente en sessionStorage sin volver a pedir el pre-chat", async () => {
     sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await waitFor(() => expect(startPublicChat).not.toHaveBeenCalled());
+    expect(screen.queryByRole("heading", { name: /antes de comenzar/i })).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/escribe tu mensaje/i)).toBeInTheDocument();
   });
 });
 
@@ -68,6 +193,7 @@ describe("PublicChatWidget — envío de mensajes", () => {
   it("envía un mensaje, muestra la burbuja del usuario y la respuesta con citas", async () => {
     render(<PublicChatWidget />);
     openWidget();
+    await completePrechat();
     await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
 
     await typeAndSend("¿qué servicios ofrecen?");
@@ -81,6 +207,7 @@ describe("PublicChatWidget — envío de mensajes", () => {
   it("limpia el input después de enviar", async () => {
     render(<PublicChatWidget />);
     openWidget();
+    await completePrechat();
     await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
 
     const input = await typeAndSend("hola");
@@ -90,6 +217,7 @@ describe("PublicChatWidget — envío de mensajes", () => {
   it("no permite enviar un mensaje vacío", async () => {
     render(<PublicChatWidget />);
     openWidget();
+    await completePrechat();
     await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
     expect(screen.getByRole("button", { name: /enviar mensaje/i })).toBeDisabled();
     expect(sendPublicChatMessage).not.toHaveBeenCalled();
@@ -104,6 +232,7 @@ describe("PublicChatWidget — manejo de errores", () => {
 
     render(<PublicChatWidget />);
     openWidget();
+    await completePrechat();
     await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
 
     await typeAndSend("hola de nuevo");
@@ -111,24 +240,21 @@ describe("PublicChatWidget — manejo de errores", () => {
     expect(await screen.findByText(/muy rápido/i)).toBeInTheDocument();
   });
 
-  it("reintenta transparentemente cuando la sesión expiró (404)", async () => {
+  it("si la sesión expiró (404) durante el chat, pide el pre-chat de nuevo en vez de reintentar en silencio", async () => {
     const error = new Error("Not found");
     error.status = 404;
     sendPublicChatMessage.mockRejectedValueOnce(error);
-    sendPublicChatMessage.mockResolvedValueOnce({
-      ok: true, response_text: "Respuesta tras reintento.", knowledge_used: false, citations: [], request_id: "req-2",
-    });
-    startPublicChat.mockResolvedValueOnce({ session_id: "session-1", visitor_id: "v1", greeting: "Hola" });
-    startPublicChat.mockResolvedValueOnce({ session_id: "session-2", visitor_id: "v2", greeting: "Hola de nuevo" });
 
     render(<PublicChatWidget />);
     openWidget();
-    await screen.findByText("Hola");
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
 
     await typeAndSend("pregunta");
 
-    expect(await screen.findByText("Respuesta tras reintento.")).toBeInTheDocument();
-    expect(startPublicChat).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText(/completa el formulario de nuevo para continuar/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument();
+    expect(startPublicChat).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -147,6 +273,7 @@ describe("PublicChatWidget — seguridad", () => {
 
     render(<PublicChatWidget />);
     openWidget();
+    await completePrechat();
     await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
 
     await typeAndSend("intento de inyección");
@@ -170,6 +297,7 @@ describe("PublicChatWidget — accesibilidad y límites", () => {
   it("limita el input al máximo de caracteres permitido", async () => {
     render(<PublicChatWidget />);
     openWidget();
+    await completePrechat();
     await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
     const input = screen.getByLabelText(/escribe tu mensaje/i);
     expect(input).toHaveAttribute("maxlength", "800");
