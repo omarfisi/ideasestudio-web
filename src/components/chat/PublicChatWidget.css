@@ -247,6 +247,123 @@
   cursor: not-allowed;
 }
 
+.public-chat-widget__messages--prechat {
+  overflow-y: auto;
+}
+
+.public-chat-widget__prechat {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.public-chat-widget__prechat-intro h2 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  color: var(--text, #161616);
+}
+
+.public-chat-widget__prechat-intro p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted, #625a52);
+  line-height: 1.4;
+}
+
+.public-chat-widget__prechat-honeypot {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.public-chat-widget__prechat-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.public-chat-widget__prechat-field label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text, #161616);
+}
+
+.public-chat-widget__prechat-field input {
+  border: 1px solid var(--line-strong, rgba(22, 22, 22, 0.18));
+  border-radius: var(--radius-sm, 14px);
+  padding: 9px 12px;
+  font-size: 0.88rem;
+  background: var(--bg-soft, #fbf8f3);
+  color: var(--text, #161616);
+}
+
+.public-chat-widget__prechat-field input:focus {
+  outline: 2px solid var(--brand, #f1d146);
+  outline-offset: 1px;
+}
+
+.public-chat-widget__prechat-field input[aria-invalid="true"] {
+  border-color: #b3261e;
+}
+
+.public-chat-widget__prechat-field-error {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #b3261e;
+}
+
+.public-chat-widget__prechat-consent {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.public-chat-widget__prechat-consent label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--muted, #625a52);
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.public-chat-widget__prechat-consent input {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.public-chat-widget__prechat-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.public-chat-widget__action-btn {
+  border: 1px solid var(--line-strong, rgba(22, 22, 22, 0.18));
+  background: var(--surface-strong, #ffffff);
+  color: var(--text, #161616);
+  border-radius: var(--radius-sm, 14px);
+  padding: 9px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.public-chat-widget__action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.public-chat-widget__action-btn--primary {
+  border: none;
+  background: var(--brand, #f1d146);
+  color: var(--text, #161616);
+}
+
 @media (max-width: 480px) {
   .public-chat-widget {
     right: 12px;
