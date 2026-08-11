@@ -34,13 +34,29 @@ async function publicChatFetch(path, options = {}) {
   return data;
 }
 
-export async function startPublicChat() {
-  return publicChatFetch("/start", { method: "POST" });
+export async function startPublicChat(prechatToken) {
+  return publicChatFetch("/start", {
+    method: "POST",
+    body: JSON.stringify({ prechat_token: prechatToken || null }),
+  });
 }
 
 export async function sendPublicChatMessage(sessionId, message) {
   return publicChatFetch("/message", {
     method: "POST",
     body: JSON.stringify({ session_id: sessionId, message }),
+  });
+}
+
+// Gate de pre-chat: se llama justo después de un envío exitoso del
+// formulario "aira-prechat" (ver @/lib/publicFormsApi.js::submitPublicForm),
+// nunca antes. El backend revalida server-side que el submission_id sea
+// real, pertenezca a ese formulario y tenga consentimiento — el widget
+// nunca decide por sí solo que el pre-chat fue válido, solo reenvía el
+// submission_id y guarda el token opaco de un solo uso que resulte.
+export async function verifyPrechat(submissionId) {
+  return publicChatFetch("/prechat", {
+    method: "POST",
+    body: JSON.stringify({ submission_id: submissionId }),
   });
 }
