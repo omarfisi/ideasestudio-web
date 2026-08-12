@@ -32,6 +32,93 @@
   transform: scale(1.05);
 }
 
+/* Botón cerrado — LEVEL2: pill ancho con identidad real (AIRA o el agente
+   humano en control), en vez del ícono genérico anterior. El estado abierto
+   (X de cerrar) conserva el círculo original. */
+.public-chat-widget__toggle--pill {
+  width: auto;
+  height: auto;
+  min-height: 56px;
+  border-radius: 999px;
+  padding: 6px 18px 6px 6px;
+  max-width: min(260px, calc(100vw - 40px));
+}
+
+.public-chat-widget__pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.public-chat-widget__pill-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  text-align: left;
+}
+
+.public-chat-widget__pill-name {
+  font-weight: 700;
+  font-size: 0.85rem;
+  line-height: 1.25;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.public-chat-widget__pill-status {
+  font-size: 0.7rem;
+  color: rgba(22, 22, 22, 0.65);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.public-chat-widget__avatar {
+  border-radius: 50%;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.public-chat-widget__avatar-image {
+  object-fit: cover;
+}
+
+.public-chat-widget__avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-dark, #161616);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.public-chat-widget__avatar-placeholder--aira {
+  background: var(--brand, #f1d146);
+  color: var(--text, #161616);
+}
+
+.public-chat-widget__header-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.public-chat-widget__header-identity .public-chat-widget__title,
+.public-chat-widget__header-identity .public-chat-widget__subtitle {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .public-chat-widget__panel {
   width: min(360px, calc(100vw - 32px));
   max-height: min(560px, calc(100vh - 120px));
