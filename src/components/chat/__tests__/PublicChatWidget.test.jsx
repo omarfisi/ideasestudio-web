@@ -5,6 +5,7 @@ vi.mock("@/services/publicChatApi.js", () => ({
   startPublicChat: vi.fn(),
   sendPublicChatMessage: vi.fn(),
   verifyPrechat: vi.fn(),
+  getPublicChatStatus: vi.fn(),
 }));
 
 vi.mock("@/lib/publicFormsApi.js", () => ({
@@ -12,8 +13,27 @@ vi.mock("@/lib/publicFormsApi.js", () => ({
 }));
 
 const { default: PublicChatWidget } = await import("@/components/chat/PublicChatWidget.jsx");
-const { startPublicChat, sendPublicChatMessage, verifyPrechat } = await import("@/services/publicChatApi.js");
+const { startPublicChat, sendPublicChatMessage, verifyPrechat, getPublicChatStatus } = await import(
+  "@/services/publicChatApi.js"
+);
 const { submitPublicForm } = await import("@/lib/publicFormsApi.js");
+
+const AIRA_RESPONDER = {
+  type: "aira",
+  display_name: "AIRA",
+  avatar_url: null,
+  status_label: "Asistente virtual",
+};
+
+function humanResponder(overrides = {}) {
+  return {
+    type: "human",
+    display_name: "Osvaldo",
+    avatar_url: null,
+    status_label: "Agente humano",
+    ...overrides,
+  };
+}
 
 function openWidget() {
   fireEvent.click(screen.getByRole("button", { name: /abrir chat/i }));
@@ -50,6 +70,7 @@ beforeEach(() => {
     session_id: "session-1",
     visitor_id: "visitor-1",
     greeting: "¡Hola! ¿En qué puedo ayudarte?",
+    responder: AIRA_RESPONDER,
   });
   sendPublicChatMessage.mockResolvedValue({
     ok: true,
@@ -57,7 +78,9 @@ beforeEach(() => {
     knowledge_used: true,
     citations: [{ citation_id: "C1", document_title: "Servicios", section_title: null, label: "Servicios" }],
     request_id: "req-1",
+    responder: AIRA_RESPONDER,
   });
+  getPublicChatStatus.mockResolvedValue({ ok: true, responder: AIRA_RESPONDER });
 });
 
 describe("PublicChatWidget — estado inicial", () => {
@@ -331,5 +354,398 @@ describe("PublicChatWidget — accesibilidad y límites", () => {
     await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
     const input = screen.getByLabelText(/escribe tu mensaje/i);
     expect(input).toHaveAttribute("maxlength", "800");
+  });
+});
+
+// ── LEVEL2: identidad dinámica del responder (GET /public/chat/status) ──────
+
+function closedToggleButton() {
+  return screen.getByRole("button", { name: /abrir chat/i });
+}
+
+function headerTitleText() {
+  return document.querySelector(".public-chat-widget__header .public-chat-widget__title")?.textContent;
+}
+
+function headerSubtitleText() {
+  return document.querySelector(".public-chat-widget__header .public-chat-widget__subtitle")?.textContent;
+}
+
+describe("PublicChatWidget — LEVEL2 responder: start", () => {
+  it("1) /start con responder AIRA -> el header muestra AIRA / Asistente virtual", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+
+    expect(headerTitleText()).toBe("AIRA");
+    expect(headerSubtitleText()).toBe("Asistente virtual");
+  });
+
+  it("2) /start con responder human -> el header muestra display_name / Agente humano", async () => {
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-1",
+      visitor_id: "visitor-1",
+      greeting: "Hola, soy Osvaldo, ¿en qué te ayudo?",
+      responder: humanResponder({ display_name: "Osvaldo" }),
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("Hola, soy Osvaldo, ¿en qué te ayudo?");
+
+    expect(headerTitleText()).toBe("Osvaldo");
+    expect(headerSubtitleText()).toBe("Agente humano");
+  });
+});
+
+describe("PublicChatWidget — LEVEL2 responder: avatar", () => {
+  it("3) human con avatar_url -> renderiza <img> con el src y alt correctos", async () => {
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-1",
+      visitor_id: "visitor-1",
+      greeting: "hola",
+      responder: humanResponder({ avatar_url: "https://cdn.example.test/osvaldo.png" }),
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("hola");
+
+    const img = document.querySelector(".public-chat-widget__header img");
+    expect(img).toHaveAttribute("src", "https://cdn.example.test/osvaldo.png");
+    expect(img).toHaveAttribute("alt", "Osvaldo");
+  });
+
+  it("4) human sin avatar_url -> renderiza fallback (iniciales), nunca <img>", async () => {
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-1",
+      visitor_id: "visitor-1",
+      greeting: "hola",
+      responder: humanResponder({ avatar_url: null }),
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("hola");
+
+    expect(document.querySelector(".public-chat-widget__header img")).toBeNull();
+    const placeholder = document.querySelector(".public-chat-widget__header .public-chat-widget__avatar-placeholder");
+    expect(placeholder).not.toBeNull();
+    expect(placeholder.textContent).toBe("O");
+  });
+
+  it("5) avatar que falla al cargar -> cae a fallback visual", async () => {
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-1",
+      visitor_id: "visitor-1",
+      greeting: "hola",
+      responder: humanResponder({ avatar_url: "https://cdn.example.test/broken.png" }),
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("hola");
+
+    const img = document.querySelector(".public-chat-widget__header img");
+    expect(img).not.toBeNull();
+    fireEvent.error(img);
+
+    await waitFor(() => {
+      expect(document.querySelector(".public-chat-widget__header img")).toBeNull();
+    });
+    expect(
+      document.querySelector(".public-chat-widget__header .public-chat-widget__avatar-placeholder")
+    ).not.toBeNull();
+  });
+});
+
+describe("PublicChatWidget — LEVEL2 responder: GET /status", () => {
+  it("6) abrir el widget con session_id existente llama a /status exactamente una vez", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+
+    await waitFor(() => expect(getPublicChatStatus).toHaveBeenCalledTimes(1));
+    expect(getPublicChatStatus).toHaveBeenCalledWith("existing-session");
+  });
+
+  it("7) /status AI -> el header refleja AIRA", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    getPublicChatStatus.mockResolvedValueOnce({ ok: true, responder: AIRA_RESPONDER });
+    render(<PublicChatWidget />);
+    openWidget();
+
+    await waitFor(() => expect(getPublicChatStatus).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(headerTitleText()).toBe("AIRA"));
+    expect(headerSubtitleText()).toBe("Asistente virtual");
+  });
+
+  it("8) /status human -> el header cambia a la identidad humana", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    getPublicChatStatus.mockResolvedValueOnce({
+      ok: true,
+      responder: humanResponder({ display_name: "Osvaldo" }),
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+
+    await waitFor(() => expect(headerTitleText()).toBe("Osvaldo"));
+    expect(headerSubtitleText()).toBe("Agente humano");
+  });
+
+  it("9) /status 503 conserva el último responder conocido", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    getPublicChatStatus.mockResolvedValueOnce({
+      ok: true,
+      responder: humanResponder({ display_name: "Osvaldo" }),
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await waitFor(() => expect(headerTitleText()).toBe("Osvaldo"));
+
+    // Segunda consulta (disparada por un 409 posterior) falla con 503 —
+    // la identidad ya conocida (Osvaldo) debe permanecer intacta. No hace
+    // falta pre-chat: la sesión existente ya llevó screen a "chat".
+    const conflict = new Error("La conversación está siendo atendida por un agente.");
+    conflict.status = 409;
+    sendPublicChatMessage.mockRejectedValueOnce(conflict);
+    const unavailable = new Error("El chat público no está disponible temporalmente.");
+    unavailable.status = 503;
+    getPublicChatStatus.mockRejectedValueOnce(unavailable);
+
+    await typeAndSend("hola de nuevo");
+
+    await waitFor(() => expect(getPublicChatStatus).toHaveBeenCalledTimes(2));
+    expect(headerTitleText()).toBe("Osvaldo");
+    expect(headerSubtitleText()).toBe("Agente humano");
+  });
+
+  it("10) /status 429 no reintenta en loop", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await waitFor(() => expect(getPublicChatStatus).toHaveBeenCalledTimes(1));
+
+    const conflict = new Error("La conversación está siendo atendida por un agente.");
+    conflict.status = 409;
+    sendPublicChatMessage.mockRejectedValueOnce(conflict);
+    const rateLimited = new Error("Demasiadas solicitudes.");
+    rateLimited.status = 429;
+    getPublicChatStatus.mockRejectedValueOnce(rateLimited);
+
+    await typeAndSend("hola de nuevo");
+
+    await waitFor(() => expect(getPublicChatStatus).toHaveBeenCalledTimes(2));
+    // Espera adicional para confirmar que nada dispara una tercera llamada.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(getPublicChatStatus).toHaveBeenCalledTimes(2);
+  });
+
+  it("11) /status 404 reutiliza el comportamiento existente de sesión expirada", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    const notFound = new Error("Sesión no encontrada.");
+    notFound.status = 404;
+    getPublicChatStatus.mockRejectedValueOnce(notFound);
+
+    render(<PublicChatWidget />);
+    openWidget();
+
+    expect(await screen.findByText(/completa el formulario de nuevo para continuar/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument();
+    expect(sessionStorage.getItem("aira_public_chat_session_v1")).toBeNull();
+  });
+});
+
+describe("PublicChatWidget — LEVEL2 responder: POST /message 409", () => {
+  it("12) 409 humano: no reintenta /message, llama /status una vez, cambia responder, no inventa respuesta de AIRA", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+
+    const conflict = new Error("La conversación está siendo atendida por un agente.");
+    conflict.status = 409;
+    sendPublicChatMessage.mockRejectedValueOnce(conflict);
+    getPublicChatStatus.mockResolvedValueOnce({
+      ok: true,
+      responder: humanResponder({ display_name: "Osvaldo" }),
+    });
+
+    await typeAndSend("¿hay alguien ahí?");
+
+    expect(await screen.findByText("La conversación está siendo atendida por un agente.")).toBeInTheDocument();
+    expect(sendPublicChatMessage).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(getPublicChatStatus).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(headerTitleText()).toBe("Osvaldo"));
+
+    // Ninguna burbuja "assistant" nueva se agregó a partir del 409 — solo
+    // queda el saludo inicial, nunca una respuesta fabricada del lado cliente.
+    const assistantBubbles = document.querySelectorAll(".public-chat-widget__bubble--assistant");
+    expect(assistantBubbles).toHaveLength(1);
+    expect(assistantBubbles[0].textContent).toContain("¿En qué puedo ayudarte?");
+  });
+
+  it("13) /message 200 con responder actualiza la identidad mostrada", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true,
+      response_text: "Respuesta",
+      knowledge_used: false,
+      citations: [],
+      request_id: "req-2",
+      responder: humanResponder({ display_name: "Osvaldo" }),
+    });
+
+    await typeAndSend("hola");
+    await screen.findByText("Respuesta");
+
+    expect(headerTitleText()).toBe("Osvaldo");
+    expect(headerSubtitleText()).toBe("Agente humano");
+  });
+});
+
+describe("PublicChatWidget — LEVEL2 responder: privacidad y XSS", () => {
+  it("14) nunca renderiza campos internos aunque el backend/mock los agregue", async () => {
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-1",
+      visitor_id: "visitor-1",
+      greeting: "hola",
+      responder: {
+        type: "human",
+        display_name: "Osvaldo",
+        avatar_url: null,
+        status_label: "Agente humano",
+        assigned_user_id: "agent-should-not-render-999",
+        control_mode: "human",
+        ai_enabled: false,
+        full_name: "Osvaldo Marfisi Nombre Legal",
+        email: "osvaldo@example.test",
+        role_slug: "admin",
+        permissions: ["*"],
+      },
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("hola");
+
+    const bodyText = document.body.textContent;
+    for (const forbidden of [
+      "agent-should-not-render-999",
+      "control_mode",
+      "ai_enabled",
+      "Osvaldo Marfisi Nombre Legal",
+      "osvaldo@example.test",
+      "role_slug",
+      "admin",
+      "permissions",
+    ]) {
+      expect(bodyText).not.toContain(forbidden);
+    }
+    expect(headerTitleText()).toBe("Osvaldo");
+  });
+
+  it("15) un display_name malicioso se muestra como texto plano, nunca ejecuta HTML", async () => {
+    const malicious = '<img src=x onerror="window.__responder_xss_fired = true">';
+    window.__responder_xss_fired = undefined;
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-1",
+      visitor_id: "visitor-1",
+      greeting: "hola",
+      responder: humanResponder({ display_name: malicious }),
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("hola");
+
+    expect(headerTitleText()).toBe(malicious);
+    expect(document.querySelector(".public-chat-widget__header img")).toBeNull();
+    expect(window.__responder_xss_fired).toBeUndefined();
+  });
+});
+
+describe("PublicChatWidget — LEVEL2 responder: sin polling continuo", () => {
+  it("16) no existe ningún timer recurrente consultando /status", async () => {
+    vi.useFakeTimers();
+    try {
+      sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+      render(<PublicChatWidget />);
+      fireEvent.click(screen.getByRole("button", { name: /abrir chat/i }));
+
+      await vi.waitFor(() => expect(getPublicChatStatus).toHaveBeenCalledTimes(1));
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(getPublicChatStatus).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("PublicChatWidget — LEVEL2 responder: pill cerrado", () => {
+  it("17) pill cerrado muestra la identidad real de AIRA", () => {
+    render(<PublicChatWidget />);
+    const button = closedToggleButton();
+    expect(button).toHaveAttribute("aria-label", "Abrir chat con AIRA");
+    expect(button.textContent).toContain("AIRA");
+    expect(button.textContent).toContain("Asistente virtual");
+  });
+
+  it("18) pill cerrado muestra la identidad real del agente humano", async () => {
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-1",
+      visitor_id: "visitor-1",
+      greeting: "hola",
+      responder: humanResponder({ display_name: "Osvaldo" }),
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("hola");
+    // El botón flotante y el botón del header comparten aria-label "Cerrar
+    // chat" mientras el panel está abierto (comportamiento preexistente) —
+    // se cierra por el del header, que es inequívoco por clase.
+    fireEvent.click(document.querySelector(".public-chat-widget__close"));
+
+    const button = closedToggleButton();
+    expect(button).toHaveAttribute("aria-label", "Abrir chat con Osvaldo");
+    expect(button.textContent).toContain("Osvaldo");
+    expect(button.textContent).toContain("Agente humano");
+  });
+
+  it("19) nunca muestra presencia falsa (Disponible/En línea) ligada a la identidad", async () => {
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-1",
+      visitor_id: "visitor-1",
+      greeting: "hola",
+      responder: humanResponder({ display_name: "Osvaldo" }),
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("hola");
+
+    const bodyText = document.body.textContent;
+    expect(bodyText).not.toMatch(/disponible/i);
+    expect(bodyText).not.toMatch(/en línea/i);
+    expect(document.querySelector('[class*="online"]')).toBeNull();
+    expect(document.querySelector('[class*="presence"]')).toBeNull();
+  });
+});
+
+describe("PublicChatWidget — LEVEL2 responder: prechat intacto", () => {
+  it("20) el flujo de pre-chat sigue igual y no llama a /status durante /start", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+
+    expect(startPublicChat).toHaveBeenCalledWith("token-1");
+    expect(getPublicChatStatus).not.toHaveBeenCalled();
   });
 });

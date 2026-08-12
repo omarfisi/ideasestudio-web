@@ -1,12 +1,106 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Copy, MessageCircle, Send, X } from "lucide-react";
-import { sendPublicChatMessage, startPublicChat } from "@/services/publicChatApi.js";
+import { Check, Copy, MessageCircle, Send, User, X } from "lucide-react";
+import {
+  getPublicChatStatus,
+  sendPublicChatMessage,
+  startPublicChat,
+} from "@/services/publicChatApi.js";
 import PrechatForm from "./PrechatForm.jsx";
 import "./PublicChatWidget.css";
 
 const SESSION_STORAGE_KEY = "aira_public_chat_session_v1";
 const HISTORY_STORAGE_KEY = "aira_public_chat_history_v1";
 const MAX_MESSAGE_CHARS = 800;
+
+// Identidad pública por defecto — segura mientras no se conozca el estado
+// real de control de la conversación (antes de /start, o si /status nunca
+// llegó a resolver nada distinto). Nunca se construye un responder con IDs
+// internos en el cliente: siempre viene tal cual del backend (PR #259/#260).
+const AIRA_RESPONDER = Object.freeze({
+  type: "aira",
+  display_name: "AIRA",
+  avatar_url: null,
+  status_label: "Asistente virtual",
+});
+
+// Mismo texto exacto que app/ai/public_responder.py::HUMAN_FALLBACK_DISPLAY_NAME
+// — permite distinguir "humano real con nombre" de "humano sin identidad
+// pública configurada todavía" para no mostrar iniciales sin sentido (p. ej.
+// "UA") derivadas del texto genérico.
+const GENERIC_HUMAN_DISPLAY_NAME = "Un agente te está atendiendo";
+
+// Whitelist estricta: cualquier campo extra que el backend (o un mock/proxy
+// comprometido) agregue al objeto responder — assigned_user_id, control_mode,
+// full_name, email, lo que sea — nunca llega a construirse en el objeto que
+// termina en el estado de React, porque este helper nunca hace spread del
+// objeto crudo, solo lee los 4 campos del contrato público.
+function sanitizeResponder(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const type = raw.type === "human" ? "human" : "aira";
+  const rawName = typeof raw.display_name === "string" ? raw.display_name.trim() : "";
+  const display_name = rawName || (type === "human" ? GENERIC_HUMAN_DISPLAY_NAME : "AIRA");
+  const rawAvatar = typeof raw.avatar_url === "string" ? raw.avatar_url.trim() : "";
+  const avatar_url = rawAvatar || null;
+  const rawStatus = typeof raw.status_label === "string" ? raw.status_label.trim() : "";
+  const status_label = rawStatus || (type === "human" ? "Agente humano" : "Asistente virtual");
+  return { type, display_name, avatar_url, status_label };
+}
+
+function ResponderAvatar({ responder, size = 36 }) {
+  // Sin useEffect para resetear el fallback de imagen rota: el caller le
+  // pasa key={type:avatar_url} (ver usos abajo), así React remonta este
+  // componente — con imgFailed limpio — cada vez que cambia la identidad,
+  // en vez de sincronizar estado derivado desde un efecto.
+  const [imgFailed, setImgFailed] = useState(false);
+
+  if (responder.avatar_url && !imgFailed) {
+    return (
+      <img
+        src={responder.avatar_url}
+        alt={responder.display_name}
+        className="public-chat-widget__avatar public-chat-widget__avatar-image"
+        style={{ width: size, height: size }}
+        onError={() => setImgFailed(true)}
+      />
+    );
+  }
+
+  if (responder.type === "human" && responder.display_name !== GENERIC_HUMAN_DISPLAY_NAME) {
+    const initials = responder.display_name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() || "")
+      .join("");
+    if (initials) {
+      return (
+        <div
+          className="public-chat-widget__avatar public-chat-widget__avatar-placeholder"
+          style={{ width: size, height: size }}
+          aria-hidden="true"
+        >
+          {initials}
+        </div>
+      );
+    }
+  }
+
+  return (
+    <div
+      className={`public-chat-widget__avatar public-chat-widget__avatar-placeholder${
+        responder.type === "aira" ? " public-chat-widget__avatar-placeholder--aira" : ""
+      }`}
+      style={{ width: size, height: size }}
+      aria-hidden="true"
+    >
+      {responder.type === "human" ? (
+        <User size={Math.round(size * 0.5)} />
+      ) : (
+        <MessageCircle size={Math.round(size * 0.5)} />
+      )}
+    </div>
+  );
+}
 
 function loadStoredSession() {
   try {
@@ -72,6 +166,7 @@ export default function PublicChatWidget() {
   const [isLoading, setIsLoading] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState(null);
+  const [responder, setResponder] = useState(AIRA_RESPONDER);
 
   const inputRef = useRef(null);
   const scrollRef = useRef(null);
@@ -92,6 +187,35 @@ export default function PublicChatWidget() {
     }
   }, [isOpen, screen]);
 
+  // LEVEL2: consulta puntual (nunca en intervalo) del responder actual de
+  // una sesión existente. Se llama exactamente en dos momentos: al abrir el
+  // widget con una sesión ya guardada (restore), y una vez después de un 409
+  // de /message (ver handleSend). Nunca reintenta sola ni entra en loop —
+  // eso es LEVEL3 y queda explícitamente fuera de este PR.
+  async function refreshStatus(targetSessionId) {
+    const sid = targetSessionId || sessionId;
+    if (!sid) return;
+    try {
+      const data = await getPublicChatStatus(sid);
+      const sanitized = sanitizeResponder(data?.responder);
+      if (sanitized) setResponder(sanitized);
+    } catch (err) {
+      if (err.status === 404) {
+        // Mismo comportamiento que /message ante sesión expirada: /status
+        // es auxiliar de identidad visual, pero una sesión inexistente en
+        // Redis es la misma señal de "hay que volver a pasar por pre-chat".
+        sessionStorage.removeItem(SESSION_STORAGE_KEY);
+        setSessionId(null);
+        setScreen("prechat");
+        setError("Tu sesión anterior expiró. Completa el formulario de nuevo para continuar.");
+        return;
+      }
+      // 503/429/cualquier otro fallo: /status es auxiliar, nunca crítico —
+      // se conserva el último responder conocido, sin inventar datos y sin
+      // reintentar automáticamente. La conversación sigue funcionando igual.
+    }
+  }
+
   // prechatToken es opcional: solo se usa cuando viene de un pre-chat recién
   // verificado (ver handlePrechatVerified). Si ya hay sesión guardada, ni
   // siquiera se llama al backend — esa es la razón de que el gate de
@@ -101,6 +225,7 @@ export default function PublicChatWidget() {
     if (existing) {
       setSessionId(existing);
       setScreen("chat");
+      refreshStatus(existing);
       return existing;
     }
     setIsStarting(true);
@@ -113,6 +238,8 @@ export default function PublicChatWidget() {
         prev.length > 0 ? prev : [{ role: "assistant", content: data.greeting, citations: [] }]
       );
       setScreen("chat");
+      const sanitized = sanitizeResponder(data.responder);
+      if (sanitized) setResponder(sanitized);
       return data.session_id;
     } catch (err) {
       if (err.status === 401) {
@@ -161,6 +288,8 @@ export default function PublicChatWidget() {
         ...prev,
         { role: "assistant", content: data.response_text, citations: data.citations || [] },
       ]);
+      const sanitized = sanitizeResponder(data.responder);
+      if (sanitized) setResponder(sanitized);
     } catch (err) {
       if (err.status === 404) {
         // La sesión ya no existe del lado del servidor (reinicio, TTL,
@@ -171,6 +300,13 @@ export default function PublicChatWidget() {
         setSessionId(null);
         setScreen("prechat");
         setError("Tu sesión anterior expiró. Completa el formulario de nuevo para continuar.");
+      } else if (err.status === 409) {
+        // Un agente ya tomó control — nunca se reintenta el mensaje ni se
+        // inventa una respuesta de AIRA. Se reutiliza el detail exacto que
+        // ya envía el backend (CONTROL_BLOCKED_TEXT) y se consulta /status
+        // UNA vez para reflejar la identidad humana real en la UI.
+        setError(err.message || "La conversación está siendo atendida por un agente.");
+        await refreshStatus(sessionId);
       } else if (err.status === 429) {
         setError("Estás enviando mensajes muy rápido. Espera un momento e intenta de nuevo.");
       } else {
@@ -185,12 +321,22 @@ export default function PublicChatWidget() {
     <div className="public-chat-widget">
       <button
         type="button"
-        className="public-chat-widget__toggle"
+        className={`public-chat-widget__toggle${isOpen ? "" : " public-chat-widget__toggle--pill"}`}
         onClick={handleToggle}
-        aria-label={isOpen ? "Cerrar chat" : "Abrir chat de asistencia"}
+        aria-label={isOpen ? "Cerrar chat" : `Abrir chat con ${responder.display_name}`}
         aria-expanded={isOpen}
       >
-        {isOpen ? <X size={22} /> : <MessageCircle size={22} />}
+        {isOpen ? (
+          <X size={22} />
+        ) : (
+          <span className="public-chat-widget__pill">
+            <ResponderAvatar key={`${responder.type}:${responder.avatar_url || ""}`} responder={responder} size={36} />
+            <span className="public-chat-widget__pill-text">
+              <span className="public-chat-widget__pill-name">{responder.display_name}</span>
+              <span className="public-chat-widget__pill-status">{responder.status_label}</span>
+            </span>
+          </span>
+        )}
       </button>
 
       {isOpen && (
@@ -201,9 +347,12 @@ export default function PublicChatWidget() {
           aria-label="Chat de asistencia de Ideas Estudio"
         >
           <header className="public-chat-widget__header">
-            <div>
-              <p className="public-chat-widget__title">Ideas Estudio</p>
-              <p className="public-chat-widget__subtitle">Asistente virtual</p>
+            <div className="public-chat-widget__header-identity">
+              <ResponderAvatar key={`${responder.type}:${responder.avatar_url || ""}`} responder={responder} size={40} />
+              <div>
+                <p className="public-chat-widget__title">{responder.display_name}</p>
+                <p className="public-chat-widget__subtitle">{responder.status_label}</p>
+              </div>
             </div>
             <button
               type="button"
