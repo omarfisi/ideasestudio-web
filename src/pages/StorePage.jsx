@@ -84,6 +84,15 @@ function getSaleModeLabel(product) {
   return SALE_MODE_LABELS[mode] || toReadableLabel(mode);
 }
 
+function normalizeCatalogItems(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.products)) return payload.products;
+  if (Array.isArray(payload?.data?.items)) return payload.data.items;
+  if (Array.isArray(payload?.data?.products)) return payload.data.products;
+  return [];
+}
+
 export default function StorePage() {
   const pageSeo = usePageSeo();
   const loaderData = useLoaderData();
@@ -218,12 +227,17 @@ export default function StorePage() {
           return;
         }
 
-        const items = Array.isArray(catalog?.items)
-          ? catalog.items.filter(
-              (item) => item?.productType === "service" && item?.isActive !== false
-            )
-          : [];
+        const items = normalizeCatalogItems(catalog).filter((item) => {
+          const type = normalize(item?.productType || item?.raw?.product_type || "");
+          return (type === "service" || !type) && item?.isActive !== false;
+        });
         setProducts(items);
+        setCatalogError("");
+
+        if (import.meta.env.DEV) {
+          console.debug("[StorePage] products payload", catalog);
+          console.debug("[StorePage] products normalized", items.length);
+        }
       } catch (error) {
         if (cancelled || requestId !== productsRequestRef.current) {
           return;
@@ -323,8 +337,8 @@ export default function StorePage() {
     const searchTerm = normalize(filters.search);
     const minPrice = Number(filters.minPrice);
     const maxPrice = Number(filters.maxPrice);
-    const hasMinPrice = Number.isFinite(minPrice) && filters.minPrice !== "";
-    const hasMaxPrice = Number.isFinite(maxPrice) && filters.maxPrice !== "";
+    const hasMinPrice = Number.isFinite(minPrice) && minPrice > 0;
+    const hasMaxPrice = Number.isFinite(maxPrice) && maxPrice > 0;
 
     const filtered = activeProducts.filter((product) => {
       if (filters.category !== "all" && product?.category?.slug !== filters.category) {
@@ -337,6 +351,7 @@ export default function StorePage() {
 
       if (
         filters.serviceType !== "all" &&
+        normalize(filters.serviceType) !== "service" &&
         getServiceType(product) !== normalize(filters.serviceType)
       ) {
         return false;
@@ -411,6 +426,13 @@ export default function StorePage() {
 
     return sorted;
   }, [activeProducts, filters]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    console.debug("[StorePage] filters", filters);
+    console.debug("[StorePage] activeProducts", activeProducts.length);
+    console.debug("[StorePage] visibleProducts", visibleProducts.length);
+  }, [activeProducts.length, filters, visibleProducts.length]);
 
   async function handleAddToCart(product) {
     setAddingProductSlug(product.slug);
