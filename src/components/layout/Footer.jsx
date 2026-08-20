@@ -268,6 +268,12 @@ export default function Footer() {
             <Link to="/#portafolio">Portafolio</Link>
             <span aria-hidden="true">|</span>
             <Link to="/#contacto">Contacto</Link>
+            <span aria-hidden="true">|</span>
+            <Link to="/privacy-policy">Privacy</Link>
+            <span aria-hidden="true">|</span>
+            <Link to="/terms">Terms</Link>
+            <span aria-hidden="true">|</span>
+            <Link to="/data-deletion">Data deletion</Link>
           </div>
 
           <button

@@ -45,6 +45,7 @@ import NotFoundPage from "@/pages/NotFoundPage.jsx";
 import CmsPage from "@/pages/CmsPage.jsx";
 import UnsubscribePage from "@/pages/UnsubscribePage.jsx";
 import RouteErrorPage from "@/pages/RouteErrorPage.jsx";
+import LegalPage from "@/pages/LegalPage.jsx";
 import QulandSystemPreview from "@/pages/QulandSystemPreview.jsx";
 import { getClientRouteByKey } from "@/data/routes.js";
 import { getServiceNichePageBySlug } from "@/data/serviceNichePages.js";
@@ -323,6 +324,9 @@ const router = createBrowserRouter([
         path: "contacto",
         element: <ContactPage />,
       },
+      { path: "privacy-policy", element: <LegalPage /> },
+      { path: "terms", element: <LegalPage /> },
+      { path: "data-deletion", element: <LegalPage /> },
       {
         path: "conoce-tu-negocio",
         element: <BusinessIntakeLanding />,
