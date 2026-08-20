@@ -1,4 +1,4 @@
-const DEFAULT_PUBLIC_WORKSPACE_ID = "c7e594e2-5218-40fc-9e4b-e830a21d96b3";
+const DEFAULT_PUBLIC_WORKSPACE_ID = "cfdd0b5a-3468-4d5a-86da-50e1f4f324a6";
 
 const PUBLIC_WORKSPACE_ID =
   (typeof import.meta !== "undefined" && import.meta?.env?.VITE_PUBLIC_WORKSPACE_ID) ||
