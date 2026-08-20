@@ -269,11 +269,11 @@ export default function Footer() {
             <span aria-hidden="true">|</span>
             <Link to="/#contacto">Contacto</Link>
             <span aria-hidden="true">|</span>
-            <Link to="/privacy-policy">Privacy</Link>
+            <Link to="/privacy-policy">Política de Privacidad</Link>
             <span aria-hidden="true">|</span>
-            <Link to="/terms">Terms</Link>
+            <Link to="/terms">Términos y Condiciones</Link>
             <span aria-hidden="true">|</span>
-            <Link to="/data-deletion">Data deletion</Link>
+            <Link to="/data-deletion">Eliminación de Datos</Link>
           </div>
 
           <button

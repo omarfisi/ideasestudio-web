@@ -9,82 +9,82 @@ const PUBLIC_ORIGIN = "https://www.ideasestudio.com";
 const LEGAL_PAGES = {
   privacy: {
     canonicalPath: "privacy-policy",
-    title: "Privacy Policy",
-    description: "How Ideas Estudio collects, uses and protects information shared through its public website.",
-    eyebrow: "Transparency",
-    intro: "This policy explains how we handle information when you visit our website, request information, purchase a service or connect an integration.",
+    title: "Política de Privacidad",
+    description: "Cómo Ideas Estudio recopila, utiliza y protege la información compartida a través de su sitio web público.",
+    eyebrow: "Transparencia",
+    intro: "Esta política explica cómo tratamos la información cuando visitas nuestro sitio web, solicitas información, compras un servicio o conectas una integración.",
     sections: [
-      ["Information we may receive", [
-        "We may receive contact information that you voluntarily provide, such as your name, email address, phone number, business, service interest and message.",
-        "When you use an account, checkout or booking flow, we may process the information needed to authenticate you, provide the service, complete the transaction and respond to related requests.",
-        "We may also receive basic technical information about your visit, such as browser, device and pages visited, according to the configuration of the website and its supporting services.",
+      ["Información que podemos recibir", [
+        "Podemos recibir la información de contacto que proporcionas voluntariamente, como tu nombre, correo electrónico, número de teléfono, negocio, interés en un servicio y mensaje.",
+        "Cuando utilizas una cuenta, un proceso de pago o una reserva, podemos tratar la información necesaria para autenticarte, prestar el servicio, completar la transacción y atender solicitudes relacionadas.",
+        "También podemos recibir información técnica básica de tu visita, como el navegador, el dispositivo y las páginas visitadas, según la configuración del sitio web y de sus servicios de soporte.",
       ]],
-      ["How we use information", [
-        "We use information to answer inquiries, prepare proposals, provide services, process purchases, manage bookings, maintain security and improve the public Ideas Estudio experience.",
-        "We do not sell personal information. We do not use the Meta integration to publish content or request Meta permissions that are not supported by a demonstrable feature.",
+      ["Cómo utilizamos la información", [
+        "Utilizamos la información para responder consultas, preparar propuestas, prestar servicios, procesar compras, gestionar reservas, mantener la seguridad y mejorar la experiencia pública de Ideas Estudio.",
+        "No vendemos información personal. No utilizamos la integración de Meta para publicar contenido ni solicitamos permisos de Meta que no estén respaldados por una función demostrable.",
       ]],
-      ["Meta Platform Data", [
-        "If you connect a Facebook Page, the authorization flow may allow us to identify Pages you manage and read public posts from the selected Page. These capabilities correspond to pages_show_list and pages_read_engagement.",
-        "Meta access tokens are received and stored only in the protected backend. They are not displayed on the public website or sent to the browser as part of the interface.",
-        "You may disconnect the integration or request deletion of associated data by contacting us through the channel below.",
+      ["Datos de la Plataforma de Meta", [
+        "Si conectas una Page de Facebook, el flujo de autorización puede permitirnos identificar las Pages que administras y leer las publicaciones públicas de la Page seleccionada. Estas capacidades corresponden a pages_show_list y pages_read_engagement.",
+        "Los tokens de acceso de Meta se reciben y almacenan únicamente en el backend protegido. No se muestran en el sitio web público ni se envían al navegador como parte de la interfaz.",
+        "Puedes desconectar la integración o solicitar la eliminación de los datos asociados comunicándote con nosotros mediante el canal indicado a continuación.",
       ]],
-      ["Technology providers", [
-        "The public website is served through Vercel. The application may use Supabase for data, authentication or storage services, and Render for backend services. These providers supply infrastructure according to the services used by the application.",
-        "Vercel is not presented as a processor of Meta data. Meta tokens and credentials are not included in public frontend assets.",
+      ["Proveedores tecnológicos", [
+        "El sitio web público se sirve mediante Vercel. La aplicación puede utilizar Supabase para servicios de datos, autenticación o almacenamiento, y Render para servicios de backend. Estos proveedores suministran infraestructura según los servicios utilizados por la aplicación.",
+        "Vercel no se presenta como procesador de datos de Meta. Los tokens y credenciales de Meta no se incluyen en los recursos públicos del frontend.",
       ]],
-      ["Retention and requests", [
-        "We retain information for the time reasonably necessary for the purpose for which it was received, the business relationship, applicable obligations and dispute resolution. The specific period may depend on the information and relationship involved.",
-        "You may request access, correction or deletion by contacting us. We may request reasonable information to verify identity and protect the account.",
+      ["Conservación y solicitudes", [
+        "Conservamos la información durante el tiempo razonablemente necesario para el propósito para el que fue recibida, la relación comercial, las obligaciones aplicables y la resolución de disputas. El período específico puede depender de la información y de la relación correspondiente.",
+        "Puedes solicitar acceso, corrección o eliminación comunicándote con nosotros. Podemos pedir información razonable para verificar tu identidad y proteger la cuenta.",
       ]],
     ],
   },
   terms: {
     canonicalPath: "terms",
-    title: "Terms and Conditions",
-    description: "General conditions for using the public website and contracting Ideas Estudio services.",
-    eyebrow: "Terms of use",
-    intro: "By using this website or requesting Ideas Estudio services, you agree to use it lawfully, respectfully and consistently with these conditions.",
+    title: "Términos y Condiciones",
+    description: "Condiciones generales para utilizar el sitio web público y contratar los servicios de Ideas Estudio.",
+    eyebrow: "Condiciones de uso",
+    intro: "Al utilizar este sitio web o solicitar servicios de Ideas Estudio, aceptas utilizarlo de manera lícita, respetuosa y conforme a estas condiciones.",
     sections: [
-      ["Content and services", [
-        "The website presents information about creative services, content, photography, video, branding, digital presence and other Ideas Estudio solutions. The availability, scope, price and schedule of a service are confirmed in the applicable proposal or agreement.",
-        "Public content may change to reflect updates to services, processes, pricing, availability or operational information.",
+      ["Contenido y servicios", [
+        "El sitio web presenta información sobre servicios creativos, contenido, fotografía, video, branding, presencia digital y otras soluciones de Ideas Estudio. La disponibilidad, el alcance, el precio y el calendario de un servicio se confirman en la propuesta o acuerdo correspondiente.",
+        "El contenido público puede cambiar para reflejar actualizaciones de servicios, procesos, precios, disponibilidad o información operativa.",
       ]],
-      ["Requests, purchases and bookings", [
-        "Submitting a form, starting checkout or requesting a proposal does not by itself guarantee acceptance of an engagement. A service relationship is confirmed when Ideas Estudio accepts the request and its conditions are agreed.",
-        "You must provide accurate information and keep secure any account used on the website. You must not use the website for fraud, abuse, unauthorized access or malicious content.",
+      ["Solicitudes, compras y reservas", [
+        "Enviar un formulario, iniciar un pago o solicitar una propuesta no garantiza por sí solo la aceptación de un trabajo. La relación de servicio se confirma cuando Ideas Estudio acepta la solicitud y se acuerdan sus condiciones.",
+        "Debes proporcionar información exacta y mantener segura cualquier cuenta utilizada en el sitio web. No debes utilizar el sitio para fraude, abuso, acceso no autorizado ni contenido malicioso.",
       ]],
-      ["Third-party integrations", [
-        "When you connect a Facebook Page, you authorize only the functions shown in the Meta flow. The currently demonstrable integration lets you select a Page and read public posts from the selected Page.",
-        "Ideas Estudio does not represent that this website publishes content, changes Page metadata or displays Meta Insights. Those functions are outside the current integration scope.",
+      ["Integraciones de terceros", [
+        "Cuando conectas una Page de Facebook, autorizas únicamente las funciones mostradas en el flujo de Meta. La integración demostrable actualmente permite seleccionar una Page y leer las publicaciones públicas de la Page seleccionada.",
+        "Ideas Estudio no afirma que este sitio publique contenido, cambie metadatos de una Page o muestre Meta Insights. Esas funciones están fuera del alcance actual de la integración.",
       ]],
-      ["Intellectual property", [
-        "The name, identity, design, text, photography, graphics and other content on this website belong to Ideas Estudio or are used with authorization. You may not copy, redistribute, modify or exploit that content without permission, except as allowed by applicable law.",
+      ["Propiedad intelectual", [
+        "El nombre, la identidad, el diseño, los textos, las fotografías, los gráficos y demás contenido de este sitio pertenecen a Ideas Estudio o se utilizan con autorización. No puedes copiar, redistribuir, modificar ni explotar ese contenido sin permiso, salvo cuando la ley aplicable lo permita.",
       ]],
-      ["Contact", [
-        "Questions about these terms may be sent to the email below. Project, purchase or booking conditions may supplement these terms through a proposal, contract or service confirmation.",
+      ["Contacto", [
+        "Puedes enviar preguntas sobre estos términos al correo indicado a continuación. Las condiciones de un proyecto, compra o reserva pueden complementar estos términos mediante una propuesta, contrato o confirmación del servicio.",
       ]],
     ],
   },
   deletion: {
     canonicalPath: "data-deletion",
-    title: "Data Deletion",
-    description: "Request deletion of personal information or the Meta connection associated with Ideas Estudio.",
-    eyebrow: "Your data",
-    intro: "You may request deletion of personal information or data associated with a Meta connection. This page describes the public channel to start that request.",
+    title: "Eliminación de Datos",
+    description: "Solicita la eliminación de información personal o de la conexión de Meta asociada con Ideas Estudio.",
+    eyebrow: "Tus datos",
+    intro: "Puedes solicitar la eliminación de información personal o de datos asociados con una conexión de Meta. Esta página describe el canal público para iniciar la solicitud.",
     sections: [
-      ["How to request deletion", [
-        `Email ${SITE_CONTACT.email} from an address that reasonably identifies the request. Include your name, the email used and, if applicable, the Page name or Ideas Estudio account involved.`,
-        "Do not include passwords, access tokens, App Secrets or credentials in the message. We never need you to email a Meta token.",
+      ["Cómo solicitar la eliminación", [
+        `Escribe a ${SITE_CONTACT.email} desde una dirección que permita identificar razonablemente la solicitud. Incluye tu nombre, el correo utilizado y, si corresponde, el nombre de la Page o la cuenta de Ideas Estudio involucrada.`,
+        "No incluyas contraseñas, tokens de acceso, App Secrets ni credenciales en el mensaje. Nunca necesitamos que envíes un token de Meta por correo.",
       ]],
-      ["What may be deleted", [
-        "Depending on the request, we may remove the Page association, delete the Meta connection, delete tokens stored for that connection and delete associated public data that is no longer necessary for the service.",
-        "Deletion may be limited when information must be retained to meet a legal obligation, resolve a dispute, prevent fraud or document a transaction. We will explain any applicable limitation.",
+      ["Qué puede eliminarse", [
+        "Según la solicitud, podemos eliminar la asociación con la Page, eliminar la conexión de Meta, eliminar los tokens almacenados para esa conexión y eliminar los datos públicos asociados que ya no sean necesarios para el servicio.",
+        "La eliminación puede limitarse cuando la información deba conservarse para cumplir una obligación legal, resolver una disputa, prevenir fraude o documentar una transacción. Explicaremos cualquier limitación aplicable.",
       ]],
-      ["Verification and response", [
-        "We may request reasonable information to confirm that the request comes from the person or entity whose data is involved. After verification, we will review the scope and confirm the action taken or the reason for any limitation.",
+      ["Verificación y respuesta", [
+        "Podemos solicitar información razonable para confirmar que la solicitud proviene de la persona o entidad cuyos datos están involucrados. Después de verificarla, revisaremos el alcance y confirmaremos la acción realizada o el motivo de cualquier limitación.",
       ]],
-      ["Meta connections", [
-        "You may also revoke access from your Facebook account settings. Revocation in Meta and a deletion request to Ideas Estudio are related actions, but they may require separate steps.",
+      ["Conexiones de Meta", [
+        "También puedes revocar el acceso desde la configuración de tu cuenta de Facebook. La revocación en Meta y la solicitud de eliminación a Ideas Estudio son acciones relacionadas, pero pueden requerir pasos separados.",
       ]],
     ],
   },
@@ -112,21 +112,21 @@ export default function LegalPage() {
             <span className="eyebrow">{page.eyebrow}</span>
             <h1 className="page-title">{page.title}</h1>
             <p className="page-subtitle">{page.intro}</p>
-            <p className="legal-page__updated">Data controller: {CONTROLLER_NAME} · Effective date: August 20, 2026</p>
+            <p className="legal-page__updated">Responsable del tratamiento: {CONTROLLER_NAME} · Fecha de vigencia: 20 de agosto de 2026</p>
           </div>
         </section>
 
         <section className="section legal-page__body">
           <div className="container legal-page__layout">
-            <aside className="legal-page__aside" aria-label="Legal pages">
+            <aside className="legal-page__aside" aria-label="Páginas legales">
               <span className="eyebrow">{BRAND_NAME}</span>
               <nav className="legal-page__nav">
-                <Link to="/privacy-policy">Privacy Policy</Link>
-                <Link to="/terms">Terms and Conditions</Link>
-                <Link to="/data-deletion">Data Deletion</Link>
+                <Link to="/privacy-policy">Política de Privacidad</Link>
+                <Link to="/terms">Términos y Condiciones</Link>
+                <Link to="/data-deletion">Eliminación de Datos</Link>
               </nav>
               <div className="legal-page__contact">
-                <strong>Questions?</strong>
+                <strong>¿Preguntas?</strong>
                 <a href={`mailto:${SITE_CONTACT.email}`}>{SITE_CONTACT.email}</a>
                 <a href={SITE_CONTACT.phone.href}>{SITE_CONTACT.phone.display}</a>
               </div>
