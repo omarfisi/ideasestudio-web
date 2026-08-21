@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 
 vi.mock("@/services/publicChatApi.js", () => ({
   startPublicChat: vi.fn(),
@@ -38,6 +39,19 @@ function humanResponder(overrides = {}) {
     status_label: "Agente humano",
     ...overrides,
   };
+}
+
+// FASE 3B.2 — el widget usa <Link> (react-router-dom) para el botón de
+// CTA, que solo se instancia cuando message.cta existe. Los tests que
+// ejercitan un CTA necesitan un Router real alrededor; el resto de este
+// archivo sigue usando render(<PublicChatWidget />) sin envoltorio porque
+// sus fixtures nunca incluyen cta.
+function renderWithRouter() {
+  return render(
+    <MemoryRouter>
+      <PublicChatWidget />
+    </MemoryRouter>
+  );
 }
 
 function openWidget() {
@@ -876,5 +890,96 @@ describe("PublicChatWidget — LEVEL2 responder: prechat intacto", () => {
 
     expect(startPublicChat).toHaveBeenCalledWith("token-1");
     expect(getPublicChatStatus).not.toHaveBeenCalled();
+  });
+});
+
+describe("PublicChatWidget — FASE 3B.2: CTA comercial", () => {
+  it("renderiza el botón de CTA recibido del backend, con su label y su href exactos", async () => {
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "Ofrecemos diseño web profesional.", knowledge_used: true,
+      citations: [], cta: { type: "quote", label: "Solicitar cotización", href: "/contacto?service=Web" },
+      request_id: "req-cta-1", responder: AIRA_RESPONDER,
+    });
+    renderWithRouter();
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+    await typeAndSend("quiero una página web");
+
+    const ctaLink = await screen.findByRole("link", { name: /Solicitar cotización/i });
+    expect(ctaLink).toHaveAttribute("href", "/contacto?service=Web");
+  });
+
+  it("sin cta en la respuesta, no renderiza ningún botón de acción comercial", async () => {
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "Respuesta sin CTA.", knowledge_used: true,
+      citations: [], cta: null, request_id: "req-cta-2", responder: AIRA_RESPONDER,
+    });
+    renderWithRouter();
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+    await typeAndSend("hola");
+
+    await screen.findByText("Respuesta sin CTA.");
+    expect(screen.queryByRole("link", { name: /Solicitar cotización/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Conocer planes/i })).not.toBeInTheDocument();
+  });
+
+  it("renderiza un CTA de tipo contact con su propio label, sin asumir que siempre es cotización", async () => {
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "Tenemos planes de redes sociales.", knowledge_used: true,
+      citations: [],
+      cta: { type: "contact", label: "Conocer planes", href: "/contacto?service=Contenido%20para%20redes%20sociales" },
+      request_id: "req-cta-3", responder: AIRA_RESPONDER,
+    });
+    renderWithRouter();
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+    await typeAndSend("quiero redes sociales");
+
+    const ctaLink = await screen.findByRole("link", { name: /Conocer planes/i });
+    expect(ctaLink).toHaveAttribute("href", "/contacto?service=Contenido%20para%20redes%20sociales");
+  });
+
+  it("el widget nunca construye ni modifica el href del backend — lo usa tal cual", async () => {
+    const exactHref = "/contacto?service=Branding%20e%20identidad%20visual";
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "Hacemos branding.", knowledge_used: true,
+      citations: [], cta: { type: "quote", label: "Solicitar cotización", href: exactHref },
+      request_id: "req-cta-4", responder: AIRA_RESPONDER,
+    });
+    renderWithRouter();
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+    await typeAndSend("quiero branding");
+
+    const ctaLink = await screen.findByRole("link", { name: /Solicitar cotización/i });
+    expect(ctaLink.getAttribute("href")).toBe(exactHref);
+  });
+
+  it("un mensaje anterior sin cta y uno nuevo con cta conviven sin que el CTA se filtre al primero", async () => {
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "Primera respuesta, sin CTA.", knowledge_used: true,
+      citations: [], cta: null, request_id: "req-cta-5a", responder: AIRA_RESPONDER,
+    });
+    renderWithRouter();
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+    await typeAndSend("hola");
+    await screen.findByText("Primera respuesta, sin CTA.");
+    expect(screen.queryByRole("link", { name: /Solicitar cotización/i })).not.toBeInTheDocument();
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "Segunda respuesta, con CTA.", knowledge_used: true,
+      citations: [], cta: { type: "quote", label: "Solicitar cotización", href: "/contacto?service=Web" },
+      request_id: "req-cta-5b", responder: AIRA_RESPONDER,
+    });
+    await typeAndSend("quiero una web");
+    await screen.findByText("Segunda respuesta, con CTA.");
+    expect(await screen.findByRole("link", { name: /Solicitar cotización/i })).toBeInTheDocument();
   });
 });

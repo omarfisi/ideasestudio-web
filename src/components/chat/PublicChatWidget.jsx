@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Copy, MessageCircle, Send, User, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowRight, Check, Copy, MessageCircle, Send, User, X } from "lucide-react";
 import {
   getPublicChatStatus,
   sendPublicChatMessage,
@@ -321,7 +322,10 @@ export default function PublicChatWidget() {
       const data = await sendPublicChatMessage(sessionId, trimmed, clientMessageId);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: data.response_text, citations: data.citations || [] },
+        // FASE 3B.2 — cta ya viene armado y decidido 100% por el backend
+        // (nunca generado por este componente): solo se guarda tal cual
+        // para renderizar, o null si no hay ninguno.
+        { role: "assistant", content: data.response_text, citations: data.citations || [], cta: data.cta || null },
       ]);
       const sanitized = sanitizeResponder(data.responder);
       if (sanitized) setResponder(sanitized);
@@ -436,6 +440,16 @@ export default function PublicChatWidget() {
                           ))}
                         </ul>
                       </div>
+                    )}
+                    {/* FASE 3B.2 — botón de acción comercial. Sin lógica
+                        propia: solo renderiza lo que el backend ya decidió
+                        (type/label/href), nunca decide cuándo mostrarlo ni
+                        construye el link. */}
+                    {message.cta && (
+                      <Link to={message.cta.href} className="public-chat-widget__cta">
+                        {message.cta.label}
+                        <ArrowRight size={14} />
+                      </Link>
                     )}
                   </div>
                 ))}
