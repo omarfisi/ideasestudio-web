@@ -128,6 +128,31 @@ function persistHistory(history) {
   }
 }
 
+// FASE 2 (AIRA Public RAG Presentation Cleanup) — formatea el label de una
+// fuente citada para el visitante público. El backend ya envía "label"
+// (app/ai/knowledge/rag/citations.py::citation_label()) — pero ese label
+// hereda el document_title crudo tal como se subió el documento (ej.
+// "Politica_Reembolsos_v3_FINAL, página 2"), que puede sonar técnico para
+// un visitante comercial. Es una transformación PURA de presentación sobre
+// un dato que el backend ya decidió que es seguro mostrar (citations ya
+// pasó por el allowlist server-side, ver PublicChatCitation) — nunca
+// cambia QUÉ se muestra, solo CÓMO. No es una categorización semántica
+// real (eso requeriría un nombre amigable curado en el backend, fuera de
+// alcance de esta fase): es una heurística de limpieza de string.
+const _FILE_EXTENSION_RE = /\.(pdf|docx?|xlsx?|pptx?|txt|md)\b/gi;
+const _VERSION_OR_STATUS_WORD_RE = /\b(v\d+|final|borrador|draft)\b/gi;
+
+function formatSourceLabel(citation) {
+  const raw = (citation?.label || citation?.document_title || "").trim();
+  if (!raw) return "Fuente";
+  let cleaned = raw.replace(_FILE_EXTENSION_RE, "");
+  cleaned = cleaned.replace(/[_-]+/g, " ");
+  cleaned = cleaned.replace(_VERSION_OR_STATUS_WORD_RE, "");
+  cleaned = cleaned.replace(/\s{2,}/g, " ");
+  cleaned = cleaned.replace(/\s+,/g, ",").trim();
+  return cleaned || "Fuente";
+}
+
 function CopyButton({ text }) {
   const [copied, setCopied] = useState(false);
 
@@ -401,13 +426,16 @@ export default function PublicChatWidget() {
                       </div>
                     )}
                     {message.citations && message.citations.length > 0 && (
-                      <ul className="public-chat-widget__citations">
-                        {message.citations.map((citation) => (
-                          <li key={citation.citation_id} className="public-chat-widget__citation">
-                            {citation.label || citation.document_title || "Fuente"}
-                          </li>
-                        ))}
-                      </ul>
+                      <div className="public-chat-widget__sources">
+                        <p className="public-chat-widget__sources-heading">Fuentes consultadas:</p>
+                        <ul className="public-chat-widget__citations">
+                          {message.citations.map((citation) => (
+                            <li key={citation.citation_id} className="public-chat-widget__citation">
+                              {formatSourceLabel(citation)}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     )}
                   </div>
                 ))}

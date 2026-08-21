@@ -234,9 +234,23 @@
   color: var(--text, #161616);
 }
 
+/* FASE 2 (AIRA Public RAG Presentation Cleanup) — se agrega CSS únicamente
+   para soporte visual del encabezado "Fuentes consultadas:" aprobado, sin
+   cambios de layout ni comportamiento del resto del widget. */
+.public-chat-widget__sources {
+  margin-top: 8px;
+}
+
+.public-chat-widget__sources-heading {
+  margin: 0 0 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted, #6b6b6b);
+}
+
 .public-chat-widget__citations {
   list-style: none;
-  margin: 8px 0 0;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
