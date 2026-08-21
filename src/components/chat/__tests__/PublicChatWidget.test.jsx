@@ -25,6 +25,11 @@ const AIRA_RESPONDER = {
   status_label: "Asistente virtual",
 };
 
+// FASE 1AA.1 — formato esperado de client_message_id (UUID v4 generado por
+// crypto.randomUUID()), usado para verificar el contrato sin acoplarse a un
+// valor exacto (que sería no-determinístico entre corridas).
+const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function humanResponder(overrides = {}) {
   return {
     type: "human",
@@ -254,7 +259,11 @@ describe("PublicChatWidget — envío de mensajes", () => {
     expect(await screen.findByText("¿qué servicios ofrecen?")).toBeInTheDocument();
     expect(await screen.findByText("Ofrecemos fotografía y video.")).toBeInTheDocument();
     expect(screen.getByText("Servicios")).toBeInTheDocument();
-    expect(sendPublicChatMessage).toHaveBeenCalledWith("session-1", "¿qué servicios ofrecen?");
+    expect(sendPublicChatMessage).toHaveBeenCalledWith(
+      "session-1",
+      "¿qué servicios ofrecen?",
+      expect.stringMatching(UUID_V4_REGEX)
+    );
   });
 
   it("limpia el input después de enviar", async () => {
@@ -274,6 +283,72 @@ describe("PublicChatWidget — envío de mensajes", () => {
     await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
     expect(screen.getByRole("button", { name: /enviar mensaje/i })).toBeDisabled();
     expect(sendPublicChatMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe("PublicChatWidget — client_message_id (FASE 1AA.1)", () => {
+  it("cada envío genera un client_message_id con formato UUID y lo manda en el body de sendPublicChatMessage", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+
+    await typeAndSend("hola");
+
+    expect(sendPublicChatMessage).toHaveBeenCalledTimes(1);
+    const [sessionIdArg, messageArg, clientMessageIdArg] = sendPublicChatMessage.mock.calls[0];
+    expect(sessionIdArg).toBe("session-1");
+    expect(messageArg).toBe("hola");
+    expect(clientMessageIdArg).toEqual(expect.stringMatching(UUID_V4_REGEX));
+  });
+
+  it("dos envíos lógicos distintos usan dos client_message_id distintos", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+
+    await typeAndSend("primero");
+    await screen.findByText("Ofrecemos fotografía y video.");
+    await typeAndSend("segundo");
+
+    expect(sendPublicChatMessage).toHaveBeenCalledTimes(2);
+    const firstId = sendPublicChatMessage.mock.calls[0][2];
+    const secondId = sendPublicChatMessage.mock.calls[1][2];
+    expect(firstId).toEqual(expect.stringMatching(UUID_V4_REGEX));
+    expect(secondId).toEqual(expect.stringMatching(UUID_V4_REGEX));
+    expect(secondId).not.toBe(firstId);
+  });
+
+  // Este widget hoy NO reintenta automáticamente sendPublicChatMessage tras
+  // un fallo (ver el catch de handleSend: solo muestra un error, nunca
+  // reinvoca la llamada) — no se inventa ese retry acá. Lo que sí se prueba,
+  // y es lo que exige Gate 6/9 de FASE 1AA.1: el UUID se genera UNA vez
+  // fuera del fetch individual, antes de que la promesa exista, así que
+  // cualquier futuro retry de ESTA misma invocación de handleSend (p. ej.
+  // un botón "reintentar" que vuelva a llamar sendPublicChatMessage con los
+  // mismos sessionId/trimmed dentro del mismo catch) tiene ya disponible la
+  // misma variable clientMessageId capturada en el closure — nunca tendría
+  // que generar una nueva. Un mensaje nuevo, en cambio, siempre pasa por una
+  // invocación nueva de handleSend y por lo tanto obtiene un UUID nuevo
+  // (cubierto por el test anterior).
+  it("un fallo de red no reintenta sola la llamada — no se inventa un retry que no existe hoy", async () => {
+    const error = new Error("network down");
+    error.status = 500;
+    sendPublicChatMessage.mockRejectedValueOnce(error);
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+
+    await typeAndSend("hola");
+    await waitFor(() => expect(sendPublicChatMessage).toHaveBeenCalledTimes(1));
+    await screen.findByText(/no pude procesar tu mensaje/i);
+
+    // Ninguna segunda llamada automática — el UUID generado para ese intento
+    // nunca se reutiliza porque nunca hay un segundo fetch que lo necesite.
+    expect(sendPublicChatMessage).toHaveBeenCalledTimes(1);
   });
 });
 

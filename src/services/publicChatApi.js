@@ -41,10 +41,20 @@ export async function startPublicChat(prechatToken) {
   });
 }
 
-export async function sendPublicChatMessage(sessionId, message) {
+// FASE 1AA.1 — clientMessageId es la identidad lógica estable de este envío:
+// lo genera el caller (ver PublicChatWidget.jsx::handleSend) UNA vez por
+// intento lógico de mensaje y lo reutiliza si esa misma operación se
+// reintenta. Esta función nunca lo genera ni lo reemplaza — solo lo
+// transporta tal cual al backend, que lo usará (próximo slice) para
+// garantizar idempotencia en public.ai_messages.
+export async function sendPublicChatMessage(sessionId, message, clientMessageId) {
   return publicChatFetch("/message", {
     method: "POST",
-    body: JSON.stringify({ session_id: sessionId, message }),
+    body: JSON.stringify({
+      session_id: sessionId,
+      message,
+      client_message_id: clientMessageId,
+    }),
   });
 }
 

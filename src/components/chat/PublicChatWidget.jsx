@@ -277,13 +277,23 @@ export default function PublicChatWidget() {
     const trimmed = input.trim();
     if (!trimmed || isLoading || !sessionId) return;
 
+    // FASE 1AA.1 — se genera UNA vez por intento lógico de envío (acá, fuera
+    // del fetch), nunca dentro de sendPublicChatMessage. Hoy este widget no
+    // reintenta automáticamente esta llamada, así que un único valor por
+    // invocación de handleSend ya satisface el contrato: si en el futuro se
+    // agrega un retry sobre esta misma operación (misma trimmed, mismo
+    // intento), debe reutilizar esta MISMA variable — nunca generar otra —
+    // y un mensaje nuevo (nueva invocación de handleSend) siempre obtiene un
+    // UUID distinto.
+    const clientMessageId = crypto.randomUUID();
+
     setMessages((prev) => [...prev, { role: "user", content: trimmed }]);
     setInput("");
     setIsLoading(true);
     setError(null);
 
     try {
-      const data = await sendPublicChatMessage(sessionId, trimmed);
+      const data = await sendPublicChatMessage(sessionId, trimmed, clientMessageId);
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: data.response_text, citations: data.citations || [] },
