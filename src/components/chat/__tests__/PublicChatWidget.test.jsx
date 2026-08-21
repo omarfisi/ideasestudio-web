@@ -286,6 +286,60 @@ describe("PublicChatWidget — envío de mensajes", () => {
   });
 });
 
+describe("PublicChatWidget — FASE 2: formato de fuentes", () => {
+  it("muestra el encabezado 'Fuentes consultadas:' cuando hay citas", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+    await typeAndSend("¿qué servicios ofrecen?");
+    expect(await screen.findByText("Fuentes consultadas:")).toBeInTheDocument();
+  });
+
+  it("un document_title técnico (extensión, versión, guiones bajos) se muestra formateado, nunca crudo", async () => {
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "Nuestra política permite reprogramar.", knowledge_used: true,
+      citations: [{
+        citation_id: "C1", document_title: "Politica_Reembolsos_v3_FINAL.pdf", section_title: null,
+        label: "Politica_Reembolsos_v3_FINAL, página 2",
+      }],
+      request_id: "req-2", responder: AIRA_RESPONDER,
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+    await typeAndSend("cual es la politica de reembolso");
+    expect(await screen.findByText("Politica Reembolsos, página 2")).toBeInTheDocument();
+    expect(screen.queryByText(/Politica_Reembolsos_v3_FINAL/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\.pdf/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/_v3|_FINAL/i)).not.toBeInTheDocument();
+  });
+
+  it("sin citations, no muestra ningún bloque de fuentes", async () => {
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "No tengo esa información disponible en este momento.",
+      knowledge_used: false, citations: [], request_id: "req-3", responder: AIRA_RESPONDER,
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+    await typeAndSend("algo sin evidencia");
+    await screen.findByText("No tengo esa información disponible en este momento.");
+    expect(screen.queryByText("Fuentes consultadas:")).not.toBeInTheDocument();
+  });
+
+  it("un document_title ya amigable (sin ruido técnico) se muestra sin cambios", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+    await typeAndSend("¿qué servicios ofrecen?");
+    expect(await screen.findByText("Servicios")).toBeInTheDocument();
+  });
+});
+
 describe("PublicChatWidget — client_message_id (FASE 1AA.1)", () => {
   it("cada envío genera un client_message_id con formato UUID y lo manda en el body de sendPublicChatMessage", async () => {
     render(<PublicChatWidget />);
