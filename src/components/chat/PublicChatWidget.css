@@ -214,6 +214,26 @@
   border-bottom-left-radius: 4px;
 }
 
+/* FASE HANDOFF H3B.10 — respuesta de un agente humano real (role="agent"),
+   nunca AIRA: mismo lado que assistant (viene "del otro lado" para el
+   visitante), pero con acento propio para no confundir ambas identidades. */
+.public-chat-widget__bubble--agent {
+  align-self: flex-start;
+  background: var(--surface-strong, #ffffff);
+  border: 1px solid var(--brand-accent, #2f6fed);
+  color: var(--text, #161616);
+  border-bottom-left-radius: 4px;
+}
+
+.public-chat-widget__bubble-label {
+  margin: 0 0 2px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--brand-accent, #2f6fed);
+}
+
 .public-chat-widget__bubble-actions {
   display: flex;
   justify-content: flex-end;
