@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { submitPublicForm } from "@/lib/publicFormsApi.js";
 import { verifyPrechat } from "@/services/publicChatApi.js";
 
@@ -20,6 +20,8 @@ function validate(values) {
   return errors;
 }
 
+const REMEMBER_ME_LABEL = "Recuérdame en este navegador para no pedirte tus datos de nuevo.";
+
 /**
  * Pantalla previa al chat público de AIRA. Reutiliza el sistema de
  * formularios existente (submitPublicForm contra el form "aira-prechat" ya
@@ -30,12 +32,43 @@ function validate(values) {
  * (POST /public/chat/prechat) que valida esa submission server-side antes
  * de emitirlo. Nunca se guarda nombre/email/teléfono para el chat — solo
  * ese token opaco viaja hacia PublicChatWidget.
+ *
+ * FASE 4 — `recognized` puede llegar DESPUÉS del primer render (Public
+ * ChatWidget muestra este formulario de inmediato, sin esperar a POST
+ * /recognize) — por eso la precarga ocurre en un efecto, no en el estado
+ * inicial, y solo si el usuario todavía no escribió nada (nunca le pisa lo
+ * que ya tecleó). El usuario SIEMPRE ve los campos y puede editarlos/
+ * confirmarlos — nunca se auto-envía sin que los vea. `remember_me` es un
+ * consentimiento nuevo y separado del consentimiento de conversación
+ * (`consent`) — sin marcar, nunca se le pide al backend que recuerde al
+ * visitante, sin importar que `consent` sí esté marcado.
  */
-export default function PrechatForm({ onVerified, onCancel }) {
-  const [values, setValues] = useState({ full_name: "", email: "", phone: "", consent: false, _honeypot: "" });
+export default function PrechatForm({ onVerified, onCancel, recognized, onForget }) {
+  const [values, setValues] = useState({
+    full_name: "",
+    email: "",
+    phone: "",
+    consent: false,
+    remember_me: false,
+    _honeypot: "",
+  });
   const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    if (!recognized) return;
+    setValues((current) => {
+      if (current.full_name || current.email || current.phone) return current;
+      return {
+        ...current,
+        full_name: recognized.full_name || "",
+        email: recognized.email || "",
+        phone: recognized.phone || "",
+      };
+    });
+  }, [recognized]);
   const [status, setStatus] = useState("idle"); // idle | submitting | error
   const [serverError, setServerError] = useState("");
+  const [forgetting, setForgetting] = useState(false);
   const submitTimestampRef = useRef(Date.now());
 
   function setField(name, value) {
@@ -78,13 +111,24 @@ export default function PrechatForm({ onVerified, onCancel }) {
         throw new Error("No se pudo verificar tu información. Intenta de nuevo.");
       }
 
-      onVerified(verification.prechat_token);
+      onVerified(verification.prechat_token, values.remember_me);
     } catch (error) {
       setStatus("error");
       setServerError(error?.message || "No se pudo iniciar la conversación. Intenta de nuevo en un momento.");
       return;
     }
     setStatus("idle");
+  }
+
+  async function handleForgetClick() {
+    if (!onForget || forgetting) return;
+    setForgetting(true);
+    try {
+      await onForget();
+      setValues((current) => ({ ...current, full_name: "", email: "", phone: "" }));
+    } finally {
+      setForgetting(false);
+    }
   }
 
   const submitting = status === "submitting";
@@ -94,6 +138,19 @@ export default function PrechatForm({ onVerified, onCancel }) {
       <div className="public-chat-widget__prechat-intro">
         <h2>Antes de comenzar</h2>
         <p>Cuéntanos quién eres para que AIRA pueda ayudarte y darte seguimiento si hace falta.</p>
+        {recognized && (
+          <p className="public-chat-widget__prechat-recognized">
+            Ya te reconocemos de una visita anterior — revisa tus datos abajo.{" "}
+            <button
+              type="button"
+              className="public-chat-widget__prechat-forget-link"
+              onClick={handleForgetClick}
+              disabled={forgetting}
+            >
+              {forgetting ? "Olvidando…" : "No soy yo / Olvidar mis datos"}
+            </button>
+          </p>
+        )}
       </div>
 
       <div aria-hidden="true" className="public-chat-widget__prechat-honeypot">
@@ -174,6 +231,18 @@ export default function PrechatForm({ onVerified, onCancel }) {
             {errors.consent}
           </p>
         )}
+      </div>
+
+      <div className="public-chat-widget__prechat-remember">
+        <label>
+          <input
+            type="checkbox"
+            checked={values.remember_me}
+            onChange={(event) => setField("remember_me", event.target.checked)}
+            disabled={submitting}
+          />
+          <span>{REMEMBER_ME_LABEL}</span>
+        </label>
       </div>
 
       {serverError && (

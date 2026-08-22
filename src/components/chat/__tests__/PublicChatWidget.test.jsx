@@ -7,6 +7,8 @@ vi.mock("@/services/publicChatApi.js", () => ({
   sendPublicChatMessage: vi.fn(),
   verifyPrechat: vi.fn(),
   getPublicChatStatus: vi.fn(),
+  recognizeVisitor: vi.fn(),
+  forgetVisitor: vi.fn(),
 }));
 
 vi.mock("@/lib/publicFormsApi.js", () => ({
@@ -14,9 +16,14 @@ vi.mock("@/lib/publicFormsApi.js", () => ({
 }));
 
 const { default: PublicChatWidget } = await import("@/components/chat/PublicChatWidget.jsx");
-const { startPublicChat, sendPublicChatMessage, verifyPrechat, getPublicChatStatus } = await import(
-  "@/services/publicChatApi.js"
-);
+const {
+  startPublicChat,
+  sendPublicChatMessage,
+  verifyPrechat,
+  getPublicChatStatus,
+  recognizeVisitor,
+  forgetVisitor,
+} = await import("@/services/publicChatApi.js");
 const { submitPublicForm } = await import("@/lib/publicFormsApi.js");
 
 const AIRA_RESPONDER = {
@@ -100,6 +107,8 @@ beforeEach(() => {
     responder: AIRA_RESPONDER,
   });
   getPublicChatStatus.mockResolvedValue({ ok: true, responder: AIRA_RESPONDER });
+  recognizeVisitor.mockResolvedValue({ recognized: false, full_name: null, email: null, phone: null });
+  forgetVisitor.mockResolvedValue({ ok: true });
 });
 
 describe("PublicChatWidget — estado inicial", () => {
@@ -132,7 +141,7 @@ describe("PublicChatWidget — pre-chat gate", () => {
       expect.objectContaining({ full_name: "Ana Pérez", email: "ana@example.com", consent: true })
     );
     expect(verifyPrechat).toHaveBeenCalledWith("sub-1");
-    expect(startPublicChat).toHaveBeenCalledWith("token-1");
+    expect(startPublicChat).toHaveBeenCalledWith("token-1", false);
     expect(await screen.findByText("¡Hola! ¿En qué puedo ayudarte?")).toBeInTheDocument();
   });
 
@@ -888,7 +897,7 @@ describe("PublicChatWidget — LEVEL2 responder: prechat intacto", () => {
     await completePrechat();
     await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
 
-    expect(startPublicChat).toHaveBeenCalledWith("token-1");
+    expect(startPublicChat).toHaveBeenCalledWith("token-1", false);
     expect(getPublicChatStatus).not.toHaveBeenCalled();
   });
 });
@@ -981,5 +990,117 @@ describe("PublicChatWidget — FASE 3B.2: CTA comercial", () => {
     await typeAndSend("quiero una web");
     await screen.findByText("Segunda respuesta, con CTA.");
     expect(await screen.findByRole("link", { name: /Solicitar cotización/i })).toBeInTheDocument();
+  });
+});
+
+describe("PublicChatWidget — FASE 4: reconocimiento de visitante", () => {
+  it("abre el pre-chat de inmediato, sin esperar a recognizeVisitor()", () => {
+    let resolveRecognize;
+    recognizeVisitor.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveRecognize = resolve;
+      })
+    );
+    render(<PublicChatWidget />);
+    openWidget();
+    // El formulario ya está visible aunque recognizeVisitor() ni siquiera
+    // haya resuelto todavía -- nunca se agrega latencia a abrir el widget.
+    expect(screen.getByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument();
+    resolveRecognize({ recognized: false, full_name: null, email: null, phone: null });
+  });
+
+  it("precarga nombre/email/teléfono cuando recognizeVisitor() reconoce al visitante", async () => {
+    recognizeVisitor.mockResolvedValueOnce({
+      recognized: true, full_name: "Ada Lovelace", email: "ada@example.com", phone: "7875550100",
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await waitFor(() => {
+      expect(screen.getByLabelText(/nombre completo/i)).toHaveValue("Ada Lovelace");
+    });
+    expect(screen.getByLabelText(/correo electrónico/i)).toHaveValue("ada@example.com");
+    expect(screen.getByLabelText(/teléfono/i)).toHaveValue("7875550100");
+  });
+
+  it("no precarga nada cuando recognizeVisitor() no reconoce al visitante (comportamiento por defecto)", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await waitFor(() => expect(recognizeVisitor).toHaveBeenCalled());
+    expect(screen.getByLabelText(/nombre completo/i)).toHaveValue("");
+    expect(screen.getByLabelText(/correo electrónico/i)).toHaveValue("");
+  });
+
+  it("nunca le pisa al usuario lo que ya escribió si recognizeVisitor() resuelve tarde", async () => {
+    let resolveRecognize;
+    recognizeVisitor.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveRecognize = resolve;
+      })
+    );
+    render(<PublicChatWidget />);
+    openWidget();
+    fireEvent.change(screen.getByLabelText(/nombre completo/i), { target: { value: "Nombre Tecleado" } });
+    resolveRecognize({
+      recognized: true, full_name: "Ada Lovelace", email: "ada@example.com", phone: null,
+    });
+    await waitFor(() => expect(recognizeVisitor).toHaveBeenCalled());
+    // Le damos tiempo al microtask de la promesa a resolver sin que se
+    // sobreescriba el campo que el usuario ya tocó.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.getByLabelText(/nombre completo/i)).toHaveValue("Nombre Tecleado");
+  });
+
+  it("si recognizeVisitor() falla (red/backend), el pre-chat sigue funcionando sin precarga", async () => {
+    recognizeVisitor.mockRejectedValueOnce(new Error("network error"));
+    render(<PublicChatWidget />);
+    openWidget();
+    await waitFor(() => expect(recognizeVisitor).toHaveBeenCalled());
+    expect(screen.getByLabelText(/nombre completo/i)).toHaveValue("");
+    await fillPrechatForm();
+    fireEvent.click(screen.getByRole("button", { name: /comenzar conversación/i }));
+    await waitFor(() => expect(startPublicChat).toHaveBeenCalled());
+  });
+
+  it('muestra "No soy yo / Olvidar mis datos" solo cuando el visitante fue reconocido', async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await waitFor(() => expect(recognizeVisitor).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: /no soy yo/i })).not.toBeInTheDocument();
+  });
+
+  it('"No soy yo" llama a forgetVisitor() y limpia los campos precargados', async () => {
+    recognizeVisitor.mockResolvedValueOnce({
+      recognized: true, full_name: "Ada Lovelace", email: "ada@example.com", phone: null,
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await waitFor(() => {
+      expect(screen.getByLabelText(/nombre completo/i)).toHaveValue("Ada Lovelace");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /no soy yo/i }));
+    await waitFor(() => expect(forgetVisitor).toHaveBeenCalled());
+    await waitFor(() => {
+      expect(screen.getByLabelText(/nombre completo/i)).toHaveValue("");
+    });
+    expect(screen.getByLabelText(/correo electrónico/i)).toHaveValue("");
+  });
+
+  it('el checkbox "recuérdame" empieza sin marcar y su valor viaja a startPublicChat()', async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await fillPrechatForm();
+    const rememberCheckbox = screen.getByLabelText(/recuérdame en este navegador/i);
+    expect(rememberCheckbox).not.toBeChecked();
+    fireEvent.click(rememberCheckbox);
+    fireEvent.click(screen.getByRole("button", { name: /comenzar conversación/i }));
+    await waitFor(() => expect(startPublicChat).toHaveBeenCalledWith("token-1", true));
+  });
+
+  it("sin marcar recuérdame, startPublicChat() recibe remember_me=false", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    expect(startPublicChat).toHaveBeenCalledWith("token-1", false);
   });
 });
