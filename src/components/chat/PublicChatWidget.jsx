@@ -445,6 +445,34 @@ export default function PublicChatWidget() {
   // para el porqué completo. Reasignado (nunca mutado in-place), mismo
   // criterio que knownServerIdsRef.
   const claimByServerIdRef = useRef(new Map());
+  // FASE HANDOFF H4B.2 — frontera local monotónica de mutaciones de
+  // handoff. Cubre una carrera DISTINTA de la de H4B.1 (esa era
+  // human_active vs. responder stale; esta es waiting_agent vs. una
+  // lectura /events o /status que ya estaba en vuelo ANTES del POST
+  // exitoso): sin esto, esa lectura vieja podía resolver DESPUÉS con
+  // handoff_requested=false (su propio snapshot, capturado antes de que
+  // el POST mutara nada) y pisar el handoffRequested=true recién
+  // establecido -- el botón reaparecía y permitía un segundo POST.
+  //
+  // Se incrementa en dos momentos: (1) cada POST /request-human exitoso
+  // con status="waiting_agent" (la única mutación LOCAL real de
+  // handoffRequested fuera de la reconciliación con el backend), y (2) en
+  // cada frontera de sesión (expireSession/nueva sesión) -- defensa
+  // adicional, ver el guard de identidad de sesión ya existente
+  // (currentSessionIdRef) para la protección A->B real.
+  //
+  // runPoll()/refreshStatus() capturan el valor VIGENTE justo antes de
+  // iniciar su propia request (nunca después): si al resolver el valor
+  // sigue siendo el mismo, esa lectura es tan reciente como la última
+  // mutación local y puede reconciliar handoffRequested/sessionStorage
+  // con total normalidad (incluido aplicar un false real y futuro -- esto
+  // NUNCA se convierte en "true para siempre", ver el test de "lectura
+  // realmente posterior puede devolver false"). Si cambió mientras la
+  // request estaba en vuelo, esa lectura es más vieja que la mutación
+  // local y se descarta SOLO para efectos de handoff -- el resto de su
+  // contenido (mensajes/responder) sigue aplicándose normalmente si no
+  // tiene sus propios guards.
+  const handoffMutationEpochRef = useRef(0);
   // Última `messages` conocida, actualizada en CADA render (sin efecto
   // de por medio, mismo patrón que activeConversationIdRef en el H2B del
   // CRM): el poller necesita poder sembrar knownServerIdsRef con el
@@ -498,6 +526,11 @@ export default function PublicChatWidget() {
     setHandoffRequested(false);
     setHandoffRequestLoading(false);
     setHumanActivePendingConfirmation(false);
+    // FASE HANDOFF H4B.2 — frontera de sesión: cualquier lectura /events o
+    // /status todavía en vuelo de la sesión que expira queda, a partir de
+    // acá, más vieja que esta frontera -- defensa adicional junto con el
+    // guard de identidad de sesión (currentSessionIdRef) ya existente.
+    handoffMutationEpochRef.current += 1;
     setError(message);
     // FASE HANDOFF H3B.2 — reset explícito, independiente de si handleSend()
     // decide o no tocar isLoading en su propio finally (que se salta a
@@ -518,21 +551,35 @@ export default function PublicChatWidget() {
   async function refreshStatus(targetSessionId) {
     const sid = targetSessionId || sessionId;
     if (!sid) return;
+    // FASE HANDOFF H4B.2 — mismo patrón A->B que handleSend/
+    // handleRequestHuman: esta función nunca tenía un guard de sesión
+    // propio (a diferencia de esas dos) -- necesario ahora para que la
+    // frontera de epoch tenga sentido también acá (sin esto, una
+    // respuesta tardía de la sesión A podría reconciliar el handoff de la
+    // sesión B con epochs que, por coincidencia, podrían volver a
+    // alinearse tras una frontera de sesión).
+    const handoffEpochAtRequestStart = handoffMutationEpochRef.current;
     try {
       const data = await getPublicChatStatus(sid);
+      if (currentSessionIdRef.current !== sid) return; // stale — ya estamos en otra sesión
       const sanitized = sanitizeResponder(data?.responder);
       if (sanitized) setResponder(sanitized);
-      // FASE HANDOFF H4B — mismo criterio que el poller de /events: el
-      // backend es la fuente de verdad en cada consulta exitosa, nunca
-      // "true para siempre" solo porque sessionStorage lo dijo antes.
-      const handoff = Boolean(data?.handoff_requested);
-      setHandoffRequested(handoff);
-      persistHandoff(sid, handoff);
+      // FASE HANDOFF H4B/H4B.2 — mismo criterio que el poller de /events:
+      // el backend es la fuente de verdad en cada consulta exitosa (nunca
+      // "true para siempre" solo porque sessionStorage lo dijo antes),
+      // pero solo si esta lectura no quedó stale respecto a una mutación
+      // local de handoff más reciente (ver handoffMutationEpochRef).
+      if (handoffEpochAtRequestStart === handoffMutationEpochRef.current) {
+        const handoff = Boolean(data?.handoff_requested);
+        setHandoffRequested(handoff);
+        persistHandoff(sid, handoff);
+      }
       // FASE HANDOFF H4B.1 — mismo criterio que runPoll(): el guard
       // transitorio de human_active solo se libera con una confirmación
       // REAL de responder.type==="human", nunca por handoff_requested.
       if (sanitized?.type === "human") setHumanActivePendingConfirmation(false);
     } catch (err) {
+      if (currentSessionIdRef.current !== sid) return; // stale — idem para error
       if (err.status === 404) {
         // Mismo comportamiento que /message ante sesión expirada: /status
         // es auxiliar de identidad visual, pero una sesión inexistente en
@@ -583,6 +630,11 @@ export default function PublicChatWidget() {
       if (pollGenerationRef.current !== myGeneration) return; // esta cadena ya no es la vigente
       const controller = new AbortController();
       pollAbortRef.current = controller;
+      // FASE HANDOFF H4B.2 — capturado ANTES de iniciar la request (nunca
+      // después): si al resolver el valor vigente cambió, esta lectura
+      // empezó antes de la última mutación local de handoff y no puede
+      // reconciliar handoffRequested/sessionStorage (ver el ref).
+      const handoffEpochAtRequestStart = handoffMutationEpochRef.current;
       try {
         const data = await getPublicChatEvents(sessionId, { signal: controller.signal });
         if (pollGenerationRef.current !== myGeneration) return; // stale: la sesión cambió mientras la request estaba en vuelo
@@ -637,13 +689,18 @@ export default function PublicChatWidget() {
         });
         const sanitized = sanitizeResponder(data?.responder);
         if (sanitized) setResponder(sanitized);
-        // FASE HANDOFF H4B — mismo criterio server-authoritative que el
-        // resto de esta reconciliación: cada poll exitoso aplica el
-        // booleano tal cual llega, nunca lo conserva "true para siempre"
-        // por un valor optimista viejo de sessionStorage.
-        const handoff = Boolean(data?.handoff_requested);
-        setHandoffRequested(handoff);
-        persistHandoff(sessionId, handoff);
+        // FASE HANDOFF H4B/H4B.2 — mismo criterio server-authoritative que
+        // el resto de esta reconciliación (nunca "true para siempre" por
+        // un valor optimista viejo de sessionStorage), PERO solo si esta
+        // lectura no quedó stale respecto a una mutación local de handoff
+        // más reciente (ver handoffMutationEpochRef) -- una lectura
+        // realmente posterior a esa mutación SÍ puede aplicar un false
+        // real, esto nunca se vuelve "true sticky".
+        if (handoffEpochAtRequestStart === handoffMutationEpochRef.current) {
+          const handoff = Boolean(data?.handoff_requested);
+          setHandoffRequested(handoff);
+          persistHandoff(sessionId, handoff);
+        }
         // FASE HANDOFF H4B.1 — el guard transitorio de human_active SOLO
         // se libera cuando ESTE poll confirma responder.type==="human" --
         // nunca por handoff_requested (que en este caso puede legítimamente
@@ -738,6 +795,8 @@ export default function PublicChatWidget() {
       // public_session_id NUEVA emitida por el backend.
       setHandoffRequested(false);
       setHumanActivePendingConfirmation(false);
+      // FASE HANDOFF H4B.2 — misma frontera de sesión que expireSession().
+      handoffMutationEpochRef.current += 1;
       return data.session_id;
     } catch (err) {
       if (err.status === 401) {
@@ -815,6 +874,12 @@ export default function PublicChatWidget() {
       if (currentSessionIdRef.current !== sentForSessionId) return; // stale
 
       if (data?.status === "waiting_agent") {
+        // FASE HANDOFF H4B.2 — marca la frontera ANTES/junto con la
+        // mutación local: cualquier /events o /status que ya estaba en
+        // vuelo (capturó el epoch ANTERIOR antes de este POST) queda
+        // clasificado como stale para efectos de handoff en cuanto
+        // resuelva, sin importar qué booleano traiga.
+        handoffMutationEpochRef.current += 1;
         setHandoffRequested(true);
         persistHandoff(sentForSessionId, true);
       } else if (data?.status === "human_active") {
