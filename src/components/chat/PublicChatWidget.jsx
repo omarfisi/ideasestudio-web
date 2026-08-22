@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Check, Copy, MessageCircle, Send, User, X } from "lucide-react";
 import {
+  forgetVisitor,
   getPublicChatStatus,
+  recognizeVisitor,
   sendPublicChatMessage,
   startPublicChat,
 } from "@/services/publicChatApi.js";
@@ -193,6 +195,11 @@ export default function PublicChatWidget() {
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState(null);
   const [responder, setResponder] = useState(AIRA_RESPONDER);
+  // FASE 4 — {full_name, email, phone} si POST /recognize reconoció al
+  // visitante (cookie válida), o null. Solo se usa para precargar
+  // PrechatForm — nunca decide nada por sí solo, el usuario siempre ve y
+  // puede editar/confirmar estos datos antes de enviarlos.
+  const [recognizedVisitor, setRecognizedVisitor] = useState(null);
 
   const inputRef = useRef(null);
   const scrollRef = useRef(null);
@@ -245,8 +252,10 @@ export default function PublicChatWidget() {
   // prechatToken es opcional: solo se usa cuando viene de un pre-chat recién
   // verificado (ver handlePrechatVerified). Si ya hay sesión guardada, ni
   // siquiera se llama al backend — esa es la razón de que el gate de
-  // /public/chat/start solo se ejercite una vez por visita.
-  async function ensureSession(prechatToken) {
+  // /public/chat/start solo se ejercite una vez por visita. rememberMe
+  // (FASE 4) solo importa la primera vez (cuando sí se llama a /start) —
+  // nunca se reenvía en el camino de sesión ya existente.
+  async function ensureSession(prechatToken, rememberMe = false) {
     const existing = loadStoredSession();
     if (existing) {
       setSessionId(existing);
@@ -257,7 +266,7 @@ export default function PublicChatWidget() {
     setIsStarting(true);
     setError(null);
     try {
-      const data = await startPublicChat(prechatToken);
+      const data = await startPublicChat(prechatToken, rememberMe);
       sessionStorage.setItem(SESSION_STORAGE_KEY, data.session_id);
       setSessionId(data.session_id);
       setMessages((prev) =>
@@ -290,12 +299,33 @@ export default function PublicChatWidget() {
     if (loadStoredSession()) {
       ensureSession();
     } else {
+      // FASE 4 — el pre-chat se muestra de inmediato, sin esperar a
+      // recognizeVisitor() (nunca se agrega latencia a abrir el widget).
+      // El reconocimiento llega en paralelo y PrechatForm se autocompleta
+      // cuando resuelve (ver su useEffect) — si el usuario ya empezó a
+      // escribir, nunca se le pisan sus propios datos. Ante cualquier
+      // fallo (red, backend caído, flag apagado), recognizeVisitor() ya
+      // responde {recognized: false} — nunca lanza.
       setScreen("prechat");
+      recognizeVisitor()
+        .then((data) => setRecognizedVisitor(data?.recognized ? data : null))
+        .catch(() => setRecognizedVisitor(null));
     }
   }
 
-  async function handlePrechatVerified(prechatToken) {
-    await ensureSession(prechatToken);
+  async function handlePrechatVerified(prechatToken, rememberMe) {
+    await ensureSession(prechatToken, rememberMe);
+  }
+
+  // FASE 4 — "olvidar" al visitante en este navegador. Best-effort desde la
+  // perspectiva de la UI: si falla, igualmente se limpia el estado local
+  // precargado, para que el usuario nunca vea datos que ya pidió borrar.
+  async function handleForgetVisitor() {
+    try {
+      await forgetVisitor();
+    } finally {
+      setRecognizedVisitor(null);
+    }
   }
 
   async function handleSend(event) {
@@ -405,7 +435,11 @@ export default function PublicChatWidget() {
 
           {screen === "prechat" ? (
             <div className="public-chat-widget__messages public-chat-widget__messages--prechat">
-              <PrechatForm onVerified={handlePrechatVerified} />
+              <PrechatForm
+                onVerified={handlePrechatVerified}
+                recognized={recognizedVisitor}
+                onForget={handleForgetVisitor}
+              />
               {error && (
                 <p className="public-chat-widget__error" role="alert" aria-live="assertive">
                   {error}

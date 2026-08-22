@@ -18,6 +18,10 @@ async function publicChatFetch(path, options = {}) {
   const url = `${getPublicChatBaseUrl()}${path}`;
   const response = await fetch(url, {
     headers: { "Content-Type": "application/json" },
+    // FASE 4 — necesario para que el navegador envíe/reciba la cookie
+    // HttpOnly aira_visitor_token (/start la emite, /recognize y /forget
+    // la leen). El widget nunca lee ni maneja el token en sí.
+    credentials: "include",
     ...options,
   });
 
@@ -34,10 +38,10 @@ async function publicChatFetch(path, options = {}) {
   return data;
 }
 
-export async function startPublicChat(prechatToken) {
+export async function startPublicChat(prechatToken, rememberMe = false) {
   return publicChatFetch("/start", {
     method: "POST",
-    body: JSON.stringify({ prechat_token: prechatToken || null }),
+    body: JSON.stringify({ prechat_token: prechatToken || null, remember_me: Boolean(rememberMe) }),
   });
 }
 
@@ -79,4 +83,20 @@ export async function verifyPrechat(submissionId) {
     method: "POST",
     body: JSON.stringify({ submission_id: submissionId }),
   });
+}
+
+// FASE 4 — reconocimiento de visitante recurrente. Nunca envía ni lee un
+// token: el navegador reenvía la cookie HttpOnly aira_visitor_token por su
+// cuenta (ver credentials:"include" arriba). Devuelve siempre
+// {recognized, full_name, email, phone} — recognized:false ante cualquier
+// condición no ideal (flag apagado, sin cookie, cookie inválida/expirada,
+// contacto ya no existe), nunca un error.
+export async function recognizeVisitor() {
+  return publicChatFetch("/recognize", { method: "POST" });
+}
+
+// FASE 4 — "olvidar" al visitante en este navegador. Siempre responde éxito
+// y limpia la cookie server-side, exista o no exista reconocimiento activo.
+export async function forgetVisitor() {
+  return publicChatFetch("/forget", { method: "POST" });
 }

@@ -456,6 +456,49 @@
   flex-shrink: 0;
 }
 
+.public-chat-widget__prechat-remember {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.public-chat-widget__prechat-remember label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--muted, #625a52);
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.public-chat-widget__prechat-remember input {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.public-chat-widget__prechat-recognized {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted, #625a52);
+  line-height: 1.4;
+}
+
+.public-chat-widget__prechat-forget-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--brand-strong, #8a6d00);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.public-chat-widget__prechat-forget-link:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
 .public-chat-widget__prechat-actions {
   display: flex;
   justify-content: flex-end;
