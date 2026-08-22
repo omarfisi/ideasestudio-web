@@ -87,6 +87,18 @@ export async function getPublicChatEvents(sessionId, options = {}) {
   });
 }
 
+// FASE HANDOFF H4B — POST /public/chat/request-human (backend H4A, ya
+// mergeado). Nunca envía conversation_id/workspace_id — igual que el resto
+// de este archivo, el backend resuelve todo server-side a partir de
+// session_id. Devuelve {ok, status: "waiting_agent"|"human_active"} — el
+// widget nunca decide esos valores, solo los renderiza.
+export async function requestPublicChatHuman(sessionId) {
+  return publicChatFetch("/request-human", {
+    method: "POST",
+    body: JSON.stringify({ session_id: sessionId }),
+  });
+}
+
 // LEVEL2: consulta read-only del responder actual de una sesión existente
 // (AIRA o el agente humano que tomó control), sin generar mensaje. Nunca
 // envía workspace_id/assigned_user_id/control_mode — el backend los resuelve
