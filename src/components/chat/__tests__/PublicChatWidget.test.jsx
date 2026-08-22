@@ -8,6 +8,7 @@ vi.mock("@/services/publicChatApi.js", () => ({
   verifyPrechat: vi.fn(),
   getPublicChatStatus: vi.fn(),
   getPublicChatEvents: vi.fn(),
+  requestPublicChatHuman: vi.fn(),
   recognizeVisitor: vi.fn(),
   forgetVisitor: vi.fn(),
 }));
@@ -23,6 +24,7 @@ const {
   verifyPrechat,
   getPublicChatStatus,
   getPublicChatEvents,
+  requestPublicChatHuman,
   recognizeVisitor,
   forgetVisitor,
 } = await import("@/services/publicChatApi.js");
@@ -118,7 +120,7 @@ beforeEach(() => {
     request_id: "req-1",
     responder: AIRA_RESPONDER,
   });
-  getPublicChatStatus.mockResolvedValue({ ok: true, responder: AIRA_RESPONDER });
+  getPublicChatStatus.mockResolvedValue({ ok: true, responder: AIRA_RESPONDER, handoff_requested: false });
   // FASE HANDOFF H3B — default inocuo: sin mensajes nuevos, SIN responder
   // (sanitizeResponder(undefined) devuelve null, así que el widget nunca
   // pisa la identidad ya establecida por /start o /message). El poller
@@ -128,7 +130,8 @@ beforeEach(() => {
   // que se conviertan en tests de H3B por accidente, y evita tener que
   // correlacionar manualmente esta identidad con la de cada
   // startPublicChat.mockResolvedValueOnce(...) de tests preexistentes.
-  getPublicChatEvents.mockResolvedValue({ ok: true, messages: [] });
+  getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], handoff_requested: false });
+  requestPublicChatHuman.mockResolvedValue({ ok: true, status: "waiting_agent" });
   recognizeVisitor.mockResolvedValue({ recognized: false, full_name: null, email: null, phone: null });
   forgetVisitor.mockResolvedValue({ ok: true });
 });
@@ -2318,5 +2321,661 @@ describe("PublicChatWidget — H3B.4: cronología de mensajes locales pendientes
       const roles = timelineRoleContentPairs().map(([role]) => role);
       expect(roles).toEqual(["user", "assistant", "user"]); // nunca ["user", "user", "assistant"]
     });
+  });
+});
+
+// ── FASE HANDOFF H4B — "Hablar con una persona" ──────────────────────────
+// Backend H4A (ya mergeado): POST /public/chat/request-human, más
+// handoff_requested en GET /status y GET /events. Este bloque prueba
+// ÚNICAMENTE el frontend: visibilidad del botón, el click en sí,
+// reconciliación con /events (server-authoritative), sessionStorage como
+// eco optimista, protección de sesión A->B, y que el composer nunca se
+// bloquea por esto. Mismo patrón que H3B.2/H3B.3/H3B.4: fake timers +
+// vi.waitFor para cualquier aserción que dependa de una continuación async
+// fuera de un handler síncrono de evento (ver esos bloques para el porqué
+// de nunca usar un expect() desnudo justo después de un
+// advanceTimersByTimeAsync o un await de un mock).
+
+function requestHumanButton() {
+  return screen.queryByRole("button", { name: /hablar con una persona/i });
+}
+
+function handoffStatusText() {
+  return screen.queryByText(/solicitaste atención de una persona/i);
+}
+
+// FASE HANDOFF H4B — el primer poll de /events se dispara de inmediato al
+// montar (sin esperar ningún setTimeout, ver el efecto de polling), pero
+// resuelve en un microtask -- sin forzar su resolución ANTES de la acción
+// que cada test quiere probar, ese primer poll puede quedar en vuelo y
+// resolver DESPUÉS del click (con el mock genérico handoff_requested:false
+// del beforeEach), pisando el resultado optimista del click en una carrera
+// silenciosa. advanceTimersByTimeAsync(0) fuerza a que ese primer poll ya
+// haya aplicado su propio setState antes de seguir (mismo criterio que
+// H3B.4 -- nunca asumir que un mock resuelto ya se aplicó al estado).
+async function primeSessionAndOpenWidget(sessionId = "session-1") {
+  vi.useFakeTimers();
+  sessionStorage.setItem("aira_public_chat_session_v1", sessionId);
+  render(<PublicChatWidget />);
+  openWidget();
+  await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+  await vi.advanceTimersByTimeAsync(0);
+}
+
+describe("PublicChatWidget — H4B: botón y estado de handoff", () => {
+  // 1/2/3 — visibilidad
+  it("1) botón visible con AIRA + sesión + no requested", async () => {
+    await primeSessionAndOpenWidget();
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+    expect(requestHumanButton()).not.toBeDisabled();
+  });
+
+  it("2) botón no visible sin sesión (pantalla de pre-chat)", () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    expect(requestHumanButton()).not.toBeInTheDocument();
+  });
+
+  it("3) botón no visible cuando responder.type es human", async () => {
+    getPublicChatEvents.mockResolvedValue({
+      ok: true, messages: [], responder: humanResponder(), handoff_requested: false,
+    });
+    // openWidget() sobre una sesión restaurada dispara además refreshStatus()
+    // (GET /status, LEVEL2) -- se alinea con el mismo responder humano para
+    // que ambas fuentes coincidan (mismo criterio realista: ambos endpoints
+    // derivan del mismo control_mode del lado del backend).
+    getPublicChatStatus.mockResolvedValue({ ok: true, responder: humanResponder(), handoff_requested: false });
+    await primeSessionAndOpenWidget();
+    await vi.waitFor(() => expect(headerTitleText()).toBe("Osvaldo"));
+    expect(requestHumanButton()).not.toBeInTheDocument();
+  });
+
+  // 4/5 — click
+  it("4) click en waiting_agent hace POST una sola vez con el session_id correcto", async () => {
+    await primeSessionAndOpenWidget();
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+
+    fireEvent.click(requestHumanButton());
+    await vi.waitFor(() => expect(requestPublicChatHuman).toHaveBeenCalledTimes(1));
+    expect(requestPublicChatHuman).toHaveBeenCalledWith("session-1");
+  });
+
+  it("5) doble click no duplica el POST (botón deshabilitado sincrónicamente)", async () => {
+    let resolveClick;
+    requestPublicChatHuman.mockReturnValueOnce(new Promise((resolve) => { resolveClick = resolve; }));
+    await primeSessionAndOpenWidget();
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+
+    const btn = requestHumanButton();
+    fireEvent.click(btn);
+    // El botón queda deshabilitado en el mismo tick síncrono del primer
+    // click (setHandoffRequestLoading(true) corre ANTES del primer await
+    // dentro de handleRequestHuman) -- un segundo click sobre un <button
+    // disabled> nunca dispara su onClick, por especificación del DOM.
+    expect(btn).toBeDisabled();
+    fireEvent.click(btn);
+
+    resolveClick({ ok: true, status: "waiting_agent" });
+    await vi.waitFor(() => expect(requestHumanButton()).not.toBeInTheDocument());
+    expect(requestPublicChatHuman).toHaveBeenCalledTimes(1);
+  });
+
+  // 6/9/10 — éxito waiting_agent
+  it("6-9) éxito waiting_agent: oculta el botón, muestra el texto informativo, y NO bloquea el composer (10)", async () => {
+    await primeSessionAndOpenWidget();
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+
+    fireEvent.click(requestHumanButton());
+    await vi.waitFor(() => expect(requestHumanButton()).not.toBeInTheDocument());
+    await vi.waitFor(() => expect(handoffStatusText()).toBeInTheDocument());
+    // 10 — el composer sigue habilitado, AIRA sigue disponible.
+    expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled();
+  });
+
+  // 11/12 — reconciliación con /events (server-authoritative)
+  it("11) /events con handoff_requested=true actualiza la UI aunque nunca se haya clickeado el botón", async () => {
+    await primeSessionAndOpenWidget();
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+
+    getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], handoff_requested: true });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(requestHumanButton()).not.toBeInTheDocument());
+    expect(handoffStatusText()).toBeInTheDocument();
+  });
+
+  it("12) /events con handoff_requested=false revierte el estado optimista previo", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "session-1");
+    sessionStorage.setItem(
+      "aira_public_chat_handoff_v1",
+      JSON.stringify({ session_id: "session-1", requested: true })
+    );
+    render(<PublicChatWidget />);
+    openWidget();
+    // Estado optimista inicial (de sessionStorage): sin botón, con texto.
+    expect(requestHumanButton()).not.toBeInTheDocument();
+    expect(handoffStatusText()).toBeInTheDocument();
+
+    getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], handoff_requested: false });
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+    expect(handoffStatusText()).not.toBeInTheDocument();
+  });
+
+  // 13/14/15 — sessionStorage: restore optimista + reconciliación posterior
+  it("13) reload con storage requested=true muestra el estado inmediatamente, antes del primer poll", () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "session-restored");
+    sessionStorage.setItem(
+      "aira_public_chat_handoff_v1",
+      JSON.stringify({ session_id: "session-restored", requested: true })
+    );
+    render(<PublicChatWidget />);
+    openWidget();
+    // Aserción SINCRÓNICA a propósito: nada async corrió todavía -- el
+    // valor inicial optimista viene solo del useState(() => ...) al montar.
+    expect(requestHumanButton()).not.toBeInTheDocument();
+    expect(handoffStatusText()).toBeInTheDocument();
+  });
+
+  it("14) el primer /events con false elimina el estado optimista de sessionStorage", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "session-restored");
+    sessionStorage.setItem(
+      "aira_public_chat_handoff_v1",
+      JSON.stringify({ session_id: "session-restored", requested: true })
+    );
+    getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], handoff_requested: false });
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+    expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toBeNull();
+  });
+
+  it("15) storage de OTRA sesión se ignora (nunca aplica un requested ajeno)", () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "session-current");
+    sessionStorage.setItem(
+      "aira_public_chat_handoff_v1",
+      JSON.stringify({ session_id: "session-old", requested: true })
+    );
+    render(<PublicChatWidget />);
+    openWidget();
+    expect(requestHumanButton()).toBeInTheDocument();
+    expect(handoffStatusText()).not.toBeInTheDocument();
+  });
+
+  // 16/17 — limpieza de sesión
+  it("16) expireSession() borra también el handoff storage", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "session-1");
+    sessionStorage.setItem(
+      "aira_public_chat_handoff_v1",
+      JSON.stringify({ session_id: "session-1", requested: true })
+    );
+    const notFound = new Error("Sesión no encontrada.");
+    notFound.status = 404;
+    getPublicChatEvents.mockRejectedValueOnce(notFound);
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(screen.getByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument());
+    expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toBeNull();
+  });
+
+  it("17) una sesión nueva siempre empieza con requested=false", async () => {
+    vi.useFakeTimers();
+    render(<PublicChatWidget />);
+    openWidget();
+    await fillPrechatForm();
+    fireEvent.click(screen.getByRole("button", { name: /comenzar conversación/i }));
+    await vi.waitFor(() => expect(startPublicChat).toHaveBeenCalled());
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+    expect(handoffStatusText()).not.toBeInTheDocument();
+  });
+
+  // 18/19 — human_active: sin flash del botón, converge con /events
+  it("18) human_active nunca produce un flash del botón antes del próximo poll", async () => {
+    await primeSessionAndOpenWidget();
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+
+    requestPublicChatHuman.mockResolvedValueOnce({ ok: true, status: "human_active" });
+    fireEvent.click(requestHumanButton());
+    // Justo después de que el POST resuelve, ANTES de que llegue el
+    // próximo poll (que sigue usando el mock genérico de responder AIRA
+    // del beforeEach) -- el botón no debe reaparecer.
+    await vi.waitFor(() => expect(requestHumanButton()).not.toBeInTheDocument());
+    // Nunca se persiste "waiting_agent" cuando el backend dijo human_active.
+    expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toBeNull();
+  });
+
+  it("19) el siguiente /events con responder human oculta el estado de espera y lo mantiene oculto", async () => {
+    await primeSessionAndOpenWidget();
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+
+    requestPublicChatHuman.mockResolvedValueOnce({ ok: true, status: "human_active" });
+    fireEvent.click(requestHumanButton());
+    await vi.waitFor(() => expect(requestHumanButton()).not.toBeInTheDocument());
+
+    getPublicChatEvents.mockResolvedValue({
+      ok: true, messages: [], responder: humanResponder(), handoff_requested: false,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(headerTitleText()).toBe("Osvaldo"));
+    // El botón sigue oculto (regla 10: responder human oculta SIEMPRE,
+    // independientemente de handoffRequested) y el texto de espera también.
+    expect(requestHumanButton()).not.toBeInTheDocument();
+    expect(handoffStatusText()).not.toBeInTheDocument();
+  });
+
+  // FASE HANDOFF H4B.1 — reproducción exacta del hallazgo: un /events
+  // iniciado ANTES del take-control (todavía sin resolver) puede terminar
+  // DESPUÉS de que POST /request-human ya devolvió human_active, con un
+  // snapshot stale (responder="aira" + handoff_requested=false). Sin el
+  // guard humanActivePendingConfirmation, aplicar ese snapshot tal cual
+  // reactivaría el botón "Hablar con una persona" por unos segundos.
+  it("H4B.1) un /events viejo que resuelve tarde con snapshot stale (aira + false) tras human_active nunca reactiva el botón", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "session-1");
+
+    // 1 — el primer /events queda deliberadamente EN VUELO (nunca resuelto
+    // todavía) -- simula la request que ya estaba viajando cuando ocurrió
+    // el takeover.
+    let resolveStaleEvents;
+    getPublicChatEvents.mockReturnValueOnce(new Promise((resolve) => { resolveStaleEvents = resolve; }));
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+    // El botón ya es visible por el estado inicial por defecto (AIRA, sin
+    // requested) -- el /events en vuelo todavía no aportó nada.
+    expect(requestHumanButton()).toBeInTheDocument();
+
+    // 2 — POST /request-human devuelve human_active.
+    requestPublicChatHuman.mockResolvedValueOnce({ ok: true, status: "human_active" });
+    fireEvent.click(requestHumanButton());
+    // 3 — el botón queda oculto de inmediato (guard transitorio).
+    await vi.waitFor(() => expect(requestHumanButton()).not.toBeInTheDocument());
+
+    // 4 — el /events viejo resuelve TARDE con el snapshot stale exacto del
+    // hallazgo. mockResolvedValue (persistente) queda listo para el
+    // PRÓXIMO poll con el mismo snapshot, por si el efecto ya reprogramó
+    // uno antes de que este assert corra.
+    const staleSnapshot = { ok: true, messages: [], handoff_requested: false, responder: AIRA_RESPONDER };
+    getPublicChatEvents.mockResolvedValue(staleSnapshot);
+    resolveStaleEvents(staleSnapshot);
+    await vi.advanceTimersByTimeAsync(0);
+
+    // 5 — PRUEBA NEGATIVA: sin el guard, este snapshot stale (aira+false)
+    // reactivaría el botón acá mismo. Con el guard, sigue oculto, y nunca
+    // se muestra el copy de waiting_agent (ese "true" nunca fue
+    // handoffRequested).
+    expect(requestHumanButton()).not.toBeInTheDocument();
+    expect(handoffStatusText()).not.toBeInTheDocument();
+
+    // 6/7 — el siguiente poll confirma el take-control real -> responder
+    // humano. El botón sigue oculto, el guard ya no hace falta (la regla
+    // "responder human oculta siempre" toma el control), y la identidad
+    // humana de H3B se ve normalmente.
+    getPublicChatEvents.mockResolvedValue({
+      ok: true, messages: [], responder: humanResponder(), handoff_requested: false,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(headerTitleText()).toBe("Osvaldo"));
+    expect(requestHumanButton()).not.toBeInTheDocument();
+    expect(handoffStatusText()).not.toBeInTheDocument();
+  });
+
+  // 20/21/22/23/24 — errores
+  it("20) 404 en request-human expira la sesión (mismo flujo que /message y /events)", async () => {
+    await primeSessionAndOpenWidget();
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+
+    const notFound = new Error("Sesión no encontrada. Inicia una nueva conversación.");
+    notFound.status = 404;
+    requestPublicChatHuman.mockRejectedValueOnce(notFound);
+    fireEvent.click(requestHumanButton());
+    await vi.waitFor(() => expect(screen.getByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument());
+  });
+
+  it("21) 429 no destruye la sesión, no marca requested, y re-habilita el botón", async () => {
+    await primeSessionAndOpenWidget();
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+
+    const tooMany = new Error("Demasiadas solicitudes. Intenta de nuevo más tarde.");
+    tooMany.status = 429;
+    requestPublicChatHuman.mockRejectedValueOnce(tooMany);
+    fireEvent.click(requestHumanButton());
+    await vi.waitFor(() => expect(screen.getByText(/has solicitado atención varias veces/i)).toBeInTheDocument());
+    expect(screen.getByLabelText(/escribe tu mensaje/i)).toBeInTheDocument(); // sigue en "chat", sesión viva
+    expect(requestHumanButton()).not.toBeDisabled(); // 24 — re-habilitado
+    expect(handoffStatusText()).not.toBeInTheDocument(); // nunca se marcó requested
+  });
+
+  it("22) 503/error de red no destruye la sesión y re-habilita el botón", async () => {
+    await primeSessionAndOpenWidget();
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+
+    // Error de red puro (sin .status) — mismo texto/rama que un 503 (ver
+    // el catch de handleRequestHuman: ambos caen al mismo "else").
+    requestPublicChatHuman.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    fireEvent.click(requestHumanButton());
+    await vi.waitFor(() =>
+      expect(screen.getByText(/no pude solicitar atención en este momento/i)).toBeInTheDocument()
+    );
+    expect(screen.getByLabelText(/escribe tu mensaje/i)).toBeInTheDocument();
+    expect(requestHumanButton()).not.toBeDisabled(); // 24 — re-habilitado
+  });
+
+  it("23) 409 no marca requested localmente (conversación ya no elegible)", async () => {
+    await primeSessionAndOpenWidget();
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+
+    const conflict = new Error("Esta conversación ya no puede solicitar atención de una persona.");
+    conflict.status = 409;
+    requestPublicChatHuman.mockRejectedValueOnce(conflict);
+    fireEvent.click(requestHumanButton());
+    await vi.waitFor(() =>
+      expect(screen.getByText(/esta conversación ya no puede solicitar atención/i)).toBeInTheDocument()
+    );
+    // Nunca se trata como si hubiera quedado en waiting_agent.
+    expect(requestHumanButton()).toBeInTheDocument();
+    expect(requestHumanButton()).not.toBeDisabled();
+    expect(handoffStatusText()).not.toBeInTheDocument();
+  });
+
+  // 25/26/27 — protección de sesión A->B (mismo patrón que H3B.2 #6)
+  it("25) una respuesta EXITOSA tardía del POST de la sesión A (ya reemplazada por B) se ignora por completo", async () => {
+    await primeSessionAndOpenWidget("session-a");
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+
+    let resolveA;
+    requestPublicChatHuman.mockReturnValueOnce(new Promise((resolve) => { resolveA = resolve; }));
+    fireEvent.click(requestHumanButton());
+    await vi.waitFor(() => expect(requestPublicChatHuman).toHaveBeenCalledTimes(1));
+
+    // La sesión A expira (404 de /events) mientras el POST de A sigue en vuelo.
+    const notFound = new Error("Sesión no encontrada.");
+    notFound.status = 404;
+    getPublicChatEvents.mockRejectedValueOnce(notFound);
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(screen.getByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument());
+
+    // El visitante completa el pre-chat de nuevo y obtiene la sesión B.
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-b", visitor_id: "visitor-b", greeting: "hola de nuevo", responder: AIRA_RESPONDER,
+    });
+    await fillPrechatForm();
+    fireEvent.click(screen.getByRole("button", { name: /comenzar conversación/i }));
+    await vi.waitFor(() => expect(startPublicChat).toHaveBeenCalled());
+    await vi.waitFor(() => expect(screen.getByText("hola de nuevo")).toBeInTheDocument());
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+
+    // El POST de A resuelve TARDE, con éxito -- nunca debe tocar B.
+    resolveA({ ok: true, status: "waiting_agent" });
+    await vi.advanceTimersByTimeAsync(3000);
+
+    expect(requestHumanButton()).toBeInTheDocument(); // B nunca quedó marcada como requested
+    expect(handoffStatusText()).not.toBeInTheDocument();
+    expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toBeNull();
+  });
+
+  it("26) un ERROR tardío del POST de la sesión A (ya reemplazada por B) se ignora por completo", async () => {
+    await primeSessionAndOpenWidget("session-a");
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+
+    let rejectA;
+    requestPublicChatHuman.mockReturnValueOnce(new Promise((_resolve, reject) => { rejectA = reject; }));
+    fireEvent.click(requestHumanButton());
+    await vi.waitFor(() => expect(requestPublicChatHuman).toHaveBeenCalledTimes(1));
+
+    const notFound = new Error("Sesión no encontrada.");
+    notFound.status = 404;
+    getPublicChatEvents.mockRejectedValueOnce(notFound);
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(screen.getByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument());
+
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-b", visitor_id: "visitor-b", greeting: "hola de nuevo", responder: AIRA_RESPONDER,
+    });
+    await fillPrechatForm();
+    fireEvent.click(screen.getByRole("button", { name: /comenzar conversación/i }));
+    await vi.waitFor(() => expect(startPublicChat).toHaveBeenCalled());
+    await vi.waitFor(() => expect(screen.getByText("hola de nuevo")).toBeInTheDocument());
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+
+    // El POST de A resuelve TARDE, con un 409 -- nunca debe mostrarse en B.
+    const conflictA = new Error("mensaje viejo de A, nunca debe verse en B");
+    conflictA.status = 409;
+    rejectA(conflictA);
+    await vi.advanceTimersByTimeAsync(3000);
+
+    expect(screen.queryByText(/mensaje viejo de a/i)).not.toBeInTheDocument();
+    expect(requestHumanButton()).toBeInTheDocument();
+    expect(requestHumanButton()).not.toBeDisabled();
+  });
+
+  it("27) el finally tardío del POST de la sesión A nunca reactiva/toca el loading de B", async () => {
+    await primeSessionAndOpenWidget("session-a");
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+
+    let resolveA;
+    requestPublicChatHuman.mockReturnValueOnce(new Promise((resolve) => { resolveA = resolve; }));
+    fireEvent.click(requestHumanButton());
+    await vi.waitFor(() => expect(requestPublicChatHuman).toHaveBeenCalledTimes(1));
+
+    const notFound = new Error("Sesión no encontrada.");
+    notFound.status = 404;
+    getPublicChatEvents.mockRejectedValueOnce(notFound);
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(screen.getByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument());
+
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-b", visitor_id: "visitor-b", greeting: "hola de nuevo", responder: AIRA_RESPONDER,
+    });
+    await fillPrechatForm();
+    fireEvent.click(screen.getByRole("button", { name: /comenzar conversación/i }));
+    await vi.waitFor(() => expect(startPublicChat).toHaveBeenCalled());
+    await vi.waitFor(() => expect(screen.getByText("hola de nuevo")).toBeInTheDocument());
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+
+    // B nunca clickeó su propio botón -- su loading siempre fue false. El
+    // finally tardío de A (guardado tras su propio sentForSessionId) nunca
+    // debe dejar el botón de B deshabilitado.
+    resolveA({ ok: true, status: "waiting_agent" });
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(requestHumanButton()).not.toBeDisabled();
+  });
+
+  // 28/29 — carrera /events vs. POST request-human en vuelo
+  it("28) un /events con handoff_requested=true mientras el POST sigue pendiente converge correctamente", async () => {
+    await primeSessionAndOpenWidget();
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+
+    let resolveClick;
+    requestPublicChatHuman.mockReturnValueOnce(new Promise((resolve) => { resolveClick = resolve; }));
+    fireEvent.click(requestHumanButton());
+    await vi.waitFor(() => expect(requestPublicChatHuman).toHaveBeenCalledTimes(1));
+
+    // /events (server-authoritative) ya confirma waiting_agent ANTES de
+    // que el POST resuelva del lado del navegador.
+    getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], handoff_requested: true });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => {
+      expect(requestHumanButton()).not.toBeInTheDocument();
+      expect(handoffStatusText()).toBeInTheDocument();
+    });
+
+    // El POST resuelve después -- no debe "reactivar" el botón ni romper nada.
+    resolveClick({ ok: true, status: "waiting_agent" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(requestHumanButton()).not.toBeInTheDocument();
+  });
+
+  it("29) un /events con responder human mientras el POST sigue pendiente nunca reactiva el botón", async () => {
+    await primeSessionAndOpenWidget();
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+
+    let resolveClick;
+    requestPublicChatHuman.mockReturnValueOnce(new Promise((resolve) => { resolveClick = resolve; }));
+    fireEvent.click(requestHumanButton());
+    await vi.waitFor(() => expect(requestPublicChatHuman).toHaveBeenCalledTimes(1));
+
+    // Un agente ya tomó control real (take-control desde el CRM) mientras
+    // el POST de request-human sigue en vuelo -- /events ya refleja
+    // responder human.
+    getPublicChatEvents.mockResolvedValue({
+      ok: true, messages: [], responder: humanResponder(), handoff_requested: false,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(headerTitleText()).toBe("Osvaldo"));
+    expect(requestHumanButton()).not.toBeInTheDocument(); // oculto por responder human (regla 10)
+
+    // El POST de request-human resuelve DESPUÉS con human_active -- nunca
+    // debe reactivar el botón (responder sigue siendo human).
+    resolveClick({ ok: true, status: "human_active" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(requestHumanButton()).not.toBeInTheDocument();
+  });
+
+  // 30/31/32 — regresión H3B (agent messages, CTA, duplicados/carreras)
+  // ya cubiertos íntegramente por los describe "PublicChatWidget — H3B:
+  // polling de /events", "H3B.1", "H3B.2", "H3B.3" y "H3B.4" de este mismo
+  // archivo -- se re-ejecutan tal cual (sin cambios) como parte de la
+  // regresión completa de este mismo run, ver el reporte de validación.
+});
+
+// ── FASE HANDOFF H4B.2 — waiting_agent vs. /events y /status stale ──────
+// Hallazgo de revisión del PR #116, análogo al de H4B.1 pero en la
+// dirección opuesta: un GET /events o GET /status que ya estaba en vuelo
+// ANTES del click puede resolver DESPUÉS de un POST /request-human exitoso
+// con status="waiting_agent", trayendo su propio snapshot viejo
+// (handoff_requested=false + responder AIRA) capturado antes de que la
+// mutación local ocurriera. Sin protección, ese snapshot pisaba el
+// handoffRequested=true recién establecido, reapareciendo el botón y
+// permitiendo un segundo POST. handoffMutationEpochRef (ver el widget)
+// resuelve esto distinguiendo, por ORDEN DE INICIO respecto a la última
+// mutación local, una lectura stale de una realmente posterior -- nunca
+// "true para siempre": una lectura que arranca DESPUÉS de la mutación
+// sigue pudiendo aplicar un false real si el backend lo devuelve.
+describe("PublicChatWidget — H4B.2: protección de waiting_agent contra lecturas stale", () => {
+  // 1 — /events viejo (ya en vuelo) resuelve tarde con snapshot stale:
+  // NUNCA debe deshacer el waiting_agent recién establecido.
+  it("1) un /events viejo que resuelve tarde con handoff_requested=false + AIRA tras waiting_agent NO reaparece el botón", async () => {
+    let resolveStaleEvents;
+    getPublicChatEvents.mockReturnValueOnce(new Promise((resolve) => { resolveStaleEvents = resolve; }));
+
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "session-1");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+    // El primer /events sigue EN VUELO a propósito (mockReturnValueOnce sin
+    // resolver todavía) -- el botón es visible por el estado inicial.
+    expect(requestHumanButton()).toBeInTheDocument();
+
+    fireEvent.click(requestHumanButton());
+    await vi.waitFor(() => {
+      expect(requestHumanButton()).not.toBeInTheDocument();
+      expect(handoffStatusText()).toBeInTheDocument();
+    });
+    expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toContain('"requested":true');
+
+    // El /events viejo resuelve TARDE con el snapshot stale exacto del
+    // hallazgo -- capturado ANTES de que el POST mutara nada.
+    resolveStaleEvents({ ok: true, messages: [], handoff_requested: false, responder: AIRA_RESPONDER });
+    await vi.advanceTimersByTimeAsync(0);
+
+    // PRUEBA CLAVE: el botón sigue oculto, el texto sigue visible, y el
+    // storage sigue en true -- el snapshot stale nunca lo tocó.
+    await vi.waitFor(() => {
+      expect(requestHumanButton()).not.toBeInTheDocument();
+      expect(handoffStatusText()).toBeInTheDocument();
+    });
+    expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toContain('"requested":true');
+  });
+
+  // 2 — el siguiente /events (iniciado DESPUÉS de la mutación) confirma
+  // true: el estado permanece estable, sin ningún parpadeo.
+  it("2) el siguiente /events iniciado después de la mutación con handoff_requested=true mantiene el estado estable", async () => {
+    let resolveStaleEvents;
+    getPublicChatEvents.mockReturnValueOnce(new Promise((resolve) => { resolveStaleEvents = resolve; }));
+
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "session-1");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(requestHumanButton());
+    await vi.waitFor(() => expect(requestHumanButton()).not.toBeInTheDocument());
+
+    resolveStaleEvents({ ok: true, messages: [], handoff_requested: false, responder: AIRA_RESPONDER });
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.waitFor(() => expect(requestHumanButton()).not.toBeInTheDocument()); // ver test 1
+
+    // Poll siguiente (encadenado, arranca DESPUÉS de la mutación local) —
+    // confirma true, mismo dato que ya se mostraba.
+    getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], handoff_requested: true, responder: AIRA_RESPONDER });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => {
+      expect(getPublicChatEvents).toHaveBeenCalledTimes(2);
+      expect(requestHumanButton()).not.toBeInTheDocument();
+      expect(handoffStatusText()).toBeInTheDocument();
+    });
+  });
+
+  // 3 — BLOQUEANTE: una lectura REALMENTE posterior (iniciada después de
+  // la mutación local) SÍ puede devolver false y el estado debe revertir
+  // de verdad -- nunca "true sticky" para siempre.
+  it("3) una lectura /events genuinamente posterior a la mutación con handoff_requested=false SÍ revierte el estado", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "session-1");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+    await vi.advanceTimersByTimeAsync(0); // el primer poll ya resolvió (sin stale en juego en este test)
+
+    fireEvent.click(requestHumanButton());
+    await vi.waitFor(() => expect(requestHumanButton()).not.toBeInTheDocument());
+    expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toContain('"requested":true');
+
+    // El backend real, en un poll que arranca DESPUÉS del POST, confirma
+    // que ya no hace falta esperar (p. ej. staff resolvió la conversación
+    // sin tomar control humano) -- este false es legítimo y debe aplicarse.
+    getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], handoff_requested: false, responder: AIRA_RESPONDER });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
+    expect(handoffStatusText()).not.toBeInTheDocument();
+    expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toBeNull();
+  });
+
+  // 4 — reproducción equivalente con GET /status stale (el finding señala
+  // explícitamente que /status tiene el mismo problema).
+  it("4) un /status viejo que resuelve tarde con handoff_requested=false + AIRA tras waiting_agent NO reaparece el botón", async () => {
+    let resolveStaleStatus;
+    getPublicChatStatus.mockReturnValueOnce(new Promise((resolve) => { resolveStaleStatus = resolve; }));
+
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "session-1");
+    render(<PublicChatWidget />);
+    // openWidget() sobre una sesión restaurada dispara refreshStatus() (LEVEL2)
+    // -- esa es la llamada que queda deliberadamente en vuelo acá.
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatStatus).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(requestHumanButton());
+    await vi.waitFor(() => expect(requestHumanButton()).not.toBeInTheDocument());
+    expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toContain('"requested":true');
+
+    // El /status viejo (comenzó ANTES del POST) resuelve TARDE con su
+    // propio snapshot stale.
+    resolveStaleStatus({ ok: true, responder: AIRA_RESPONDER, handoff_requested: false });
+    await vi.advanceTimersByTimeAsync(0);
+
+    await vi.waitFor(() => {
+      expect(requestHumanButton()).not.toBeInTheDocument();
+      expect(handoffStatusText()).toBeInTheDocument();
+    });
+    expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toContain('"requested":true');
   });
 });

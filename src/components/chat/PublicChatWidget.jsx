@@ -6,6 +6,7 @@ import {
   getPublicChatEvents,
   getPublicChatStatus,
   recognizeVisitor,
+  requestPublicChatHuman,
   sendPublicChatMessage,
   startPublicChat,
 } from "@/services/publicChatApi.js";
@@ -14,6 +15,12 @@ import "./PublicChatWidget.css";
 
 const SESSION_STORAGE_KEY = "aira_public_chat_session_v1";
 const HISTORY_STORAGE_KEY = "aira_public_chat_history_v1";
+// FASE HANDOFF H4B — UX optimista/restore inmediato ÚNICAMENTE. La fuente
+// de verdad real es siempre el backend (handoff_requested de GET /status y
+// GET /events, ver su reconciliación más abajo) -- esta key solo evita que
+// el botón "Hablar con una persona" reaparezca por una fracción de segundo
+// al recargar la página antes de que llegue el primer poll.
+const HANDOFF_STORAGE_KEY = "aira_public_chat_handoff_v1";
 const MAX_MESSAGE_CHARS = 800;
 
 // FASE HANDOFF H3B — polling de GET /public/chat/events. Encadenado
@@ -272,6 +279,43 @@ function persistHistory(history) {
   }
 }
 
+// FASE HANDOFF H4B — solo se usa como valor inicial optimista al montar
+// (ver el useState de handoffRequested más abajo). Vinculado a la sesión
+// ACTUAL a propósito: una key vieja de una sesión anterior (distinta)
+// nunca se aplica -- evita arrastrar una solicitud de una sesión ya
+// expirada hacia una nueva.
+function loadStoredHandoff(currentSessionId) {
+  if (!currentSessionId) return false;
+  try {
+    const raw = sessionStorage.getItem(HANDOFF_STORAGE_KEY);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    return Boolean(parsed && parsed.session_id === currentSessionId && parsed.requested);
+  } catch {
+    return false;
+  }
+}
+
+// requested=true persiste {session_id, requested:true}; requested=false
+// BORRA la key por completo (nunca escribe requested:false) -- así un
+// próximo reload nunca restaura un "true" ya obsoleto una vez que el
+// backend confirmó que ya no aplica (ver reconciliación de /events y
+// /status más abajo, y expireSession()).
+function persistHandoff(sessionIdValue, requested) {
+  try {
+    if (requested && sessionIdValue) {
+      sessionStorage.setItem(
+        HANDOFF_STORAGE_KEY,
+        JSON.stringify({ session_id: sessionIdValue, requested: true })
+      );
+    } else {
+      sessionStorage.removeItem(HANDOFF_STORAGE_KEY);
+    }
+  } catch {
+    // Almacenamiento no disponible — mismo criterio que persistHistory().
+  }
+}
+
 // FASE 2 (AIRA Public RAG Presentation Cleanup) — formatea el label de una
 // fuente citada para el visitante público. El backend ya envía "label"
 // (app/ai/knowledge/rag/citations.py::citation_label()) — pero ese label
@@ -341,6 +385,27 @@ export default function PublicChatWidget() {
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState(null);
   const [responder, setResponder] = useState(AIRA_RESPONDER);
+  // FASE HANDOFF H4B — ¿el visitante ya pidió hablar con una persona?
+  // Fuente de verdad real: el backend (handoff_requested de GET /events y
+  // GET /status, reconciliado en cada poll/consulta exitosa — ver más
+  // abajo). El valor inicial es solo un eco optimista de sessionStorage
+  // (ver loadStoredHandoff) para que el botón no "parpadee" visible en un
+  // reload mientras llega el primer poll -- nunca un valor que se sostenga
+  // indefinidamente por sí solo.
+  const [handoffRequested, setHandoffRequested] = useState(() => loadStoredHandoff(loadStoredSession()));
+  const [handoffRequestLoading, setHandoffRequestLoading] = useState(false);
+  // FASE HANDOFF H4B.1 — guard TRANSITORIO, independiente de
+  // handoffRequested, deliberadamente NUNCA persistido en sessionStorage.
+  // Cubre una carrera real: un GET /events viejo (iniciado ANTES de que un
+  // agente tomara control real) puede resolver DESPUÉS de que POST
+  // /request-human ya devolvió "human_active" -- ese snapshot stale trae
+  // responder.type="aira" + handoff_requested=false, y si se aplicara tal
+  // cual, el botón "Hablar con una persona" reaparecería por unos
+  // segundos hasta el siguiente poll. handoffRequested nunca debe
+  // "fingir" waiting_agent para tapar este caso (el texto informativo de
+  // esa rama es específico de waiting_agent) -- este es un estado propio,
+  // solo para ocultar el botón mientras el responder converge de verdad.
+  const [humanActivePendingConfirmation, setHumanActivePendingConfirmation] = useState(false);
   // FASE 4 — {full_name, email, phone} si POST /recognize reconoció al
   // visitante (cookie válida), o null. Solo se usa para precargar
   // PrechatForm — nunca decide nada por sí solo, el usuario siempre ve y
@@ -380,6 +445,34 @@ export default function PublicChatWidget() {
   // para el porqué completo. Reasignado (nunca mutado in-place), mismo
   // criterio que knownServerIdsRef.
   const claimByServerIdRef = useRef(new Map());
+  // FASE HANDOFF H4B.2 — frontera local monotónica de mutaciones de
+  // handoff. Cubre una carrera DISTINTA de la de H4B.1 (esa era
+  // human_active vs. responder stale; esta es waiting_agent vs. una
+  // lectura /events o /status que ya estaba en vuelo ANTES del POST
+  // exitoso): sin esto, esa lectura vieja podía resolver DESPUÉS con
+  // handoff_requested=false (su propio snapshot, capturado antes de que
+  // el POST mutara nada) y pisar el handoffRequested=true recién
+  // establecido -- el botón reaparecía y permitía un segundo POST.
+  //
+  // Se incrementa en dos momentos: (1) cada POST /request-human exitoso
+  // con status="waiting_agent" (la única mutación LOCAL real de
+  // handoffRequested fuera de la reconciliación con el backend), y (2) en
+  // cada frontera de sesión (expireSession/nueva sesión) -- defensa
+  // adicional, ver el guard de identidad de sesión ya existente
+  // (currentSessionIdRef) para la protección A->B real.
+  //
+  // runPoll()/refreshStatus() capturan el valor VIGENTE justo antes de
+  // iniciar su propia request (nunca después): si al resolver el valor
+  // sigue siendo el mismo, esa lectura es tan reciente como la última
+  // mutación local y puede reconciliar handoffRequested/sessionStorage
+  // con total normalidad (incluido aplicar un false real y futuro -- esto
+  // NUNCA se convierte en "true para siempre", ver el test de "lectura
+  // realmente posterior puede devolver false"). Si cambió mientras la
+  // request estaba en vuelo, esa lectura es más vieja que la mutación
+  // local y se descarta SOLO para efectos de handoff -- el resto de su
+  // contenido (mensajes/responder) sigue aplicándose normalmente si no
+  // tiene sus propios guards.
+  const handoffMutationEpochRef = useRef(0);
   // Última `messages` conocida, actualizada en CADA render (sin efecto
   // de por medio, mismo patrón que activeConversationIdRef en el H2B del
   // CRM): el poller necesita poder sembrar knownServerIdsRef con el
@@ -423,10 +516,21 @@ export default function PublicChatWidget() {
   const expireSession = useCallback((message) => {
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
     sessionStorage.removeItem(HISTORY_STORAGE_KEY);
+    // FASE HANDOFF H4B — una sesión nueva nunca debe arrastrar la
+    // solicitud de handoff de la sesión que acaba de expirar.
+    sessionStorage.removeItem(HANDOFF_STORAGE_KEY);
     setSessionId(null);
     setMessages([]);
     setScreen("prechat");
     setResponder(AIRA_RESPONDER);
+    setHandoffRequested(false);
+    setHandoffRequestLoading(false);
+    setHumanActivePendingConfirmation(false);
+    // FASE HANDOFF H4B.2 — frontera de sesión: cualquier lectura /events o
+    // /status todavía en vuelo de la sesión que expira queda, a partir de
+    // acá, más vieja que esta frontera -- defensa adicional junto con el
+    // guard de identidad de sesión (currentSessionIdRef) ya existente.
+    handoffMutationEpochRef.current += 1;
     setError(message);
     // FASE HANDOFF H3B.2 — reset explícito, independiente de si handleSend()
     // decide o no tocar isLoading en su propio finally (que se salta a
@@ -447,11 +551,35 @@ export default function PublicChatWidget() {
   async function refreshStatus(targetSessionId) {
     const sid = targetSessionId || sessionId;
     if (!sid) return;
+    // FASE HANDOFF H4B.2 — mismo patrón A->B que handleSend/
+    // handleRequestHuman: esta función nunca tenía un guard de sesión
+    // propio (a diferencia de esas dos) -- necesario ahora para que la
+    // frontera de epoch tenga sentido también acá (sin esto, una
+    // respuesta tardía de la sesión A podría reconciliar el handoff de la
+    // sesión B con epochs que, por coincidencia, podrían volver a
+    // alinearse tras una frontera de sesión).
+    const handoffEpochAtRequestStart = handoffMutationEpochRef.current;
     try {
       const data = await getPublicChatStatus(sid);
+      if (currentSessionIdRef.current !== sid) return; // stale — ya estamos en otra sesión
       const sanitized = sanitizeResponder(data?.responder);
       if (sanitized) setResponder(sanitized);
+      // FASE HANDOFF H4B/H4B.2 — mismo criterio que el poller de /events:
+      // el backend es la fuente de verdad en cada consulta exitosa (nunca
+      // "true para siempre" solo porque sessionStorage lo dijo antes),
+      // pero solo si esta lectura no quedó stale respecto a una mutación
+      // local de handoff más reciente (ver handoffMutationEpochRef).
+      if (handoffEpochAtRequestStart === handoffMutationEpochRef.current) {
+        const handoff = Boolean(data?.handoff_requested);
+        setHandoffRequested(handoff);
+        persistHandoff(sid, handoff);
+      }
+      // FASE HANDOFF H4B.1 — mismo criterio que runPoll(): el guard
+      // transitorio de human_active solo se libera con una confirmación
+      // REAL de responder.type==="human", nunca por handoff_requested.
+      if (sanitized?.type === "human") setHumanActivePendingConfirmation(false);
     } catch (err) {
+      if (currentSessionIdRef.current !== sid) return; // stale — idem para error
       if (err.status === 404) {
         // Mismo comportamiento que /message ante sesión expirada: /status
         // es auxiliar de identidad visual, pero una sesión inexistente en
@@ -502,6 +630,11 @@ export default function PublicChatWidget() {
       if (pollGenerationRef.current !== myGeneration) return; // esta cadena ya no es la vigente
       const controller = new AbortController();
       pollAbortRef.current = controller;
+      // FASE HANDOFF H4B.2 — capturado ANTES de iniciar la request (nunca
+      // después): si al resolver el valor vigente cambió, esta lectura
+      // empezó antes de la última mutación local de handoff y no puede
+      // reconciliar handoffRequested/sessionStorage (ver el ref).
+      const handoffEpochAtRequestStart = handoffMutationEpochRef.current;
       try {
         const data = await getPublicChatEvents(sessionId, { signal: controller.signal });
         if (pollGenerationRef.current !== myGeneration) return; // stale: la sesión cambió mientras la request estaba en vuelo
@@ -556,6 +689,26 @@ export default function PublicChatWidget() {
         });
         const sanitized = sanitizeResponder(data?.responder);
         if (sanitized) setResponder(sanitized);
+        // FASE HANDOFF H4B/H4B.2 — mismo criterio server-authoritative que
+        // el resto de esta reconciliación (nunca "true para siempre" por
+        // un valor optimista viejo de sessionStorage), PERO solo si esta
+        // lectura no quedó stale respecto a una mutación local de handoff
+        // más reciente (ver handoffMutationEpochRef) -- una lectura
+        // realmente posterior a esa mutación SÍ puede aplicar un false
+        // real, esto nunca se vuelve "true sticky".
+        if (handoffEpochAtRequestStart === handoffMutationEpochRef.current) {
+          const handoff = Boolean(data?.handoff_requested);
+          setHandoffRequested(handoff);
+          persistHandoff(sessionId, handoff);
+        }
+        // FASE HANDOFF H4B.1 — el guard transitorio de human_active SOLO
+        // se libera cuando ESTE poll confirma responder.type==="human" --
+        // nunca por handoff_requested (que en este caso puede legítimamente
+        // seguir en false: control_mode ya es human, pero support_status
+        // puede nunca haber llegado a "waiting_agent"). Un snapshot viejo
+        // con responder="aira" (stale, iniciado antes del takeover) nunca
+        // lo toca -- deliberadamente no hay rama "else" que lo apague.
+        if (sanitized?.type === "human") setHumanActivePendingConfirmation(false);
         pollDelayRef.current = EVENTS_POLL_NORMAL_MS;
       } catch (err) {
         // Cleanup (cambio de sesión/unmount) aborta el fetch en vuelo —
@@ -636,6 +789,14 @@ export default function PublicChatWidget() {
       setScreen("chat");
       const sanitized = sanitizeResponder(data.responder);
       if (sanitized) setResponder(sanitized);
+      // FASE HANDOFF H4B/H4B.1 — nunca arrastra una solicitud de handoff
+      // (ni el guard transitorio de human_active) de una sesión anterior:
+      // esta es, por construcción de esta rama, una sesión
+      // public_session_id NUEVA emitida por el backend.
+      setHandoffRequested(false);
+      setHumanActivePendingConfirmation(false);
+      // FASE HANDOFF H4B.2 — misma frontera de sesión que expireSession().
+      handoffMutationEpochRef.current += 1;
       return data.session_id;
     } catch (err) {
       if (err.status === 401) {
@@ -693,6 +854,65 @@ export default function PublicChatWidget() {
       await forgetVisitor();
     } finally {
       setRecognizedVisitor(null);
+    }
+  }
+
+  // FASE HANDOFF H4B — click en "Hablar con una persona". Mismo patrón de
+  // protección de sesión A->B que handleSend (H3B.2): sentForSessionId se
+  // fija ANTES del await, y toda continuación (éxito, error o finally) se
+  // compara contra currentSessionIdRef antes de tocar cualquier estado —
+  // una respuesta tardía de una sesión ya reemplazada nunca debe mutar el
+  // estado de la sesión nueva.
+  async function handleRequestHuman() {
+    if (handoffRequestLoading || handoffRequested || humanActivePendingConfirmation || !sessionId) return;
+    const sentForSessionId = sessionId;
+    setHandoffRequestLoading(true);
+    setError(null);
+
+    try {
+      const data = await requestPublicChatHuman(sentForSessionId);
+      if (currentSessionIdRef.current !== sentForSessionId) return; // stale
+
+      if (data?.status === "waiting_agent") {
+        // FASE HANDOFF H4B.2 — marca la frontera ANTES/junto con la
+        // mutación local: cualquier /events o /status que ya estaba en
+        // vuelo (capturó el epoch ANTERIOR antes de este POST) queda
+        // clasificado como stale para efectos de handoff en cuanto
+        // resuelva, sin importar qué booleano traiga.
+        handoffMutationEpochRef.current += 1;
+        setHandoffRequested(true);
+        persistHandoff(sentForSessionId, true);
+      } else if (data?.status === "human_active") {
+        // FASE HANDOFF H4B.1 — un take-control real ya está en curso
+        // (control_mode ya es human/hybrid del lado del backend). NUNCA
+        // reutiliza handoffRequested (ese "true" fingiría waiting_agent y
+        // mostraría el copy equivocado) -- usa su propio guard transitorio,
+        // en memoria ÚNICAMENTE (nunca persistido), que además sobrevive
+        // a un /events viejo que resuelva tarde con un snapshot stale
+        // (responder="aira" + handoff_requested=false) -- ver su
+        // reconciliación más abajo, que SOLO libera este guard cuando el
+        // responder confirmado es realmente "human", nunca por el valor
+        // de handoff_requested. Se limpia solo cuando el próximo poll
+        // confirma responder.type==="human" (ver más abajo) -- regla que
+        // ya oculta el botón de forma incondicional una vez ahí.
+        setHumanActivePendingConfirmation(true);
+      }
+    } catch (err) {
+      if (currentSessionIdRef.current !== sentForSessionId) return; // stale
+      if (err.status === 404) {
+        expireSession("Tu sesión anterior expiró. Completa el formulario de nuevo para continuar.");
+      } else if (err.status === 429) {
+        setError("Has solicitado atención varias veces. Intenta de nuevo en un momento.");
+      } else if (err.status === 409) {
+        // Conversación en un estado terminal (resolved/archived/spam/...) —
+        // nunca se marca localmente como si hubiera quedado en
+        // waiting_agent, y nunca se destruye la sesión por esto solo.
+        setError(err.message || "Esta conversación ya no puede solicitar atención de una persona.");
+      } else {
+        setError("No pude solicitar atención en este momento. Intenta de nuevo.");
+      }
+    } finally {
+      if (currentSessionIdRef.current === sentForSessionId) setHandoffRequestLoading(false);
     }
   }
 
@@ -961,6 +1181,31 @@ export default function PublicChatWidget() {
                 )}
                 {error && <p className="public-chat-widget__error">{error}</p>}
               </div>
+
+              {/* FASE HANDOFF H4B/H4B.1 — acción secundaria, deliberadamente
+                  fuera del área de burbujas de mensaje (nunca se confunde
+                  con un CTA server-driven de FASE 3B.2). Oculto SIEMPRE
+                  que responder.type==="human" (identidad humana real de
+                  H3B ya cubre ese caso) y también mientras
+                  humanActivePendingConfirmation -- ver ese estado para la
+                  carrera de /events stale que cubre. */}
+              {sessionId && responder.type === "aira" && !handoffRequested && !humanActivePendingConfirmation && (
+                <div className="public-chat-widget__handoff-bar">
+                  <button
+                    type="button"
+                    className="public-chat-widget__handoff-btn"
+                    onClick={handleRequestHuman}
+                    disabled={handoffRequestLoading}
+                  >
+                    {handoffRequestLoading ? "Solicitando…" : "Hablar con una persona"}
+                  </button>
+                </div>
+              )}
+              {sessionId && responder.type === "aira" && handoffRequested && (
+                <p className="public-chat-widget__handoff-status" role="status">
+                  Solicitaste atención de una persona. AIRA puede seguir ayudándote mientras un agente se conecta.
+                </p>
+              )}
 
               <form className="public-chat-widget__form" onSubmit={handleSend}>
                 <input
