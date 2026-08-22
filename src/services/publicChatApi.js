@@ -32,6 +32,17 @@ async function publicChatFetch(path, options = {}) {
       data?.detail || data?.message || `Request failed with status ${response.status}`;
     const error = new Error(message);
     error.status = response.status;
+    // FASE HANDOFF H3B.3 — el backend (_raise_rate_limited()) siempre manda
+    // un header Retry-After entero en segundos junto con un 429. Se expone
+    // acá, aditivo (nunca rompe callers existentes que solo miran
+    // err.status/err.message), para que el poller de /events pueda hacer
+    // backoff con el valor real del servidor en vez de un fallback fijo.
+    if (response.status === 429) {
+      const retryAfterSeconds = Number(response.headers.get("Retry-After"));
+      if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+        error.retryAfterSeconds = retryAfterSeconds;
+      }
+    }
     throw error;
   }
 
@@ -59,6 +70,20 @@ export async function sendPublicChatMessage(sessionId, message, clientMessageId)
       message,
       client_message_id: clientMessageId,
     }),
+  });
+}
+
+// FASE HANDOFF H3B.1 — snapshot completo de mensajes públicos visibles +
+// responder actual de la sesión (ver GET /public/chat/events, agregado en
+// FASE HANDOFF H1/H3A). Nunca envía conversation_id/workspace_id/
+// visitor_token/cursor — el backend resuelve todo server-side a partir de
+// session_id, igual que el resto de este archivo. options.signal (opcional)
+// se reenvía tal cual a fetch para que el poller pueda abortar una request
+// en vuelo (cambio de sesión, cierre de pestaña, unmount).
+export async function getPublicChatEvents(sessionId, options = {}) {
+  return publicChatFetch(`/events?session_id=${encodeURIComponent(sessionId)}`, {
+    method: "GET",
+    signal: options.signal,
   });
 }
 

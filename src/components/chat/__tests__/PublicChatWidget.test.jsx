@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
@@ -7,6 +7,7 @@ vi.mock("@/services/publicChatApi.js", () => ({
   sendPublicChatMessage: vi.fn(),
   verifyPrechat: vi.fn(),
   getPublicChatStatus: vi.fn(),
+  getPublicChatEvents: vi.fn(),
   recognizeVisitor: vi.fn(),
   forgetVisitor: vi.fn(),
 }));
@@ -21,6 +22,7 @@ const {
   sendPublicChatMessage,
   verifyPrechat,
   getPublicChatStatus,
+  getPublicChatEvents,
   recognizeVisitor,
   forgetVisitor,
 } = await import("@/services/publicChatApi.js");
@@ -65,6 +67,16 @@ function openWidget() {
   fireEvent.click(screen.getByRole("button", { name: /abrir chat/i }));
 }
 
+// FASE HANDOFF H3B — helper propio para cerrar el panel: la barra flotante
+// alterna su aria-label entre "Abrir chat.../Cerrar chat" según isOpen y,
+// una vez abierto, existe un SEGUNDO botón con el mismo label "Cerrar
+// chat" (el de la cabecera), así que buscar por texto es ambiguo — se
+// selecciona el toggle por su clase, no por accesibilidad, deliberadamente
+// distinto de openWidget().
+function closeWidget() {
+  fireEvent.click(document.querySelector(".public-chat-widget__toggle"));
+}
+
 async function typeAndSend(text) {
   const input = screen.getByLabelText(/escribe tu mensaje/i);
   fireEvent.change(input, { target: { value: text } });
@@ -107,8 +119,22 @@ beforeEach(() => {
     responder: AIRA_RESPONDER,
   });
   getPublicChatStatus.mockResolvedValue({ ok: true, responder: AIRA_RESPONDER });
+  // FASE HANDOFF H3B — default inocuo: sin mensajes nuevos, SIN responder
+  // (sanitizeResponder(undefined) devuelve null, así que el widget nunca
+  // pisa la identidad ya establecida por /start o /message). El poller
+  // arranca en cuanto hay sessionId, incluso con el panel cerrado (ver
+  // H3B.2), así que prácticamente todos los tests de este archivo terminan
+  // llamando a getPublicChatEvents al menos una vez -- este default evita
+  // que se conviertan en tests de H3B por accidente, y evita tener que
+  // correlacionar manualmente esta identidad con la de cada
+  // startPublicChat.mockResolvedValueOnce(...) de tests preexistentes.
+  getPublicChatEvents.mockResolvedValue({ ok: true, messages: [] });
   recognizeVisitor.mockResolvedValue({ recognized: false, full_name: null, email: null, phone: null });
   forgetVisitor.mockResolvedValue({ ok: true });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("PublicChatWidget — estado inicial", () => {
@@ -1102,5 +1128,1195 @@ describe("PublicChatWidget — FASE 4: reconocimiento de visitante", () => {
     openWidget();
     await completePrechat();
     expect(startPublicChat).toHaveBeenCalledWith("token-1", false);
+  });
+});
+
+// ── FASE HANDOFF H3B — polling de GET /public/chat/events ──────────────────
+
+function serverMsg(overrides = {}) {
+  return {
+    id: `srv-${Math.random().toString(36).slice(2)}`,
+    role: "customer",
+    content: "contenido",
+    created_at: "2026-01-01T00:00:00Z",
+    citations: [],
+    ...overrides,
+  };
+}
+
+function userBubbles() {
+  return document.querySelectorAll(".public-chat-widget__bubble--user");
+}
+
+function assistantBubbles() {
+  // El indicador de "escribiendo…" también lleva la clase --assistant
+  // (ver el JSX: bubble--assistant + typing juntas) — se excluye acá para
+  // que este helper cuente solo mensajes reales, nunca el indicador de
+  // carga transitorio.
+  return document.querySelectorAll(".public-chat-widget__bubble--assistant:not(.public-chat-widget__typing)");
+}
+
+function agentBubbles() {
+  return document.querySelectorAll(".public-chat-widget__bubble--agent");
+}
+
+// FASE HANDOFF H3B.4 — [role, contenido] de cada burbuja real (nunca el
+// indicador de "escribiendo…") en el orden EXACTO en que aparecen en el
+// DOM, que refleja directamente el orden del array `messages` — el único
+// modo confiable de verificar cronología, a diferencia de contar
+// burbujas por clase.
+function timelineRoleContentPairs() {
+  return Array.from(
+    document.querySelectorAll(".public-chat-widget__bubble:not(.public-chat-widget__typing)")
+  ).map((el) => {
+    const roleMatch = el.className.match(/bubble--(\w+)/);
+    const p = el.querySelector("p");
+    return [roleMatch ? roleMatch[1] : "?", p ? p.textContent : ""];
+  });
+}
+
+describe("PublicChatWidget — H3B: polling de /events", () => {
+  // 1 — sin sessionId, nunca hay polling
+  it("1) sin sesión (visitante nuevo, sin sessionStorage) nunca llama a getPublicChatEvents", () => {
+    render(<PublicChatWidget />);
+    expect(getPublicChatEvents).not.toHaveBeenCalled();
+  });
+
+  // 2 — sesión restaurada inicia /events sin necesidad de abrir el panel
+  it("2) con una sesión restaurada, el polling arranca en cuanto monta, sin abrir el panel", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    await waitFor(() =>
+      expect(getPublicChatEvents).toHaveBeenCalledWith("existing-session", expect.objectContaining({ signal: expect.anything() }))
+    );
+  });
+
+  // 3 — cadencia ~3s
+  it("3) el polling corre cada ~3s mientras la sesión sigue activa", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(getPublicChatEvents).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(getPublicChatEvents).toHaveBeenCalledTimes(3);
+  });
+
+  // 4 — nunca dos /events en vuelo (encadenado, no setInterval)
+  it("4) nunca hay dos /events concurrentes: la siguiente corrida espera a que la anterior termine", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    let resolveFirst;
+    getPublicChatEvents.mockReturnValueOnce(new Promise((resolve) => { resolveFirst = resolve; }));
+    render(<PublicChatWidget />);
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    await vi.advanceTimersByTimeAsync(10000); // mucho más que 3s, la primera sigue sin resolver
+    expect(getPublicChatEvents).toHaveBeenCalledTimes(1);
+
+    resolveFirst({ ok: true, messages: [] });
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(getPublicChatEvents).toHaveBeenCalledTimes(2);
+  });
+
+  // 5 — cleanup al unmount aborta el fetch en vuelo
+  it("5) al desmontar, aborta el /events en vuelo", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    let capturedSignal;
+    getPublicChatEvents.mockImplementationOnce((_sid, opts = {}) => {
+      capturedSignal = opts.signal;
+      return new Promise(() => {}); // nunca resuelve
+    });
+    const { unmount } = render(<PublicChatWidget />);
+    await waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+    expect(capturedSignal?.aborted).toBe(false);
+    unmount();
+    expect(capturedSignal?.aborted).toBe(true);
+  });
+
+  // 6 — respuesta stale de una sesión ya reemplazada se ignora
+  it("6) una respuesta tardía del poll de una sesión ya expirada (A) nunca contamina la sesión nueva (B)", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "session-a");
+    let resolveA;
+    getPublicChatEvents.mockImplementationOnce(() => new Promise((resolve) => { resolveA = resolve; }));
+    render(<PublicChatWidget />);
+    openWidget();
+    await waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledWith("session-a", expect.anything()));
+
+    const notFound = new Error("Sesión no encontrada.");
+    notFound.status = 404;
+    sendPublicChatMessage.mockRejectedValueOnce(notFound);
+    await typeAndSend("hola");
+    await screen.findByRole("heading", { name: /antes de comenzar/i });
+
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-b", visitor_id: "visitor-b", greeting: "hola de nuevo", responder: AIRA_RESPONDER,
+    });
+    await completePrechat();
+    await screen.findByText("hola de nuevo");
+
+    // A resuelve TARDE, con datos que nunca deberían aplicarse a B.
+    resolveA({
+      ok: true,
+      messages: [serverMsg({ id: "m-a", content: "mensaje de A" })],
+      responder: humanResponder({ display_name: "Agente de A" }),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(headerTitleText()).toBe("AIRA");
+    expect(screen.queryByText("mensaje de A")).not.toBeInTheDocument();
+  });
+
+  // 7 — 200 con mensajes nuevos los agrega al historial (también cubre restore con historial vacío, item 21)
+  it("7) un snapshot 200 con mensajes nuevos del servidor los muestra en el historial", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    getPublicChatEvents.mockResolvedValueOnce({
+      ok: true,
+      messages: [serverMsg({ id: "m1", role: "agent", content: "Ya reviso tu caso." })],
+      responder: humanResponder({ display_name: "Osvaldo" }),
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    expect(await screen.findByText("Ya reviso tu caso.")).toBeInTheDocument();
+  });
+
+  // 8 — un customer server no duplica la burbuja optimista del usuario
+  it("8) un mensaje customer devuelto por /events no duplica la burbuja optimista del usuario", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    await typeAndSend("¿cuánto cuesta el servicio?");
+    await vi.waitFor(() => expect(userBubbles()).toHaveLength(1));
+
+    getPublicChatEvents.mockResolvedValueOnce({
+      ok: true,
+      messages: [serverMsg({ id: "m-customer-1", role: "customer", content: "¿cuánto cuesta el servicio?" })],
+      responder: AIRA_RESPONDER,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+
+    await vi.waitFor(() => expect(userBubbles()).toHaveLength(1)); // sigue siendo 1, nunca 2
+  });
+
+  // 9 — dos mensajes customer idénticos se emparejan 1:1
+  it("9) dos mensajes customer con contenido idéntico se emparejan 1:1, ninguno se pierde ni colapsa", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    await typeAndSend("hola");
+    await vi.waitFor(() => expect(userBubbles()).toHaveLength(1));
+    await vi.waitFor(() => expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled());
+    await typeAndSend("hola");
+    await vi.waitFor(() => expect(userBubbles()).toHaveLength(2));
+
+    getPublicChatEvents.mockResolvedValueOnce({
+      ok: true,
+      messages: [
+        serverMsg({ id: "m1", role: "customer", content: "hola", created_at: "2026-01-01T00:00:00Z" }),
+        serverMsg({ id: "m2", role: "customer", content: "hola", created_at: "2026-01-01T00:00:01Z" }),
+      ],
+      responder: AIRA_RESPONDER,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+
+    await vi.waitFor(() => expect(userBubbles()).toHaveLength(2)); // ambas, nunca colapsadas a una sola
+  });
+
+  // 10 — un pending local sin contraparte todavía en el snapshot permanece visible
+  it("10) un mensaje local pendiente que el snapshot todavía no confirma permanece visible", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    await typeAndSend("mensaje todavía no persistido");
+    await vi.waitFor(() => expect(userBubbles()).toHaveLength(1));
+
+    // El próximo poll no trae nada nuevo (el backend todavía no lo persistió/indexó).
+    getPublicChatEvents.mockResolvedValueOnce({ ok: true, messages: [], responder: AIRA_RESPONDER });
+    await vi.advanceTimersByTimeAsync(3000);
+
+    await vi.waitFor(() => expect(userBubbles()).toHaveLength(1));
+    expect(screen.getByText("mensaje todavía no persistido")).toBeInTheDocument();
+  });
+
+  // 11 — assistant devuelto por POST + luego el mismo assistant en /events: una sola bubble
+  it("11) la respuesta de AIRA mostrada por el POST y luego confirmada por /events no se duplica", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "Ofrecemos fotografía y video.", citations: [], responder: AIRA_RESPONDER,
+    });
+    await typeAndSend("¿qué servicios ofrecen?");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(1));
+
+    getPublicChatEvents.mockResolvedValueOnce({
+      ok: true,
+      messages: [
+        serverMsg({ id: "m1", role: "customer", content: "¿qué servicios ofrecen?", created_at: "2026-01-01T00:00:00Z" }),
+        serverMsg({ id: "m2", role: "assistant", content: "Ofrecemos fotografía y video.", created_at: "2026-01-01T00:00:01Z" }),
+      ],
+      responder: AIRA_RESPONDER,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(1)); // sigue siendo una sola bubble
+    expect(userBubbles()).toHaveLength(1);
+  });
+
+  // 12 — la CTA de una respuesta POST no se pierde al reconciliar contra /events (que no expone cta)
+  it("12) la CTA de una respuesta POST se conserva después de que /events la reconcilie", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    renderWithRouter();
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true,
+      response_text: "Tenemos un plan que te puede interesar.",
+      citations: [],
+      cta: { type: "membership", label: "Ver membresías", href: "/membresias" },
+      responder: AIRA_RESPONDER,
+    });
+    await typeAndSend("¿tienen membresías?");
+    await vi.waitFor(() => expect(screen.getByRole("link", { name: /ver membresías/i })).toBeInTheDocument());
+
+    // /events NO expone cta en absoluto (contrato real de PublicChatEventMessage).
+    getPublicChatEvents.mockResolvedValueOnce({
+      ok: true,
+      messages: [
+        serverMsg({ id: "m1", role: "customer", content: "¿tienen membresías?", created_at: "2026-01-01T00:00:00Z" }),
+        serverMsg({ id: "m2", role: "assistant", content: "Tenemos un plan que te puede interesar.", created_at: "2026-01-01T00:00:01Z" }),
+      ],
+      responder: AIRA_RESPONDER,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(1));
+    expect(screen.getByRole("link", { name: /ver membresías/i })).toBeInTheDocument();
+  });
+
+  // 13 — role="agent" se muestra con estilo/identidad humana, nunca como AIRA
+  it("13) un mensaje role=agent aparece en la UI con estilo/etiqueta de agente humano, nunca como AIRA", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    getPublicChatEvents.mockResolvedValueOnce({
+      ok: true,
+      messages: [serverMsg({ id: "m1", role: "agent", content: "Hola, soy Osvaldo, ya puedo ayudarte." })],
+      responder: humanResponder({ display_name: "Osvaldo" }),
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    expect(await screen.findByText("Hola, soy Osvaldo, ya puedo ayudarte.")).toBeInTheDocument();
+    expect(agentBubbles()).toHaveLength(1);
+    expect(assistantBubbles()).toHaveLength(0);
+    expect(screen.getByText("Agente")).toBeInTheDocument();
+  });
+
+  // 14 — responder cambia AIRA -> humano vía /events
+  it("14) el responder cambia de AIRA a humano cuando /events lo reporta, sin acción del visitante", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+    expect(headerTitleText()).toBe("AIRA");
+
+    getPublicChatEvents.mockResolvedValueOnce({
+      ok: true, messages: [], responder: humanResponder({ display_name: "Osvaldo" }),
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+
+    await vi.waitFor(() => expect(headerTitleText()).toBe("Osvaldo"));
+    expect(headerSubtitleText()).toBe("Agente humano");
+  });
+
+  // 15 — responder cambia humano -> AIRA vía /events
+  it("15) el responder cambia de humano a AIRA cuando /events lo reporta (return-to-ai)", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    getPublicChatEvents.mockResolvedValueOnce({
+      ok: true, messages: [], responder: humanResponder({ display_name: "Osvaldo" }),
+    });
+    // Abrir el panel dispara además refreshStatus() (LEVEL2, H3B.11) — se
+    // alinea con la misma identidad humana que /events, para que ambas
+    // fuentes coincidan como lo harían contra un backend real (ambas leen
+    // el mismo control_mode/assigned_user_id persistido).
+    getPublicChatStatus.mockResolvedValueOnce({ ok: true, responder: humanResponder({ display_name: "Osvaldo" }) });
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(headerTitleText()).toBe("Osvaldo"));
+
+    getPublicChatEvents.mockResolvedValueOnce({ ok: true, messages: [], responder: AIRA_RESPONDER });
+    await vi.advanceTimersByTimeAsync(3000);
+
+    await vi.waitFor(() => expect(headerTitleText()).toBe("AIRA"));
+    expect(headerSubtitleText()).toBe("Asistente virtual");
+  });
+
+  // 16 — 404 detiene el poll, limpia sesión/historial y vuelve a prechat
+  it("16) un 404 de /events detiene el polling, limpia sesión e historial, y vuelve a prechat", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_history_v1", JSON.stringify([{ role: "user", content: "mensaje viejo" }]));
+    const notFound = new Error("Sesión no encontrada.");
+    notFound.status = 404;
+    getPublicChatEvents.mockRejectedValueOnce(notFound);
+
+    render(<PublicChatWidget />);
+    openWidget();
+
+    expect(await screen.findByText(/completa el formulario de nuevo para continuar/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument();
+    expect(sessionStorage.getItem("aira_public_chat_session_v1")).toBeNull();
+    // El efecto persistHistory (keyed on messages) vuelve a escribir la key
+    // en cuanto expireSession() pone messages en [] -- funcionalmente
+    // equivalente a "sin historial" (loadStoredHistory() de un array vacío
+    // y de una key ausente producen el mismo []), así que se verifica el
+    // CONTENIDO, no la presencia literal de la key.
+    expect(JSON.parse(sessionStorage.getItem("aira_public_chat_history_v1") || "[]")).toEqual([]);
+    expect(screen.queryByText("mensaje viejo")).not.toBeInTheDocument();
+
+    // No reprograma un poll más allá del que causó el 404.
+    const callsAfter404 = getPublicChatEvents.mock.calls.length;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(getPublicChatEvents).toHaveBeenCalledTimes(callsAfter404);
+  });
+
+  // 17 — 429 aplica backoff sin borrar la sesión, y vuelve a 3s tras el próximo éxito
+  it("17) un 429 de /events no borra la sesión, aplica backoff, y vuelve al ritmo normal tras el próximo éxito", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    const rateLimited = new Error("Demasiadas solicitudes.");
+    rateLimited.status = 429;
+    rateLimited.retryAfterSeconds = 7;
+    getPublicChatEvents.mockRejectedValueOnce(rateLimited);
+    await vi.advanceTimersByTimeAsync(3000); // dispara el 2º poll (el que falla con 429)
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(2));
+
+    // La sesión sigue viva — nunca se borró ni volvió a prechat.
+    expect(sessionStorage.getItem("aira_public_chat_session_v1")).toBe("existing-session");
+    expect(screen.queryByRole("heading", { name: /antes de comenzar/i })).not.toBeInTheDocument();
+
+    // No reintenta antes del Retry-After real (7s) del backend.
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(getPublicChatEvents).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(4000); // completa los 7s de backoff
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(3));
+
+    // Tras el próximo poll exitoso, vuelve al ritmo normal de 3s.
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(4));
+  });
+
+  // 18 — 503 conserva sesión/historial y reintenta
+  it("18) un 503 de /events conserva la sesión y el historial, y reintenta en el próximo ciclo", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    getPublicChatEvents.mockResolvedValueOnce({
+      ok: true, messages: [serverMsg({ id: "m1", role: "agent", content: "hola humano" })], responder: humanResponder(),
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(screen.getByText("hola humano")).toBeInTheDocument());
+
+    const unavailable = new Error("El chat público no está disponible temporalmente.");
+    unavailable.status = 503;
+    getPublicChatEvents.mockRejectedValueOnce(unavailable);
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(2));
+
+    // Sesión e historial intactos — nunca vuelve a prechat por un 503.
+    expect(sessionStorage.getItem("aira_public_chat_session_v1")).toBe("existing-session");
+    expect(screen.getByText("hola humano")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /antes de comenzar/i })).not.toBeInTheDocument();
+
+    // Reintenta (backoff corto, 5s) — no queda colgado.
+    await vi.advanceTimersByTimeAsync(5000);
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(3));
+  });
+
+  // 19 — error de red: mismo criterio que 503
+  it("19) un error de red en /events conserva la sesión/historial y reintenta", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    getPublicChatEvents.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(2));
+
+    expect(sessionStorage.getItem("aira_public_chat_session_v1")).toBe("existing-session");
+    expect(screen.queryByRole("heading", { name: /antes de comenzar/i })).not.toBeInTheDocument();
+
+    await vi.advanceTimersByTimeAsync(5000);
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(3));
+  });
+
+  // 20 — AbortError es silencioso (nunca error visible, nunca reprograma desde acá)
+  it("20) un AbortError (cleanup) nunca se muestra como error al visitante", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    const abortError = new DOMException("The operation was aborted.", "AbortError");
+    getPublicChatEvents.mockImplementationOnce(() => Promise.reject(abortError));
+    const { unmount } = render(<PublicChatWidget />);
+    openWidget();
+    await waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByText(/no está disponible/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /antes de comenzar/i })).not.toBeInTheDocument();
+    unmount();
+  });
+
+  // 22 — cerrar el widget no detiene el polling mientras la sesión sigue activa
+  it("22) cerrar el panel no detiene el polling: sigue vivo mientras la sesión siga activa", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    closeWidget();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    getPublicChatEvents.mockResolvedValueOnce({
+      ok: true, messages: [serverMsg({ id: "m1", role: "agent", content: "sigo aquí aunque cerraste" })], responder: humanResponder(),
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(2));
+
+    // Al reabrir, el mensaje que llegó con el panel cerrado ya está ahí.
+    openWidget();
+    expect(screen.getByText("sigo aquí aunque cerraste")).toBeInTheDocument();
+  });
+
+  // 23 — /status nunca entra en un polling adicional (ya cubierto explícitamente arriba, ver
+  // "16) no existe ningún timer recurrente consultando /status" — se deja constancia acá de
+  // que sigue intacto tras H3B, sin duplicar el test).
+
+  // 24 — regresión funcional: prechat/recognize/forget/409/citations/CTA siguen intactos
+  // (cubierto por el resto de la suite de este archivo, que sigue en 100% verde tras H3B —
+  // ver el resto de describes de este mismo archivo).
+});
+
+// ── FASE HANDOFF H3B.1 — reconciliación nunca usa mensajes históricos ya
+// conocidos como candidatos para un pending NUEVO (P2 de la revisión de
+// H3B: el matching por rol+contenido+orden podía "robar" un mensaje
+// histórico idéntico si el snapshot todavía no incluía la fila real
+// nueva). Ver knownServerIdsRef/reconcileMessages(..., knownServerIds).
+describe("PublicChatWidget — H3B.1: reconciliación no usa historial para pending nuevos", () => {
+  // Escenario completo del gate: OLD assistant "respuesta" ya conocida +
+  // pending NEW assistant "respuesta" con CTA.
+  it("una respuesta assistant nueva con CTA nunca se empareja con una histórica idéntica, hasta que la fila NUEVA real aparece", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    // Primer poll: el snapshot ya trae la respuesta HISTÓRICA (OLD).
+    getPublicChatEvents.mockResolvedValueOnce({
+      ok: true,
+      messages: [serverMsg({ id: "old-1", role: "assistant", content: "respuesta", created_at: "2020-01-01T00:00:00Z" })],
+      responder: AIRA_RESPONDER,
+    });
+    renderWithRouter(); // la CTA usa <Link>, necesita Router (mismo criterio que el test 12)
+    openWidget();
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(1));
+
+    // El visitante dispara una respuesta NUEVA con el mismo texto exacto.
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true,
+      response_text: "respuesta",
+      citations: [],
+      cta: { type: "membership", label: "Ver planes", href: "/planes" },
+      responder: AIRA_RESPONDER,
+    });
+    await typeAndSend("dame info de nuevo");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(2)); // OLD + pending NEW
+
+    // Snapshot con solo OLD: la CTA nunca debe moverse a OLD, el pending
+    // sigue visible con su CTA intacta.
+    getPublicChatEvents.mockResolvedValueOnce({
+      ok: true,
+      messages: [serverMsg({ id: "old-1", role: "assistant", content: "respuesta", created_at: "2020-01-01T00:00:00Z" })],
+      responder: AIRA_RESPONDER,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(2));
+    let bubbles = Array.from(assistantBubbles());
+    expect(bubbles[0].querySelector(".public-chat-widget__cta")).toBeNull(); // OLD sin CTA
+    expect(bubbles[1].querySelector(".public-chat-widget__cta")).not.toBeNull(); // pending sigue con su CTA
+
+    // Snapshot con OLD + NEW real: NEW recibe la CTA, el pending desaparece
+    // (queda reemplazado por la fila NEW real, nunca duplicado).
+    getPublicChatEvents.mockResolvedValueOnce({
+      ok: true,
+      messages: [
+        serverMsg({ id: "old-1", role: "assistant", content: "respuesta", created_at: "2020-01-01T00:00:00Z" }),
+        serverMsg({ id: "new-1", role: "assistant", content: "respuesta", created_at: "2026-01-01T00:00:05Z" }),
+      ],
+      responder: AIRA_RESPONDER,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(2)); // sigue en 2, nunca 3
+    bubbles = Array.from(assistantBubbles());
+    expect(bubbles[0].querySelector(".public-chat-widget__cta")).toBeNull(); // OLD sigue sin CTA
+    expect(bubbles[1].querySelector(".public-chat-widget__cta")).not.toBeNull(); // NEW la recibió
+  });
+
+  // Dos pending idénticos, servidos por ids nuevos que llegan DE A UNO
+  // (no en el mismo poll) — confirma que el matching en orden sigue
+  // funcionando correctamente tras el fix de knownServerIds.
+  it("dos pending idénticos se confirman de a uno, en el orden en que aparecen sus ids server nuevos", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    await typeAndSend("hola");
+    await vi.waitFor(() => expect(userBubbles()).toHaveLength(1));
+    await vi.waitFor(() => expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled());
+    await typeAndSend("hola");
+    await vi.waitFor(() => expect(userBubbles()).toHaveLength(2));
+
+    // Aparece un solo id nuevo "hola" — solo uno de los dos pending se confirma.
+    getPublicChatEvents.mockResolvedValueOnce({
+      ok: true,
+      messages: [serverMsg({ id: "new-hola-1", role: "customer", content: "hola", created_at: "2026-01-01T00:00:00Z" })],
+      responder: AIRA_RESPONDER,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(userBubbles()).toHaveLength(2)); // uno confirmado + uno pending, sigue en 2
+
+    // Aparece el segundo id nuevo — se confirma el segundo.
+    getPublicChatEvents.mockResolvedValueOnce({
+      ok: true,
+      messages: [
+        serverMsg({ id: "new-hola-1", role: "customer", content: "hola", created_at: "2026-01-01T00:00:00Z" }),
+        serverMsg({ id: "new-hola-2", role: "customer", content: "hola", created_at: "2026-01-01T00:00:01Z" }),
+      ],
+      responder: AIRA_RESPONDER,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(userBubbles()).toHaveLength(2)); // ambos confirmados, ninguno perdido ni triplicado
+  });
+
+  // RESTORE — el caso central del P2: historia restaurada con un id server
+  // ya conocido + un pending idéntico restaurado junto a ella. El primer
+  // poll tras el restore NO debe usar ese id histórico para consumir el
+  // pending, aunque sea la primera corrida de esta cadena (knownServerIdsRef
+  // debe sembrarse ANTES de ese primer poll, no arrancar vacío).
+  it("con historia restaurada (id server conocido) + un pending idéntico también restaurado, el primer poll no consume el pending contra el histórico", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem(
+      "aira_public_chat_history_v1",
+      JSON.stringify([
+        { id: "hist-1", role: "user", content: "hola", source: "server", citations: [] },
+        { sendAttemptId: "pending-1", role: "user", content: "hola", pending: true, source: "local" },
+      ])
+    );
+    // El primer poll tras el restore: el backend todavía no indexó el
+    // segundo "hola" (el que generó el pending restaurado).
+    getPublicChatEvents.mockResolvedValueOnce({
+      ok: true,
+      messages: [serverMsg({ id: "hist-1", role: "customer", content: "hola", created_at: "2020-01-01T00:00:00Z" })],
+      responder: AIRA_RESPONDER,
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    // Deben seguir viéndose AMBOS "hola" — el histórico Y el pending
+    // restaurado, nunca colapsados a uno solo por el primer poll.
+    await waitFor(() => expect(userBubbles()).toHaveLength(2));
+  });
+
+  // LEGACY HISTORY — mensajes persistidos por el código previo a H3B
+  // (sin id/sendAttemptId/source). El primer snapshot canónico los reemplaza
+  // por completo, sin interpretarlos como pending outbound nuevos y sin
+  // producir un duplicado (ni la copia legacy junto a la fila server real).
+  it("historial legacy (sin id/source, de antes de H3B) no se interpreta como pending nuevo ni genera duplicados", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem(
+      "aira_public_chat_history_v1",
+      JSON.stringify([
+        { role: "assistant", content: "Hola, soy el asistente virtual." },
+        { role: "user", content: "hola" },
+      ])
+    );
+    getPublicChatEvents.mockResolvedValueOnce({
+      ok: true,
+      messages: [
+        serverMsg({ id: "srv-1", role: "customer", content: "hola", created_at: "2026-01-01T00:00:00Z" }),
+        serverMsg({ id: "srv-2", role: "assistant", content: "Hola, soy el asistente virtual.", created_at: "2026-01-01T00:00:01Z" }),
+      ],
+      responder: AIRA_RESPONDER,
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+
+    await waitFor(() => expect(userBubbles()).toHaveLength(1));
+    expect(assistantBubbles()).toHaveLength(1);
+  });
+});
+
+// ── FASE HANDOFF H3B.2 — carrera POST /message vs. poll /events ────────────
+// Un poll corre en paralelo al POST del propio envío. Si el poll gana (la
+// fila assistant real ya se incorporó y quedó "conocida" ANTES de que el
+// POST resuelva del lado del navegador), el POST NUNCA debe agregar un
+// segundo pending huérfano — debe reconocer su propia respuesta ya en
+// pantalla y solo enriquecerla con la cta ahí mismo. Ver knownIdsAtSendStart
+// en handleSend().
+describe("PublicChatWidget — H3B.2: carrera POST /message vs. poll /events", () => {
+  it("si el poll gana la carrera y ya incorpora la respuesta assistant, el POST tardío no duplica la burbuja y la CTA se aplica a la fila existente", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    renderWithRouter(); // la CTA usa <Link>
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    // El POST queda colgado (control manual) para simular que el poll gana.
+    let resolvePost;
+    sendPublicChatMessage.mockReturnValueOnce(new Promise((resolve) => { resolvePost = resolve; }));
+    await typeAndSend("¿tienen membresías?");
+    await vi.waitFor(() => expect(sendPublicChatMessage).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(userBubbles()).toHaveLength(1));
+
+    // El poll gana: ya incorpora AMBAS filas server (customer + assistant)
+    // ANTES de que el POST resuelva del lado del navegador. mockResolvedValue
+    // (persistente, no *Once*): vi.waitFor bajo fake timers puede disparar
+    // más de un ciclo de poll mientras reintenta -- un backend real siempre
+    // devuelve el snapshot completo vigente, nunca "se olvida" entre polls,
+    // así que el mock debe reflejar eso para no introducir un falso
+    // positivo/negativo por un ciclo de poll extra e inevitable.
+    getPublicChatEvents.mockResolvedValue({
+      ok: true,
+      messages: [
+        serverMsg({ id: "srv-customer", role: "customer", content: "¿tienen membresías?", created_at: "2026-01-01T00:00:00Z" }),
+        serverMsg({ id: "srv-assistant", role: "assistant", content: "Tenemos un plan que te puede interesar.", created_at: "2026-01-01T00:00:01Z" }),
+      ],
+      responder: AIRA_RESPONDER,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(1)); // ya renderizada por el poll, sin CTA todavía
+    expect(userBubbles()).toHaveLength(1); // el pending user ya quedó confirmado por este mismo poll
+    expect(screen.queryByRole("link", { name: /ver planes/i })).not.toBeInTheDocument();
+
+    // El POST resuelve TARDE, con la MISMA respuesta y una CTA.
+    resolvePost({
+      ok: true,
+      response_text: "Tenemos un plan que te puede interesar.",
+      citations: [],
+      cta: { type: "membership", label: "Ver planes", href: "/planes" },
+      responder: AIRA_RESPONDER,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+
+    // Nunca una segunda burbuja — la CTA se aplicó a la fila que ya existía.
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(1));
+    expect(screen.getByRole("link", { name: /ver planes/i })).toBeInTheDocument();
+  });
+
+  it("si el POST gana la carrera (camino normal), sigue agregando su propio pending y no lo confunde con historial", async () => {
+    // Regresión explícita: el fix de H3B.2 no debe romper el camino
+    // normal (ya cubierto por el resto de la suite, p. ej. el test 11 de
+    // H3B) — acá se confirma puntualmente que, sin ningún poll de por
+    // medio, el POST sigue mostrando su respuesta de inmediato.
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "Ofrecemos fotografía y video.", citations: [], responder: AIRA_RESPONDER,
+    });
+    await typeAndSend("¿qué servicios ofrecen?");
+    await waitFor(() => expect(assistantBubbles()).toHaveLength(1));
+    expect(screen.getByText("Ofrecemos fotografía y video.")).toBeInTheDocument();
+  });
+
+  // 6 — sesión A→B mientras el POST de A sigue en vuelo
+  it("una respuesta tardía del POST de la sesión A (ya reemplazada por B) se ignora por completo", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "session-a");
+    renderWithRouter();
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    let resolvePostA;
+    sendPublicChatMessage.mockReturnValueOnce(new Promise((resolve) => { resolvePostA = resolve; }));
+    await typeAndSend("hola desde A");
+    await vi.waitFor(() => expect(sendPublicChatMessage).toHaveBeenCalledTimes(1));
+
+    // La sesión A expira (404 de /events) mientras el POST de A sigue en vuelo.
+    const notFound = new Error("Sesión no encontrada.");
+    notFound.status = 404;
+    getPublicChatEvents.mockRejectedValueOnce(notFound);
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(screen.getByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument());
+
+    // El visitante completa el pre-chat de nuevo y obtiene la sesión B.
+    // No usa completePrechat()/waitFor de testing-library acá a propósito
+    // -- su polling interno usa setTimeout real, que se cuelga bajo
+    // vi.useFakeTimers(); se recrea el mismo flujo con vi.waitFor().
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-b", visitor_id: "visitor-b", greeting: "hola de nuevo", responder: AIRA_RESPONDER,
+    });
+    await fillPrechatForm();
+    fireEvent.click(screen.getByRole("button", { name: /comenzar conversación/i }));
+    await vi.waitFor(() => expect(startPublicChat).toHaveBeenCalled());
+    await vi.waitFor(() => expect(screen.getByText("hola de nuevo")).toBeInTheDocument());
+
+    // El POST de A resuelve TARDE, con una CTA que nunca debería aplicarse a B.
+    resolvePostA({
+      ok: true,
+      response_text: "respuesta tardía de A",
+      citations: [],
+      cta: { type: "membership", label: "CTA de A", href: "/a" },
+      responder: humanResponder({ display_name: "Agente de A" }),
+    });
+    // Deja correr un ciclo completo de poll (3s) además de flushear
+    // microtareas -- suficiente margen para que, SIN el guard, el estado
+    // stale de A alcance a aplicarse antes de esta aserción.
+    await vi.advanceTimersByTimeAsync(3000);
+
+    expect(screen.queryByText("respuesta tardía de A")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /cta de a/i })).not.toBeInTheDocument();
+    expect(headerTitleText()).toBe("AIRA"); // el responder de B no fue pisado por el de A
+    // El composer de B sigue habilitado — isLoading no quedó atascado por el POST viejo.
+    expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled();
+  });
+
+  // 7 — regresión: los tests de H3B.1 siguen verdes (ver el describe
+  // "PublicChatWidget — H3B.1: reconciliación no usa historial para
+  // pending nuevos" más arriba en este mismo archivo, sin cambios).
+});
+
+// ── FASE HANDOFF H3B.3 — asociación estable send↔servidor + persistencia
+// de CTA/sendAttemptId por id server a través de MÚLTIPLES polls ─────────
+// Corrige dos P2 relacionados de la revisión de H3B.2:
+//  1) knownIdsAtSendStart por sí solo no distingue "fila que apareció
+//     durante MI envío" de "fila que en realidad pertenece a OTRO envío
+//     con contenido idéntico que seguía pendiente" -- se agrega
+//     claimByServerIdRef (Map<serverId, {sendAttemptId, cta}>) como única
+//     fuente de verdad de "quién ya reclamó esta fila".
+//  2) esa misma cta debe sobrevivir a TODOS los polls siguientes, no solo
+//     al primero -- /events nunca la expone, así que sin persistencia
+//     explícita desaparece en el segundo poll.
+describe("PublicChatWidget — H3B.3: asociación estable send↔servidor y persistencia de CTA", () => {
+  it("dos sends consecutivos con respuesta idéntica: el segundo nunca reclama la fila ya reclamada por el primero, ni le pisa la CTA", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    renderWithRouter();
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    // SEND1 (sendAttemptId implícito "SEND1"): resuelve rápido, antes de
+    // que cualquier poll llegue a ver su fila real.
+    let resolveSend1;
+    sendPublicChatMessage.mockReturnValueOnce(new Promise((resolve) => { resolveSend1 = resolve; }));
+    await typeAndSend("hola de nuevo");
+    await vi.waitFor(() => expect(sendPublicChatMessage).toHaveBeenCalledTimes(1));
+    resolveSend1({
+      ok: true, response_text: "respuesta", citations: [],
+      cta: { type: "membership", label: "CTA1", href: "/cta1" },
+      responder: AIRA_RESPONDER,
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(1)); // pending local de SEND1
+    await vi.waitFor(() => expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled());
+
+    // SEND2 (sendAttemptId "SEND2"): mismo texto de usuario, misma
+    // respuesta esperada de AIRA -- también queda en vuelo.
+    let resolveSend2;
+    sendPublicChatMessage.mockReturnValueOnce(new Promise((resolve) => { resolveSend2 = resolve; }));
+    await typeAndSend("hola de nuevo");
+    await vi.waitFor(() => expect(sendPublicChatMessage).toHaveBeenCalledTimes(2));
+
+    // Mientras SEND2 sigue en vuelo, un poll descubre por primera vez la
+    // fila real de SEND1 y la reclama correctamente para SEND1.
+    // mockResolvedValue (persistente, no *Once*): vi.waitFor bajo fake
+    // timers puede disparar más de un ciclo de poll mientras reintenta —
+    // un backend real siempre devuelve el snapshot completo vigente.
+    getPublicChatEvents.mockResolvedValue({
+      ok: true,
+      messages: [serverMsg({ id: "srv-send1", role: "assistant", content: "respuesta", created_at: "2026-01-01T00:00:00Z" })],
+      responder: AIRA_RESPONDER,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+    // Todavía 1 sola burbuja: SEND1 ya confirmada (ahora source:"server"),
+    // SEND2 ni siquiera agregó la suya (su POST sigue colgado, recién se
+    // agrega cuando resuelve — ver más abajo).
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(1));
+    expect(screen.getByRole("link", { name: /^CTA1$/i })).toBeInTheDocument();
+
+    // SEND2 resuelve TARDE, con SU PROPIA cta -- nunca debe robar la fila
+    // de SEND1 (ya reclamada) ni pisar CTA1.
+    resolveSend2({
+      ok: true, response_text: "respuesta", citations: [],
+      cta: { type: "membership", label: "CTA2", href: "/cta2" },
+      responder: AIRA_RESPONDER,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(2)); // sigue en 2, nunca se fusionan
+    expect(screen.getByRole("link", { name: /^CTA1$/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^CTA2$/i })).toBeInTheDocument();
+  });
+
+  it("una CTA ya reclamada por un id server sobrevive a los polls siguientes, aunque /events nunca la devuelva", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    renderWithRouter();
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true,
+      response_text: "Tenemos un plan que te puede interesar.",
+      citations: [],
+      cta: { type: "membership", label: "Ver planes", href: "/planes" },
+      responder: AIRA_RESPONDER,
+    });
+    await typeAndSend("¿tienen membresías?");
+    await vi.waitFor(() => expect(screen.getByRole("link", { name: /ver planes/i })).toBeInTheDocument());
+
+    const snapshotConCta = () => ({
+      ok: true,
+      messages: [
+        serverMsg({ id: "srv-customer", role: "customer", content: "¿tienen membresías?", created_at: "2026-01-01T00:00:00Z" }),
+        serverMsg({ id: "srv-assistant", role: "assistant", content: "Tenemos un plan que te puede interesar.", created_at: "2026-01-01T00:00:01Z" }),
+      ],
+      responder: AIRA_RESPONDER,
+    });
+
+    // Primer poll: reconcilia y reclama la fila server -- la cta se traslada.
+    getPublicChatEvents.mockResolvedValueOnce(snapshotConCta());
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(screen.getByRole("link", { name: /ver planes/i })).toBeInTheDocument());
+
+    // Segundo poll: /events sigue devolviendo la MISMA fila SIN cta (nunca
+    // la expone) -- debe seguir viéndose, nunca desaparecer.
+    getPublicChatEvents.mockResolvedValueOnce(snapshotConCta());
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(3));
+    expect(screen.getByRole("link", { name: /ver planes/i })).toBeInTheDocument();
+
+    // Tercer poll — refuerza que no es casualidad de un solo ciclo extra.
+    getPublicChatEvents.mockResolvedValueOnce(snapshotConCta());
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(4));
+    expect(screen.getByRole("link", { name: /ver planes/i })).toBeInTheDocument();
+    expect(assistantBubbles()).toHaveLength(1); // nunca duplicada tampoco
+  });
+});
+
+// ── FASE HANDOFF H3B.4 — cronología de pendientes locales (P2 real de
+// Codex sobre H3B.3): stillPending nunca debe reconstruirse concatenando
+// "todos los user pendientes" + "todos los assistant pendientes" -- eso
+// reordena por rol, no por cronología real. Se filtra sobre localMessages
+// (ya en el orden real en que cada mensaje se agregó) usando
+// consumedLocalIds (por sendAttemptId), nunca agrupando por rol.
+describe("PublicChatWidget — H3B.4: cronología de mensajes locales pendientes", () => {
+  // 1 — orden básico, nada confirmado todavía
+  it("1) orden básico: user1, assistant1, user2 se preserva cuando nada fue confirmado todavía", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "respuesta1", citations: [], responder: AIRA_RESPONDER,
+    });
+    await typeAndSend("pregunta1");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(1));
+
+    sendPublicChatMessage.mockReturnValueOnce(new Promise(() => {})); // send2 queda colgado, nunca resuelve en este test
+    await vi.waitFor(() => expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled());
+    await typeAndSend("pregunta2");
+    await vi.waitFor(() => expect(sendPublicChatMessage).toHaveBeenCalledTimes(2));
+
+    // Un poll corre DESPUÉS de que los 3 mensajes locales ya existen, sin
+    // confirmar nada (snapshot vacío) -- esto es lo que efectivamente
+    // ejercita reconcileMessages()/stillPending sobre una lista con más
+    // de un intercambio sin confirmar. Sin este paso, el test no pasaría
+    // nunca por la lógica que el P2 de Codex señaló. Se usa un responder
+    // humano en el snapshot como señal observable de que el setMessages
+    // de ESTE poll realmente se aplicó (headerTitleText cambia de "AIRA"
+    // a "Osvaldo" SOLO si el updater corrió).
+    getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], responder: humanResponder({ display_name: "Osvaldo" }) });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(headerTitleText()).toBe("Osvaldo"));
+
+    await vi.waitFor(() =>
+      expect(timelineRoleContentPairs()).toEqual([
+        ["user", "pregunta1"],
+        ["assistant", "respuesta1"],
+        ["user", "pregunta2"],
+      ])
+    );
+  });
+
+  // 2 — confirmación parcial: solo user1
+  it("2) confirmación parcial: el snapshot confirma solo user1, el resto conserva su orden original", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "respuesta1", citations: [], responder: AIRA_RESPONDER,
+    });
+    await typeAndSend("pregunta1");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "respuesta2", citations: [], responder: AIRA_RESPONDER,
+    });
+    await vi.waitFor(() => expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled());
+    await typeAndSend("pregunta2");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(2));
+
+    getPublicChatEvents.mockResolvedValue({
+      ok: true,
+      messages: [serverMsg({ id: "srv-user1", role: "customer", content: "pregunta1", created_at: "2026-01-01T00:00:00Z" })],
+      responder: AIRA_RESPONDER,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(userBubbles()).toHaveLength(2));
+
+    expect(timelineRoleContentPairs()).toEqual([
+      ["user", "pregunta1"],
+      ["assistant", "respuesta1"],
+      ["user", "pregunta2"],
+      ["assistant", "respuesta2"],
+    ]);
+  });
+
+  // 3 — confirmación de un intercambio completo (user1 + assistant1)
+  it("3) confirmación de un intercambio completo: server confirma user1+assistant1, el resto conserva su orden", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "respuesta1", citations: [], responder: AIRA_RESPONDER,
+    });
+    await typeAndSend("pregunta1");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "respuesta2", citations: [], responder: AIRA_RESPONDER,
+    });
+    await vi.waitFor(() => expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled());
+    await typeAndSend("pregunta2");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(2));
+
+    getPublicChatEvents.mockResolvedValue({
+      ok: true,
+      messages: [
+        serverMsg({ id: "srv-user1", role: "customer", content: "pregunta1", created_at: "2026-01-01T00:00:00Z" }),
+        serverMsg({ id: "srv-assistant1", role: "assistant", content: "respuesta1", created_at: "2026-01-01T00:00:01Z" }),
+      ],
+      responder: AIRA_RESPONDER,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(2));
+
+    expect(timelineRoleContentPairs()).toEqual([
+      ["user", "pregunta1"],
+      ["assistant", "respuesta1"],
+      ["user", "pregunta2"],
+      ["assistant", "respuesta2"],
+    ]);
+  });
+
+  // 4 — más de dos intercambios sin confirmar: el filtro respeta el orden
+  // original, nunca el orden por rol (una reconstrucción por bucket
+  // produciría user1,user2,user3,assistant1,assistant2 -- claramente
+  // incorrecto).
+  it("4) tres preguntas y dos respuestas sin confirmar: el orden final nunca agrupa por rol", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "respuesta1", citations: [], responder: AIRA_RESPONDER,
+    });
+    await typeAndSend("pregunta1");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "respuesta2", citations: [], responder: AIRA_RESPONDER,
+    });
+    await vi.waitFor(() => expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled());
+    await typeAndSend("pregunta2");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(2));
+
+    sendPublicChatMessage.mockReturnValueOnce(new Promise(() => {})); // pregunta3 queda colgada, sin respuesta
+    await vi.waitFor(() => expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled());
+    await typeAndSend("pregunta3");
+    await vi.waitFor(() => expect(sendPublicChatMessage).toHaveBeenCalledTimes(3));
+
+    // Poll con snapshot vacío DESPUÉS de que los 5 mensajes locales ya
+    // existen -- ejercita reconcileMessages()/stillPending de verdad. El
+    // responder humano es la señal observable de que este setMessages
+    // realmente se aplicó (headerTitleText cambia solo si el updater corrió).
+    getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], responder: humanResponder({ display_name: "Osvaldo" }) });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(headerTitleText()).toBe("Osvaldo"));
+
+    await vi.waitFor(() =>
+      expect(timelineRoleContentPairs()).toEqual([
+        ["user", "pregunta1"],
+        ["assistant", "respuesta1"],
+        ["user", "pregunta2"],
+        ["assistant", "respuesta2"],
+        ["user", "pregunta3"],
+      ])
+    );
+  });
+
+  // 5 — contenido idéntico: las confirmaciones parciales mantienen
+  // asociación 1:1 Y orden correctos, nunca cruzados por ser idénticos.
+  it("5) contenido idéntico (hola/ok dos veces): confirmación parcial mantiene asociación y orden 1:1", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "ok", citations: [], responder: AIRA_RESPONDER,
+    });
+    await typeAndSend("hola");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "ok", citations: [], responder: AIRA_RESPONDER,
+    });
+    await vi.waitFor(() => expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled());
+    await typeAndSend("hola");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(2));
+
+    // Solo el PRIMER intercambio ("hola"/"ok") queda confirmado.
+    getPublicChatEvents.mockResolvedValue({
+      ok: true,
+      messages: [
+        serverMsg({ id: "srv-hola-1", role: "customer", content: "hola", created_at: "2026-01-01T00:00:00Z" }),
+        serverMsg({ id: "srv-ok-1", role: "assistant", content: "ok", created_at: "2026-01-01T00:00:01Z" }),
+      ],
+      responder: AIRA_RESPONDER,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(userBubbles()).toHaveLength(2));
+    expect(assistantBubbles()).toHaveLength(2);
+
+    expect(timelineRoleContentPairs()).toEqual([
+      ["user", "hola"],
+      ["assistant", "ok"],
+      ["user", "hola"],
+      ["assistant", "ok"],
+    ]);
+  });
+
+  // 6 — CTA: assistant1 con CTA debe permanecer antes de user2 y conservarla
+  it("6) una CTA en assistant1 se conserva y assistant1 permanece antes de user2", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    renderWithRouter(); // la CTA usa <Link>
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true,
+      response_text: "respuesta1",
+      citations: [],
+      cta: { type: "membership", label: "Ver planes", href: "/planes" },
+      responder: AIRA_RESPONDER,
+    });
+    await typeAndSend("pregunta1");
+    await vi.waitFor(() => expect(screen.getByRole("link", { name: /ver planes/i })).toBeInTheDocument());
+
+    sendPublicChatMessage.mockReturnValueOnce(new Promise(() => {})); // pregunta2 queda colgada
+    await vi.waitFor(() => expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled());
+    await typeAndSend("pregunta2");
+    await vi.waitFor(() => expect(sendPublicChatMessage).toHaveBeenCalledTimes(2));
+
+    // Poll con snapshot vacío DESPUÉS de que assistant1 (con cta) y user2
+    // ya existen -- ejercita reconcileMessages()/stillPending de verdad. El
+    // responder humano es la señal observable de que este setMessages
+    // realmente se aplicó (headerTitleText cambia solo si el updater corrió).
+    getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], responder: humanResponder({ display_name: "Osvaldo" }) });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(headerTitleText()).toBe("Osvaldo"));
+
+    await vi.waitFor(() =>
+      expect(timelineRoleContentPairs()).toEqual([
+        ["user", "pregunta1"],
+        ["assistant", "respuesta1"],
+        ["user", "pregunta2"],
+      ])
+    );
+    expect(screen.getByRole("link", { name: /ver planes/i })).toBeInTheDocument();
+  });
+
+  // 7 — reproducción explícita del P2 original: dos sends superpuestos
+  it("7) dos sends superpuestos (repro exacta del P2): user1, assistant1, user2 -- nunca user1, user2, assistant1", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    // send1 produce user1 + assistant1 (POST resuelve normalmente).
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "respuesta1", citations: [], responder: AIRA_RESPONDER,
+    });
+    await typeAndSend("pregunta1");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(1));
+
+    // Antes de que el snapshot alcance a confirmar nada, send2 produce user2.
+    sendPublicChatMessage.mockReturnValueOnce(new Promise(() => {}));
+    await vi.waitFor(() => expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled());
+    await typeAndSend("pregunta2");
+    await vi.waitFor(() => expect(sendPublicChatMessage).toHaveBeenCalledTimes(2));
+
+    // Poll con snapshot vacío DESPUÉS de que los 3 mensajes locales ya
+    // existen -- sin este paso reconcileMessages()/stillPending nunca se
+    // ejecuta sobre esta lista, y el test no probaría nada del P2 real. El
+    // responder humano es la señal observable de que este setMessages
+    // realmente se aplicó (headerTitleText cambia solo si el updater corrió).
+    getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], responder: humanResponder({ display_name: "Osvaldo" }) });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(headerTitleText()).toBe("Osvaldo"));
+
+    await vi.waitFor(() => {
+      const roles = timelineRoleContentPairs().map(([role]) => role);
+      expect(roles).toEqual(["user", "assistant", "user"]); // nunca ["user", "user", "assistant"]
+    });
   });
 });
