@@ -1160,6 +1160,21 @@ function agentBubbles() {
   return document.querySelectorAll(".public-chat-widget__bubble--agent");
 }
 
+// FASE HANDOFF H3B.4 — [role, contenido] de cada burbuja real (nunca el
+// indicador de "escribiendo…") en el orden EXACTO en que aparecen en el
+// DOM, que refleja directamente el orden del array `messages` — el único
+// modo confiable de verificar cronología, a diferencia de contar
+// burbujas por clase.
+function timelineRoleContentPairs() {
+  return Array.from(
+    document.querySelectorAll(".public-chat-widget__bubble:not(.public-chat-widget__typing)")
+  ).map((el) => {
+    const roleMatch = el.className.match(/bubble--(\w+)/);
+    const p = el.querySelector("p");
+    return [roleMatch ? roleMatch[1] : "?", p ? p.textContent : ""];
+  });
+}
+
 describe("PublicChatWidget — H3B: polling de /events", () => {
   // 1 — sin sessionId, nunca hay polling
   it("1) sin sesión (visitante nuevo, sin sessionStorage) nunca llama a getPublicChatEvents", () => {
@@ -2010,5 +2025,298 @@ describe("PublicChatWidget — H3B.3: asociación estable send↔servidor y pers
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(4));
     expect(screen.getByRole("link", { name: /ver planes/i })).toBeInTheDocument();
     expect(assistantBubbles()).toHaveLength(1); // nunca duplicada tampoco
+  });
+});
+
+// ── FASE HANDOFF H3B.4 — cronología de pendientes locales (P2 real de
+// Codex sobre H3B.3): stillPending nunca debe reconstruirse concatenando
+// "todos los user pendientes" + "todos los assistant pendientes" -- eso
+// reordena por rol, no por cronología real. Se filtra sobre localMessages
+// (ya en el orden real en que cada mensaje se agregó) usando
+// consumedLocalIds (por sendAttemptId), nunca agrupando por rol.
+describe("PublicChatWidget — H3B.4: cronología de mensajes locales pendientes", () => {
+  // 1 — orden básico, nada confirmado todavía
+  it("1) orden básico: user1, assistant1, user2 se preserva cuando nada fue confirmado todavía", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "respuesta1", citations: [], responder: AIRA_RESPONDER,
+    });
+    await typeAndSend("pregunta1");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(1));
+
+    sendPublicChatMessage.mockReturnValueOnce(new Promise(() => {})); // send2 queda colgado, nunca resuelve en este test
+    await vi.waitFor(() => expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled());
+    await typeAndSend("pregunta2");
+    await vi.waitFor(() => expect(sendPublicChatMessage).toHaveBeenCalledTimes(2));
+
+    // Un poll corre DESPUÉS de que los 3 mensajes locales ya existen, sin
+    // confirmar nada (snapshot vacío) -- esto es lo que efectivamente
+    // ejercita reconcileMessages()/stillPending sobre una lista con más
+    // de un intercambio sin confirmar. Sin este paso, el test no pasaría
+    // nunca por la lógica que el P2 de Codex señaló. Se usa un responder
+    // humano en el snapshot como señal observable de que el setMessages
+    // de ESTE poll realmente se aplicó (headerTitleText cambia de "AIRA"
+    // a "Osvaldo" SOLO si el updater corrió).
+    getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], responder: humanResponder({ display_name: "Osvaldo" }) });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(headerTitleText()).toBe("Osvaldo"));
+
+    await vi.waitFor(() =>
+      expect(timelineRoleContentPairs()).toEqual([
+        ["user", "pregunta1"],
+        ["assistant", "respuesta1"],
+        ["user", "pregunta2"],
+      ])
+    );
+  });
+
+  // 2 — confirmación parcial: solo user1
+  it("2) confirmación parcial: el snapshot confirma solo user1, el resto conserva su orden original", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "respuesta1", citations: [], responder: AIRA_RESPONDER,
+    });
+    await typeAndSend("pregunta1");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "respuesta2", citations: [], responder: AIRA_RESPONDER,
+    });
+    await vi.waitFor(() => expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled());
+    await typeAndSend("pregunta2");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(2));
+
+    getPublicChatEvents.mockResolvedValue({
+      ok: true,
+      messages: [serverMsg({ id: "srv-user1", role: "customer", content: "pregunta1", created_at: "2026-01-01T00:00:00Z" })],
+      responder: AIRA_RESPONDER,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(userBubbles()).toHaveLength(2));
+
+    expect(timelineRoleContentPairs()).toEqual([
+      ["user", "pregunta1"],
+      ["assistant", "respuesta1"],
+      ["user", "pregunta2"],
+      ["assistant", "respuesta2"],
+    ]);
+  });
+
+  // 3 — confirmación de un intercambio completo (user1 + assistant1)
+  it("3) confirmación de un intercambio completo: server confirma user1+assistant1, el resto conserva su orden", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "respuesta1", citations: [], responder: AIRA_RESPONDER,
+    });
+    await typeAndSend("pregunta1");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "respuesta2", citations: [], responder: AIRA_RESPONDER,
+    });
+    await vi.waitFor(() => expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled());
+    await typeAndSend("pregunta2");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(2));
+
+    getPublicChatEvents.mockResolvedValue({
+      ok: true,
+      messages: [
+        serverMsg({ id: "srv-user1", role: "customer", content: "pregunta1", created_at: "2026-01-01T00:00:00Z" }),
+        serverMsg({ id: "srv-assistant1", role: "assistant", content: "respuesta1", created_at: "2026-01-01T00:00:01Z" }),
+      ],
+      responder: AIRA_RESPONDER,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(2));
+
+    expect(timelineRoleContentPairs()).toEqual([
+      ["user", "pregunta1"],
+      ["assistant", "respuesta1"],
+      ["user", "pregunta2"],
+      ["assistant", "respuesta2"],
+    ]);
+  });
+
+  // 4 — más de dos intercambios sin confirmar: el filtro respeta el orden
+  // original, nunca el orden por rol (una reconstrucción por bucket
+  // produciría user1,user2,user3,assistant1,assistant2 -- claramente
+  // incorrecto).
+  it("4) tres preguntas y dos respuestas sin confirmar: el orden final nunca agrupa por rol", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "respuesta1", citations: [], responder: AIRA_RESPONDER,
+    });
+    await typeAndSend("pregunta1");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "respuesta2", citations: [], responder: AIRA_RESPONDER,
+    });
+    await vi.waitFor(() => expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled());
+    await typeAndSend("pregunta2");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(2));
+
+    sendPublicChatMessage.mockReturnValueOnce(new Promise(() => {})); // pregunta3 queda colgada, sin respuesta
+    await vi.waitFor(() => expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled());
+    await typeAndSend("pregunta3");
+    await vi.waitFor(() => expect(sendPublicChatMessage).toHaveBeenCalledTimes(3));
+
+    // Poll con snapshot vacío DESPUÉS de que los 5 mensajes locales ya
+    // existen -- ejercita reconcileMessages()/stillPending de verdad. El
+    // responder humano es la señal observable de que este setMessages
+    // realmente se aplicó (headerTitleText cambia solo si el updater corrió).
+    getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], responder: humanResponder({ display_name: "Osvaldo" }) });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(headerTitleText()).toBe("Osvaldo"));
+
+    await vi.waitFor(() =>
+      expect(timelineRoleContentPairs()).toEqual([
+        ["user", "pregunta1"],
+        ["assistant", "respuesta1"],
+        ["user", "pregunta2"],
+        ["assistant", "respuesta2"],
+        ["user", "pregunta3"],
+      ])
+    );
+  });
+
+  // 5 — contenido idéntico: las confirmaciones parciales mantienen
+  // asociación 1:1 Y orden correctos, nunca cruzados por ser idénticos.
+  it("5) contenido idéntico (hola/ok dos veces): confirmación parcial mantiene asociación y orden 1:1", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "ok", citations: [], responder: AIRA_RESPONDER,
+    });
+    await typeAndSend("hola");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "ok", citations: [], responder: AIRA_RESPONDER,
+    });
+    await vi.waitFor(() => expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled());
+    await typeAndSend("hola");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(2));
+
+    // Solo el PRIMER intercambio ("hola"/"ok") queda confirmado.
+    getPublicChatEvents.mockResolvedValue({
+      ok: true,
+      messages: [
+        serverMsg({ id: "srv-hola-1", role: "customer", content: "hola", created_at: "2026-01-01T00:00:00Z" }),
+        serverMsg({ id: "srv-ok-1", role: "assistant", content: "ok", created_at: "2026-01-01T00:00:01Z" }),
+      ],
+      responder: AIRA_RESPONDER,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(userBubbles()).toHaveLength(2));
+    expect(assistantBubbles()).toHaveLength(2);
+
+    expect(timelineRoleContentPairs()).toEqual([
+      ["user", "hola"],
+      ["assistant", "ok"],
+      ["user", "hola"],
+      ["assistant", "ok"],
+    ]);
+  });
+
+  // 6 — CTA: assistant1 con CTA debe permanecer antes de user2 y conservarla
+  it("6) una CTA en assistant1 se conserva y assistant1 permanece antes de user2", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    renderWithRouter(); // la CTA usa <Link>
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true,
+      response_text: "respuesta1",
+      citations: [],
+      cta: { type: "membership", label: "Ver planes", href: "/planes" },
+      responder: AIRA_RESPONDER,
+    });
+    await typeAndSend("pregunta1");
+    await vi.waitFor(() => expect(screen.getByRole("link", { name: /ver planes/i })).toBeInTheDocument());
+
+    sendPublicChatMessage.mockReturnValueOnce(new Promise(() => {})); // pregunta2 queda colgada
+    await vi.waitFor(() => expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled());
+    await typeAndSend("pregunta2");
+    await vi.waitFor(() => expect(sendPublicChatMessage).toHaveBeenCalledTimes(2));
+
+    // Poll con snapshot vacío DESPUÉS de que assistant1 (con cta) y user2
+    // ya existen -- ejercita reconcileMessages()/stillPending de verdad. El
+    // responder humano es la señal observable de que este setMessages
+    // realmente se aplicó (headerTitleText cambia solo si el updater corrió).
+    getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], responder: humanResponder({ display_name: "Osvaldo" }) });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(headerTitleText()).toBe("Osvaldo"));
+
+    await vi.waitFor(() =>
+      expect(timelineRoleContentPairs()).toEqual([
+        ["user", "pregunta1"],
+        ["assistant", "respuesta1"],
+        ["user", "pregunta2"],
+      ])
+    );
+    expect(screen.getByRole("link", { name: /ver planes/i })).toBeInTheDocument();
+  });
+
+  // 7 — reproducción explícita del P2 original: dos sends superpuestos
+  it("7) dos sends superpuestos (repro exacta del P2): user1, assistant1, user2 -- nunca user1, user2, assistant1", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    // send1 produce user1 + assistant1 (POST resuelve normalmente).
+    sendPublicChatMessage.mockResolvedValueOnce({
+      ok: true, response_text: "respuesta1", citations: [], responder: AIRA_RESPONDER,
+    });
+    await typeAndSend("pregunta1");
+    await vi.waitFor(() => expect(assistantBubbles()).toHaveLength(1));
+
+    // Antes de que el snapshot alcance a confirmar nada, send2 produce user2.
+    sendPublicChatMessage.mockReturnValueOnce(new Promise(() => {}));
+    await vi.waitFor(() => expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled());
+    await typeAndSend("pregunta2");
+    await vi.waitFor(() => expect(sendPublicChatMessage).toHaveBeenCalledTimes(2));
+
+    // Poll con snapshot vacío DESPUÉS de que los 3 mensajes locales ya
+    // existen -- sin este paso reconcileMessages()/stillPending nunca se
+    // ejecuta sobre esta lista, y el test no probaría nada del P2 real. El
+    // responder humano es la señal observable de que este setMessages
+    // realmente se aplicó (headerTitleText cambia solo si el updater corrió).
+    getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], responder: humanResponder({ display_name: "Osvaldo" }) });
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.waitFor(() => expect(headerTitleText()).toBe("Osvaldo"));
+
+    await vi.waitFor(() => {
+      const roles = timelineRoleContentPairs().map(([role]) => role);
+      expect(roles).toEqual(["user", "assistant", "user"]); // nunca ["user", "user", "assistant"]
+    });
   });
 });

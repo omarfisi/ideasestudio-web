@@ -106,6 +106,13 @@ function reconcileMessages(localMessages, serverRows, knownServerIds, claimBySer
   }
   const consumedCount = { user: 0, assistant: 0 };
   const newClaims = [];
+  // FASE HANDOFF H3B.4 (P2, revisión de H3B.3) — identidades
+  // (sendAttemptId) de los pending locales que esta reconciliación
+  // efectivamente emparejó contra una fila server. Los buckets por rol
+  // (pendingByRole) siguen usándose SOLO para encontrar candidatos de
+  // matching 1:1 -- nunca para reconstruir el orden final (ver
+  // stillPending más abajo).
+  const consumedLocalIds = new Set();
 
   const enrichedServer = serverMessages.map((serverMessage) => {
     const existingClaim = claimByServerId?.get(serverMessage.id);
@@ -119,6 +126,7 @@ function reconcileMessages(localMessages, serverRows, knownServerIds, claimBySer
     const candidate = bucket[consumedCount[serverMessage.role]];
     if (candidate && candidate.content === serverMessage.content) {
       consumedCount[serverMessage.role] += 1;
+      consumedLocalIds.add(candidate.sendAttemptId);
       const cta = candidate.cta || null;
       newClaims.push({ serverId: serverMessage.id, sendAttemptId: candidate.sendAttemptId, cta });
       return cta ? { ...serverMessage, cta } : serverMessage;
@@ -126,10 +134,20 @@ function reconcileMessages(localMessages, serverRows, knownServerIds, claimBySer
     return serverMessage;
   });
 
-  const stillPending = [
-    ...pendingByRole.user.slice(consumedCount.user),
-    ...pendingByRole.assistant.slice(consumedCount.assistant),
-  ];
+  // FASE HANDOFF H3B.4 (P2, revisión de H3B.3 — hallazgo real de Codex) —
+  // NUNCA reconstruir concatenando "todos los user pendientes restantes"
+  // + "todos los assistant pendientes restantes": eso reordena por rol,
+  // no por cronología real. Con más de un intercambio local sin
+  // confirmar a la vez (p. ej. dos envíos superpuestos: user1+assistant1
+  // del primero, user2 del segundo, ninguno confirmado todavía), esa
+  // concatenación producía user1, user2, assistant1 -- la primera
+  // respuesta parecía contestar la SEGUNDA pregunta. Filtrar
+  // directamente sobre localMessages (que ya está en el orden real en
+  // que cada mensaje se agregó) conserva ese orden automáticamente, sin
+  // necesidad de reconstruirlo.
+  const stillPending = localMessages.filter(
+    (message) => message.source === "local" && !consumedLocalIds.has(message.sendAttemptId)
+  );
 
   const result = [];
   if (greeting) result.push(greeting);
