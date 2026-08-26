@@ -8,6 +8,7 @@ vi.mock("@/services/publicChatApi.js", () => ({
   verifyPrechat: vi.fn(),
   getPublicChatStatus: vi.fn(),
   getPublicChatEvents: vi.fn(),
+  getPublicAvatarRuntime: vi.fn(),
   requestPublicChatHuman: vi.fn(),
   recognizeVisitor: vi.fn(),
   forgetVisitor: vi.fn(),
@@ -24,6 +25,7 @@ const {
   verifyPrechat,
   getPublicChatStatus,
   getPublicChatEvents,
+  getPublicAvatarRuntime,
   requestPublicChatHuman,
   recognizeVisitor,
   forgetVisitor,
@@ -101,6 +103,115 @@ async function completePrechat() {
   await waitFor(() => expect(startPublicChat).toHaveBeenCalled());
 }
 
+function publicAvatarRuntime(overrides = {}) {
+  const expiresAt = new Date(Date.now() + 300_000).toISOString();
+  return {
+    profile: "aira",
+    variant: "default",
+    version: 1,
+    default_pose: "neutral",
+    expires_at: expiresAt,
+    poses: {
+      neutral: { url: "https://cdn.example/neutral.png", expires_at: expiresAt },
+      waving: { url: "https://cdn.example/waving.png", expires_at: expiresAt },
+    },
+    rules: [],
+    ...overrides,
+  };
+}
+
+describe("PublicChatWidget — runtime visual público de AIRA", () => {
+  it("carga el runtime y muestra neutral inicialmente", async () => {
+    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
+    render(<PublicChatWidget />);
+
+    const avatar = await screen.findByRole("img", { name: "AIRA" });
+    expect(getPublicAvatarRuntime).toHaveBeenCalledTimes(1);
+    expect(avatar).toHaveAttribute("src", "https://cdn.example/neutral.png");
+    expect(sessionStorage.getItem("aira_public_chat_session_v1")).toBeNull();
+    expect(sessionStorage.getItem("aira_public_chat_history_v1")).not.toContain("neutral.png");
+  });
+
+  it("usa waving al abrir", async () => {
+    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
+    render(<PublicChatWidget />);
+    await screen.findByRole("img", { name: "AIRA" });
+
+    openWidget();
+    expect(await screen.findByRole("img", { name: "AIRA" })).toHaveAttribute(
+      "src",
+      "https://cdn.example/waving.png"
+    );
+  });
+
+  it("si falta neutral usa default_pose y si falla el runtime conserva el placeholder", async () => {
+    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime({
+      default_pose: "waving",
+      poses: { waving: { url: "https://cdn.example/waving.png" } },
+    }));
+    const { unmount } = render(<PublicChatWidget />);
+    expect(await screen.findByRole("img", { name: "AIRA" })).toHaveAttribute(
+      "src",
+      "https://cdn.example/waving.png"
+    );
+    unmount();
+
+    getPublicAvatarRuntime.mockRejectedValueOnce(new Error("backend detail should stay private"));
+    render(<PublicChatWidget />);
+    await waitFor(() => expect(getPublicAvatarRuntime).toHaveBeenCalledTimes(2));
+    expect(document.querySelector(".public-chat-widget__avatar-placeholder--aira")).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("backend detail should stay private");
+  });
+
+  it("renueva un runtime expirado antes de reutilizar sus URLs", async () => {
+    const expired = publicAvatarRuntime();
+    expired.expires_at = new Date(Date.now() - 1_000).toISOString();
+    expired.poses.neutral.expires_at = expired.expires_at;
+    const fresh = publicAvatarRuntime();
+    let requestCount = 0;
+    getPublicAvatarRuntime.mockImplementation(() => {
+      requestCount += 1;
+      return Promise.resolve(requestCount === 1 ? expired : fresh);
+    });
+
+    render(<PublicChatWidget />);
+
+    await waitFor(() => expect(getPublicAvatarRuntime.mock.calls.length).toBeGreaterThanOrEqual(2));
+    expect(await screen.findByRole("img", { name: "AIRA" })).toHaveAttribute(
+      "src",
+      "https://cdn.example/neutral.png"
+    );
+  });
+
+  it("si falla la imagen de AIRA cae al placeholder sin mostrar error interno", async () => {
+    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
+    render(<PublicChatWidget />);
+
+    const avatar = await screen.findByRole("img", { name: "AIRA" });
+    fireEvent.error(avatar);
+
+    expect(document.querySelector(".public-chat-widget__avatar-placeholder--aira")).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("storage_path");
+    expect(document.body.textContent).not.toContain("bucket");
+  });
+
+  it("un responder humano conserva su avatar y nunca usa una pose de AIRA", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
+    getPublicChatStatus.mockResolvedValueOnce({
+      ok: true,
+      responder: humanResponder({ avatar_url: "https://cdn.example/human.png" }),
+      handoff_requested: false,
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+
+    const humanAvatar = await screen.findByRole("img", { name: "Osvaldo" });
+    expect(humanAvatar).toHaveAttribute("src", "https://cdn.example/human.png");
+    expect(humanAvatar).not.toHaveAttribute("src", "https://cdn.example/neutral.png");
+  });
+});
+
 beforeEach(() => {
   sessionStorage.clear();
   vi.clearAllMocks();
@@ -131,6 +242,7 @@ beforeEach(() => {
   // correlacionar manualmente esta identidad con la de cada
   // startPublicChat.mockResolvedValueOnce(...) de tests preexistentes.
   getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], handoff_requested: false });
+  getPublicAvatarRuntime.mockResolvedValue(null);
   requestPublicChatHuman.mockResolvedValue({ ok: true, status: "waiting_agent" });
   recognizeVisitor.mockResolvedValue({ recognized: false, full_name: null, email: null, phone: null });
   forgetVisitor.mockResolvedValue({ ok: true });

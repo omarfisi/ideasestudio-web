@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { requestPublicChatHuman } = await import("@/services/publicChatApi.js");
+const { requestPublicChatHuman, getPublicAvatarRuntime } = await import("@/services/publicChatApi.js");
 
 function jsonResponse(status, body, headers = {}) {
   return {
@@ -64,5 +64,26 @@ describe("requestPublicChatHuman", () => {
   it("un 503 lanza un Error con status=503", async () => {
     fetch.mockResolvedValue(jsonResponse(503, { detail: "El chat público no está disponible temporalmente." }));
     await expect(requestPublicChatHuman("session-1")).rejects.toMatchObject({ status: 503 });
+  });
+});
+
+describe("getPublicAvatarRuntime", () => {
+  it("hace GET público sin parámetros administrativos ni autenticación Supabase", async () => {
+    fetch.mockResolvedValue(jsonResponse(200, {
+      profile: "aira",
+      variant: "default",
+      default_pose: "neutral",
+      poses: { neutral: { url: "https://cdn.example/neutral.png", expires_at: "future" } },
+      rules: [],
+    }));
+
+    await getPublicAvatarRuntime();
+
+    const [url, options] = fetch.mock.calls[0];
+    expect(String(url)).toMatch(/\/public\/chat\/avatar$/);
+    expect(options.method).toBe("GET");
+    expect(options.body).toBeUndefined();
+    expect(String(url)).not.toMatch(/workspace_id|profile_id|variant_id|version_id/);
+    expect(options.headers).toEqual({ "Content-Type": "application/json" });
   });
 });
