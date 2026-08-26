@@ -510,6 +510,42 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     expect(screen.getByText("Pensando")).toBeInTheDocument();
   });
 
+  it("inicia thinking, alterna left/right y solo después pasa a talking", async () => {
+    const runtime = publicAvatarRuntime({
+      poses: {
+        neutral: { url: "https://cdn.example/neutral.png" },
+        "thinking-left": { url: "https://cdn.example/thinking-left.png" },
+        "thinking-right": { url: "https://cdn.example/thinking-right.png" },
+        "talk-a": { url: "https://cdn.example/talk-a.png" },
+        "talk-o": { url: "https://cdn.example/talk-o.png" },
+      },
+      rules: [
+        { event_key: "chat.opened", rule_type: "pose", payload: { pose: "neutral" } },
+        { event_key: "message.submitted", rule_type: "pose_sequence", payload: { sequence: ["thinking-left", "thinking-right"], interval_ms: 80 } },
+        { event_key: "message.streaming", rule_type: "pose_sequence", payload: { sequence: ["talk-a", "talk-o"], interval_ms: 80 } },
+      ],
+    });
+    getPublicAvatarRuntime.mockResolvedValueOnce(runtime);
+    sendPublicChatMessage.mockReturnValueOnce(new Promise(() => {}));
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await screen.findByRole("img", { name: "AIRA: Disponible" });
+
+    await typeAndSend("¿Qué ofrecen?");
+    expect(await screen.findByRole("img", { name: "AIRA: Pensando" })).toHaveAttribute(
+      "src", "https://cdn.example/thinking-left.png"
+    );
+
+    await waitFor(() => expect(screen.getByRole("img", { name: "AIRA: Pensando" })).toHaveAttribute(
+      "src", "https://cdn.example/thinking-right.png"
+    ));
+
+    await waitFor(() => expect(screen.getByRole("img", { name: "AIRA: Respondiendo" })).toHaveAttribute(
+      "src", "https://cdn.example/talk-a.png"
+    ));
+  });
+
   it("usa interval_ms y solo poses válidas para una secuencia de streaming", async () => {
     const runtime = publicAvatarRuntime({
       poses: {

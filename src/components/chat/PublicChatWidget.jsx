@@ -31,6 +31,8 @@ const AIRA_POSE_CROSSFADE_MS = 80;
 const AIRA_PRELOAD_POSE_KEYS = Object.freeze([
   "neutral",
   "waving",
+  "thinking-left",
+  "thinking-right",
   "talk-a",
   "talk-o",
   "presenting",
@@ -617,6 +619,7 @@ export default function PublicChatWidget() {
   // panel se abre, independientemente de si había o no sesión restaurada.
   const hasHandledFirstOpenRef = useRef(false);
   const airaPoseTransitionTimerRef = useRef(null);
+  const airaThinkingTimerRef = useRef(null);
   const airaStreamingTimerRef = useRef(null);
   const airaStreamingIndexRef = useRef(0);
   const airaOpeningRuntimeAppliedRef = useRef(false);
@@ -710,6 +713,10 @@ export default function PublicChatWidget() {
     if (airaStreamingTimerRef.current) {
       window.clearInterval(airaStreamingTimerRef.current);
       airaStreamingTimerRef.current = null;
+    }
+    if (airaThinkingTimerRef.current) {
+      window.clearTimeout(airaThinkingTimerRef.current);
+      airaThinkingTimerRef.current = null;
     }
     airaStreamingIndexRef.current = 0;
   }, []);
@@ -1432,7 +1439,14 @@ export default function PublicChatWidget() {
     if (currentResponderRef.current.type === "aira") {
       activateAiraEvent("message.submitted");
       if (runtimeRule(airaAvatarRuntime, "message.streaming")) {
-        activateAiraEvent("message.streaming");
+        // La API pública actual entrega la respuesta completa, pero el
+        // runtime mantiene la frontera semántica submitted/streaming. Se
+        // deja una ventana breve para que thinking sea visible antes de
+        // iniciar la secuencia de habla.
+        airaThinkingTimerRef.current = window.setTimeout(() => {
+          airaThinkingTimerRef.current = null;
+          activateAiraEvent("message.streaming");
+        }, 320);
       }
     }
 
