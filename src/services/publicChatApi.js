@@ -109,6 +109,16 @@ export async function getPublicChatStatus(sessionId) {
   });
 }
 
+// Runtime público de AIRA. No recibe identidad de workspace ni session_id:
+// el backend resuelve server-side la publicación válida y devuelve solo
+// poses públicas con URLs temporales.
+export async function getPublicAvatarRuntime(options = {}) {
+  return publicChatFetch("/avatar", {
+    method: "GET",
+    signal: options.signal,
+  });
+}
+
 // Gate de pre-chat: se llama justo después de un envío exitoso del
 // formulario "aira-prechat" (ver @/lib/publicFormsApi.js::submitPublicForm),
 // nunca antes. El backend revalida server-side que el submission_id sea

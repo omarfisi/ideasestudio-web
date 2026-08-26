@@ -5,6 +5,7 @@ import {
   forgetVisitor,
   getPublicChatEvents,
   getPublicChatStatus,
+  getPublicAvatarRuntime,
   recognizeVisitor,
   requestPublicChatHuman,
   sendPublicChatMessage,
@@ -22,6 +23,8 @@ const HISTORY_STORAGE_KEY = "aira_public_chat_history_v1";
 // al recargar la página antes de que llegue el primer poll.
 const HANDOFF_STORAGE_KEY = "aira_public_chat_handoff_v1";
 const MAX_MESSAGE_CHARS = 800;
+const AIRA_OPENING_POSE_DURATION_MS = 1300;
+const AIRA_RUNTIME_REFRESH_LEAD_MS = 45_000;
 
 // FASE HANDOFF H3B — polling de GET /public/chat/events. Encadenado
 // (nunca setInterval): cada corrida programa la siguiente recién cuando
@@ -174,6 +177,22 @@ const AIRA_RESPONDER = Object.freeze({
   status_label: "Asistente virtual",
 });
 
+function isAvatarRuntimeExpired(runtime, now = Date.now()) {
+  const expiresAt = Date.parse(runtime?.expires_at || "");
+  return Number.isFinite(expiresAt) && expiresAt <= now;
+}
+
+function getRuntimePose(runtime, poseKey) {
+  if (!runtime || isAvatarRuntimeExpired(runtime)) return null;
+  const poses = runtime.poses && typeof runtime.poses === "object" ? runtime.poses : {};
+  const requested = poses[poseKey];
+  const fallback = poses[runtime.default_pose];
+  const pose = requested || fallback;
+  if (!pose || typeof pose.url !== "string" || !pose.url.trim()) return null;
+  if (isAvatarRuntimeExpired({ expires_at: pose.expires_at || runtime.expires_at })) return null;
+  return pose;
+}
+
 // Mismo texto exacto que app/ai/public_responder.py::HUMAN_FALLBACK_DISPLAY_NAME
 // — permite distinguir "humano real con nombre" de "humano sin identidad
 // pública configurada todavía" para no mostrar iniciales sin sentido (p. ej.
@@ -197,17 +216,20 @@ function sanitizeResponder(raw) {
   return { type, display_name, avatar_url, status_label };
 }
 
-function ResponderAvatar({ responder, size = 36 }) {
+function ResponderAvatar({ responder, airaAvatarRuntime, airaPoseKey = "neutral", size = 36 }) {
   // Sin useEffect para resetear el fallback de imagen rota: el caller le
   // pasa key={type:avatar_url} (ver usos abajo), así React remonta este
   // componente — con imgFailed limpio — cada vez que cambia la identidad,
   // en vez de sincronizar estado derivado desde un efecto.
   const [imgFailed, setImgFailed] = useState(false);
 
-  if (responder.avatar_url && !imgFailed) {
+  const airaPose = responder.type === "aira" ? getRuntimePose(airaAvatarRuntime, airaPoseKey) : null;
+  const imageUrl = responder.type === "human" ? responder.avatar_url : airaPose?.url;
+
+  if (imageUrl && !imgFailed) {
     return (
       <img
-        src={responder.avatar_url}
+        src={imageUrl}
         alt={responder.display_name}
         className="public-chat-widget__avatar public-chat-widget__avatar-image"
         style={{ width: size, height: size }}
@@ -385,6 +407,8 @@ export default function PublicChatWidget() {
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState(null);
   const [responder, setResponder] = useState(AIRA_RESPONDER);
+  const [airaAvatarRuntime, setAiraAvatarRuntime] = useState(null);
+  const [airaPoseKey, setAiraPoseKey] = useState("neutral");
   // FASE HANDOFF H4B — ¿el visitante ya pidió hablar con una persona?
   // Fuente de verdad real: el backend (handoff_requested de GET /events y
   // GET /status, reconciliado en cada poll/consulta exitosa — ver más
@@ -420,6 +444,11 @@ export default function PublicChatWidget() {
   // Este ref reemplaza esa señal: se marca true la primera vez que el
   // panel se abre, independientemente de si había o no sesión restaurada.
   const hasHandledFirstOpenRef = useRef(false);
+  const airaOpeningPoseTimerRef = useRef(null);
+  const airaRuntimeRefreshTimerRef = useRef(null);
+  const airaRuntimeRequestSeqRef = useRef(0);
+  const airaRuntimeRequestRef = useRef(null);
+  const loadAiraAvatarRuntimeRef = useRef(null);
 
   // FASE HANDOFF H3B.2/H3B.14 — estado del poller de /events, en refs
   // (nunca en state: no debe disparar re-render por sí solo). generationRef
@@ -492,6 +521,63 @@ export default function PublicChatWidget() {
   // de B.
   const currentSessionIdRef = useRef(sessionId);
   currentSessionIdRef.current = sessionId;
+
+  const scheduleAiraRuntimeRefresh = useCallback((runtime) => {
+    if (airaRuntimeRefreshTimerRef.current) {
+      window.clearTimeout(airaRuntimeRefreshTimerRef.current);
+      airaRuntimeRefreshTimerRef.current = null;
+    }
+    const expiresAt = Date.parse(runtime?.expires_at || "");
+    if (!Number.isFinite(expiresAt)) return;
+    const delay = Math.max(0, expiresAt - Date.now() - AIRA_RUNTIME_REFRESH_LEAD_MS);
+    airaRuntimeRefreshTimerRef.current = window.setTimeout(() => {
+      airaRuntimeRefreshTimerRef.current = null;
+      void loadAiraAvatarRuntimeRef.current?.(true);
+    }, delay);
+  }, []);
+
+  const loadAiraAvatarRuntime = useCallback(async (force = false) => {
+    if (airaRuntimeRequestRef.current && !force) return airaRuntimeRequestRef.current;
+    const requestSeq = ++airaRuntimeRequestSeqRef.current;
+    const request = getPublicAvatarRuntime()
+      .then((runtime) => {
+        if (requestSeq !== airaRuntimeRequestSeqRef.current) return runtime;
+        setAiraAvatarRuntime(runtime && typeof runtime === "object" ? runtime : null);
+        scheduleAiraRuntimeRefresh(runtime);
+        return runtime;
+      })
+      .catch(() => {
+        if (requestSeq === airaRuntimeRequestSeqRef.current) {
+          setAiraAvatarRuntime(null);
+          scheduleAiraRuntimeRefresh(null);
+        }
+        return null;
+      })
+      .finally(() => {
+        if (requestSeq === airaRuntimeRequestSeqRef.current) airaRuntimeRequestRef.current = null;
+      });
+    airaRuntimeRequestRef.current = request;
+    return request;
+  }, [scheduleAiraRuntimeRefresh]);
+  loadAiraAvatarRuntimeRef.current = loadAiraAvatarRuntime;
+
+  useEffect(() => {
+    const runtimeRequestSeqRef = airaRuntimeRequestSeqRef;
+    void loadAiraAvatarRuntime();
+    return () => {
+      ++runtimeRequestSeqRef.current;
+      if (airaRuntimeRefreshTimerRef.current) window.clearTimeout(airaRuntimeRefreshTimerRef.current);
+      if (airaOpeningPoseTimerRef.current) window.clearTimeout(airaOpeningPoseTimerRef.current);
+      airaRuntimeRefreshTimerRef.current = null;
+      airaOpeningPoseTimerRef.current = null;
+    };
+  }, [loadAiraAvatarRuntime]);
+
+  useEffect(() => {
+    if (airaAvatarRuntime && isAvatarRuntimeExpired(airaAvatarRuntime)) {
+      void loadAiraAvatarRuntime(true);
+    }
+  }, [airaAvatarRuntime, loadAiraAvatarRuntime]);
 
   useEffect(() => {
     persistHistory(messages);
@@ -817,6 +903,19 @@ export default function PublicChatWidget() {
   function handleToggle() {
     const nextOpen = !isOpen;
     setIsOpen(nextOpen);
+    if (airaOpeningPoseTimerRef.current) {
+      window.clearTimeout(airaOpeningPoseTimerRef.current);
+      airaOpeningPoseTimerRef.current = null;
+    }
+    if (nextOpen) {
+      setAiraPoseKey("waving");
+      airaOpeningPoseTimerRef.current = window.setTimeout(() => {
+        setAiraPoseKey("neutral");
+        airaOpeningPoseTimerRef.current = null;
+      }, AIRA_OPENING_POSE_DURATION_MS);
+    } else {
+      setAiraPoseKey("neutral");
+    }
     if (!nextOpen || hasHandledFirstOpenRef.current) return;
     hasHandledFirstOpenRef.current = true;
     if (sessionId) {
@@ -1057,6 +1156,11 @@ export default function PublicChatWidget() {
     }
   }
 
+  const activeAiraPose = responder.type === "aira"
+    ? getRuntimePose(airaAvatarRuntime, airaPoseKey)
+    : null;
+  const responderAvatarKey = `${responder.type}:${responder.avatar_url || ""}:${activeAiraPose?.url || ""}`;
+
   return (
     <div className="public-chat-widget">
       <button
@@ -1070,7 +1174,13 @@ export default function PublicChatWidget() {
           <X size={22} />
         ) : (
           <span className="public-chat-widget__pill">
-            <ResponderAvatar key={`${responder.type}:${responder.avatar_url || ""}`} responder={responder} size={36} />
+            <ResponderAvatar
+              key={responderAvatarKey}
+              responder={responder}
+              airaAvatarRuntime={airaAvatarRuntime}
+              airaPoseKey={airaPoseKey}
+              size={36}
+            />
             <span className="public-chat-widget__pill-text">
               <span className="public-chat-widget__pill-name">{responder.display_name}</span>
               <span className="public-chat-widget__pill-status">{responder.status_label}</span>
@@ -1088,7 +1198,13 @@ export default function PublicChatWidget() {
         >
           <header className="public-chat-widget__header">
             <div className="public-chat-widget__header-identity">
-              <ResponderAvatar key={`${responder.type}:${responder.avatar_url || ""}`} responder={responder} size={40} />
+              <ResponderAvatar
+                key={responderAvatarKey}
+                responder={responder}
+                airaAvatarRuntime={airaAvatarRuntime}
+                airaPoseKey={airaPoseKey}
+                size={40}
+              />
               <div>
                 <p className="public-chat-widget__title">{responder.display_name}</p>
                 <p className="public-chat-widget__subtitle">{responder.status_label}</p>
