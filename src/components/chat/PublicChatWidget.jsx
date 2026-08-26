@@ -1534,7 +1534,7 @@ export default function PublicChatWidget() {
   const launcherAsset = airaLauncherFrame === "invite-chat" ? airaInviteAsset : airaLauncherAsset;
 
   return (
-    <div className="public-chat-widget">
+    <div className={`public-chat-widget${isOpen ? " public-chat-widget--open" : ""}`}>
       <div className="public-chat-widget__launcher-composition">
         {!isOpen && isAiraResponder && (
           <div className="public-chat-widget__launcher-character" aria-label="AIRA invitando a abrir el chat">
@@ -1544,7 +1544,7 @@ export default function PublicChatWidget() {
         )}
         <button
           type="button"
-          className={`public-chat-widget__toggle${isOpen ? "" : " public-chat-widget__toggle--pill"}`}
+          className={`public-chat-widget__toggle${isOpen ? "" : " public-chat-widget__toggle--pill public-chat-widget__toggle--mobile-rail"}`}
           onClick={handleToggle}
           aria-label={isOpen ? "Cerrar chat" : `Abrir chat con ${responder.display_name}`}
           aria-expanded={isOpen}

@@ -71,6 +71,10 @@ function openWidget() {
   fireEvent.click(screen.getByRole("button", { name: /abrir chat/i }));
 }
 
+function widgetRoot() {
+  return document.querySelector(".public-chat-widget");
+}
+
 // FASE HANDOFF H3B — helper propio para cerrar el panel: la barra flotante
 // alterna su aria-label entre "Abrir chat.../Cerrar chat" según isOpen y,
 // una vez abierto, existe un SEGUNDO botón con el mismo label "Cerrar
@@ -127,6 +131,46 @@ function publicAvatarRuntime(overrides = {}) {
 }
 
 describe("PublicChatWidget — runtime visual público de AIRA", () => {
+  it("expone un rail cerrado específico para mobile y un estado fullscreen al abrir", async () => {
+    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
+    render(<PublicChatWidget />);
+
+    const launcher = screen.getByRole("button", { name: /abrir chat/i });
+    expect(launcher).toHaveClass("public-chat-widget__toggle--mobile-rail");
+    expect(widgetRoot()).not.toHaveClass("public-chat-widget--open");
+    expect(screen.getByLabelText(/aira invitando a abrir el chat/i)).toBeInTheDocument();
+
+    openWidget();
+    expect(widgetRoot()).toHaveClass("public-chat-widget--open");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/aira invitando a abrir el chat/i)).not.toBeInTheDocument();
+
+    closeWidget();
+    expect(widgetRoot()).not.toHaveClass("public-chat-widget--open");
+    expect(screen.getByRole("button", { name: /abrir chat/i })).toHaveClass("public-chat-widget__toggle--mobile-rail");
+  });
+
+  it("mantiene stage, mensajes, acciones, handoff y composer como regiones hermanas", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
+    render(<PublicChatWidget />);
+    openWidget();
+
+    const panel = screen.getByRole("dialog");
+    const stage = await screen.findByRole("region", { name: /vista previa del avatar aira/i });
+    const messages = panel.querySelector(".public-chat-widget__messages");
+    const quickActions = screen.getByLabelText(/acciones rápidas/i);
+    const handoff = panel.querySelector(".public-chat-widget__handoff-bar");
+    const composer = screen.getByRole("button", { name: /enviar mensaje/i }).closest("form");
+
+    expect(stage.parentElement).toBe(panel);
+    expect(messages.parentElement).toBe(panel);
+    expect(quickActions.parentElement).toBe(panel);
+    expect(handoff.parentElement).toBe(panel);
+    expect(composer.parentElement).toBe(panel);
+    expect(messages).not.toContainElement(stage);
+  });
+
   it("mantiene el personaje del launcher fuera del botón y lo reemplaza por el stage al abrir", async () => {
     getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
     sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");

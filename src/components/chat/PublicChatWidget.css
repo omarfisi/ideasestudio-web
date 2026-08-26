@@ -210,6 +210,7 @@
 .public-chat-widget__panel {
   width: min(360px, calc(100vw - 32px));
   max-height: min(700px, calc(100vh - 40px));
+  min-height: 0;
   background: var(--surface-strong, #ffffff);
   border-radius: var(--radius-lg, 24px);
   box-shadow: var(--shadow-strong, 0 28px 80px rgba(14, 14, 14, 0.14));
@@ -446,6 +447,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -862,42 +864,130 @@
   color: var(--text, #161616);
 }
 
-@media (max-width: 480px) {
+@media (max-width: 768px) {
   .public-chat-widget {
-    right: 12px;
-    bottom: 12px;
-    left: 12px;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    align-items: flex-end;
+    pointer-events: none;
+  }
+
+  .public-chat-widget--open {
+    inset: 0;
     align-items: stretch;
   }
 
-  .public-chat-widget__toggle {
-    align-self: flex-end;
-  }
-
   .public-chat-widget__launcher-composition {
-    align-self: flex-end;
+    position: fixed;
+    right: 0;
+    top: 50%;
+    z-index: 2;
+    align-self: auto;
+    transform: translateY(-50%);
+    pointer-events: auto;
   }
 
   .public-chat-widget__launcher-character {
-    --launcher-alpha-bottom-offset: 9px;
-    width: 112px;
-    height: 200px;
-    flex-basis: 112px;
+    display: none;
   }
 
-  .public-chat-widget__launcher-image {
-    width: 138px;
-    height: 205px;
+  .public-chat-widget__toggle--mobile-rail {
+    width: 52px;
+    min-height: 76px;
+    max-width: 52px;
+    padding: 8px 6px;
+    border-radius: 18px 0 0 18px;
+    flex-direction: column;
+    gap: 4px;
+    box-shadow: 0 8px 24px rgba(14, 14, 14, 0.18);
   }
 
-  .public-chat-widget__launcher-callout {
-    top: -15px;
-    right: -16px;
-    font-size: 0.7rem;
+  .public-chat-widget__toggle--mobile-rail .public-chat-widget__pill {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .public-chat-widget__toggle--mobile-rail .public-chat-widget__pill-text {
+    align-items: center;
+  }
+
+  .public-chat-widget__toggle--mobile-rail .public-chat-widget__pill-name {
+    max-width: 44px;
+    font-size: 0.68rem;
+    text-align: center;
+  }
+
+  .public-chat-widget__toggle--mobile-rail .public-chat-widget__pill-status {
+    display: none;
+  }
+
+  .public-chat-widget--open .public-chat-widget__launcher-composition {
+    display: none;
   }
 
   .public-chat-widget__panel {
     width: 100%;
-    max-height: min(72vh, 560px);
+    height: 100dvh;
+    max-height: none;
+    min-height: 0;
+    border-radius: 0;
+    border: 0;
+    pointer-events: auto;
+  }
+
+  .public-chat-widget__header {
+    padding-top: calc(12px + env(safe-area-inset-top));
+  }
+
+  .public-chat-widget__assistant-switcher {
+    flex: 0 0 auto;
+  }
+
+  .public-chat-widget__stage--expanded {
+    height: 170px;
+  }
+
+  .public-chat-widget__stage--compact {
+    height: 96px;
+  }
+
+  .public-chat-widget__stage--compact .public-chat-widget__stage-image {
+    width: 120px;
+    height: 180px;
+  }
+
+  .public-chat-widget__quick-actions {
+    flex: 0 0 auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .public-chat-widget__quick-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  .public-chat-widget__quick-actions button {
+    min-height: 38px;
+    white-space: nowrap;
+  }
+
+  .public-chat-widget__handoff-bar {
+    flex: 0 0 auto;
+    padding: 8px 12px 0;
+  }
+
+  .public-chat-widget__handoff-btn {
+    width: 100%;
+    min-height: 40px;
+  }
+
+  .public-chat-widget__form {
+    flex: 0 0 auto;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .public-chat-widget__messages {
+    overflow-x: hidden;
   }
 }
