@@ -27,6 +27,15 @@ const HANDOFF_STORAGE_KEY = "aira_public_chat_handoff_v1";
 const MAX_MESSAGE_CHARS = 800;
 const AIRA_RUNTIME_REFRESH_LEAD_MS = 45_000;
 const AIRA_LAUNCHER_FRAME_MS = 1_100;
+const AIRA_POSE_CROSSFADE_MS = 80;
+const AIRA_PRELOAD_POSE_KEYS = Object.freeze([
+  "neutral",
+  "waving",
+  "talk-a",
+  "talk-o",
+  "presenting",
+  "hands-clasped",
+]);
 const PUBLIC_AVATAR_SEMANTIC_EVENTS = new Set(["intent.services"]);
 
 // FASE HANDOFF H3B — polling de GET /public/chat/events. Encadenado
@@ -251,14 +260,24 @@ function sanitizeResponder(raw) {
   return { type, display_name, avatar_url, status_label };
 }
 
-function ResponderAvatar({ responder, airaAvatarRuntime, airaPoseKey = "neutral", size = 36 }) {
+function ResponderAvatar({
+  responder,
+  airaAvatarRuntime,
+  airaPoseKey = "neutral",
+  size = 36,
+  strictAiraPose = false,
+}) {
   // Sin useEffect para resetear el fallback de imagen rota: el caller le
   // pasa key={type:avatar_url} (ver usos abajo), así React remonta este
   // componente — con imgFailed limpio — cada vez que cambia la identidad,
   // en vez de sincronizar estado derivado desde un efecto.
   const [imgFailed, setImgFailed] = useState(false);
 
-  const airaPose = responder.type === "aira" ? getRuntimePose(airaAvatarRuntime, airaPoseKey) : null;
+  const airaPose = responder.type === "aira"
+    ? strictAiraPose
+      ? exactRuntimePose(airaAvatarRuntime, airaPoseKey)
+      : getRuntimePose(airaAvatarRuntime, airaPoseKey)
+    : null;
   const imageUrl = responder.type === "human" ? responder.avatar_url : airaPose?.url;
 
   if (imageUrl && !imgFailed) {
@@ -310,19 +329,106 @@ function ResponderAvatar({ responder, airaAvatarRuntime, airaPoseKey = "neutral"
   );
 }
 
-function AiraStage({ pose, poseKey, visualState, runtimeAvailable }) {
-  const [imgFailed, setImgFailed] = useState(false);
-  const label = visualState === "thinking" ? "Pensando" : AIRA_POSE_LABELS[poseKey] || "Disponible";
+function AiraStage({ pose, poseKey, visualState, runtimeAvailable, compact }) {
+  const initialFrame = pose ? { pose, poseKey, visualState } : null;
+  const [displayedFrame, setDisplayedFrame] = useState(initialFrame);
+  const [previousFrame, setPreviousFrame] = useState(null);
+  const [failedUrl, setFailedUrl] = useState(null);
+  const displayedFrameRef = useRef(initialFrame);
+  const crossfadeTimerRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (crossfadeTimerRef.current) {
+      window.clearTimeout(crossfadeTimerRef.current);
+      crossfadeTimerRef.current = null;
+    }
+
+    if (!pose) {
+      if (!runtimeAvailable) {
+        displayedFrameRef.current = null;
+        queueMicrotask(() => {
+          if (cancelled) return;
+          setDisplayedFrame(null);
+          setPreviousFrame(null);
+        });
+      }
+      return () => { cancelled = true; };
+    }
+
+    if (displayedFrameRef.current?.pose.url === pose.url) {
+      const samePoseFrame = { pose, poseKey, visualState };
+      displayedFrameRef.current = samePoseFrame;
+      queueMicrotask(() => {
+        if (!cancelled) setDisplayedFrame(samePoseFrame);
+      });
+      return () => { cancelled = true; };
+    }
+
+    const outgoingFrame = displayedFrameRef.current;
+    const incomingFrame = { pose, poseKey, visualState };
+    displayedFrameRef.current = incomingFrame;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setFailedUrl(null);
+      setPreviousFrame(outgoingFrame);
+      setDisplayedFrame(incomingFrame);
+      crossfadeTimerRef.current = window.setTimeout(() => {
+        crossfadeTimerRef.current = null;
+        setPreviousFrame(null);
+      }, AIRA_POSE_CROSSFADE_MS);
+    });
+
+    return () => {
+      cancelled = true;
+      if (crossfadeTimerRef.current) {
+        window.clearTimeout(crossfadeTimerRef.current);
+        crossfadeTimerRef.current = null;
+      }
+    };
+  }, [pose, poseKey, runtimeAvailable, visualState]);
+
+  useEffect(() => () => {
+    if (crossfadeTimerRef.current) window.clearTimeout(crossfadeTimerRef.current);
+  }, []);
+
+  const visibleFrame = displayedFrame?.pose.url !== failedUrl ? displayedFrame : previousFrame;
+  const label = visibleFrame?.visualState === "thinking"
+    ? "Pensando"
+    : AIRA_POSE_LABELS[visibleFrame?.poseKey] || "Disponible";
+
+  function handleCurrentImageError() {
+    setFailedUrl(displayedFrame?.pose.url || null);
+    if (previousFrame) {
+      displayedFrameRef.current = previousFrame;
+      setDisplayedFrame(previousFrame);
+      setPreviousFrame(null);
+    }
+  }
 
   return (
-    <section className="public-chat-widget__stage" aria-label="Vista previa del avatar AIRA">
-      {pose && !imgFailed ? (
-        <img
-          src={pose.url}
-          alt={`AIRA: ${label}`}
-          className="public-chat-widget__stage-image"
-          onError={() => setImgFailed(true)}
-        />
+    <section
+      className={`public-chat-widget__stage public-chat-widget__stage--${compact ? "compact" : "expanded"}`}
+      aria-label="Vista previa del avatar AIRA"
+      data-stage-size={compact ? "compact" : "expanded"}
+    >
+      {visibleFrame ? (
+        <>
+          {previousFrame && previousFrame.pose.url !== visibleFrame.pose.url && (
+            <img
+              src={previousFrame.pose.url}
+              alt=""
+              aria-hidden="true"
+              className="public-chat-widget__stage-image public-chat-widget__stage-image--previous"
+            />
+          )}
+          <img
+            src={visibleFrame.pose.url}
+            alt={`AIRA: ${label}`}
+            className="public-chat-widget__stage-image public-chat-widget__stage-image--current"
+            onError={handleCurrentImageError}
+          />
+        </>
       ) : (
         <div className="public-chat-widget__stage-fallback" role="img" aria-label="AIRA no disponible">
           <MessageCircle size={42} aria-hidden="true" />
@@ -464,6 +570,8 @@ export default function PublicChatWidget() {
   // efecto de polling más abajo, que depende de sessionId).
   const [sessionId, setSessionId] = useState(() => loadStoredSession());
   const [messages, setMessages] = useState(() => loadStoredHistory());
+  const hasRealConversationRef = useRef(loadStoredHistory().some((message) => message.role === "user"));
+  if (messages.some((message) => message.role === "user")) hasRealConversationRef.current = true;
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
@@ -516,6 +624,8 @@ export default function PublicChatWidget() {
   const airaRuntimeRequestSeqRef = useRef(0);
   const airaRuntimeRequestRef = useRef(null);
   const loadAiraAvatarRuntimeRef = useRef(null);
+  const airaPreparedPosesRef = useRef(new Map());
+  const airaReactionGenerationRef = useRef(0);
 
   // FASE HANDOFF H3B.2/H3B.14 — estado del poller de /events, en refs
   // (nunca en state: no debe disparar re-render por sí solo). generationRef
@@ -592,6 +702,7 @@ export default function PublicChatWidget() {
   currentResponderRef.current = responder;
 
   const clearAiraReactionTimers = useCallback(() => {
+    airaReactionGenerationRef.current += 1;
     if (airaPoseTransitionTimerRef.current) {
       window.clearTimeout(airaPoseTransitionTimerRef.current);
       airaPoseTransitionTimerRef.current = null;
@@ -603,6 +714,21 @@ export default function PublicChatWidget() {
     airaStreamingIndexRef.current = 0;
   }, []);
 
+  const prepareAiraPose = useCallback((runtime, poseKey) => {
+    const pose = exactRuntimePose(runtime, poseKey);
+    if (!pose) return Promise.resolve(false);
+    const existing = airaPreparedPosesRef.current.get(pose.url);
+    if (existing) return existing.promise;
+
+    const image = new Image();
+    image.src = pose.url;
+    const promise = typeof image.decode === "function"
+      ? Promise.resolve().then(() => image.decode()).then(() => true).catch(() => false)
+      : Promise.resolve(true);
+    airaPreparedPosesRef.current.set(pose.url, { image, promise });
+    return promise;
+  }, []);
+
   const fallbackAiraPoseKey = useCallback((runtime) => {
     const defaultPose = typeof runtime?.default_pose === "string" ? runtime.default_pose : "neutral";
     if (exactRuntimePose(runtime, defaultPose)) return defaultPose;
@@ -612,12 +738,23 @@ export default function PublicChatWidget() {
   const activateAiraEvent = useCallback((eventKey) => {
     clearAiraReactionTimers();
     if (currentResponderRef.current.type !== "aira") return;
+    const reactionGeneration = airaReactionGenerationRef.current;
     const runtime = airaAvatarRuntime;
     const resolved = runtimeRulePayload(runtime, eventKey);
     const fallbackKey = fallbackAiraPoseKey(runtime);
+    const reactionStillCurrent = () => (
+      reactionGeneration === airaReactionGenerationRef.current
+      && currentResponderRef.current.type === "aira"
+    );
+    const applyPreparedPose = async (poseKey, visualState = poseKey) => {
+      const prepared = await prepareAiraPose(runtime, poseKey);
+      if (!prepared || !reactionStillCurrent()) return false;
+      setAiraVisualState(visualState);
+      setAiraPoseKey(poseKey);
+      return true;
+    };
     const applyFallback = () => {
-      setAiraVisualState("neutral");
-      setAiraPoseKey(fallbackKey);
+      void applyPreparedPose(fallbackKey, "neutral");
     };
 
     if (!resolved) {
@@ -629,7 +766,6 @@ export default function PublicChatWidget() {
     if (rule.rule_type === "state") {
       const state = typeof payload.state === "string" ? payload.state : "neutral";
       setAiraVisualState(state);
-      setAiraPoseKey(fallbackKey);
       return;
     }
 
@@ -640,17 +776,24 @@ export default function PublicChatWidget() {
         return;
       }
       const interval = Number(payload.interval_ms);
-      airaStreamingIndexRef.current = 0;
-      const applySequencePose = () => {
-        const poseKey = sequence[airaStreamingIndexRef.current % sequence.length];
-        setAiraVisualState(poseKey);
-        setAiraPoseKey(poseKey);
-        airaStreamingIndexRef.current += 1;
-      };
-      applySequencePose();
-      if (Number.isFinite(interval) && interval > 0 && sequence.length > 1) {
-        airaStreamingTimerRef.current = window.setInterval(applySequencePose, interval);
-      }
+      void Promise.all(sequence.map((poseKey) => prepareAiraPose(runtime, poseKey))).then((prepared) => {
+        if (prepared.some((ready) => !ready) || !reactionStillCurrent()) {
+          if (reactionStillCurrent()) applyFallback();
+          return;
+        }
+        airaStreamingIndexRef.current = 0;
+        const applySequencePose = () => {
+          if (!reactionStillCurrent()) return;
+          const poseKey = sequence[airaStreamingIndexRef.current % sequence.length];
+          setAiraVisualState(poseKey);
+          setAiraPoseKey(poseKey);
+          airaStreamingIndexRef.current += 1;
+        };
+        applySequencePose();
+        if (Number.isFinite(interval) && interval > 0 && sequence.length > 1) {
+          airaStreamingTimerRef.current = window.setInterval(applySequencePose, interval);
+        }
+      });
       return;
     }
 
@@ -670,22 +813,27 @@ export default function PublicChatWidget() {
     const nextPoseKey = typeof payload.next === "string" && exactRuntimePose(runtime, payload.next)
       ? payload.next
       : fallbackKey;
-    const transition = () => {
+    const transition = async () => {
       airaPoseTransitionTimerRef.current = null;
-      setAiraVisualState(nextPoseKey === fallbackKey ? "neutral" : nextPoseKey);
-      setAiraPoseKey(nextPoseKey);
+      await applyPreparedPose(nextPoseKey, nextPoseKey === fallbackKey ? "neutral" : nextPoseKey);
     };
-    const wait = Number.isFinite(delay) && delay > 0 ? delay : Number.isFinite(duration) ? duration : 0;
+    const scheduleNextPose = () => {
+      if (Number.isFinite(duration) && duration > 0 && payload.next && reactionStillCurrent()) {
+        airaPoseTransitionTimerRef.current = window.setTimeout(transition, duration);
+      }
+    };
+    const applyRulePose = async () => {
+      airaPoseTransitionTimerRef.current = null;
+      const applied = await applyPreparedPose(poseKey);
+      if (applied) scheduleNextPose();
+    };
     if (delay > 0) {
-      airaPoseTransitionTimerRef.current = window.setTimeout(transition, delay);
+      void prepareAiraPose(runtime, poseKey);
+      airaPoseTransitionTimerRef.current = window.setTimeout(applyRulePose, delay);
       return;
     }
-    setAiraVisualState(poseKey);
-    setAiraPoseKey(poseKey);
-    if (wait > 0 && (delay > 0 || payload.next)) {
-      airaPoseTransitionTimerRef.current = window.setTimeout(transition, wait);
-    }
-  }, [airaAvatarRuntime, clearAiraReactionTimers, fallbackAiraPoseKey]);
+    void applyRulePose();
+  }, [airaAvatarRuntime, clearAiraReactionTimers, fallbackAiraPoseKey, prepareAiraPose]);
 
   const applyCompletedAvatarReaction = useCallback((response) => {
     clearAiraReactionTimers();
@@ -745,6 +893,19 @@ export default function PublicChatWidget() {
       airaRuntimeRefreshTimerRef.current = null;
     };
   }, [loadAiraAvatarRuntime]);
+
+  useEffect(() => {
+    const preparedPoses = airaPreparedPosesRef.current;
+    if (airaAvatarRuntime) {
+      for (const poseKey of AIRA_PRELOAD_POSE_KEYS) {
+        void prepareAiraPose(airaAvatarRuntime, poseKey);
+      }
+    }
+    return () => {
+      for (const { image } of preparedPoses.values()) image.src = "";
+      preparedPoses.clear();
+    };
+  }, [airaAvatarRuntime, prepareAiraPose]);
 
   useEffect(() => () => clearAiraReactionTimers(), [clearAiraReactionTimers]);
 
@@ -809,6 +970,7 @@ export default function PublicChatWidget() {
     sessionStorage.removeItem(HANDOFF_STORAGE_KEY);
     setSessionId(null);
     setMessages([]);
+    hasRealConversationRef.current = false;
     setScreen("prechat");
     setResponder(AIRA_RESPONDER);
     setHandoffRequested(false);
@@ -1064,6 +1226,7 @@ export default function PublicChatWidget() {
       const data = await startPublicChat(prechatToken, rememberMe);
       sessionStorage.setItem(SESSION_STORAGE_KEY, data.session_id);
       setSessionId(data.session_id);
+      hasRealConversationRef.current = false;
       // FASE HANDOFF H3B.13 — una sesión NUEVA (por definición, este es el
       // único camino que llega hasta acá: ensureSession() ya devolvió antes
       // si había una sesión existente) nunca debe arrastrar mensajes de una
@@ -1367,6 +1530,7 @@ export default function PublicChatWidget() {
     : null;
   const responderAvatarKey = `${responder.type}:${responder.avatar_url || ""}:${activeAiraPose?.url || ""}`;
   const isAiraResponder = responder.type === "aira";
+  const launcherPortraitPose = isAiraResponder ? exactRuntimePose(airaAvatarRuntime, "neutral") : null;
   const launcherAsset = airaLauncherFrame === "invite-chat" ? airaInviteAsset : airaLauncherAsset;
 
   return (
@@ -1390,8 +1554,15 @@ export default function PublicChatWidget() {
           ) : (
             <span className="public-chat-widget__pill">
               {isAiraResponder ? (
-                <span className="public-chat-widget__launcher-control-icon" aria-hidden="true">
-                  <MessageCircle size={21} />
+                <span className="public-chat-widget__launcher-portrait">
+                  <ResponderAvatar
+                    key={`launcher:${launcherPortraitPose?.url || "fallback"}`}
+                    responder={responder}
+                    airaAvatarRuntime={airaAvatarRuntime}
+                    airaPoseKey="neutral"
+                    size={38}
+                    strictAiraPose
+                  />
                 </span>
               ) : (
                 <ResponderAvatar
@@ -1467,11 +1638,11 @@ export default function PublicChatWidget() {
                 </button>
               </div>
               <AiraStage
-                key={`${airaPoseKey}:${activeAiraPose?.url || ""}`}
                 pose={activeAiraPose}
                 poseKey={airaPoseKey}
                 visualState={airaVisualState}
                 runtimeAvailable={Boolean(airaAvatarRuntime)}
+                compact={hasRealConversationRef.current}
               />
             </>
           )}

@@ -137,7 +137,10 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     const launcherImage = launcherCharacter.querySelector("img");
     expect(launcherCharacter).not.toBe(launcher);
     expect(launcher).not.toContainElement(launcherCharacter);
-    expect(launcher.querySelector("img")).toBeNull();
+    const portrait = await screen.findByRole("img", { name: "AIRA" });
+    expect(launcher).toContainElement(portrait);
+    expect(portrait).toHaveAttribute("src", "https://cdn.example/neutral.png");
+    expect(portrait.closest(".public-chat-widget__launcher-portrait")).toBeInTheDocument();
     expect(launcherImage).toHaveClass("public-chat-widget__launcher-image");
     expect(launcherImage).toHaveAttribute("src", expect.stringContaining("aira-point-viewer.png"));
     expect(launcher).toHaveTextContent("Iniciar conversación");
@@ -165,6 +168,174 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
 
     expect(externalImage).toHaveAttribute("src", expect.stringContaining("aira-invite-chat.png"));
     expect(launcher.querySelector("img")).toBeNull();
+  });
+
+  it("usa el icono genérico únicamente mientras el runtime neutral no está disponible", () => {
+    getPublicAvatarRuntime.mockReturnValueOnce(new Promise(() => {}));
+    render(<PublicChatWidget />);
+
+    const launcher = screen.getByRole("button", { name: /abrir chat/i });
+    expect(launcher.querySelector("img")).toBeNull();
+    expect(launcher.querySelector(".public-chat-widget__avatar-placeholder--aira")).toBeInTheDocument();
+  });
+
+  it.each([1, 5, 15])(
+    "mantiene el stage compacto y los mensajes en flujo normal con %i mensajes reales",
+    async (messageCount) => {
+      const history = Array.from({ length: messageCount }, (_, index) => ({
+        id: `user-${index}`,
+        role: "user",
+        content: `Mensaje ${index + 1}`,
+        source: "server",
+      }));
+      sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+      sessionStorage.setItem("aira_public_chat_history_v1", JSON.stringify(history));
+      getPublicChatEvents.mockResolvedValue({
+        ok: true,
+        messages: history.map((message, index) => ({
+          id: message.id,
+          role: "customer",
+          content: message.content,
+          citations: [],
+          created_at: new Date(1_700_000_000_000 + index).toISOString(),
+        })),
+        handoff_requested: false,
+      });
+      getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
+      render(<PublicChatWidget />);
+
+      openWidget();
+      const stage = await screen.findByRole("region", { name: /vista previa del avatar aira/i });
+      const messages = document.querySelector(".public-chat-widget__messages");
+      expect(stage).toHaveAttribute("data-stage-size", "compact");
+      expect(stage).toHaveClass("public-chat-widget__stage--compact");
+      expect(stage.compareDocumentPosition(messages) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(messages).toContainElement(screen.getByText(`Mensaje ${messageCount}`));
+    }
+  );
+
+  it("mantiene el stage expandido antes de que exista una conversación real", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
+    render(<PublicChatWidget />);
+
+    openWidget();
+    const stage = await screen.findByRole("region", { name: /vista previa del avatar aira/i });
+    expect(stage).toHaveAttribute("data-stage-size", "expanded");
+    expect(stage).toHaveClass("public-chat-widget__stage--expanded");
+  });
+
+  it("precarga y decodifica las poses críticas sin persistir sus URLs", async () => {
+    const decodedUrls = [];
+    class DecodingImage {
+      set src(value) { this._src = value; }
+      get src() { return this._src; }
+      decode() {
+        decodedUrls.push(this.src);
+        return Promise.resolve();
+      }
+    }
+    vi.stubGlobal("Image", DecodingImage);
+    const poseKeys = ["neutral", "waving", "talk-a", "talk-o", "presenting", "hands-clasped"];
+    const poses = Object.fromEntries(poseKeys.map((key) => [key, { url: `https://cdn.example/${key}.png` }]));
+    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime({ poses }));
+    render(<PublicChatWidget />);
+
+    await waitFor(() => expect(decodedUrls).toHaveLength(poseKeys.length));
+    expect(decodedUrls).toEqual(expect.arrayContaining(poseKeys.map((key) => `https://cdn.example/${key}.png`)));
+    expect(sessionStorage.getItem("aira_public_chat_history_v1") || "").not.toContain("cdn.example");
+  });
+
+  it("prepara talk-a y talk-o antes de iniciar la secuencia", async () => {
+    const pending = new Map();
+    class ControlledImage {
+      set src(value) { this._src = value; }
+      get src() { return this._src; }
+      decode() {
+        return new Promise((resolve) => pending.set(this.src, resolve));
+      }
+    }
+    vi.stubGlobal("Image", ControlledImage);
+    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime({
+      poses: {
+        neutral: { url: "https://cdn.example/neutral.png" },
+        "talk-a": { url: "https://cdn.example/talk-a.png" },
+        "talk-o": { url: "https://cdn.example/talk-o.png" },
+      },
+      rules: [{
+        event_key: "chat.opened",
+        rule_type: "pose_sequence",
+        payload: { sequence: ["talk-a", "talk-o"], interval_ms: 280 },
+      }],
+    }));
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+
+    await waitFor(() => {
+      expect(pending.has("https://cdn.example/talk-a.png")).toBe(true);
+      expect(pending.has("https://cdn.example/talk-o.png")).toBe(true);
+    });
+    expect(screen.queryByRole("img", { name: /AIRA: Respondiendo/i })).not.toBeInTheDocument();
+    await act(async () => {
+      pending.get("https://cdn.example/talk-a.png")();
+      pending.get("https://cdn.example/talk-o.png")();
+    });
+    expect(await screen.findByRole("img", { name: /AIRA: Respondiendo/i })).toHaveAttribute(
+      "src",
+      "https://cdn.example/talk-a.png"
+    );
+  });
+
+  it("conserva la pose anterior hasta decodificar la siguiente y limpia preloads al desmontar", async () => {
+    const pending = new Map();
+    const instances = [];
+    class ControlledImage {
+      constructor() { instances.push(this); }
+      set src(value) { this._src = value; }
+      get src() { return this._src; }
+      decode() {
+        if (this.src.endsWith("neutral.png")) return Promise.resolve();
+        return new Promise((resolve) => pending.set(this.src, resolve));
+      }
+    }
+    vi.stubGlobal("Image", ControlledImage);
+    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime({
+      poses: {
+        neutral: { url: "https://cdn.example/neutral.png" },
+        presenting: { url: "https://cdn.example/presenting.png" },
+      },
+      rules: [
+        { event_key: "chat.opened", rule_type: "pose", payload: { pose: "neutral" } },
+        { event_key: "intent.services", rule_type: "pose", payload: { pose: "presenting" } },
+      ],
+    }));
+    sendPublicChatMessage.mockResolvedValueOnce({
+      response_text: "Servicios",
+      avatar_events: ["intent.services"],
+      responder: AIRA_RESPONDER,
+    });
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    const { unmount } = render(<PublicChatWidget />);
+    openWidget();
+    expect(await screen.findByRole("img", { name: "AIRA: Disponible" })).toHaveAttribute(
+      "src",
+      "https://cdn.example/neutral.png"
+    );
+    await typeAndSend("servicios");
+    await screen.findByText("Servicios");
+    expect(screen.getByRole("img", { name: "AIRA: Disponible" })).toHaveAttribute(
+      "src",
+      "https://cdn.example/neutral.png"
+    );
+    await act(async () => pending.get("https://cdn.example/presenting.png")());
+    expect(await screen.findByRole("img", { name: "AIRA: Presentando" })).toHaveAttribute(
+      "src",
+      "https://cdn.example/presenting.png"
+    );
+
+    unmount();
+    expect(instances.every((image) => image.src === "")).toBe(true);
   });
 
   it("carga el runtime y muestra neutral inicialmente", async () => {
@@ -237,7 +408,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     );
   });
 
-  it("si falla la imagen de AIRA cae al placeholder sin mostrar error interno", async () => {
+  it("si falla una pose nueva conserva la pose anterior sin mostrar error interno", async () => {
     getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
     sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
     render(<PublicChatWidget />);
@@ -246,7 +417,10 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     const avatar = await screen.findByRole("img", { name: "AIRA: Saludando" });
     fireEvent.error(avatar);
 
-    expect(screen.getByRole("img", { name: "AIRA no disponible" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "AIRA: Disponible" })).toHaveAttribute(
+      "src",
+      "https://cdn.example/neutral.png"
+    );
     expect(document.body.textContent).not.toContain("storage_path");
     expect(document.body.textContent).not.toContain("bucket");
   });
@@ -340,7 +514,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     fireEvent.click(screen.getByRole("button", { name: "Servicios" }));
     fireEvent.click(screen.getByRole("button", { name: /enviar mensaje/i }));
     await screen.findByText("Estos son nuestros servicios.");
-    expect(screen.getByRole("img", { name: "AIRA: Presentando" })).toHaveAttribute(
+    expect(await screen.findByRole("img", { name: "AIRA: Presentando" })).toHaveAttribute(
       "src", "https://cdn.example/presenting.png"
     );
   });
@@ -502,6 +676,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe("PublicChatWidget — estado inicial", () => {
