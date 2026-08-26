@@ -104,7 +104,6 @@
   color: var(--text, #161616);
 }
 
-.public-chat-widget__pill-icon,
 .public-chat-widget__header-icon {
   display: inline-flex;
   align-items: center;
@@ -115,17 +114,69 @@
   color: var(--text, #161616);
 }
 
-.public-chat-widget__pill-icon {
-  width: 36px;
-  height: 36px;
+.public-chat-widget__launcher-composition {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.public-chat-widget__launcher-character {
+  position: relative;
+  width: 148px;
+  height: 260px;
+  flex: 0 0 148px;
+  pointer-events: none;
+}
+
+.public-chat-widget__launcher-character::after {
+  content: "";
+  position: absolute;
+  left: 24px;
+  right: 6px;
+  bottom: 2px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.16);
+  filter: blur(8px);
+}
+
+.public-chat-widget__launcher-callout {
+  position: absolute;
+  z-index: 2;
+  top: -18px;
+  right: -13px;
+  padding: 8px 12px;
+  border: 1px solid var(--line, #e6e7e1);
+  border-radius: 14px 14px 14px 5px;
+  background: var(--surface-strong, #ffffff);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  color: var(--text, #161616);
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .public-chat-widget__launcher-image {
-  width: 48px;
-  height: 48px;
-  flex: 0 0 48px;
+  position: absolute;
+  z-index: 1;
+  right: -4px;
+  bottom: 0;
+  width: 176px;
+  height: 264px;
   object-fit: contain;
-  object-position: center bottom;
+  object-position: 50% 50%;
+}
+
+.public-chat-widget__launcher-control-icon {
+  width: 23px;
+  height: 23px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 23px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
 }
 
 .public-chat-widget__header-icon {
@@ -784,6 +835,27 @@
 
   .public-chat-widget__toggle {
     align-self: flex-end;
+  }
+
+  .public-chat-widget__launcher-composition {
+    align-self: flex-end;
+  }
+
+  .public-chat-widget__launcher-character {
+    width: 112px;
+    height: 200px;
+    flex-basis: 112px;
+  }
+
+  .public-chat-widget__launcher-image {
+    width: 138px;
+    height: 205px;
+  }
+
+  .public-chat-widget__launcher-callout {
+    top: -15px;
+    right: -16px;
+    font-size: 0.7rem;
   }
 
   .public-chat-widget__panel {

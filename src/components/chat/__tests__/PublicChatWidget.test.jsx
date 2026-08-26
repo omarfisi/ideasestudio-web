@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { act, render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 vi.mock("@/services/publicChatApi.js", () => ({
@@ -127,20 +127,44 @@ function publicAvatarRuntime(overrides = {}) {
 }
 
 describe("PublicChatWidget — runtime visual público de AIRA", () => {
-  it("separa el launcher compacto del escenario de pose completa y mantiene IVOX no disponible", async () => {
+  it("mantiene el personaje del launcher fuera del botón y lo reemplaza por el stage al abrir", async () => {
     getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
     sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
     render(<PublicChatWidget />);
 
     const launcher = screen.getByRole("button", { name: /abrir chat/i });
-    expect(launcher.querySelector("img")).toHaveClass("public-chat-widget__launcher-image");
-    expect(launcher.querySelector("img")).not.toHaveClass("public-chat-widget__avatar");
+    const launcherCharacter = screen.getByLabelText(/aira invitando a abrir el chat/i);
+    const launcherImage = launcherCharacter.querySelector("img");
+    expect(launcherCharacter).not.toBe(launcher);
+    expect(launcher).not.toContainElement(launcherCharacter);
+    expect(launcher.querySelector("img")).toBeNull();
+    expect(launcherImage).toHaveClass("public-chat-widget__launcher-image");
+    expect(launcherImage).toHaveAttribute("src", expect.stringContaining("aira-point-viewer.png"));
+    expect(launcher).toHaveTextContent("Iniciar conversación");
 
     openWidget();
+    expect(screen.queryByLabelText(/aira invitando a abrir el chat/i)).not.toBeInTheDocument();
     expect(await screen.findByRole("img", { name: /AIRA:/i })).toBeInTheDocument();
+    expect(document.querySelector(".public-chat-widget__stage")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /ivox/i })).toBeDisabled();
     expect(screen.getByRole("group", { name: /escoge con quién hablar/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/acciones rápidas/i)).toBeInTheDocument();
+  });
+
+  it("alterna point-viewer e invite-chat únicamente en el personaje externo", () => {
+    vi.useFakeTimers();
+    getPublicAvatarRuntime.mockReturnValueOnce(new Promise(() => {}));
+    render(<PublicChatWidget />);
+
+    const launcher = screen.getByRole("button", { name: /abrir chat/i });
+    const externalImage = screen.getByLabelText(/aira invitando a abrir el chat/i).querySelector("img");
+    expect(externalImage).toHaveAttribute("src", expect.stringContaining("aira-point-viewer.png"));
+    expect(launcher.querySelector("img")).toBeNull();
+
+    act(() => vi.advanceTimersByTime(1_100));
+
+    expect(externalImage).toHaveAttribute("src", expect.stringContaining("aira-invite-chat.png"));
+    expect(launcher.querySelector("img")).toBeNull();
   });
 
   it("carga el runtime y muestra neutral inicialmente", async () => {
@@ -412,6 +436,31 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     await screen.findByText("No estoy seguro.");
     expect(screen.queryByRole("img", { name: "AIRA: Presentando" })).not.toBeInTheDocument();
     expect(screen.getByRole("img", { name: "AIRA: Disponible" })).toBeInTheDocument();
+  });
+
+  it("aplica hands-clasped al solicitar handoff y conserva el stage hasta que entra un humano", async () => {
+    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime({
+      poses: {
+        neutral: { url: "https://cdn.example/neutral.png" },
+        "hands-clasped": { url: "https://cdn.example/hands-clasped.png" },
+      },
+      rules: [
+        { event_key: "chat.opened", rule_type: "pose", payload: { pose: "neutral" } },
+        { event_key: "handoff.created", rule_type: "pose", payload: { pose: "hands-clasped" } },
+      ],
+    }));
+    requestPublicChatHuman.mockResolvedValueOnce({ ok: true, status: "waiting_agent" });
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await screen.findByRole("img", { name: "AIRA: Disponible" });
+
+    fireEvent.click(screen.getByRole("button", { name: /hablar con una persona/i }));
+
+    expect(await screen.findByRole("img", { name: "AIRA: Conectando con el equipo" })).toHaveAttribute(
+      "src", "https://cdn.example/hands-clasped.png"
+    );
+    expect(screen.getByLabelText(/vista previa del avatar aira/i)).toBeInTheDocument();
   });
 });
 
@@ -1189,7 +1238,7 @@ describe("PublicChatWidget — LEVEL2 responder: pill cerrado", () => {
     const button = closedToggleButton();
     expect(button).toHaveAttribute("aria-label", "Abrir chat con AIRA");
     expect(button.textContent).toContain("AIRA");
-    expect(button.textContent).toContain("Asistente virtual");
+    expect(button.textContent).toContain("Iniciar conversación");
   });
 
   it("18) pill cerrado muestra la identidad real del agente humano", async () => {

@@ -26,6 +26,7 @@ const HISTORY_STORAGE_KEY = "aira_public_chat_history_v1";
 const HANDOFF_STORAGE_KEY = "aira_public_chat_handoff_v1";
 const MAX_MESSAGE_CHARS = 800;
 const AIRA_RUNTIME_REFRESH_LEAD_MS = 45_000;
+const AIRA_LAUNCHER_FRAME_MS = 1_100;
 const PUBLIC_AVATAR_SEMANTIC_EVENTS = new Set(["intent.services"]);
 
 // FASE HANDOFF H3B — polling de GET /public/chat/events. Encadenado
@@ -471,6 +472,7 @@ export default function PublicChatWidget() {
   const [airaAvatarRuntime, setAiraAvatarRuntime] = useState(null);
   const [airaPoseKey, setAiraPoseKey] = useState("neutral");
   const [airaVisualState, setAiraVisualState] = useState("neutral");
+  const [airaLauncherFrame, setAiraLauncherFrame] = useState("point-viewer");
   // FASE HANDOFF H4B — ¿el visitante ya pidió hablar con una persona?
   // Fuente de verdad real: el backend (handoff_requested de GET /events y
   // GET /status, reconciliado en cada poll/consulta exitosa — ver más
@@ -753,6 +755,14 @@ export default function PublicChatWidget() {
       setAiraPoseKey("neutral");
     }
   }, [clearAiraReactionTimers, responder.type]);
+
+  useEffect(() => {
+    if (isOpen || responder.type !== "aira") return undefined;
+    const launcherTimer = window.setInterval(() => {
+      setAiraLauncherFrame((current) => current === "point-viewer" ? "invite-chat" : "point-viewer");
+    }, AIRA_LAUNCHER_FRAME_MS);
+    return () => window.clearInterval(launcherTimer);
+  }, [isOpen, responder.type]);
 
   useEffect(() => {
     if (airaAvatarRuntime && isAvatarRuntimeExpired(airaAvatarRuntime)) {
@@ -1357,39 +1367,51 @@ export default function PublicChatWidget() {
     : null;
   const responderAvatarKey = `${responder.type}:${responder.avatar_url || ""}:${activeAiraPose?.url || ""}`;
   const isAiraResponder = responder.type === "aira";
-  const launcherAsset = screen === "prechat" ? airaInviteAsset : airaLauncherAsset;
+  const launcherAsset = airaLauncherFrame === "invite-chat" ? airaInviteAsset : airaLauncherAsset;
 
   return (
     <div className="public-chat-widget">
-      <button
-        type="button"
-        className={`public-chat-widget__toggle${isOpen ? "" : " public-chat-widget__toggle--pill"}`}
-        onClick={handleToggle}
-        aria-label={isOpen ? "Cerrar chat" : `Abrir chat con ${responder.display_name}`}
-        aria-expanded={isOpen}
-      >
-        {isOpen ? (
-          <X size={22} />
-        ) : (
-          <span className="public-chat-widget__pill">
-            {isAiraResponder ? (
-              <img className="public-chat-widget__launcher-image" src={launcherAsset} alt="" aria-hidden="true" />
-            ) : (
-              <ResponderAvatar
-                key={responderAvatarKey}
-                responder={responder}
-                airaAvatarRuntime={airaAvatarRuntime}
-                airaPoseKey={airaPoseKey}
-                size={36}
-              />
-            )}
-            <span className="public-chat-widget__pill-text">
-              <span className="public-chat-widget__pill-name">{responder.display_name}</span>
-              <span className="public-chat-widget__pill-status">{responder.status_label}</span>
-            </span>
-          </span>
+      <div className="public-chat-widget__launcher-composition">
+        {!isOpen && isAiraResponder && (
+          <div className="public-chat-widget__launcher-character" aria-label="AIRA invitando a abrir el chat">
+            <span className="public-chat-widget__launcher-callout">¿Hablamos?</span>
+            <img className="public-chat-widget__launcher-image" src={launcherAsset} alt="" aria-hidden="true" />
+          </div>
         )}
-      </button>
+        <button
+          type="button"
+          className={`public-chat-widget__toggle${isOpen ? "" : " public-chat-widget__toggle--pill"}`}
+          onClick={handleToggle}
+          aria-label={isOpen ? "Cerrar chat" : `Abrir chat con ${responder.display_name}`}
+          aria-expanded={isOpen}
+        >
+          {isOpen ? (
+            <X size={22} />
+          ) : (
+            <span className="public-chat-widget__pill">
+              {isAiraResponder ? (
+                <span className="public-chat-widget__launcher-control-icon" aria-hidden="true">
+                  <MessageCircle size={21} />
+                </span>
+              ) : (
+                <ResponderAvatar
+                  key={responderAvatarKey}
+                  responder={responder}
+                  airaAvatarRuntime={airaAvatarRuntime}
+                  airaPoseKey={airaPoseKey}
+                  size={36}
+                />
+              )}
+              <span className="public-chat-widget__pill-text">
+                <span className="public-chat-widget__pill-name">{responder.display_name}</span>
+                <span className="public-chat-widget__pill-status">
+                  {isAiraResponder ? "Iniciar conversación" : responder.status_label}
+                </span>
+              </span>
+            </span>
+          )}
+        </button>
+      </div>
 
       {isOpen && (
         <div
