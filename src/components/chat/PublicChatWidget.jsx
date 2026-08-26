@@ -13,6 +13,8 @@ import {
 } from "@/services/publicChatApi.js";
 import PrechatForm from "./PrechatForm.jsx";
 import "./PublicChatWidget.css";
+import airaLauncherAsset from "@/assets/chat/aira-point-viewer.png";
+import airaInviteAsset from "@/assets/chat/aira-invite-chat.png";
 
 const SESSION_STORAGE_KEY = "aira_public_chat_session_v1";
 const HISTORY_STORAGE_KEY = "aira_public_chat_history_v1";
@@ -23,8 +25,8 @@ const HISTORY_STORAGE_KEY = "aira_public_chat_history_v1";
 // al recargar la página antes de que llegue el primer poll.
 const HANDOFF_STORAGE_KEY = "aira_public_chat_handoff_v1";
 const MAX_MESSAGE_CHARS = 800;
-const AIRA_OPENING_POSE_DURATION_MS = 1300;
 const AIRA_RUNTIME_REFRESH_LEAD_MS = 45_000;
+const PUBLIC_AVATAR_SEMANTIC_EVENTS = new Set(["intent.services"]);
 
 // FASE HANDOFF H3B — polling de GET /public/chat/events. Encadenado
 // (nunca setInterval): cada corrida programa la siguiente recién cuando
@@ -193,6 +195,38 @@ function getRuntimePose(runtime, poseKey) {
   return pose;
 }
 
+const AIRA_POSE_LABELS = {
+  neutral: "Disponible",
+  waving: "Saludando",
+  "thinking-left": "Pensando",
+  "thinking-right": "Pensando",
+  "talk-a": "Respondiendo",
+  "talk-o": "Respondiendo",
+  presenting: "Presentando",
+  "i-dont-know": "Evaluando opciones",
+  "hands-clasped": "Conectando con el equipo",
+};
+
+function runtimeRule(runtime, eventKey) {
+  if (!Array.isArray(runtime?.rules)) return null;
+  return runtime.rules.find((candidate) => candidate?.event_key === eventKey) || null;
+}
+
+function exactRuntimePose(runtime, poseKey) {
+  if (!runtime || typeof poseKey !== "string") return null;
+  const pose = runtime.poses?.[poseKey];
+  return pose && typeof pose.url === "string" && pose.url.trim() && !isAvatarRuntimeExpired(pose)
+    ? pose
+    : null;
+}
+
+function runtimeRulePayload(runtime, eventKey) {
+  const rule = runtimeRule(runtime, eventKey);
+  if (!rule) return null;
+  const payload = rule.payload && typeof rule.payload === "object" ? rule.payload : {};
+  return { rule, payload };
+}
+
 // Mismo texto exacto que app/ai/public_responder.py::HUMAN_FALLBACK_DISPLAY_NAME
 // — permite distinguir "humano real con nombre" de "humano sin identidad
 // pública configurada todavía" para no mostrar iniciales sin sentido (p. ej.
@@ -272,6 +306,33 @@ function ResponderAvatar({ responder, airaAvatarRuntime, airaPoseKey = "neutral"
         <MessageCircle size={Math.round(size * 0.5)} />
       )}
     </div>
+  );
+}
+
+function AiraStage({ pose, poseKey, visualState, runtimeAvailable }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const label = visualState === "thinking" ? "Pensando" : AIRA_POSE_LABELS[poseKey] || "Disponible";
+
+  return (
+    <section className="public-chat-widget__stage" aria-label="Vista previa del avatar AIRA">
+      {pose && !imgFailed ? (
+        <img
+          src={pose.url}
+          alt={`AIRA: ${label}`}
+          className="public-chat-widget__stage-image"
+          onError={() => setImgFailed(true)}
+        />
+      ) : (
+        <div className="public-chat-widget__stage-fallback" role="img" aria-label="AIRA no disponible">
+          <MessageCircle size={42} aria-hidden="true" />
+          <span>{runtimeAvailable ? "Vista previa no disponible" : "AIRA"}</span>
+        </div>
+      )}
+      <div className="public-chat-widget__stage-status" role="status">
+        <span aria-hidden="true" />
+        {label}
+      </div>
+    </section>
   );
 }
 
@@ -409,6 +470,7 @@ export default function PublicChatWidget() {
   const [responder, setResponder] = useState(AIRA_RESPONDER);
   const [airaAvatarRuntime, setAiraAvatarRuntime] = useState(null);
   const [airaPoseKey, setAiraPoseKey] = useState("neutral");
+  const [airaVisualState, setAiraVisualState] = useState("neutral");
   // FASE HANDOFF H4B — ¿el visitante ya pidió hablar con una persona?
   // Fuente de verdad real: el backend (handoff_requested de GET /events y
   // GET /status, reconciliado en cada poll/consulta exitosa — ver más
@@ -444,7 +506,10 @@ export default function PublicChatWidget() {
   // Este ref reemplaza esa señal: se marca true la primera vez que el
   // panel se abre, independientemente de si había o no sesión restaurada.
   const hasHandledFirstOpenRef = useRef(false);
-  const airaOpeningPoseTimerRef = useRef(null);
+  const airaPoseTransitionTimerRef = useRef(null);
+  const airaStreamingTimerRef = useRef(null);
+  const airaStreamingIndexRef = useRef(0);
+  const airaOpeningRuntimeAppliedRef = useRef(false);
   const airaRuntimeRefreshTimerRef = useRef(null);
   const airaRuntimeRequestSeqRef = useRef(0);
   const airaRuntimeRequestRef = useRef(null);
@@ -521,6 +586,114 @@ export default function PublicChatWidget() {
   // de B.
   const currentSessionIdRef = useRef(sessionId);
   currentSessionIdRef.current = sessionId;
+  const currentResponderRef = useRef(responder);
+  currentResponderRef.current = responder;
+
+  const clearAiraReactionTimers = useCallback(() => {
+    if (airaPoseTransitionTimerRef.current) {
+      window.clearTimeout(airaPoseTransitionTimerRef.current);
+      airaPoseTransitionTimerRef.current = null;
+    }
+    if (airaStreamingTimerRef.current) {
+      window.clearInterval(airaStreamingTimerRef.current);
+      airaStreamingTimerRef.current = null;
+    }
+    airaStreamingIndexRef.current = 0;
+  }, []);
+
+  const fallbackAiraPoseKey = useCallback((runtime) => {
+    const defaultPose = typeof runtime?.default_pose === "string" ? runtime.default_pose : "neutral";
+    if (exactRuntimePose(runtime, defaultPose)) return defaultPose;
+    return exactRuntimePose(runtime, "neutral") ? "neutral" : defaultPose;
+  }, []);
+
+  const activateAiraEvent = useCallback((eventKey) => {
+    clearAiraReactionTimers();
+    if (currentResponderRef.current.type !== "aira") return;
+    const runtime = airaAvatarRuntime;
+    const resolved = runtimeRulePayload(runtime, eventKey);
+    const fallbackKey = fallbackAiraPoseKey(runtime);
+    const applyFallback = () => {
+      setAiraVisualState("neutral");
+      setAiraPoseKey(fallbackKey);
+    };
+
+    if (!resolved) {
+      applyFallback();
+      return;
+    }
+
+    const { rule, payload } = resolved;
+    if (rule.rule_type === "state") {
+      const state = typeof payload.state === "string" ? payload.state : "neutral";
+      setAiraVisualState(state);
+      setAiraPoseKey(fallbackKey);
+      return;
+    }
+
+    if (rule.rule_type === "pose_sequence") {
+      const sequence = Array.isArray(payload.sequence) ? payload.sequence : [];
+      if (!sequence.length || sequence.some((poseKey) => !exactRuntimePose(runtime, poseKey))) {
+        applyFallback();
+        return;
+      }
+      const interval = Number(payload.interval_ms);
+      airaStreamingIndexRef.current = 0;
+      const applySequencePose = () => {
+        const poseKey = sequence[airaStreamingIndexRef.current % sequence.length];
+        setAiraVisualState(poseKey);
+        setAiraPoseKey(poseKey);
+        airaStreamingIndexRef.current += 1;
+      };
+      applySequencePose();
+      if (Number.isFinite(interval) && interval > 0 && sequence.length > 1) {
+        airaStreamingTimerRef.current = window.setInterval(applySequencePose, interval);
+      }
+      return;
+    }
+
+    if (rule.rule_type !== "pose") {
+      applyFallback();
+      return;
+    }
+
+    const poseKey = typeof payload.pose === "string" ? payload.pose : "";
+    if (!exactRuntimePose(runtime, poseKey)) {
+      applyFallback();
+      return;
+    }
+
+    const delay = Number(payload.delay_ms);
+    const duration = Number(payload.duration_ms);
+    const nextPoseKey = typeof payload.next === "string" && exactRuntimePose(runtime, payload.next)
+      ? payload.next
+      : fallbackKey;
+    const transition = () => {
+      airaPoseTransitionTimerRef.current = null;
+      setAiraVisualState(nextPoseKey === fallbackKey ? "neutral" : nextPoseKey);
+      setAiraPoseKey(nextPoseKey);
+    };
+    const wait = Number.isFinite(delay) && delay > 0 ? delay : Number.isFinite(duration) ? duration : 0;
+    if (delay > 0) {
+      airaPoseTransitionTimerRef.current = window.setTimeout(transition, delay);
+      return;
+    }
+    setAiraVisualState(poseKey);
+    setAiraPoseKey(poseKey);
+    if (wait > 0 && (delay > 0 || payload.next)) {
+      airaPoseTransitionTimerRef.current = window.setTimeout(transition, wait);
+    }
+  }, [airaAvatarRuntime, clearAiraReactionTimers, fallbackAiraPoseKey]);
+
+  const applyCompletedAvatarReaction = useCallback((response) => {
+    clearAiraReactionTimers();
+    const nextResponder = sanitizeResponder(response?.responder);
+    if (nextResponder?.type === "human" || currentResponderRef.current.type !== "aira") return;
+    const avatarEvents = Array.isArray(response?.avatar_events)
+      ? response.avatar_events.filter((event) => PUBLIC_AVATAR_SEMANTIC_EVENTS.has(event))
+      : [];
+    activateAiraEvent(avatarEvents.includes("intent.services") ? "intent.services" : "message.completed");
+  }, [activateAiraEvent, clearAiraReactionTimers]);
 
   const scheduleAiraRuntimeRefresh = useCallback((runtime) => {
     if (airaRuntimeRefreshTimerRef.current) {
@@ -567,17 +740,36 @@ export default function PublicChatWidget() {
     return () => {
       ++runtimeRequestSeqRef.current;
       if (airaRuntimeRefreshTimerRef.current) window.clearTimeout(airaRuntimeRefreshTimerRef.current);
-      if (airaOpeningPoseTimerRef.current) window.clearTimeout(airaOpeningPoseTimerRef.current);
       airaRuntimeRefreshTimerRef.current = null;
-      airaOpeningPoseTimerRef.current = null;
     };
   }, [loadAiraAvatarRuntime]);
+
+  useEffect(() => () => clearAiraReactionTimers(), [clearAiraReactionTimers]);
+
+  useEffect(() => {
+    if (responder.type === "human") {
+      clearAiraReactionTimers();
+      setAiraVisualState("neutral");
+      setAiraPoseKey("neutral");
+    }
+  }, [clearAiraReactionTimers, responder.type]);
 
   useEffect(() => {
     if (airaAvatarRuntime && isAvatarRuntimeExpired(airaAvatarRuntime)) {
       void loadAiraAvatarRuntime(true);
     }
   }, [airaAvatarRuntime, loadAiraAvatarRuntime]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      airaOpeningRuntimeAppliedRef.current = false;
+      return;
+    }
+    if (responder.type === "aira" && airaAvatarRuntime && !airaOpeningRuntimeAppliedRef.current) {
+      airaOpeningRuntimeAppliedRef.current = true;
+      activateAiraEvent("chat.opened");
+    }
+  }, [activateAiraEvent, airaAvatarRuntime, isOpen, responder.type]);
 
   useEffect(() => {
     persistHistory(messages);
@@ -903,17 +1095,11 @@ export default function PublicChatWidget() {
   function handleToggle() {
     const nextOpen = !isOpen;
     setIsOpen(nextOpen);
-    if (airaOpeningPoseTimerRef.current) {
-      window.clearTimeout(airaOpeningPoseTimerRef.current);
-      airaOpeningPoseTimerRef.current = null;
-    }
     if (nextOpen) {
-      setAiraPoseKey("waving");
-      airaOpeningPoseTimerRef.current = window.setTimeout(() => {
-        setAiraPoseKey("neutral");
-        airaOpeningPoseTimerRef.current = null;
-      }, AIRA_OPENING_POSE_DURATION_MS);
+      activateAiraEvent("chat.opened");
     } else {
+      clearAiraReactionTimers();
+      setAiraVisualState("neutral");
       setAiraPoseKey("neutral");
     }
     if (!nextOpen || hasHandledFirstOpenRef.current) return;
@@ -981,6 +1167,7 @@ export default function PublicChatWidget() {
         handoffMutationEpochRef.current += 1;
         setHandoffRequested(true);
         persistHandoff(sentForSessionId, true);
+        if (responder.type === "aira") activateAiraEvent("handoff.created");
       } else if (data?.status === "human_active") {
         // FASE HANDOFF H4B.1 — un take-control real ya está en curso
         // (control_mode ya es human/hybrid del lado del backend). NUNCA
@@ -995,6 +1182,7 @@ export default function PublicChatWidget() {
         // confirma responder.type==="human" (ver más abajo) -- regla que
         // ya oculta el botón de forma incondicional una vez ahí.
         setHumanActivePendingConfirmation(true);
+        if (responder.type === "aira") activateAiraEvent("handoff.created");
       }
     } catch (err) {
       if (currentSessionIdRef.current !== sentForSessionId) return; // stale
@@ -1068,6 +1256,12 @@ export default function PublicChatWidget() {
     setInput("");
     setIsLoading(true);
     setError(null);
+    if (currentResponderRef.current.type === "aira") {
+      activateAiraEvent("message.submitted");
+      if (runtimeRule(airaAvatarRuntime, "message.streaming")) {
+        activateAiraEvent("message.streaming");
+      }
+    }
 
     try {
       const data = await sendPublicChatMessage(sessionId, trimmed, clientMessageId);
@@ -1127,6 +1321,7 @@ export default function PublicChatWidget() {
       });
       const sanitized = sanitizeResponder(data.responder);
       if (sanitized) setResponder(sanitized);
+      applyCompletedAvatarReaction(data);
     } catch (err) {
       if (currentSessionIdRef.current !== sentForSessionId) return; // stale — idem para error/red/409/429
       if (err.status === 404) {
@@ -1147,6 +1342,7 @@ export default function PublicChatWidget() {
       } else {
         setError("No pude procesar tu mensaje. Intenta de nuevo en un momento.");
       }
+      if (currentResponderRef.current.type === "aira") activateAiraEvent("message.completed");
     } finally {
       // Mismo guard: si ya estamos en otra sesión, isLoading de ESTA vista
       // ya fue reseteado (o reactivado por un envío propio de la sesión
@@ -1160,6 +1356,8 @@ export default function PublicChatWidget() {
     ? getRuntimePose(airaAvatarRuntime, airaPoseKey)
     : null;
   const responderAvatarKey = `${responder.type}:${responder.avatar_url || ""}:${activeAiraPose?.url || ""}`;
+  const isAiraResponder = responder.type === "aira";
+  const launcherAsset = screen === "prechat" ? airaInviteAsset : airaLauncherAsset;
 
   return (
     <div className="public-chat-widget">
@@ -1174,13 +1372,17 @@ export default function PublicChatWidget() {
           <X size={22} />
         ) : (
           <span className="public-chat-widget__pill">
-            <ResponderAvatar
-              key={responderAvatarKey}
-              responder={responder}
-              airaAvatarRuntime={airaAvatarRuntime}
-              airaPoseKey={airaPoseKey}
-              size={36}
-            />
+            {isAiraResponder ? (
+              <img className="public-chat-widget__launcher-image" src={launcherAsset} alt="" aria-hidden="true" />
+            ) : (
+              <ResponderAvatar
+                key={responderAvatarKey}
+                responder={responder}
+                airaAvatarRuntime={airaAvatarRuntime}
+                airaPoseKey={airaPoseKey}
+                size={36}
+              />
+            )}
             <span className="public-chat-widget__pill-text">
               <span className="public-chat-widget__pill-name">{responder.display_name}</span>
               <span className="public-chat-widget__pill-status">{responder.status_label}</span>
@@ -1198,13 +1400,17 @@ export default function PublicChatWidget() {
         >
           <header className="public-chat-widget__header">
             <div className="public-chat-widget__header-identity">
-              <ResponderAvatar
-                key={responderAvatarKey}
-                responder={responder}
-                airaAvatarRuntime={airaAvatarRuntime}
-                airaPoseKey={airaPoseKey}
-                size={40}
-              />
+              {isAiraResponder ? (
+                <span className="public-chat-widget__header-icon" aria-hidden="true"><MessageCircle size={20} /></span>
+              ) : (
+                <ResponderAvatar
+                  key={responderAvatarKey}
+                  responder={responder}
+                  airaAvatarRuntime={airaAvatarRuntime}
+                  airaPoseKey={airaPoseKey}
+                  size={40}
+                />
+              )}
               <div>
                 <p className="public-chat-widget__title">{responder.display_name}</p>
                 <p className="public-chat-widget__subtitle">{responder.status_label}</p>
@@ -1213,12 +1419,40 @@ export default function PublicChatWidget() {
             <button
               type="button"
               className="public-chat-widget__close"
-              onClick={() => setIsOpen(false)}
+              onClick={() => {
+                setIsOpen(false);
+                clearAiraReactionTimers();
+                setAiraVisualState("neutral");
+                setAiraPoseKey("neutral");
+              }}
               aria-label="Cerrar chat"
             >
               <X size={18} />
             </button>
           </header>
+
+          {isAiraResponder && screen === "chat" && (
+            <>
+              <div className="public-chat-widget__assistant-switcher" role="group" aria-label="Escoge con quién hablar">
+                <button type="button" className="public-chat-widget__assistant-choice public-chat-widget__assistant-choice--active" aria-pressed="true">
+                  <span className="public-chat-widget__assistant-choice-icon" aria-hidden="true"><MessageCircle size={16} /></span>
+                  <span><strong>AIRA</strong><small>Seleccionada</small></span>
+                  <Check size={15} aria-hidden="true" />
+                </button>
+                <button type="button" className="public-chat-widget__assistant-choice" disabled aria-pressed="false" title="IVOX no está disponible todavía">
+                  <span className="public-chat-widget__assistant-choice-icon" aria-hidden="true"><User size={16} /></span>
+                  <span><strong>IVOX</strong><small>No disponible</small></span>
+                </button>
+              </div>
+              <AiraStage
+                key={`${airaPoseKey}:${activeAiraPose?.url || ""}`}
+                pose={activeAiraPose}
+                poseKey={airaPoseKey}
+                visualState={airaVisualState}
+                runtimeAvailable={Boolean(airaAvatarRuntime)}
+              />
+            </>
+          )}
 
           {screen === "prechat" ? (
             <div className="public-chat-widget__messages public-chat-widget__messages--prechat">
@@ -1297,6 +1531,23 @@ export default function PublicChatWidget() {
                 )}
                 {error && <p className="public-chat-widget__error">{error}</p>}
               </div>
+
+              {isAiraResponder && !handoffRequested && (
+                <div className="public-chat-widget__quick-actions" aria-label="Acciones rápidas">
+                  {["Servicios", "Cotizar proyecto", "Hablar con el equipo"].map((action) => (
+                    <button
+                      key={action}
+                      type="button"
+                      onClick={() => {
+                        setInput(action);
+                      }}
+                      disabled={isLoading}
+                    >
+                      {action}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* FASE HANDOFF H4B/H4B.1 — acción secundaria, deliberadamente
                   fuera del área de burbujas de mensaje (nunca se confunde
