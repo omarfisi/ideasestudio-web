@@ -4,30 +4,76 @@ function cleanBase(value) {
   return String(value || "").trim().replace(/\/+$/, "");
 }
 
-function getLocalDevBase() {
-  if (typeof window === "undefined") return "";
-  if (!(typeof import.meta !== "undefined" && import.meta?.env?.DEV)) return "";
-
-  const hostname = String(window.location.hostname || "").trim().toLowerCase();
-  if (hostname === "127.0.0.1" || hostname === "localhost") {
-    return cleanBase(window.location.origin);
-  }
-
-  return "";
+export function isLocalHost(hostname) {
+  const normalized = String(hostname || "").trim().toLowerCase();
+  return normalized === "localhost" || normalized === "127.0.0.1" || normalized === "::1";
 }
 
-const API_BASE =
-  getLocalDevBase() ||
-  cleanBase(typeof import.meta !== "undefined" && import.meta?.env?.VITE_API_BASE) ||
-  cleanBase(typeof import.meta !== "undefined" && import.meta?.env?.VITE_CRM_BASE_URL) ||
-  "https://api.ideasestudio.com";
+export function isPrivateLanHost(hostname) {
+  const normalized = String(hostname || "").trim().toLowerCase();
+  if (isLocalHost(normalized)) return false;
+  const octets = normalized.split(".").map(Number);
+  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+    return false;
+  }
+  return octets[0] === 10 || octets[0] === 192 && octets[1] === 168 ||
+    octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31;
+}
+
+export function resolvePublicFormsApiBase({ hostname, crmBase, apiBase } = {}) {
+  if (isLocalHost(hostname)) {
+    // Never fall back to `origin` here: Vite's dev server proxies /api and
+    // /public straight to production (see vite.config.js). Falling back to
+    // origin on a missing crmBase/apiBase would silently route the request
+    // through that proxy and create the submission remotely, while /prechat
+    // (which always uses an absolute VITE_CRM_BASE_URL, no fallback) verifies
+    // it against the local database — the exact split that produced "Envío
+    // no encontrado." An empty config here must fail closed instead (see
+    // apiBase() below), never silently resolve to something that reaches
+    // production.
+    return cleanBase(crmBase) || cleanBase(apiBase);
+  }
+
+  // A Vite dev server opened from a private LAN address must use its own
+  // relative /api and /public paths. Absolute 127.0.0.1 URLs point back to
+  // the phone, not to the Mac running the backend, and bypass Vite's proxy.
+  if (isPrivateLanHost(hostname)) return "";
+
+  return cleanBase(apiBase) || cleanBase(crmBase);
+}
+
+function getPublicFormsApiBase() {
+  const env = import.meta.env || {};
+  const location = typeof window !== "undefined" ? window.location : null;
+  return resolvePublicFormsApiBase({
+    hostname: location?.hostname,
+    crmBase: env.VITE_CRM_BASE_URL,
+    apiBase: env.VITE_API_BASE,
+  });
+}
+
+function apiBase() {
+  const resolved = getPublicFormsApiBase();
+  if (resolved) return resolved;
+  const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+  if (isLocalHost(hostname)) {
+    // Fail closed in local dev: never silently fall back to production —
+    // that's exactly the bug that let a local form submission get created
+    // remotely while /prechat verified it against the local database.
+    throw new Error(
+      "Falta VITE_CRM_BASE_URL/VITE_API_BASE. Define la URL del backend local en tu .env."
+    );
+  }
+  if (isPrivateLanHost(hostname)) return "";
+  return "https://api.ideasestudio.com";
+}
 
 async function _apiFetch(path, opts = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
   let res;
   try {
-    res = await fetch(`${API_BASE}${appendWorkspace(path)}`, {
+    res = await fetch(`${apiBase()}${appendWorkspace(path)}`, {
       headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
       signal: controller.signal,
       ...opts,
@@ -73,7 +119,7 @@ async function _publicFetch(path, opts = {}) {
   const timeoutId = setTimeout(() => controller.abort(), 10000);
   let res;
   try {
-    res = await fetch(`${API_BASE}${path}`, {
+    res = await fetch(`${apiBase()}${path}`, {
       headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
       signal: controller.signal,
       ...opts,

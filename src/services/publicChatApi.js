@@ -1,11 +1,24 @@
 import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
 
+function isPrivateLanHost(hostname) {
+  const normalized = String(hostname || "").trim().toLowerCase();
+  if (normalized === "localhost" || normalized === "::1" || normalized === "127.0.0.1") return false;
+  const octets = normalized.split(".").map(Number);
+  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+    return false;
+  }
+  return octets[0] === 10 || octets[0] === 192 && octets[1] === 168 ||
+    octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31;
+}
+
 // Cliente del widget de chat público (PR11). Nunca manda workspace_id ni
 // role_slug — el backend resuelve el workspace desde su propia configuración
 // de servidor (AIRA_WEBCHAT_PUBLIC_WORKSPACE_ID), nunca confía en un valor
 // del cliente. 100% público, sin auth, sin token de Supabase.
 function getPublicChatBaseUrl() {
   const base = (CRM_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "");
+  const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+  if (import.meta.env.DEV && isPrivateLanHost(hostname)) return "/public/chat";
   if (!base) {
     throw new Error(
       "Falta VITE_CRM_BASE_URL. Define la URL del backend en tu .env."

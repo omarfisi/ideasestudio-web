@@ -3,6 +3,7 @@
    de introducir una paleta o librería de estilos nueva. */
 
 .public-chat-widget {
+  box-sizing: border-box;
   position: fixed;
   right: 20px;
   bottom: 20px;
@@ -11,6 +12,15 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 12px;
+  max-width: 100vw;
+  min-width: 0;
+  overflow-x: clip;
+}
+
+.public-chat-widget *,
+.public-chat-widget *::before,
+.public-chat-widget *::after {
+  box-sizing: border-box;
 }
 
 .public-chat-widget__toggle {
@@ -208,8 +218,22 @@
 }
 
 .public-chat-widget__panel {
-  width: min(360px, calc(100vw - 32px));
-  max-height: min(700px, calc(100vh - 40px));
+  /* PARTE B/C (P0 desktop) — real evidence: the conversation area was
+     cramped even with plenty of screen to spare. Root cause was that
+     ONLY max-height/max-width were set, never a committed height/width —
+     a flex container sized by max-content only grows as tall/wide as its
+     own content needs, so .public-chat-widget__messages's flex:1 1 auto
+     had no real "leftover space" to expand into for a typical short
+     conversation; it only ever filled whatever was left AFTER content
+     already decided the box's size. An explicit width/height (with the
+     old max-* values kept as a floor/ceiling, never removed — still a
+     bounded floating widget the visitor can close any time, never a
+     page takeover) commits the panel to real space up front, which is
+     what actually lets messages grow into it below. */
+  width: clamp(420px, calc(300px + 9vw), 480px);
+  max-width: 100%;
+  height: min(880px, calc(100dvh - 40px));
+  max-height: min(880px, calc(100dvh - 40px));
   min-height: 0;
   background: var(--surface-strong, #ffffff);
   border-radius: var(--radius-lg, 24px);
@@ -220,10 +244,39 @@
   overflow: hidden;
 }
 
+/* El formulario inicial no necesita reservar la altura de una conversación.
+   Solo aplica en desktop; el panel móvil conserva su contrato fullscreen. */
+/* PARTE D — explicit fixed-size contract for every non-history row, so
+   the flex layout's growth/shrink behavior is unambiguous: only
+   .public-chat-widget__messages (flex:1 1 auto, min-height:0, already
+   set on its own rule) is meant to flex. Applies to both breakpoints —
+   these rows are "fixed" by nature on mobile too. */
+.public-chat-widget__header,
+.public-chat-widget__assistant-switcher,
+.public-chat-widget__quick-actions,
+.public-chat-widget__handoff-bar,
+.public-chat-widget__form {
+  flex: 0 0 auto;
+}
+
+/* PARTE E — real minimum for the conversation area itself, independent
+   of flex-grow succeeding: even if the stage/CTAs/handoff together
+   demanded more room than expected, the history never drops below this
+   floor. vh-scaled so 1920x1080 gets meaningfully more than 1366x768,
+   per spec ("todavía mayor" en 1080p) — desktop-only: mobile has its own
+   much tighter budget and the already-enlarged AIRA stage to share space
+   with, so this must never leak into the mobile breakpoint. */
+@media (min-width: 769px) {
+  .public-chat-widget__messages {
+    min-height: clamp(160px, 26vh, 340px);
+  }
+}
+
 .public-chat-widget__assistant-switcher {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+  min-width: 0;
   padding: 10px 12px 8px;
   border-bottom: 1px solid var(--line, rgba(22, 22, 22, 0.1));
   background: var(--surface-strong, #ffffff);
@@ -287,18 +340,42 @@
 .public-chat-widget__stage {
   position: relative;
   flex: 0 0 auto;
+  /* P0 mobile fix — explicit belt-and-suspenders on top of flex:0 0 auto
+     (whose 0 shrink already covers this): AIRA's stage must never be the
+     thing that gives way under space pressure — the messages/composer
+     flex items are the ones meant to compress, never the stage. */
+  flex-shrink: 0;
   overflow: hidden;
   isolation: isolate;
   background: radial-gradient(circle at 50% 30%, #3a3d37 0, #1b1d1a 58%, #11120f 100%);
   transition: height 160ms ease;
 }
 
+/* P3 — AIRA is the protagonist even with messages present. Every pose
+   asset is 1024x1536 (2:3). The previous sizes had the image taller than
+   its stage box (e.g. a 322px image inside a 230px stage) — since the
+   stage clips overflow, AIRA's lower body/legs were being cut off at
+   every single breakpoint, not just "small". Stage height here is always
+   image height + enough margin for the top inset and the floor-shadow
+   pseudo-element, so nothing is ever clipped. Compact still keeps a real,
+   legible size — history compresses into its own scroll area, never the
+   stage.
+   PARTE H (P0 desktop) — clamp() instead of a fixed height, same
+   reasoning already applied to mobile: at 1366x768 the panel (now a
+   committed height, see .public-chat-widget__panel) has real budget
+   pressure between the stage and the new messages floor (Parte E) — a
+   fixed 380/280px stage left no room for either to coexist without one
+   clipping the other. Scaling the stage down slightly on the shortest
+   desktop viewport — while staying full-size on 1920x1080 — is the same
+   justified, proportional approach already used for mobile, not an
+   arbitrary shrink (AIRA keeps full body, face and hands, at every
+   desktop breakpoint tested). */
 .public-chat-widget__stage--expanded {
-  height: 230px;
+  height: clamp(220px, 28vh, 280px);
 }
 
 .public-chat-widget__stage--compact {
-  height: 126px;
+  height: clamp(170px, 22vh, 220px);
 }
 
 .public-chat-widget__stage::after {
@@ -316,9 +393,15 @@
 
 .public-chat-widget__stage-image {
   position: absolute;
-  inset: 6px 50% auto auto;
-  width: 214px;
-  height: 322px;
+  inset: 8px 50% auto auto;
+  /* PARTE H — width:auto + aspect-ratio instead of a fixed size, same
+     technique already used on mobile: the image now scales in step with
+     the stage's own clamp() (Parte H above) at every desktop breakpoint,
+     always a few px under the stage's own height (contain, never crop),
+     instead of a size fixed for one specific viewport only. */
+  width: auto;
+  aspect-ratio: 2 / 3;
+  height: clamp(190px, 25vh, 240px);
   transform: translateX(50%);
   object-fit: contain;
   object-position: 50% 0;
@@ -338,9 +421,10 @@
 }
 
 .public-chat-widget__stage--compact .public-chat-widget__stage-image {
-  inset-block-start: 2px;
-  width: 150px;
-  height: 226px;
+  inset-block-start: 8px;
+  width: auto;
+  aspect-ratio: 2 / 3;
+  height: clamp(145px, 19vh, 190px);
 }
 
 .public-chat-widget__stage-fallback {
@@ -376,10 +460,41 @@
   background: var(--brand, #f1d146);
 }
 
+/* P11 — discreet "new messages" affordance: a visitor reading up in the
+   history never gets yanked back down (P2/P10); this is the only way
+   back to the latest message, and only appears while it's actually true. */
+.public-chat-widget__new-messages {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: -4px 0 4px;
+  padding: 6px 14px;
+  border: 1px solid var(--brand-strong, #c9ab20);
+  border-radius: 999px;
+  background: var(--brand, #f1d146);
+  color: var(--text, #161616);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(14, 14, 14, 0.14);
+}
+
+.public-chat-widget__new-messages:hover {
+  background: var(--brand-strong, #e5c200);
+}
+
+/* PARTE G/W — desktop default is wrap, never a horizontal scrollbar (the
+   captured evidence showed exactly that scrollbar inside the widget,
+   which the task explicitly rules out as final desktop UX). Mobile
+   deliberately opts back into horizontal swipe below, in its own media
+   query — that overflow-x:auto is no longer the shared default. */
 .public-chat-widget__quick-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 7px;
-  overflow-x: auto;
+  min-width: 0;
+  max-width: 100%;
   padding: 7px 12px;
   border-top: 1px solid var(--line, rgba(22, 22, 22, 0.1));
   background: var(--surface-strong, #ffffff);
@@ -404,6 +519,57 @@
 .public-chat-widget__quick-actions button:disabled {
   cursor: default;
   opacity: 0.55;
+}
+
+/* Desktop quick replies: una tarjeta de opciones integrada al hilo,
+   no una barra de cápsulas separada. Este bloque aparece después de las
+   reglas base para que gane correctamente en la cascada CSS. */
+@media (min-width: 769px) {
+  .public-chat-widget__panel--prechat {
+    height: auto;
+    max-height: min(620px, calc(100vh - 40px));
+  }
+
+  .public-chat-widget__quick-actions {
+    flex-direction: column;
+    align-items: stretch;
+    align-self: flex-start;
+    width: min(100%, 342px);
+    margin: 4px 16px 12px;
+    padding: 0;
+    gap: 0;
+    border: 1px solid var(--line-strong, rgba(22, 22, 22, 0.2));
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--surface-strong, #ffffff);
+  }
+
+  .public-chat-widget__quick-actions button,
+  .public-chat-widget__quick-actions button:first-child,
+  .public-chat-widget__quick-actions button:last-child {
+    width: 100%;
+    min-height: 52px;
+    padding: 12px 16px;
+    border: 0;
+    border-bottom: 1px solid var(--line, rgba(22, 22, 22, 0.14));
+    border-radius: 0;
+    color: var(--text, #161616);
+    background: var(--surface-strong, #ffffff);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .public-chat-widget__quick-actions button:last-child {
+    border-bottom: 0;
+  }
+
+  .public-chat-widget__quick-actions button:hover:not(:disabled),
+  .public-chat-widget__quick-actions button:focus-visible {
+    border-color: var(--line, rgba(22, 22, 22, 0.14));
+    background: var(--brand-soft, rgba(241, 209, 70, 0.18));
+    outline: none;
+  }
 }
 
 .public-chat-widget__header {
@@ -445,9 +611,30 @@
 
 .public-chat-widget__messages {
   flex: 1;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  /* P0 mobile fix — the history is the ONE scroll owner while the chat is
+     open (see the JS body-scroll-lock effect). overscroll-behavior:
+     contain stops iOS from chaining an exhausted scroll gesture here into
+     the page behind the fixed panel (part of the "page content leaks
+     through" real-device symptom). */
+  overscroll-behavior: contain;
+  /* P0 scroll hijack (Part I) — the panel's height now tracks the real
+     visualViewport (see the JS effect and --aira-vv-height), which can
+     shift on every visualViewport resize/scroll event. Without this, the
+     browser's own scroll-anchoring can try to "compensate" for that
+     ancestor resize by nudging this container's scrollTop on its own,
+     outside of and invisible to the explicit follow-mode logic in the
+     JS. Disabling it here makes the JS the ONLY thing that ever moves
+     scrollTop. -webkit-overflow-scrolling gives real momentum on iOS —
+     without it, overflow-y:auto rows can feel "stuck"/unscrollable,
+     which independently could read as "the chat won't let me scroll".*/
+  overflow-anchor: none;
+  -webkit-overflow-scrolling: touch;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -463,7 +650,8 @@
 }
 
 .public-chat-widget__bubble {
-  max-width: 84%;
+  max-width: min(84%, 100%);
+  min-width: 0;
   padding: 10px 12px;
   border-radius: var(--radius-md, 18px);
   font-size: 0.88rem;
@@ -630,6 +818,7 @@
 .public-chat-widget__handoff-bar {
   display: flex;
   justify-content: center;
+  min-width: 0;
   padding: 6px 12px 0;
   background: var(--surface-strong, #ffffff);
 }
@@ -663,6 +852,9 @@
 }
 
 .public-chat-widget__form {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   gap: 8px;
   padding: 12px;
@@ -671,7 +863,10 @@
 }
 
 .public-chat-widget__form input {
-  flex: 1;
+  flex: 1 1 auto;
+  width: 0;
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid var(--line-strong, rgba(22, 22, 22, 0.18));
   border-radius: var(--radius-sm, 14px);
   padding: 10px 12px;
@@ -876,6 +1071,15 @@
   .public-chat-widget--open {
     inset: 0;
     align-items: stretch;
+    /* P0 mobile fix (items E-H) — real iPhone evidence showed 100dvh alone
+       doesn't track the keyboard: it reflects the LAYOUT viewport, which
+       iOS does not shrink when the keyboard opens (only the VISUAL
+       viewport shrinks). The JS visualViewport effect writes these two
+       custom properties on this element on open/resize/scroll; the
+       fallbacks (0px / 100dvh) keep this correct on browsers without
+       visualViewport support, or for the first paint before JS runs. */
+    top: var(--aira-vv-top, 0px);
+    height: var(--aira-vv-height, 100dvh);
   }
 
   .public-chat-widget__launcher-composition {
@@ -928,9 +1132,19 @@
 
   .public-chat-widget__panel {
     width: 100%;
-    height: 100dvh;
+    max-width: 100vw;
+    /* P0 mobile fix — fills the wrapper's own height (now driven by
+       visualViewport via .public-chat-widget--open above), instead of
+       independently recomputing 100dvh here and going stale the moment
+       the keyboard opens/closes. overflow-x:hidden is a hard safety net:
+       the wrapper's overflow:clip already stops the panel from expanding
+       the page horizontally, but this stops the panel's own children from
+       ever visually spilling past ITS box, whatever the exact source. */
+    height: 100%;
     max-height: none;
     min-height: 0;
+    min-width: 0;
+    overflow-x: hidden;
     border-radius: 0;
     border: 0;
     pointer-events: auto;
@@ -944,21 +1158,102 @@
     flex: 0 0 auto;
   }
 
+  /* P3 (mobile) — same clipping bug as desktop originally: stages were
+     shorter than their images. Chat is fullscreen (visualViewport-driven
+     height) when open here, so there's real room to give AIRA a proper
+     size instead of a cropped fragment.
+     P0 MOBILE VISUAL COMPLETION — real iPhone evidence showed the first
+     round of numbers (image ~210-300px tall) still read as too small:
+     AIRA needs to be clearly the protagonist, face and hands legible.
+     Raised so a 390x844 device (38-39dvh) lands the image around
+     270-310px tall, per the requested target — clamp() against dvh (not
+     a fixed px) so the shortest target viewport (375x667) still leaves
+     the history and composer usable, while taller ones (430x932) get the
+     fuller size. */
   .public-chat-widget__stage--expanded {
-    height: 170px;
+    height: clamp(285px, 39dvh, 355px);
   }
 
+  /* MOBILE CONVERSATION MODE (round 3) — a PREVIOUS round raised compact
+     to match intro's size, on the theory that "compact was still too
+     small" — but real evidence now says the opposite problem: once a
+     real conversation exists, a big avatar leaves very little room to
+     read long messages. This intentionally reverses that: intro mode
+     (.public-chat-widget__stage--expanded, before any real message)
+     keeps AIRA large — that part already reads well. Conversation mode
+     (.public-chat-widget__stage--compact, driven by hasRealConversation
+     Ref in the JSX — true once a real user/assistant exchange exists)
+     now shrinks meaningfully in favor of the history, while staying well
+     above the old ~140px "microscopic" size — face/hands/pose still
+     read clearly at ~180-220px. flex-shrink:0 on .public-chat-widget__
+     stage plus object-fit:contain still protect this from ever being
+     compressed further by layout pressure. */
   .public-chat-widget__stage--compact {
-    height: 96px;
+    height: clamp(200px, 26dvh, 240px);
+  }
+
+  /* aspect-ratio + width:auto instead of a fixed width: the height clamp
+     above can shrink the stage on short viewports, and the image must
+     shrink with it (never overflow into clipping) while staying 2:3.
+     Image height stays a few px under its stage's own clamp at every
+     breakpoint (contain, never crop). */
+  .public-chat-widget__stage--expanded .public-chat-widget__stage-image {
+    width: auto;
+    aspect-ratio: 2 / 3;
+    height: clamp(260px, 36dvh, 325px);
   }
 
   .public-chat-widget__stage--compact .public-chat-widget__stage-image {
-    width: 120px;
-    height: 180px;
+    width: auto;
+    aspect-ratio: 2 / 3;
+    height: clamp(180px, 23dvh, 220px);
   }
 
+  /* P0 mobile fix (item I) — while the iOS keyboard is open there isn't
+     room for the full-size stage without pushing the composer off the
+     visible (visualViewport) area. AIRA stays visible at a reduced but
+     still legible size (130-180px, per spec) rather than disappearing —
+     priority goes to the message history and composer. Applies
+     regardless of expanded/compact (conversation state) — keyboard-open
+     is a temporary overlay on top of whichever of those is active.
+     Restores automatically the moment isKeyboardOpen goes false. */
+  .public-chat-widget__panel--keyboard-open .public-chat-widget__stage--expanded,
+  .public-chat-widget__panel--keyboard-open .public-chat-widget__stage--compact {
+    height: clamp(130px, 20dvh, 180px);
+  }
+
+  .public-chat-widget__panel--keyboard-open .public-chat-widget__stage-image {
+    width: auto;
+    aspect-ratio: 2 / 3;
+    height: clamp(110px, 17dvh, 160px);
+  }
+
+  /* P0 mobile visual completion (item 2) — deliberate choice: horizontal
+     scroll, not wrap. width/max-width/min-width are explicit here (not
+     just inherited from flex-stretch) so this row's own scroll boundary
+     is unambiguous; -webkit-overflow-scrolling:touch is the concrete,
+     well-known iOS fix for overflow-x:auto rows that scroll like they're
+     "stuck" without real momentum. scroll-padding-inline plus a wider
+     trailing padding-inline-end make sure the LAST chip always has
+     visible breathing room once fully scrolled into view, instead of
+     sitting flush against — and reading as clipped by — the edge. */
   .public-chat-widget__quick-actions {
     flex: 0 0 auto;
+    /* Mobile explicitly opts back into horizontal swipe (nowrap +
+       overflow-x:auto) — the base rule's default is now wrap (desktop,
+       Parte G/W); this override is what keeps mobile's proven swipe
+       behavior unchanged. Vertical padding trimmed 7px->5px (conversation
+       mode round) to give the history a bit more room — the tap target
+       itself is governed by the button's own min-height below, untouched. */
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding-block: 5px;
+    padding-inline: 12px 20px;
+    scroll-padding-inline: 12px;
+    -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
@@ -968,13 +1263,16 @@
   }
 
   .public-chat-widget__quick-actions button {
+    flex: 0 0 auto;
     min-height: 38px;
     white-space: nowrap;
   }
 
   .public-chat-widget__handoff-bar {
     flex: 0 0 auto;
-    padding: 8px 12px 0;
+    /* Trimmed 8px->6px top padding (conversation mode round) — the
+       button's own min-height (below) keeps the tap target unchanged. */
+    padding: 6px 12px 0;
   }
 
   .public-chat-widget__handoff-btn {
@@ -987,7 +1285,75 @@
     padding-bottom: calc(12px + env(safe-area-inset-bottom));
   }
 
+  /* PARTE O — real root cause of the reported "iOS zooms in when I tap
+     the input": Safari auto-zooms to any focused text input whose
+     COMPUTED font-size is under 16px. Both were 0.88rem (~14.1px). Fixed
+     at the source (never with user-scalable=no/maximum-scale, which
+     would take away the visitor's own ability to zoom — a real
+     accessibility regression, not an acceptable fix). Scoped to mobile
+     only so desktop's typography is untouched. */
+  .public-chat-widget__form input,
+  .public-chat-widget__prechat-field input {
+    font-size: 16px;
+  }
+
   .public-chat-widget__messages {
     overflow-x: hidden;
+  }
+
+  /* P0 mobile visual completion (item 3) — real iPhone evidence showed
+     the prechat form, specifically the "Comenzar conversación" button,
+     cut off on the right. Explicit width/max-width/min-width/box-sizing
+     hardening end to end, rather than relying on flex-stretch defaults
+     the JSX/CSS never actually declared for this path. */
+  .public-chat-widget__prechat {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+
+  .public-chat-widget__prechat-field,
+  .public-chat-widget__prechat-consent,
+  .public-chat-widget__prechat-remember {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .public-chat-widget__prechat-field input {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .public-chat-widget__prechat-consent label,
+  .public-chat-widget__prechat-remember label {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .public-chat-widget__prechat-consent label span,
+  .public-chat-widget__prechat-remember label span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .public-chat-widget__prechat-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* The reported offender: on mobile this must never be an inline-sized,
+     right-aligned button competing for space with a sibling Cancelar —
+     it's the widest control in the whole prechat, and the one real
+     device evidence named explicitly. */
+  .public-chat-widget__action-btn--primary {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    text-align: center;
   }
 }

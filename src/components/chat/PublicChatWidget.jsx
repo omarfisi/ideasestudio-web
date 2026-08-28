@@ -16,6 +16,35 @@ import "./PublicChatWidget.css";
 import airaLauncherAsset from "@/assets/chat/aira-point-viewer.png";
 import airaInviteAsset from "@/assets/chat/aira-invite-chat.png";
 
+// P0 IPHONE SEND FIX — root cause confirmed via real Safari console:
+// `crypto.randomUUID` is part of the Web Crypto API and browsers restrict
+// it to secure contexts (HTTPS, or exactly "localhost") — a plain-HTTP LAN
+// origin like http://192.168.68.63:5197 is NOT a secure context, so
+// `crypto.randomUUID` is simply undefined there, and calling it threw a
+// synchronous TypeError inside handleSend before it ever reached
+// sendPublicChatMessage(). jsdom never enforces this restriction (hence
+// invisible to every test all session), and curl never executes JS at all
+// (hence invisible to every manual reproduction). This id is only ever
+// used for client-side dedup/reconciliation (see its call sites in
+// handleSend) — never a security token — so a non-crypto fallback is a
+// safe, sufficient identifier when the strong RNG isn't available.
+function createClientMessageId() {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+
+  if (typeof globalThis.crypto?.getRandomValues === "function") {
+    const bytes = new Uint8Array(16);
+    globalThis.crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, "0"));
+    return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10, 16).join("")}`;
+  }
+
+  return `aira-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 const SESSION_STORAGE_KEY = "aira_public_chat_session_v1";
 const HISTORY_STORAGE_KEY = "aira_public_chat_history_v1";
 // FASE HANDOFF H4B — UX optimista/restore inmediato ÚNICAMENTE. La fuente
@@ -28,6 +57,10 @@ const MAX_MESSAGE_CHARS = 800;
 const AIRA_RUNTIME_REFRESH_LEAD_MS = 45_000;
 const AIRA_LAUNCHER_FRAME_MS = 1_100;
 const AIRA_POSE_CROSSFADE_MS = 80;
+// Distancia máxima desde el final para considerar que el visitante sigue
+// leyendo el flujo actual. Un scroll manual mayor a este margen desactiva el
+// seguimiento hasta que el visitante vuelva al fondo.
+const CHAT_SCROLL_BOTTOM_THRESHOLD_PX = 72;
 const AIRA_PRELOAD_POSE_KEYS = Object.freeze([
   "neutral",
   "waving",
@@ -38,7 +71,7 @@ const AIRA_PRELOAD_POSE_KEYS = Object.freeze([
   "presenting",
   "hands-clasped",
 ]);
-const PUBLIC_AVATAR_SEMANTIC_EVENTS = new Set(["intent.services"]);
+const PUBLIC_AVATAR_SEMANTIC_EVENTS = new Set(["intent.services", "confidence.low"]);
 
 // FASE HANDOFF H3B — polling de GET /public/chat/events. Encadenado
 // (nunca setInterval): cada corrida programa la siguiente recién cuando
@@ -178,6 +211,32 @@ function reconcileMessages(localMessages, serverRows, knownServerIds, claimBySer
   result.push(...enrichedServer);
   result.push(...stillPending);
   return { messages: result, newClaims };
+}
+
+// PARTE L — polling no-op. reconcileMessages() always builds a brand new
+// array (see its own comments — never mutated in place), so every single
+// /events poll produced a NEW `messages` reference even when literally
+// nothing changed. That new reference re-ran the auto-scroll effect on a
+// ~3s cadence — reading isFollowingBottomRef correctly (after Parts I-K),
+// but still needless re-render churn that's easy to reason a real device
+// might handle worse than jsdom (extra paints while the visitor's finger
+// is mid-gesture). This compares the two arrays on exactly what actually
+// renders — never a `messages !== prev` object-identity check, which
+// would always be true by construction — and hands back the SAME `prev`
+// reference when nothing semantically changed, so React bails out of
+// that render entirely.
+function messagesEqualForRender(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    const x = a[i];
+    const y = b[i];
+    if ((x.id || x.sendAttemptId) !== (y.id || y.sendAttemptId)) return false;
+    if (x.role !== y.role) return false;
+    if (x.content !== y.content) return false;
+    if (JSON.stringify(x.citations || []) !== JSON.stringify(y.citations || [])) return false;
+    if (JSON.stringify(x.cta || null) !== JSON.stringify(y.cta || null)) return false;
+  }
+  return true;
 }
 
 // Identidad pública por defecto — segura mientras no se conozca el estado
@@ -331,7 +390,7 @@ function ResponderAvatar({
   );
 }
 
-function AiraStage({ pose, poseKey, visualState, runtimeAvailable, compact }) {
+function AiraStage({ pose, poseKey, visualState, runtimeAvailable, compact, onExhaustedFailure }) {
   const initialFrame = pose ? { pose, poseKey, visualState } : null;
   const [displayedFrame, setDisplayedFrame] = useState(initialFrame);
   const [previousFrame, setPreviousFrame] = useState(null);
@@ -405,6 +464,15 @@ function AiraStage({ pose, poseKey, visualState, runtimeAvailable, compact }) {
       displayedFrameRef.current = previousFrame;
       setDisplayedFrame(previousFrame);
       setPreviousFrame(null);
+    } else {
+      // No previous frame to recover to (e.g. the very first pose — neutral
+      // on initial mount — failed to load): the stage would otherwise be
+      // stuck on the placeholder until the next scheduled signed-URL
+      // refresh, up to PUBLIC_RUNTIME_TTL_SECONDS (5 min) later. Force an
+      // immediate runtime refetch instead — a fresh signed URL is a
+      // different string, so the effect above will naturally reset
+      // failedUrl and retry once it arrives.
+      onExhaustedFailure?.();
     }
   }
 
@@ -571,10 +639,19 @@ export default function PublicChatWidget() {
   // restaurada, sin esperar a que el visitante abra el widget (ver el
   // efecto de polling más abajo, que depende de sessionId).
   const [sessionId, setSessionId] = useState(() => loadStoredSession());
+  // Una sesión restaurada desde sessionStorage es solo una pista optimista,
+  // no una autorización para habilitar el chat. Se vuelve verdadera después
+  // de que /status o /events confirman que la sesión sigue viva.
+  const [sessionReady, setSessionReady] = useState(() => !loadStoredSession());
   const [messages, setMessages] = useState(() => loadStoredHistory());
   const hasRealConversationRef = useRef(loadStoredHistory().some((message) => message.role === "user"));
   if (messages.some((message) => message.role === "user")) hasRealConversationRef.current = true;
   const [input, setInput] = useState("");
+  // P11 — discreet "new messages" affordance for when the visitor is
+  // reading up in the history and a non-user message arrives below their
+  // current view. Never forces scroll on its own — only a click does.
+  const [hasNewMessagesBelow, setHasNewMessagesBelow] = useState(false);
+  const lastSeenMessageCountRef = useRef(loadStoredHistory().length);
   const [isLoading, setIsLoading] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState(null);
@@ -612,6 +689,39 @@ export default function PublicChatWidget() {
 
   const inputRef = useRef(null);
   const scrollRef = useRef(null);
+  // P0 mobile fix — root element of the whole widget (the position:fixed
+  // box). window.visualViewport metrics are written onto it as CSS custom
+  // properties (--aira-vv-height/--aira-vv-top) so the mobile fullscreen
+  // panel can track the REAL visible area on iOS when the keyboard opens,
+  // instead of relying on 100dvh alone (confirmed insufficient by real
+  // iPhone evidence — dvh reflects the layout viewport, not the visual one
+  // the keyboard shrinks).
+  const wrapperRef = useRef(null);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  // P0 SCROLL — USER-GESTURE LOCK (round 3). Two previous rounds tried to
+  // INFER reading intent from scrollTop deltas/thresholds after the fact,
+  // and real iPhone evidence kept finding cases that slipped through —
+  // most likely because iOS momentum/rubber-band delivers scrollTop
+  // updates that aren't cleanly monotonic frame-to-frame near the
+  // boundaries, which any delta-based "did they move up?" check is
+  // inherently vulnerable to. This round changes the source of truth
+  // entirely: userReadingHistoryRef is armed directly by the RAW GESTURE
+  // itself (touchstart/touchmove/wheel/pointerdown on the history — see
+  // the listener effect below), before any scroll math runs at all, and
+  // — critically — before polling/render ever gets a chance to write
+  // scrollTop first. isFollowingBottomRef is now a secondary signal only
+  // used by requestScrollToBottom() when NOT in reading mode.
+  // lastUserGestureAtRef exists purely so a bare 'scroll' event (which a
+  // PROGRAMMATIC write also produces) can never by itself be read as "the
+  // visitor interacted" — only the real gesture listeners set it.
+  // programmaticScrollRef/lastScrollTopRef mark our own writes so the
+  // 'scroll' handler never misreads them as visitor intent.
+  const userReadingHistoryRef = useRef(false);
+  const lastUserGestureAtRef = useRef(0);
+  const isFollowingBottomRef = useRef(true);
+  const lastScrollTopRef = useRef(0);
+  const programmaticScrollRef = useRef(false);
+  const shouldScrollAfterUserSendRef = useRef(false);
   // FASE HANDOFF H3B.12 — con sessionId ahora hidratado de forma eager
   // (ver su useState arriba), handleToggle() ya no puede usar "sessionId
   // está vacío" como señal de "todavía no gestioné la primera apertura".
@@ -728,6 +838,14 @@ export default function PublicChatWidget() {
     if (existing) return existing.promise;
 
     const image = new Image();
+    // The signed pose URL is cross-origin (Supabase Storage) — the server
+    // already grants Access-Control-Allow-Origin: * for it. decode(), unlike
+    // plain <img> painting, needs the fetch to actually be CORS-negotiated to
+    // reliably resolve for a cross-origin resource in every browser; without
+    // this the image can still display via a plain <img src>, but the decode
+    // warm-up used to gate pose transitions can silently fail/hang, leaving
+    // the pose stuck on its previous (or placeholder) frame.
+    image.crossOrigin = "anonymous";
     image.src = pose.url;
     const promise = typeof image.decode === "function"
       ? Promise.resolve().then(() => image.decode()).then(() => true).catch(() => false)
@@ -849,7 +967,16 @@ export default function PublicChatWidget() {
     const avatarEvents = Array.isArray(response?.avatar_events)
       ? response.avatar_events.filter((event) => PUBLIC_AVATAR_SEMANTIC_EVENTS.has(event))
       : [];
-    activateAiraEvent(avatarEvents.includes("intent.services") ? "intent.services" : "message.completed");
+    // P4 #8 — confidence.low isn't emitted by the backend yet (documented
+    // there as pending an approved public threshold — not this task's to
+    // decide), but the pose contract (rule + i-dont-know asset) is already
+    // correct end to end, so the frontend is ready the moment it is.
+    const nextEventKey = avatarEvents.includes("intent.services")
+      ? "intent.services"
+      : avatarEvents.includes("confidence.low")
+        ? "confidence.low"
+        : "message.completed";
+    activateAiraEvent(nextEventKey);
   }, [activateAiraEvent, clearAiraReactionTimers]);
 
   const scheduleAiraRuntimeRefresh = useCallback((runtime) => {
@@ -891,11 +1018,28 @@ export default function PublicChatWidget() {
   }, [scheduleAiraRuntimeRefresh]);
   loadAiraAvatarRuntimeRef.current = loadAiraAvatarRuntime;
 
+  const handleAiraStageExhaustedFailure = useCallback(() => {
+    void loadAiraAvatarRuntimeRef.current?.(true);
+  }, []);
+
   useEffect(() => {
     const runtimeRequestSeqRef = airaRuntimeRequestSeqRef;
     void loadAiraAvatarRuntime();
     return () => {
       ++runtimeRequestSeqRef.current;
+      // StrictMode (dev) mounts this effect, cleans it up, then mounts it
+      // again for the same component instance — refs survive that cycle.
+      // Incrementing the seq above correctly marks the in-flight request's
+      // eventual .then()/.catch()/.finally() as stale once it resolves, but
+      // without also clearing the request ref here, loadAiraAvatarRuntime()'s
+      // reuse guard (`if (airaRuntimeRequestRef.current && !force) return
+      // ...`) on the second (real) mount just hands back that same
+      // now-permanently-stale promise instead of issuing a fresh request —
+      // its .finally() can never clear the ref either, since its captured
+      // requestSeq can never match the now-bumped seq again. Net effect:
+      // airaAvatarRuntime is never set, even though the network request
+      // itself succeeded — the stage is stuck on the placeholder forever.
+      airaRuntimeRequestRef.current = null;
       if (airaRuntimeRefreshTimerRef.current) window.clearTimeout(airaRuntimeRefreshTimerRef.current);
       airaRuntimeRefreshTimerRef.current = null;
     };
@@ -953,11 +1097,262 @@ export default function PublicChatWidget() {
     persistHistory(messages);
   }, [messages]);
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  // The SINGLE authorized gate every scrollTop write in this widget must
+  // go through (Part 6). "reason" documents intent and decides whether
+  // the two guards below can be bypassed:
+  //   - "user-click-new-messages" / "own-message" — explicit, deliberate
+  //     visitor actions (Part 4B/4C, Part 16): always win, regardless of
+  //     reading mode.
+  //   - anything else ("auto", from polling/render/pose/resize/etc.) —
+  //     blocked outright the instant userReadingHistoryRef is true (Part
+  //     5/11: NOTHING automatic may scroll while reading, full stop), and
+  //     otherwise still requires isFollowingBottomRef.
+  const requestScrollToBottom = useCallback((reason) => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const isExplicitUserAction = reason === "user-click-new-messages" || reason === "own-message";
+    if (!isExplicitUserAction) {
+      if (userReadingHistoryRef.current) return;
+      if (!isFollowingBottomRef.current) return;
     }
-  }, [messages, isLoading]);
+    const before = container.scrollTop;
+    programmaticScrollRef.current = true;
+    container.scrollTop = container.scrollHeight;
+    lastScrollTopRef.current = container.scrollTop;
+    isFollowingBottomRef.current = true;
+    userReadingHistoryRef.current = false;
+    setHasNewMessagesBelow(false);
+    // Part 8 — DEV-only instrumentation. window.__AIRA_SCROLL_DEBUG__
+    // accumulates every actual write with reason/before/after/state, so a
+    // real device session can be inspected for any writer that still
+    // fires while reading (there should be none). Compiled out of
+    // production builds entirely (import.meta.env.DEV).
+    if (import.meta.env.DEV && typeof window !== "undefined") {
+      const entry = {
+        reason,
+        before,
+        after: container.scrollTop,
+        follow: isFollowingBottomRef.current,
+        userReadingHistory: userReadingHistoryRef.current,
+        messagesLength: messagesRef.current.length,
+        timestamp: Date.now(),
+        stack: new Error().stack,
+      };
+      (window.__AIRA_SCROLL_DEBUG__ = window.__AIRA_SCROLL_DEBUG__ || []).push(entry);
+      console.log("AIRA_SCROLL_WRITE", entry);
+    }
+    // A microtask, not window.setTimeout — a macrotask doesn't reliably
+    // flush within a single `await act(...)` cycle (no real event-loop
+    // tick necessarily happens), which previously left this flag stuck
+    // "on" long enough to swallow an unrelated, genuinely separate user
+    // scroll simulated right after. A microtask resolves by the time any
+    // subsequent `await` in the caller settles, while still being a real
+    // asynchronous deferral for the native 'scroll' event a real browser
+    // dispatches after a programmatic scrollTop write.
+    Promise.resolve().then(() => {
+      programmaticScrollRef.current = false;
+    });
+  }, []);
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return undefined;
+
+    // Re-bound every time the panel (re)opens (the panel, including this
+    // container, is fully unmounted on close). A fresh open always starts
+    // in follow mode, reading mode off.
+    isFollowingBottomRef.current = true;
+    userReadingHistoryRef.current = false;
+    lastScrollTopRef.current = container.scrollTop;
+
+    // Part 1/2/3 — USER-GESTURE LOCK. The instant the visitor's raw
+    // gesture touches the history — touchstart/touchmove (iOS),
+    // wheel/pointerdown (desktop/trackpad) — reading mode arms
+    // IMMEDIATELY, before any scrollTop math, before Safari has even
+    // necessarily dispatched a 'scroll' event yet, and — critically —
+    // before polling/render gets any chance to write scrollTop first
+    // (Part 2: "el lock debe activarse ANTES de que polling/render tenga
+    // oportunidad"). This replaces the previous rounds' approach of
+    // inferring intent from scrollTop deltas after the fact — real
+    // iPhone evidence kept finding cases (most likely iOS momentum/
+    // rubber-band scrollTop updates that aren't cleanly monotonic near
+    // the boundaries) that a delta-based check could miss.
+    function armReadingLock() {
+      if (programmaticScrollRef.current) return; // our own write, never visitor intent
+      userReadingHistoryRef.current = true;
+      isFollowingBottomRef.current = false;
+      lastUserGestureAtRef.current = Date.now();
+    }
+
+    // The 'scroll' event itself is now used ONLY for two things: (a)
+    // position bookkeeping, and (b) detecting the ONE legitimate way back
+    // into follow mode (Part 4A) — the visitor, already in reading mode,
+    // genuinely reaches the bottom again. Per Part 9, a bare scroll event
+    // can never by itself re-arm follow mode: it only does so when
+    // userReadingHistoryRef is already true (meaning a real gesture
+    // armed it) AND the position is now near the bottom. Programmatic
+    // writes are filtered out entirely via programmaticScrollRef, so our
+    // own scrollTop=scrollHeight writes can never be misread as "the
+    // visitor scrolled back down".
+    function handleMessagesScroll() {
+      if (programmaticScrollRef.current) {
+        lastScrollTopRef.current = container.scrollTop;
+        return;
+      }
+      const currentScrollTop = container.scrollTop;
+      const distanceFromBottom = container.scrollHeight - currentScrollTop - container.clientHeight;
+      const nearBottom = distanceFromBottom <= CHAT_SCROLL_BOTTOM_THRESHOLD_PX;
+      lastScrollTopRef.current = currentScrollTop;
+
+      if (userReadingHistoryRef.current && nearBottom && lastUserGestureAtRef.current) {
+        userReadingHistoryRef.current = false;
+        isFollowingBottomRef.current = true;
+        setHasNewMessagesBelow(false);
+      }
+    }
+
+    // GESTURE-LAYER ROLLBACK (P0) — the boundary touch guard (a
+    // { passive: false } touchmove listener that called preventDefault
+    // near the history's top/bottom edge) previously lived here. Real
+    // iPhone evidence showed it breaking basic composer interaction
+    // (focus/typing/send) even after scoping it to only this container
+    // and adding tap/axis/threshold filtering — the exact mechanism
+    // wasn't proven, but the instruction is explicit: CHAT USABLE >
+    // background bounce. Removed outright rather than patched further.
+    // Only the PASSIVE (never able to call preventDefault, so provably
+    // inert to click/focus/submit) reading-lock listeners remain.
+    container.addEventListener("touchstart", armReadingLock, { passive: true });
+    container.addEventListener("touchmove", armReadingLock, { passive: true });
+    container.addEventListener("wheel", armReadingLock, { passive: true });
+    container.addEventListener("pointerdown", armReadingLock, { passive: true });
+    container.addEventListener("scroll", handleMessagesScroll, { passive: true });
+    return () => {
+      container.removeEventListener("touchstart", armReadingLock);
+      container.removeEventListener("touchmove", armReadingLock);
+      container.removeEventListener("wheel", armReadingLock);
+      container.removeEventListener("pointerdown", armReadingLock);
+      container.removeEventListener("scroll", handleMessagesScroll);
+    };
+  }, [screen, isOpen]);
+
+  useEffect(() => {
+    const isNewMessage = messages.length > lastSeenMessageCountRef.current;
+    const lastMessage = messages[messages.length - 1];
+    const lastIsFromVisitorThemselves = lastMessage?.role === "user";
+
+    if (shouldScrollAfterUserSendRef.current) {
+      requestScrollToBottom("own-message");
+    } else if (isNewMessage && !lastIsFromVisitorThemselves && userReadingHistoryRef.current) {
+      // Part 5/11/15 — reading mode: NOTHING automatic may scroll, full
+      // stop (polling, pose/avatar changes, resize, keyboard, loading
+      // state — none of them call requestScrollToBottom at all, so this
+      // branch is the only thing standing between an incoming reply and
+      // the indicator). Surface the discreet affordance instead (P11).
+      setHasNewMessagesBelow(true);
+    } else {
+      requestScrollToBottom("auto");
+    }
+    lastSeenMessageCountRef.current = messages.length;
+    shouldScrollAfterUserSendRef.current = false;
+  }, [messages, isLoading, requestScrollToBottom]);
+
+  const scrollToLatestMessage = useCallback(() => {
+    requestScrollToBottom("user-click-new-messages");
+  }, [requestScrollToBottom]);
+
+  // P0 mobile fix (item D) — while the fullscreen mobile chat is open, the
+  // page behind it must never be a second scroll owner (real iPhone
+  // evidence showed page content "leaking" through / the composer
+  // misbehaving as the page and the chat fought over the same gesture).
+  // Locks via the standard reversible position:fixed-body technique, and
+  // restores the exact prior scroll position on close/unmount. Gated to
+  // <=768px (the same breakpoint the CSS uses for the fullscreen layout)
+  // so desktop's floating panel — which was never a page-scroll problem —
+  // is completely untouched.
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    if (typeof window === "undefined" || window.innerWidth > 768) return undefined;
+    const scrollY = window.scrollY;
+    const { body, documentElement: html } = document;
+    const previous = {
+      bodyPosition: body.style.position,
+      bodyTop: body.style.top,
+      bodyWidth: body.style.width,
+      bodyOverflow: body.style.overflow,
+      // Real iPhone evidence: locking body alone still let the page
+      // behind the fullscreen chat be felt/perceived moving during a
+      // scroll gesture — html itself needs overflow:hidden too, not just
+      // body (a documented iOS Safari quirk: some rubber-band/bounce
+      // behavior is driven by the root scroller, which body-only fixed
+      // positioning doesn't fully suppress).
+      htmlOverflow: html.style.overflow,
+    };
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.width = "100%";
+    body.style.overflow = "hidden";
+    html.style.overflow = "hidden";
+    return () => {
+      body.style.position = previous.bodyPosition;
+      body.style.top = previous.bodyTop;
+      body.style.width = previous.bodyWidth;
+      body.style.overflow = previous.bodyOverflow;
+      html.style.overflow = previous.htmlOverflow;
+      window.scrollTo(0, scrollY);
+    };
+  }, [isOpen]);
+
+  // P0 mobile fix (items E-I) — real iPhone evidence showed 100dvh alone
+  // does not track the keyboard correctly: the panel got visually cut,
+  // and page content appeared to leak in behind it. window.visualViewport
+  // reports the REAL visible area (shrinks + offsets when the iOS keyboard
+  // opens); 100dvh does not. Metrics are written as CSS custom properties
+  // on the outer fixed wrapper (read by the mobile-only CSS, which falls
+  // back to 100dvh/0px when visualViewport is unsupported). Keyboard-open
+  // is derived purely from the layout-vs-visual-viewport height delta —
+  // never user-agent sniffing, per spec.
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const vv = window.visualViewport;
+    const wrapper = wrapperRef.current;
+    if (!vv || !wrapper) {
+      setIsKeyboardOpen(false);
+      return undefined;
+    }
+    let lastHeight = null;
+    let lastTop = null;
+    function updateViewportMetrics() {
+      const height = vv.height;
+      const top = vv.offsetTop || 0;
+      // Part I mitigation — visualViewport's own 'scroll' event fires
+      // frequently on iOS (elastic overscroll, normal panning), not just
+      // for the keyboard. Writing a CSS custom property that drives an
+      // ancestor's height on every single one of those (even when the
+      // value hasn't actually changed) is needless layout churn right
+      // while the visitor might be scrolling the history — skipping
+      // no-op writes removes one more possible source of scroll
+      // interference, on top of the explicit follow-mode fix above.
+      if (height !== lastHeight) {
+        wrapper.style.setProperty("--aira-vv-height", `${height}px`);
+        lastHeight = height;
+      }
+      if (top !== lastTop) {
+        wrapper.style.setProperty("--aira-vv-top", `${top}px`);
+        lastTop = top;
+      }
+      setIsKeyboardOpen(window.innerHeight - height > 150);
+    }
+    updateViewportMetrics();
+    vv.addEventListener("resize", updateViewportMetrics);
+    vv.addEventListener("scroll", updateViewportMetrics);
+    return () => {
+      vv.removeEventListener("resize", updateViewportMetrics);
+      vv.removeEventListener("scroll", updateViewportMetrics);
+      wrapper.style.removeProperty("--aira-vv-height");
+      wrapper.style.removeProperty("--aira-vv-top");
+      setIsKeyboardOpen(false);
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && screen === "chat") {
@@ -976,6 +1371,7 @@ export default function PublicChatWidget() {
     // solicitud de handoff de la sesión que acaba de expirar.
     sessionStorage.removeItem(HANDOFF_STORAGE_KEY);
     setSessionId(null);
+    setSessionReady(false);
     setMessages([]);
     hasRealConversationRef.current = false;
     setScreen("prechat");
@@ -1019,6 +1415,7 @@ export default function PublicChatWidget() {
     try {
       const data = await getPublicChatStatus(sid);
       if (currentSessionIdRef.current !== sid) return; // stale — ya estamos en otra sesión
+      setSessionReady(true);
       const sanitized = sanitizeResponder(data?.responder);
       if (sanitized) setResponder(sanitized);
       // FASE HANDOFF H4B/H4B.2 — mismo criterio que el poller de /events:
@@ -1095,6 +1492,7 @@ export default function PublicChatWidget() {
       try {
         const data = await getPublicChatEvents(sessionId, { signal: controller.signal });
         if (pollGenerationRef.current !== myGeneration) return; // stale: la sesión cambió mientras la request estaba en vuelo
+        setSessionReady(true);
         const rows = data?.messages || [];
         // FASE HANDOFF H3B.1/H3B.3 — reconcilia contra el estado DE ANTES
         // de esta corrida (referencias estables, nunca mutadas in-place:
@@ -1142,7 +1540,7 @@ export default function PublicChatWidget() {
             }
             claimByServerIdRef.current = nextClaims;
           }
-          return reconciled;
+          return messagesEqualForRender(prev, reconciled) ? prev : reconciled;
         });
         const sanitized = sanitizeResponder(data?.responder);
         if (sanitized) setResponder(sanitized);
@@ -1222,17 +1620,27 @@ export default function PublicChatWidget() {
   async function ensureSession(prechatToken, rememberMe = false) {
     const existing = loadStoredSession();
     if (existing) {
+      setSessionReady(false);
       setSessionId(existing);
       setScreen("chat");
       refreshStatus(existing);
       return existing;
     }
     setIsStarting(true);
+    setSessionReady(false);
     setError(null);
+    // Cambiar al panel de chat inmediatamente hace visible el estado de
+    // conexión durante la latencia de /start. Si el backend rechaza la
+    // creación, el catch devuelve el flujo al formulario sin crear una
+    // sesión ficticia ni habilitar el composer antes de tiempo.
+    setMessages([]);
+    setScreen("chat");
     try {
       const data = await startPublicChat(prechatToken, rememberMe);
+      if (!data?.session_id) throw new Error("La respuesta de inicio no incluyó una sesión válida.");
       sessionStorage.setItem(SESSION_STORAGE_KEY, data.session_id);
       setSessionId(data.session_id);
+      setSessionReady(true);
       hasRealConversationRef.current = false;
       // FASE HANDOFF H3B.13 — una sesión NUEVA (por definición, este es el
       // único camino que llega hasta acá: ensureSession() ya devolvió antes
@@ -1257,11 +1665,16 @@ export default function PublicChatWidget() {
       handoffMutationEpochRef.current += 1;
       return data.session_id;
     } catch (err) {
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      setSessionId(null);
+      setSessionReady(false);
+      setMessages([]);
+      hasRealConversationRef.current = false;
+      setScreen("prechat");
       if (err.status === 401) {
         // El prechat_token no era válido (expiró, ya se usó o falló la
         // verificación) — se pide el formulario de nuevo en vez de mostrar
         // un error genérico de chat.
-        setScreen("prechat");
         setError("No pudimos verificar tu información. Completa el formulario de nuevo.");
       } else {
         setError("No se pudo iniciar el chat. Intenta de nuevo en un momento.");
@@ -1396,7 +1809,7 @@ export default function PublicChatWidget() {
     // intento), debe reutilizar esta MISMA variable — nunca generar otra —
     // y un mensaje nuevo (nueva invocación de handleSend) siempre obtiene un
     // UUID distinto.
-    const clientMessageId = crypto.randomUUID();
+    const clientMessageId = createClientMessageId();
     // FASE HANDOFF H3B.8/H3B.3 — identidad puramente local del eco
     // optimista del visitante. NUNCA se envía al backend (H1.5 ya tiene su
     // propio client_message_id — mismo valor, reutilizado, no dos
@@ -1409,7 +1822,7 @@ export default function PublicChatWidget() {
     // ESTE intento, generada YA (antes de saber si gana el POST o un poll
     // concurrente) para poder registrar el reclamo con ella sin importar
     // quién gane la carrera (ver claimByServerIdRef más abajo).
-    const assistantSendAttemptId = crypto.randomUUID();
+    const assistantSendAttemptId = createClientMessageId();
 
     // FASE HANDOFF H3B.2 — la sesión de ESTE envío queda fija en el
     // momento del submit; toda continuación después de un await se
@@ -1429,6 +1842,7 @@ export default function PublicChatWidget() {
     // "durante MI envío" puede en realidad pertenecer al OTRO envío.
     const knownIdsAtSendStart = new Set(knownServerIdsRef.current);
 
+    shouldScrollAfterUserSendRef.current = true;
     setMessages((prev) => [
       ...prev,
       { sendAttemptId: userSendAttemptId, role: "user", content: trimmed, pending: true, source: "local" },
@@ -1548,7 +1962,7 @@ export default function PublicChatWidget() {
   const launcherAsset = airaLauncherFrame === "invite-chat" ? airaInviteAsset : airaLauncherAsset;
 
   return (
-    <div className={`public-chat-widget${isOpen ? " public-chat-widget--open" : ""}`}>
+    <div ref={wrapperRef} className={`public-chat-widget${isOpen ? " public-chat-widget--open" : ""}`}>
       <div className="public-chat-widget__launcher-composition">
         {!isOpen && isAiraResponder && (
           <div className="public-chat-widget__launcher-character" aria-label="AIRA invitando a abrir el chat">
@@ -1600,7 +2014,7 @@ export default function PublicChatWidget() {
 
       {isOpen && (
         <div
-          className="public-chat-widget__panel"
+          className={`public-chat-widget__panel${screen === "prechat" ? " public-chat-widget__panel--prechat" : ""}${isKeyboardOpen ? " public-chat-widget__panel--keyboard-open" : ""}`}
           role="dialog"
           aria-modal="true"
           aria-label="Chat de asistencia de Ideas Estudio"
@@ -1638,7 +2052,7 @@ export default function PublicChatWidget() {
             </button>
           </header>
 
-          {isAiraResponder && screen === "chat" && (
+          {isAiraResponder && screen === "chat" && sessionReady && (
             <>
               <div className="public-chat-widget__assistant-switcher" role="group" aria-label="Escoge con quién hablar">
                 <button type="button" className="public-chat-widget__assistant-choice public-chat-widget__assistant-choice--active" aria-pressed="true">
@@ -1657,6 +2071,7 @@ export default function PublicChatWidget() {
                 visualState={airaVisualState}
                 runtimeAvailable={Boolean(airaAvatarRuntime)}
                 compact={hasRealConversationRef.current}
+                onExhaustedFailure={handleAiraStageExhaustedFailure}
               />
             </>
           )}
@@ -1739,21 +2154,14 @@ export default function PublicChatWidget() {
                 {error && <p className="public-chat-widget__error">{error}</p>}
               </div>
 
-              {isAiraResponder && !handoffRequested && (
-                <div className="public-chat-widget__quick-actions" aria-label="Acciones rápidas">
-                  {["Servicios", "Cotizar proyecto", "Hablar con el equipo"].map((action) => (
-                    <button
-                      key={action}
-                      type="button"
-                      onClick={() => {
-                        setInput(action);
-                      }}
-                      disabled={isLoading}
-                    >
-                      {action}
-                    </button>
-                  ))}
-                </div>
+              {hasNewMessagesBelow && (
+                <button
+                  type="button"
+                  className="public-chat-widget__new-messages"
+                  onClick={scrollToLatestMessage}
+                >
+                  Nuevos mensajes <span aria-hidden="true">↓</span>
+                </button>
               )}
 
               {/* FASE HANDOFF H4B/H4B.1 — acción secundaria, deliberadamente
@@ -1789,13 +2197,13 @@ export default function PublicChatWidget() {
                   onChange={(event) => setInput(event.target.value.slice(0, MAX_MESSAGE_CHARS))}
                   placeholder="Escribe tu pregunta…"
                   maxLength={MAX_MESSAGE_CHARS}
-                  disabled={isLoading}
+                  disabled={isLoading || isStarting || !sessionReady}
                   aria-label="Escribe tu mensaje"
                 />
                 <button
                   type="submit"
                   className="public-chat-widget__send"
-                  disabled={isLoading || !input.trim()}
+                  disabled={isLoading || isStarting || !sessionReady || !input.trim()}
                   aria-label="Enviar mensaje"
                 >
                   <Send size={18} />

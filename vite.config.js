@@ -20,16 +20,25 @@ export default defineConfig({
     include: ['src/**/*.{test,spec}.{js,jsx}'],
   },
   server: {
+    // Dev-server only — never bundled into `vite build`/production. Points
+    // at the local CRM backend, never production: several public API
+    // clients (api.js, authenticatedApi.js, publicServicesApi.js,
+    // publicChatApi.js) resolve their base from CRM_PUBLIC_API_BASE_URL
+    // (VITE_CRM_BASE_URL) with a silent empty-string fallback — if that env
+    // var were ever missing, those clients would fetch a relative /api or
+    // /public path, and this proxy is what actually receives it. Pointing
+    // it at production (the previous config) meant a missing env var could
+    // silently create/read data against production from local dev — see
+    // the "Envío no encontrado." incident this session, caused by the same
+    // class of bug in publicFormsApi.js's own fallback chain.
     proxy: {
       '/api': {
-        target: 'https://api.ideasestudio.com',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
-        secure: true,
       },
       '/public': {
-        target: 'https://api.ideasestudio.com',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
-        secure: true,
       },
     },
   },

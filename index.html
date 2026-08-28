@@ -7,7 +7,14 @@
       type="image/webp"
       href="https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/logos/favicon_ideasestudio.webp"
     />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- PARTE P (P0 AIRA mobile) — viewport-fit=cover was missing: without
+         it, iOS Safari never activates the env(safe-area-inset-*) values
+         the chat widget's CSS already relies on for its header/composer
+         padding — they were silently resolving to 0 on every real
+         iPhone, regardless of how correct that CSS looked. Zoom is
+         deliberately left enabled (no maximum-scale/user-scalable=no) —
+         that would be an accessibility regression, not a fix. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Ideas Estudio | La idea que tu negocio necesita</title>
   </head>
   <body>

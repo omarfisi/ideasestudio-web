@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { StrictMode } from "react";
 import { act, render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
@@ -107,6 +108,26 @@ async function completePrechat() {
   await waitFor(() => expect(startPublicChat).toHaveBeenCalled());
 }
 
+function setScrollMetrics(element, { scrollHeight = 1000, clientHeight = 400, scrollTop = 600 } = {}) {
+  Object.defineProperty(element, "scrollHeight", { configurable: true, value: scrollHeight });
+  Object.defineProperty(element, "clientHeight", { configurable: true, value: clientHeight });
+  Object.defineProperty(element, "scrollTop", { configurable: true, writable: true, value: scrollTop });
+}
+
+// P0 SCROLL — USER-GESTURE LOCK. The widget now arms reading mode
+// directly from the raw gesture (touchstart/touchmove/wheel/pointerdown)
+// on the history, never from scrollTop deltas alone — a bare
+// fireEvent.scroll() no longer represents "the visitor is interacting"
+// by itself. This helper simulates a real visitor scroll the way the
+// component now actually listens for it: gesture first, then the
+// resulting position + its 'scroll' event.
+function userScrollsMessages(element, scrollMetrics) {
+  fireEvent.touchStart(element);
+  fireEvent.touchMove(element);
+  setScrollMetrics(element, scrollMetrics);
+  fireEvent.scroll(element);
+}
+
 function publicAvatarRuntime(overrides = {}) {
   const expiresAt = new Date(Date.now() + 300_000).toISOString();
   return {
@@ -159,13 +180,12 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     const panel = screen.getByRole("dialog");
     const stage = await screen.findByRole("region", { name: /vista previa del avatar aira/i });
     const messages = panel.querySelector(".public-chat-widget__messages");
-    const quickActions = screen.getByLabelText(/acciones rápidas/i);
     const handoff = panel.querySelector(".public-chat-widget__handoff-bar");
     const composer = screen.getByRole("button", { name: /enviar mensaje/i }).closest("form");
 
     expect(stage.parentElement).toBe(panel);
     expect(messages.parentElement).toBe(panel);
-    expect(quickActions.parentElement).toBe(panel);
+    expect(panel.querySelector(".public-chat-widget__quick-actions")).toBeNull();
     expect(handoff.parentElement).toBe(panel);
     expect(composer.parentElement).toBe(panel);
     expect(messages).not.toContainElement(stage);
@@ -195,7 +215,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     expect(document.querySelector(".public-chat-widget__stage")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /ivox/i })).toBeDisabled();
     expect(screen.getByRole("group", { name: /escoge con quién hablar/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/acciones rápidas/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/acciones rápidas/i)).not.toBeInTheDocument();
   });
 
   it("alterna point-viewer e invite-chat únicamente en el personaje externo", () => {
@@ -267,6 +287,37 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     const stage = await screen.findByRole("region", { name: /vista previa del avatar aira/i });
     expect(stage).toHaveAttribute("data-stage-size", "expanded");
     expect(stage).toHaveClass("public-chat-widget__stage--expanded");
+  });
+
+  // P3/P6/P7 — jsdom doesn't run a real layout engine, so pixel sizing
+  // (PublicChatWidget.css's stage--expanded/compact height, clamp()s, and
+  // the mobile media query) can't be asserted here — that's real-browser
+  // territory (see MANUAL_BROWSER_PENDING in the final report). What IS a
+  // code-level contract, and worth locking in: the stage element and its
+  // pose <img> must never be removed from the DOM across the
+  // expanded<->compact transition (i.e. AIRA never "disappears" once a
+  // real conversation starts growing the history) — only the CSS size
+  // class changes.
+  it("el stage y la imagen del avatar nunca desaparecen del DOM al pasar de expanded a compact", async () => {
+    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+
+    const stageBefore = document.querySelector(".public-chat-widget__stage");
+    expect(stageBefore).toHaveClass("public-chat-widget__stage--expanded");
+    expect(stageBefore.querySelector("img")).not.toBeNull();
+
+    await act(async () => {
+      await typeAndSend("hola");
+    });
+    await screen.findByText("hola");
+
+    const stageAfter = document.querySelector(".public-chat-widget__stage");
+    expect(stageAfter).not.toBeNull();
+    expect(stageAfter).toHaveClass("public-chat-widget__stage--compact");
+    expect(stageAfter.querySelector("img")).not.toBeNull();
   });
 
   it("precarga y decodifica las poses críticas sin persistir sus URLs", async () => {
@@ -665,7 +716,15 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     ));
   });
 
-  it("no inventa confidence.low ni procesa eventos desconocidos", async () => {
+  // P4 #8 — confidence.low's pose contract (rule + i-dont-know asset) was
+  // already correct in the backend/DB; the frontend's semantic-event
+  // allowlist was the only piece silently dropping it. This test used to
+  // assert the OLD (now-superseded) behavior — confidence.low ignored,
+  // always falling back to message.completed. It's rewritten to assert
+  // the corrected contract: confidence.low is applied when present, and a
+  // genuinely unrecognized event (never part of any contract) still isn't
+  // invented.
+  it("aplica la pose de confidence.low cuando el backend la envía, pero nunca inventa un evento desconocido", async () => {
     getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime({
       poses: {
         neutral: { url: "https://cdn.example/neutral.png" },
@@ -688,8 +747,11 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     await screen.findByRole("img", { name: "AIRA: Disponible" });
     await typeAndSend("no sé");
     await screen.findByText("No estoy seguro.");
-    expect(screen.queryByRole("img", { name: "AIRA: Presentando" })).not.toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "AIRA: Disponible" })).toBeInTheDocument();
+    // confidence.low's own rule pose is applied — never invented from an
+    // unrecognized event like "internal.secret".
+    expect(await screen.findByRole("img", { name: "AIRA: Presentando" })).toHaveAttribute(
+      "src", "https://cdn.example/presenting.png"
+    );
   });
 
   it("aplica hands-clasped al solicitar handoff y conserva el stage hasta que entra un humano", async () => {
@@ -778,6 +840,32 @@ describe("PublicChatWidget — estado inicial", () => {
 });
 
 describe("PublicChatWidget — pre-chat gate", () => {
+  it("muestra el estado de conexión inmediatamente mientras /start sigue pendiente", async () => {
+    let resolveStart;
+    startPublicChat.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveStart = resolve;
+    }));
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await fillPrechatForm();
+    fireEvent.click(screen.getByRole("button", { name: /comenzar conversación/i }));
+
+    await waitFor(() => expect(startPublicChat).toHaveBeenCalled());
+    expect(screen.getByText("Conectando…")).toBeInTheDocument();
+    expect(screen.getByLabelText(/escribe tu mensaje/i)).toBeDisabled();
+
+    await act(async () => {
+      resolveStart({
+        session_id: "session-1",
+        visitor_id: "visitor-1",
+        greeting: "¡Hola! ¿En qué puedo ayudarte?",
+        responder: AIRA_RESPONDER,
+      });
+    });
+    expect(await screen.findByText("¡Hola! ¿En qué puedo ayudarte?")).toBeInTheDocument();
+  });
+
   it("completa el pre-chat, verifica el submission y solo entonces inicia sesión con el prechat_token", async () => {
     render(<PublicChatWidget />);
     openWidget();
@@ -791,6 +879,23 @@ describe("PublicChatWidget — pre-chat gate", () => {
     expect(verifyPrechat).toHaveBeenCalledWith("sub-1");
     expect(startPublicChat).toHaveBeenCalledWith("token-1", false);
     expect(await screen.findByText("¡Hola! ¿En qué puedo ayudarte?")).toBeInTheDocument();
+  });
+
+  it("usa el submission recién creado para /prechat aunque exista un identificador anterior en storage", async () => {
+    const oldSubmissionId = "11111111-1111-4111-8111-111111111111";
+    const newSubmissionId = "22222222-2222-4222-8222-222222222222";
+    sessionStorage.setItem("aira_public_chat_submission_v1", oldSubmissionId);
+    submitPublicForm.mockResolvedValueOnce({ ok: true, submission_id: newSubmissionId });
+    verifyPrechat.mockResolvedValueOnce({ prechat_token: "token-new", expires_in: 900 });
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+
+    expect(submitPublicForm).toHaveBeenCalledTimes(1);
+    expect(verifyPrechat).toHaveBeenCalledTimes(1);
+    expect(verifyPrechat).toHaveBeenCalledWith(newSubmissionId);
+    expect(verifyPrechat).not.toHaveBeenCalledWith(oldSubmissionId);
   });
 
   it("nunca envía nombre/email/teléfono a /public/chat/start — solo el token opaco", async () => {
@@ -905,6 +1010,769 @@ describe("PublicChatWidget — pre-chat gate", () => {
     expect(await screen.findByText(/completa el formulario de nuevo/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument();
   });
+
+  it("si /start falla, no deja el chat operativo ni muestra acciones de sesión", async () => {
+    startPublicChat.mockRejectedValueOnce(new Error("backend no disponible"));
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+
+    expect(await screen.findByText(/no se pudo iniciar el chat/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/escribe tu mensaje/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/acciones rápidas/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: /vista previa del avatar aira/i })).not.toBeInTheDocument();
+    expect(sessionStorage.getItem("aira_public_chat_session_v1")).toBeNull();
+  });
+
+  it("permite reintentar después de un fallo de /start y entra al chat con la sesión válida", async () => {
+    startPublicChat.mockRejectedValueOnce(new Error("timeout"));
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText(/no se pudo iniciar el chat/i);
+    await screen.findByRole("heading", { name: /antes de comenzar/i });
+    await act(async () => {});
+
+    await fillPrechatForm();
+    const consent = screen.getByLabelText(/acepto que ideas estudio/i);
+    if (!consent.checked) fireEvent.click(consent);
+    await waitFor(() => expect(consent).toBeChecked());
+    fireEvent.click(screen.getByRole("button", { name: /comenzar conversación/i }));
+
+    expect(await screen.findByText("¡Hola! ¿En qué puedo ayudarte?")).toBeInTheDocument();
+    expect(startPublicChat).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled();
+  });
+
+  it("no trata una sesión stale de sessionStorage como un chat operativo", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "stale-session");
+    const expired = new Error("Sesión no encontrada");
+    expired.status = 404;
+    getPublicChatStatus.mockRejectedValueOnce(expired);
+    getPublicChatEvents.mockReturnValue(new Promise(() => {}));
+
+    render(<PublicChatWidget />);
+    openWidget();
+
+    expect(screen.getByLabelText(/escribe tu mensaje/i)).toBeDisabled();
+    expect(screen.queryByLabelText(/acciones rápidas/i)).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument();
+    expect(sessionStorage.getItem("aira_public_chat_session_v1")).toBeNull();
+  });
+
+  it("si falla solo el runtime del avatar, conserva la sesión y el composer operativo", async () => {
+    getPublicAvatarRuntime.mockRejectedValueOnce(new Error("avatar unavailable"));
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+
+    expect(await screen.findByText("¡Hola! ¿En qué puedo ayudarte?")).toBeInTheDocument();
+    expect(screen.getByLabelText(/escribe tu mensaje/i)).not.toBeDisabled();
+    expect(screen.queryByLabelText(/acciones rápidas/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no se pudo iniciar el chat/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("PublicChatWidget — auto-scroll inteligente", () => {
+  async function openChatWithPendingPoll() {
+    let resolvePoll;
+    getPublicChatEvents.mockImplementationOnce(() => new Promise((resolve) => {
+      resolvePoll = resolve;
+    }));
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+    await waitFor(() => expect(resolvePoll).toBeDefined());
+    return { messages: document.querySelector(".public-chat-widget__messages"), resolvePoll };
+  }
+
+  it("mantiene el fondo si el usuario ya estaba abajo y llega un mensaje nuevo", async () => {
+    const { messages, resolvePoll } = await openChatWithPendingPoll();
+    userScrollsMessages(messages);
+
+    await act(async () => {
+      resolvePoll({ ok: true, messages: [serverMsg({ id: "poll-bottom", content: "Mensaje nuevo" })] });
+    });
+
+    expect(messages.scrollTop).toBe(messages.scrollHeight);
+  });
+
+  it("preserva scrollTop cuando el usuario está arriba y llega un mensaje por polling", async () => {
+    const { messages, resolvePoll } = await openChatWithPendingPoll();
+    userScrollsMessages(messages, { scrollTop: 120 });
+
+    await act(async () => {
+      resolvePoll({ ok: true, messages: [serverMsg({ id: "poll-up", content: "Mensaje remoto" })] });
+    });
+
+    expect(messages.scrollTop).toBe(120);
+  });
+
+  it("no fuerza el fondo cuando isLoading cambia mientras el usuario está arriba", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+    const messages = document.querySelector(".public-chat-widget__messages");
+    userScrollsMessages(messages, { scrollTop: 140 });
+    let resolveSend;
+    sendPublicChatMessage.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveSend = resolve;
+    }));
+
+    await act(async () => {
+      await typeAndSend("mensaje pendiente");
+    });
+
+    // El envío propio puede llevar al fondo inicialmente. Si el visitante
+    // decide volver arriba mientras la respuesta sigue cargando, la
+    // transición posterior de isLoading no debe robarle esa posición.
+    userScrollsMessages(messages, { scrollTop: 140 });
+    await act(async () => {
+      resolveSend({ ok: true, response_text: "respuesta cargada", responder: AIRA_RESPONDER });
+    });
+
+    expect(messages.scrollTop).toBe(140);
+  });
+
+  it("reactiva el seguimiento cuando el usuario vuelve manualmente al fondo", async () => {
+    const { messages, resolvePoll } = await openChatWithPendingPoll();
+    userScrollsMessages(messages, { scrollTop: 100 });
+    // Continuación del mismo gesto/momentum (sin un touchstart nuevo) que
+    // llega realmente al fondo — la condición de reactivación (Parte 4A)
+    // no exige un gesto adicional, solo que YA hubo uno y que ahora está
+    // cerca del fondo.
+    messages.scrollTop = messages.scrollHeight;
+    fireEvent.scroll(messages);
+
+    await act(async () => {
+      resolvePoll({ ok: true, messages: [serverMsg({ id: "poll-return", content: "Mensaje posterior" })] });
+    });
+
+    expect(messages.scrollTop).toBe(messages.scrollHeight);
+  });
+
+  it("permite que el envío propio lleve al usuario al mensaje nuevo", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+    const messages = document.querySelector(".public-chat-widget__messages");
+    setScrollMetrics(messages, { scrollTop: 110 });
+    fireEvent.scroll(messages);
+
+    await act(async () => {
+      await typeAndSend("mi mensaje");
+    });
+
+    expect(messages.scrollTop).toBe(messages.scrollHeight);
+  });
+
+  // P2/P10 items 3 and 5 — the effect that scrolls-to-bottom depends only
+  // on [messages, isLoading] (never pose/poseKey/visualState), so a pose
+  // cycling through several ticks — exactly what message.streaming's
+  // talk-a/talk-o sequence does, repeatedly, entirely independent of any
+  // new "messages" entry — must never touch scrollTop while the visitor
+  // is reading up in the history.
+  it("cambios de pose/avatar durante streaming (talk-a/talk-o) nunca mueven el scroll si el usuario está arriba", async () => {
+    const runtime = publicAvatarRuntime({
+      poses: {
+        neutral: { url: "https://cdn.example/neutral.png" },
+        "talk-a": { url: "https://cdn.example/talk-a.png" },
+        "talk-o": { url: "https://cdn.example/talk-o.png" },
+      },
+      rules: [
+        { event_key: "chat.opened", rule_type: "pose", payload: { pose: "neutral" } },
+        { event_key: "message.streaming", rule_type: "pose_sequence", payload: { sequence: ["talk-a", "talk-o"], interval_ms: 40 } },
+      ],
+    });
+    getPublicAvatarRuntime.mockResolvedValueOnce(runtime);
+    sendPublicChatMessage.mockReturnValueOnce(new Promise(() => {}));
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await screen.findByRole("img", { name: "AIRA: Disponible" });
+
+    const messages = document.querySelector(".public-chat-widget__messages");
+
+    // Sending your own message may legitimately scroll to the bottom once
+    // (contract item E) — that happens first. Only *after* that does the
+    // visitor scroll back up to read older history, which is the actual
+    // scenario under test.
+    await act(async () => {
+      await typeAndSend("cuéntame más");
+    });
+    userScrollsMessages(messages, { scrollTop: 130 });
+
+    // The pose must actually be cycling (talk-a -> talk-o -> ...) —
+    // otherwise this test would trivially pass without exercising
+    // anything. scrollTop must stay exactly where the visitor left it
+    // through every tick.
+    expect(await screen.findByRole("img", { name: "AIRA: Respondiendo" })).toHaveAttribute(
+      "src", "https://cdn.example/talk-a.png"
+    );
+    expect(messages.scrollTop).toBe(130);
+
+    await waitFor(() => expect(screen.getByRole("img", { name: "AIRA: Respondiendo" })).toHaveAttribute(
+      "src", "https://cdn.example/talk-o.png"
+    ));
+    expect(messages.scrollTop).toBe(130);
+
+    await waitFor(() => expect(screen.getByRole("img", { name: "AIRA: Respondiendo" })).toHaveAttribute(
+      "src", "https://cdn.example/talk-a.png"
+    ));
+    expect(messages.scrollTop).toBe(130);
+  });
+
+  it("la pose de thinking (message.submitted) tampoco mueve el scroll si el usuario está arriba", async () => {
+    const runtime = publicAvatarRuntime({
+      poses: {
+        neutral: { url: "https://cdn.example/neutral.png" },
+        "thinking-left": { url: "https://cdn.example/thinking-left.png" },
+        "thinking-right": { url: "https://cdn.example/thinking-right.png" },
+      },
+      rules: [
+        { event_key: "chat.opened", rule_type: "pose", payload: { pose: "neutral" } },
+        { event_key: "message.submitted", rule_type: "pose_sequence", payload: { sequence: ["thinking-left", "thinking-right"], interval_ms: 40 } },
+      ],
+    });
+    getPublicAvatarRuntime.mockResolvedValueOnce(runtime);
+    sendPublicChatMessage.mockReturnValueOnce(new Promise(() => {}));
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await screen.findByRole("img", { name: "AIRA: Disponible" });
+
+    const messages = document.querySelector(".public-chat-widget__messages");
+
+    await act(async () => {
+      await typeAndSend("una pregunta más");
+    });
+    userScrollsMessages(messages, { scrollTop: 95 });
+
+    expect(await screen.findByRole("img", { name: "AIRA: Pensando" })).toBeInTheDocument();
+    expect(messages.scrollTop).toBe(95);
+
+    await waitFor(() => expect(screen.getByRole("img", { name: "AIRA: Pensando" })).toHaveAttribute(
+      "src", "https://cdn.example/thinking-right.png"
+    ));
+    expect(messages.scrollTop).toBe(95);
+  });
+
+  // P11 — the visitor is up in the history when a reply arrives: since
+  // scroll must stay put (items 2/3 above), the only way back to the
+  // latest message is this discreet affordance. Clicking it — and only
+  // clicking it — scrolls down and clears itself.
+  it("muestra 'Nuevos mensajes' cuando llega una respuesta con el usuario arriba, y desaparece al usarlo", async () => {
+    const { messages, resolvePoll } = await openChatWithPendingPoll();
+    userScrollsMessages(messages, { scrollTop: 90 });
+
+    expect(screen.queryByRole("button", { name: /nuevos mensajes/i })).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolvePoll({ ok: true, messages: [serverMsg({ id: "poll-indicator", role: "assistant", content: "Respuesta mientras leías arriba" })] });
+    });
+
+    // Arriving while scrolled up never moves scrollTop on its own...
+    expect(messages.scrollTop).toBe(90);
+    // ...but the affordance appears instead.
+    const indicator = await screen.findByRole("button", { name: /nuevos mensajes/i });
+
+    fireEvent.click(indicator);
+
+    expect(messages.scrollTop).toBe(messages.scrollHeight);
+    expect(screen.queryByRole("button", { name: /nuevos mensajes/i })).not.toBeInTheDocument();
+  });
+
+  // Sending your own message always takes the near-bottom auto-scroll
+  // branch (item E) — the indicator branch only ever runs for an
+  // incoming, non-"user" message while genuinely scrolled up, so it can
+  // never fire off your own echo by construction. This test covers the
+  // complementary real-send path (vs. the poll-based one above): visitor
+  // scrolls up again after their own send, then the actual reply arrives.
+  it("respuesta entrante tras el propio envío también muestra 'Nuevos mensajes' si el usuario volvió a subir", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+    const messages = document.querySelector(".public-chat-widget__messages");
+    userScrollsMessages(messages, { scrollTop: 60 });
+
+    let resolveSend;
+    sendPublicChatMessage.mockImplementationOnce(() => new Promise((resolve) => { resolveSend = resolve; }));
+    await act(async () => {
+      await typeAndSend("mi propio mensaje");
+    });
+    // Sending your own message is allowed to move scroll once (item E) —
+    // not what this test is about. Simulate the visitor scrolling back up
+    // again while the reply is still loading, then let the reply resolve.
+    userScrollsMessages(messages, { scrollTop: 60 });
+
+    await act(async () => {
+      resolveSend({ ok: true, response_text: "aquí está tu respuesta", responder: AIRA_RESPONDER });
+    });
+
+    expect(await screen.findByRole("button", { name: /nuevos mensajes/i })).toBeInTheDocument();
+  });
+
+  // P0 MOBILE REAL-BROWSER FIX — real iPhone evidence showed the chat
+  // snapping back to the bottom while the visitor tried to read up in the
+  // history. Root cause: the panel (including this scroll container) is
+  // fully unmounted on close ({isOpen && <div className="__panel">...})
+  // and a NEW DOM node is created on reopen, but the scroll-listener
+  // effect used to depend only on [screen] — which normally doesn't
+  // change across a close→reopen — so it stayed bound to the old,
+  // detached node forever. isUserNearBottomRef then never learned about
+  // real scrolling again, and since /events polling produces a brand new
+  // `messages` array reference every ~3s even with zero new content (see
+  // reconcileMessages), the auto-scroll effect kept re-forcing scrollTop
+  // to the bottom on every poll cycle, regardless of where the visitor
+  // had scrolled. This is a regression test for that exact scenario.
+  it("tras cerrar y reabrir el chat, el listener de scroll se re-vincula al nuevo contenedor (bug real de iPhone)", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+
+    closeWidget();
+    openWidget();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+
+    const messages = document.querySelector(".public-chat-widget__messages");
+    userScrollsMessages(messages, { scrollTop: 120 });
+
+    // The poller keeps running (independent of isOpen) at its real ~3s
+    // cadence — this mocks whichever /events call comes next (poll #2,
+    // already scheduled before the close/reopen) so it delivers a new
+    // message, then waits for that real interval to elapse and update
+    // state. Before the fix, the stale listener meant scrollTop always
+    // snapped back to scrollHeight here; after the fix it must stay put.
+    getPublicChatEvents.mockResolvedValueOnce({
+      ok: true,
+      messages: [serverMsg({ id: "poll-after-reopen", role: "assistant", content: "Mensaje tras reabrir" })],
+      handoff_requested: false,
+    });
+
+    await waitFor(() => expect(screen.getByText("Mensaje tras reabrir")).toBeInTheDocument(), { timeout: 4000 });
+    expect(messages.scrollTop).toBe(120);
+  }, 8000);
+
+  // PARTE M — el test exacto pedido: historial largo, usuario al fondo,
+  // sube a mitad de un párrafo largo (follow=false), 3 ciclos de polling
+  // (>9s con fake timers) sin mover scrollTop ni un px, luego llega una
+  // respuesta real (tampoco mueve scrollTop, aparece "Nuevos mensajes"),
+  // y solo tocarlo lleva al fondo y reactiva follow=true.
+  it("PARTE M — historial largo: sube a mitad de un párrafo, follow=false sobrevive 3 polls (>9s), y solo el indicador restaura el fondo", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    const longParagraph = "Este es un párrafo muy largo sobre nuestros servicios. ".repeat(30);
+    sessionStorage.setItem(
+      "aira_public_chat_history_v1",
+      JSON.stringify([
+        {
+          id: "srv-long-1",
+          sendAttemptId: "srv-long-1",
+          role: "assistant",
+          content: longParagraph,
+          citations: [],
+          source: "server",
+        },
+      ])
+    );
+    getPublicChatEvents.mockResolvedValue({
+      ok: true,
+      messages: [serverMsg({ id: "srv-long-1", role: "assistant", content: longParagraph })],
+      handoff_requested: false,
+    });
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    const messages = document.querySelector(".public-chat-widget__messages");
+    // Usuario al fondo del historial largo...
+    setScrollMetrics(messages, { scrollHeight: 3000, clientHeight: 400, scrollTop: 2600 });
+    fireEvent.scroll(messages);
+    // ...sube a mitad del párrafo largo, lejos del fondo — el gesto real
+    // (touchstart/touchmove) es lo que arma el reading-lock, per Parte 1.
+    fireEvent.touchStart(messages);
+    fireEvent.touchMove(messages);
+    setScrollMetrics(messages, { scrollHeight: 3000, clientHeight: 400, scrollTop: 1200 });
+    fireEvent.scroll(messages);
+
+    // 3 ciclos completos de polling, > 9s en total.
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(messages.scrollTop).toBe(1200);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(messages.scrollTop).toBe(1200);
+    await vi.advanceTimersByTimeAsync(3300);
+    expect(messages.scrollTop).toBe(1200);
+
+    // Llega una respuesta real mientras el usuario sigue leyendo arriba.
+    getPublicChatEvents.mockResolvedValueOnce({
+      ok: true,
+      messages: [
+        serverMsg({ id: "srv-long-1", role: "assistant", content: longParagraph }),
+        serverMsg({ id: "srv-long-2", role: "assistant", content: "Respuesta nueva mientras leías" }),
+      ],
+      handoff_requested: false,
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+
+    expect(messages.scrollTop).toBe(1200);
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: /nuevos mensajes/i })).toBeInTheDocument());
+    const indicator = screen.getByRole("button", { name: /nuevos mensajes/i });
+
+    fireEvent.click(indicator);
+    expect(messages.scrollTop).toBe(messages.scrollHeight);
+    expect(screen.queryByRole("button", { name: /nuevos mensajes/i })).not.toBeInTheDocument();
+  });
+
+  // PARTE N — misma escena que arriba, pero exactamente como la pide la
+  // tarea: open -> close -> reopen -> scroll up -> esperar 3 ciclos
+  // completos de polling (con fake timers, así no hace falta esperar ~9s
+  // reales) -> nunca debe volver al fondo.
+  it("PARTE N — open/close/reopen + scroll up sobrevive 3 ciclos de polling sin volver al fondo", async () => {
+    vi.useFakeTimers();
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], handoff_requested: false });
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
+
+    closeWidget();
+    openWidget();
+
+    const messages = document.querySelector(".public-chat-widget__messages");
+    setScrollMetrics(messages, { scrollHeight: 1500, clientHeight: 400, scrollTop: 1100 });
+    fireEvent.scroll(messages);
+    fireEvent.touchStart(messages);
+    fireEvent.touchMove(messages);
+    setScrollMetrics(messages, { scrollHeight: 1500, clientHeight: 400, scrollTop: 200 });
+    fireEvent.scroll(messages);
+
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(messages.scrollTop).toBe(200);
+    }
+  });
+
+  // PARTE 12 — el gesto por sí solo arma el reading-lock, ANTES incluso de
+  // que scrollTop cambie: no se simula ningún cambio de posición acá, solo
+  // el touch.
+  it("PARTE 12 — touchstart/touchmove arman el reading-lock antes de cualquier cambio de scrollTop", async () => {
+    const { messages, resolvePoll } = await openChatWithPendingPoll();
+    fireEvent.touchStart(messages);
+    fireEvent.touchMove(messages);
+
+    await act(async () => {
+      resolvePoll({
+        ok: true,
+        messages: [serverMsg({ id: "poll-touch-lock", role: "assistant", content: "No debería forzar scroll" })],
+      });
+    });
+
+    expect(await screen.findByRole("button", { name: /nuevos mensajes/i })).toBeInTheDocument();
+  });
+
+  it("PARTE 12b — wheel arma el reading-lock igual que touch (desktop)", async () => {
+    const { messages, resolvePoll } = await openChatWithPendingPoll();
+    fireEvent.wheel(messages);
+
+    await act(async () => {
+      resolvePoll({
+        ok: true,
+        messages: [serverMsg({ id: "poll-wheel-lock", role: "assistant", content: "No debería forzar scroll" })],
+      });
+    });
+
+    expect(await screen.findByRole("button", { name: /nuevos mensajes/i })).toBeInTheDocument();
+  });
+
+  // PARTE 13 — momentum: eventos scroll que llegan DESPUÉS de touchend
+  // (sin ninguna interacción nueva) nunca reactivan follow — ni siquiera
+  // si terminan a mitad de camino sin llegar realmente al fondo.
+  it("PARTE 13 — scroll por momentum tras touchend (sin nueva interacción) mantiene el reading-lock", async () => {
+    const { messages, resolvePoll } = await openChatWithPendingPoll();
+    fireEvent.touchStart(messages);
+    fireEvent.touchMove(messages);
+    setScrollMetrics(messages, { scrollTop: 300 });
+    fireEvent.scroll(messages);
+    fireEvent.touchEnd(messages);
+
+    // El navegador sigue entregando eventos scroll por inercia, lejos del
+    // fondo, sin que el usuario haya vuelto a tocar nada.
+    setScrollMetrics(messages, { scrollTop: 250 });
+    fireEvent.scroll(messages);
+    setScrollMetrics(messages, { scrollTop: 280 });
+    fireEvent.scroll(messages);
+
+    await act(async () => {
+      resolvePoll({ ok: true, messages: [serverMsg({ id: "poll-momentum", role: "assistant", content: "sigue leyendo" })] });
+    });
+
+    expect(messages.scrollTop).toBe(280);
+  });
+
+  // PARTE 16 — enviar el propio mensaje es una de las dos únicas acciones
+  // que pueden saltarse el reading-lock (la otra es el click del
+  // indicador, ya cubierto arriba) — vuelve al fondo esta vez, a pesar de
+  // estar leyendo. El re-armado inmediato del lock si el usuario vuelve a
+  // scrollear arriba después ya está cubierto por
+  // "respuesta entrante tras el propio envío...".
+  it("PARTE 16 — enviar el propio mensaje durante reading mode igual scrollea al fondo una vez", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+    const messages = document.querySelector(".public-chat-widget__messages");
+    userScrollsMessages(messages, { scrollTop: 50 });
+
+    await act(async () => {
+      await typeAndSend("mi mensaje propio durante reading mode");
+    });
+
+    expect(messages.scrollTop).toBe(messages.scrollHeight);
+  });
+});
+
+// P0 MOBILE REAL-BROWSER FIX — window.visualViewport is not implemented by
+// jsdom at all, so these are pure logic tests of the wiring (custom
+// properties written/removed, keyboard-open state derived and cleaned up):
+// they cannot substitute for a real iPhone confirming the visual result,
+// but they do lock in the exact contract the CSS depends on.
+function fakeVisualViewport({ height = 640, offsetTop = 0 } = {}) {
+  const listeners = { resize: [], scroll: [] };
+  return {
+    height,
+    offsetTop,
+    addEventListener: (type, handler) => listeners[type]?.push(handler),
+    removeEventListener: (type, handler) => {
+      if (!listeners[type]) return;
+      listeners[type] = listeners[type].filter((entry) => entry !== handler);
+    },
+    _fire(type) {
+      for (const handler of listeners[type] || []) handler();
+    },
+    _listenerCount(type) {
+      return (listeners[type] || []).length;
+    },
+  };
+}
+
+describe("PublicChatWidget — P0 mobile: visualViewport, keyboard-open y body scroll lock", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("al abrir, escribe --aira-vv-height/--aira-vv-top en el wrapper a partir de visualViewport", async () => {
+    const vv = fakeVisualViewport({ height: 500, offsetTop: 40 });
+    vi.stubGlobal("visualViewport", vv);
+    render(<PublicChatWidget />);
+    openWidget();
+
+    const wrapper = widgetRoot();
+    await waitFor(() => expect(wrapper.style.getPropertyValue("--aira-vv-height")).toBe("500px"));
+    expect(wrapper.style.getPropertyValue("--aira-vv-top")).toBe("40px");
+  });
+
+  it("una caída grande de altura visual (teclado iOS) activa el modo keyboard-open del panel", async () => {
+    const vv = fakeVisualViewport({ height: 640, offsetTop: 0 });
+    vi.stubGlobal("visualViewport", vv);
+    render(<PublicChatWidget />);
+    openWidget();
+    const panel = () => document.querySelector(".public-chat-widget__panel");
+    await waitFor(() => expect(panel()).not.toHaveClass("public-chat-widget__panel--keyboard-open"));
+
+    // Simulate the iOS keyboard opening: visualViewport shrinks, layout
+    // viewport (window.innerHeight, untouched by the keyboard) does not.
+    vv.height = 300;
+    await act(async () => {
+      vv._fire("resize");
+    });
+
+    expect(panel()).toHaveClass("public-chat-widget__panel--keyboard-open");
+
+    // Keyboard closes — mode must revert.
+    vv.height = 640;
+    await act(async () => {
+      vv._fire("resize");
+    });
+    expect(panel()).not.toHaveClass("public-chat-widget__panel--keyboard-open");
+  });
+
+  it("al cerrar, limpia los listeners de visualViewport y las custom properties (sin fugas)", async () => {
+    const vv = fakeVisualViewport({ height: 640, offsetTop: 0 });
+    vi.stubGlobal("visualViewport", vv);
+    render(<PublicChatWidget />);
+    openWidget();
+    await waitFor(() => expect(vv._listenerCount("resize")).toBeGreaterThan(0));
+
+    await act(async () => {
+      closeWidget();
+    });
+
+    expect(vv._listenerCount("resize")).toBe(0);
+    expect(vv._listenerCount("scroll")).toBe(0);
+    expect(widgetRoot().style.getPropertyValue("--aira-vv-height")).toBe("");
+    expect(widgetRoot().style.getPropertyValue("--aira-vv-top")).toBe("");
+  });
+
+  it("sin soporte de visualViewport (navegador sin la API), nunca queda en modo keyboard-open", async () => {
+    vi.stubGlobal("visualViewport", undefined);
+    render(<PublicChatWidget />);
+    openWidget();
+    await screen.findByRole("dialog");
+
+    expect(document.querySelector(".public-chat-widget__panel")).not.toHaveClass(
+      "public-chat-widget__panel--keyboard-open"
+    );
+  });
+
+  it("al abrir el chat en mobile, bloquea el scroll de body Y html, y lo restaura exactamente al cerrar", async () => {
+    vi.stubGlobal("innerWidth", 390);
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 250 });
+    render(<PublicChatWidget />);
+    openWidget();
+    await screen.findByRole("dialog");
+
+    expect(document.body.style.position).toBe("fixed");
+    expect(document.body.style.top).toBe("-250px");
+    // Fullscreen modal round 2 — body-only locking still let the page
+    // behind be perceptibly moving on real iPhone; html itself needs
+    // overflow:hidden too.
+    expect(document.documentElement.style.overflow).toBe("hidden");
+
+    await act(async () => {
+      closeWidget();
+    });
+
+    expect(document.body.style.position).toBe("");
+    expect(document.body.style.top).toBe("");
+    expect(document.documentElement.style.overflow).toBe("");
+  });
+
+  it("en desktop (ancho > 768px), abrir el chat nunca bloquea el scroll del body", async () => {
+    vi.stubGlobal("innerWidth", 1440);
+    render(<PublicChatWidget />);
+    openWidget();
+    await screen.findByRole("dialog");
+
+    expect(document.body.style.position).not.toBe("fixed");
+  });
+});
+
+describe("PublicChatWidget — mobile: intro mode vs conversation mode", () => {
+  function stageEl() {
+    return document.querySelector(".public-chat-widget__stage");
+  }
+
+  it("intro mode: antes de cualquier mensaje real, el stage está en expanded (avatar grande)", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+
+    expect(stageEl()).toHaveAttribute("data-stage-size", "expanded");
+  });
+
+  it("conversation mode: tras el primer mensaje real, el stage pasa a compact (avatar reducido, más espacio para el historial)", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+    expect(stageEl()).toHaveAttribute("data-stage-size", "expanded");
+
+    await act(async () => {
+      await typeAndSend("hola, tengo una pregunta");
+    });
+
+    expect(stageEl()).toHaveAttribute("data-stage-size", "compact");
+  });
+
+  it("conversation mode se mantiene (nunca vuelve a expanded) para el resto de la sesión, y el historial sigue presente/flexible", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+
+    await act(async () => {
+      await typeAndSend("primer mensaje");
+    });
+    expect(stageEl()).toHaveAttribute("data-stage-size", "compact");
+
+    await act(async () => {
+      await typeAndSend("segundo mensaje");
+    });
+    expect(stageEl()).toHaveAttribute("data-stage-size", "compact");
+    // El historial sigue presente y es el área flexible del layout —
+    // nunca desaparece ni se reemplaza por el stage.
+    expect(document.querySelector(".public-chat-widget__messages")).toBeInTheDocument();
+  });
+});
+
+// P0 MOBILE INTERACTION REGRESSION — GESTURE-LAYER ROLLBACK. Real iPhone
+// evidence: the touch-gesture layer added to fight background scroll-
+// chaining (custom touch-action on the panel/messages/quick-actions, plus
+// a {passive:false} boundary-guard touchmove listener with
+// preventDefault) broke basic composer interaction on a real device even
+// after being scoped and refined twice — first breaking send, then
+// breaking focus/typing entirely. Per explicit instruction, the whole
+// gesture layer was removed rather than patched further: no custom
+// touch-action anywhere, no preventDefault-capable touch listener
+// anywhere except the ordinary <form onSubmit>. Only the PASSIVE
+// (provably inert to click/focus/submit, since passive listeners cannot
+// call preventDefault at all) reading-lock listeners remain. These tests
+// are the regression guard for exactly what broke, so a future
+// background-scroll fix can't silently reintroduce it without a test
+// noticing.
+describe("PublicChatWidget — mobile: el composer sigue siendo 100% interactivo (tras el rollback de la capa de gestos)", () => {
+  it("tocar el input enfoca, escribir actualiza el valor, y tocar enviar despacha el mensaje", async () => {
+    vi.stubGlobal("innerWidth", 390);
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+
+    const input = screen.getByLabelText(/escribe tu mensaje/i);
+    fireEvent.touchStart(input);
+    fireEvent.touchEnd(input);
+    input.focus();
+    expect(document.activeElement).toBe(input);
+
+    fireEvent.change(input, { target: { value: "Hola" } });
+    expect(input.value).toBe("Hola");
+
+    const sendButton = screen.getByRole("button", { name: /enviar mensaje/i });
+    fireEvent.touchStart(sendButton);
+    fireEvent.touchEnd(sendButton);
+    fireEvent.click(sendButton);
+
+    await waitFor(() => expect(sendPublicChatMessage).toHaveBeenCalled());
+  });
+
+  // Item 9/B/C — a direct form submit, not a manual click simulation,
+  // per the instruction not to trust a synthetic click alone for this.
+  it("un touchmove real sobre el history (mid-scroll) nunca llama preventDefault, ni bloquea nada fuera de sí mismo", async () => {
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+    const messages = document.querySelector(".public-chat-widget__messages");
+    setScrollMetrics(messages, { scrollHeight: 1000, clientHeight: 400, scrollTop: 300 });
+
+    fireEvent.touchStart(messages, { touches: [{ clientX: 50, clientY: 100 }] });
+    const notPrevented = fireEvent.touchMove(messages, { touches: [{ clientX: 50, clientY: 160 }] });
+
+    expect(notPrevented).toBe(true);
+  });
+
 });
 
 describe("PublicChatWidget — apertura e inicio de sesión con sesión existente", () => {
@@ -1074,6 +1942,44 @@ describe("PublicChatWidget — client_message_id (FASE 1AA.1)", () => {
     // Ninguna segunda llamada automática — el UUID generado para ese intento
     // nunca se reutiliza porque nunca hay un segundo fetch que lo necesite.
     expect(sendPublicChatMessage).toHaveBeenCalledTimes(1);
+  });
+
+  // P0 IPHONE SEND FIX — regresión real confirmada en Safari real por LAN
+  // (http://192.168.x.x, no es un contexto seguro): crypto.randomUUID no
+  // existe ahí, y llamarlo directo tiraba un TypeError síncrono dentro de
+  // handleSend, ANTES de llegar a sendPublicChatMessage — el botón se veía
+  // normal pero tocarlo no hacía nada, sin ninguna petición de red. jsdom
+  // nunca lo detectó porque no impone la restricción de "secure context".
+  // Este test simula exactamente esa condición (randomUUID ausente,
+  // getRandomValues presente — el caso real de Safari sobre HTTP) en vez
+  // de solo confiar en que el entorno de test la tenga.
+  it("si crypto.randomUUID no existe (contexto no seguro, como HTTP LAN real), handleSend igual funciona vía createClientMessageId()", async () => {
+    const originalRandomUUID = globalThis.crypto.randomUUID;
+    // Elimina SOLO randomUUID — getRandomValues sigue disponible, igual que
+    // en Safari real sobre HTTP (randomUUID es lo único gateado a secure
+    // context; getRandomValues no lo está).
+    delete globalThis.crypto.randomUUID;
+
+    try {
+      render(<PublicChatWidget />);
+      openWidget();
+      await completePrechat();
+      await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
+
+      await typeAndSend("hola");
+
+      expect(sendPublicChatMessage).toHaveBeenCalledTimes(1);
+      const clientMessageIdArg = sendPublicChatMessage.mock.calls[0][2];
+      // El fallback vía getRandomValues sigue produciendo un UUID v4 válido
+      // (los bits de versión/variante se fuerzan a mano) — nunca undefined,
+      // nunca vacío, nunca lanza.
+      expect(clientMessageIdArg).toEqual(expect.stringMatching(UUID_V4_REGEX));
+      // El mensaje del usuario debe verse en pantalla — la prueba real de
+      // que handleSend no se rompió antes del fetch.
+      expect(screen.getByText("hola")).toBeInTheDocument();
+    } finally {
+      globalThis.crypto.randomUUID = originalRandomUUID;
+    }
   });
 });
 
@@ -3596,5 +4502,136 @@ describe("PublicChatWidget — H4B.2: protección de waiting_agent contra lectur
       expect(handoffStatusText()).toBeInTheDocument();
     });
     expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toContain('"requested":true');
+  });
+});
+
+// Real-browser evidence (2026-08-28): GET /public/chat/avatar returns 200
+// with profile/variant/default_pose="neutral"/poses.neutral (url present,
+// mime_type image/png, width 1024, height 1536) — an exact shape of the
+// real backend payload, not the trimmed test fixture — yet the stage kept
+// showing the placeholder bubble instead of the pose image. No existing
+// test asserted on the actual DOM <img> vs. placeholder for the very first
+// pose shown (only later transitions, which always have a previous good
+// frame to fall back to, were covered) — this closes that gap.
+describe("PublicChatWidget — stage muestra la imagen real del payload de avatar (no placeholder)", () => {
+  function realAvatarRuntimePayload(overrides = {}) {
+    const expiresAt = new Date(Date.now() + 300_000).toISOString();
+    return {
+      profile: "aira",
+      variant: "default",
+      version: 1,
+      default_pose: "neutral",
+      expires_at: expiresAt,
+      poses: {
+        neutral: {
+          url: "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/sign/ai-avatar-public/neutral.png?token=real-signed-token",
+          expires_at: expiresAt,
+          mime_type: "image/png",
+          width: 1024,
+          height: 1536,
+        },
+      },
+      rules: [],
+      ...overrides,
+    };
+  }
+
+  it("renderiza el <img> de la pose neutral (no el placeholder) con el payload real del backend", async () => {
+    getPublicAvatarRuntime.mockResolvedValueOnce(realAvatarRuntimePayload());
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+
+    openWidget();
+    const image = await screen.findByRole("img", { name: /AIRA:/i });
+    expect(image).toHaveAttribute(
+      "src",
+      "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/sign/ai-avatar-public/neutral.png?token=real-signed-token"
+    );
+    expect(document.querySelector(".public-chat-widget__stage-fallback")).not.toBeInTheDocument();
+  });
+
+  it("si la primera pose (sin frame previo) falla al cargar, refresca el runtime y recupera la imagen en vez de quedar en placeholder", async () => {
+    getPublicAvatarRuntime.mockResolvedValueOnce(realAvatarRuntimePayload());
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+
+    openWidget();
+    const firstImage = await screen.findByRole("img", { name: /AIRA:/i });
+    expect(firstImage).toHaveAttribute("src", expect.stringContaining("token=real-signed-token"));
+    expect(getPublicAvatarRuntime).toHaveBeenCalledTimes(1);
+
+    // First-ever pose fails to load — there is no previousFrame to recover
+    // to (this is the exact gap: without a forced refresh, the stage would
+    // otherwise sit on the placeholder until the next scheduled refresh,
+    // up to 5 minutes later).
+    getPublicAvatarRuntime.mockResolvedValueOnce(
+      realAvatarRuntimePayload({
+        poses: {
+          neutral: {
+            url: "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/sign/ai-avatar-public/neutral.png?token=fresh-signed-token",
+            expires_at: new Date(Date.now() + 300_000).toISOString(),
+            mime_type: "image/png",
+            width: 1024,
+            height: 1536,
+          },
+        },
+      })
+    );
+    fireEvent.error(firstImage);
+
+    // The forced refresh was triggered immediately (not waiting on the
+    // scheduled expiry-based refresh timer).
+    await waitFor(() => expect(getPublicAvatarRuntime).toHaveBeenCalledTimes(2));
+
+    // A fresh signed URL is a different string, so the image retries and
+    // recovers — never gets stuck on the placeholder.
+    const recoveredImage = await screen.findByRole("img", { name: /AIRA:/i });
+    expect(recoveredImage).toHaveAttribute("src", expect.stringContaining("token=fresh-signed-token"));
+    expect(document.querySelector(".public-chat-widget__stage-fallback")).not.toBeInTheDocument();
+  });
+
+  // Real-browser evidence, round 2: DEFAULT_POSE/NEUTRAL_URL/DIRECT_IMAGE_LOAD
+  // all confirmed working, yet AVATAR_IMG_ELEMENTS was 0 in Chrome — the
+  // widget itself never created the <img>. Reproduced by wrapping in
+  // <StrictMode> (the app's real src/main.jsx always does — none of the
+  // tests above did, which is exactly why they never caught this).
+  //
+  // Root cause: the widget's runtime-loading effect's cleanup increments
+  // airaRuntimeRequestSeqRef (correctly marking the in-flight request's
+  // eventual .then()/.catch()/.finally() as stale once it resolves) but
+  // never reset airaRuntimeRequestRef.current. StrictMode mounts this
+  // effect, cleans it up, then mounts it again on the same instance —
+  // refs survive that cycle — so loadAiraAvatarRuntime()'s reuse guard
+  // (`if (airaRuntimeRequestRef.current && !force) return ...`) on the
+  // second (real) mount just handed back that same now-permanently-stale
+  // promise instead of issuing a fresh request. airaAvatarRuntime was
+  // never set — even though the network request itself succeeded — so
+  // pose stayed null and the stage was stuck on the placeholder forever.
+  it("bajo StrictMode (como corre la app real), la carga inicial del runtime crea el <img> real — no se queda en placeholder", async () => {
+    getPublicAvatarRuntime.mockResolvedValue(
+      realAvatarRuntimePayload({
+        poses: {
+          neutral: {
+            url: "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/sign/ai-avatar-public/neutral.png?token=strictmode-token",
+            expires_at: new Date(Date.now() + 300_000).toISOString(),
+            mime_type: "image/png",
+            width: 1024,
+            height: 1536,
+          },
+        },
+      })
+    );
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+
+    render(
+      <StrictMode>
+        <PublicChatWidget />
+      </StrictMode>
+    );
+
+    openWidget();
+    const image = await screen.findByRole("img", { name: /AIRA:/i });
+    expect(image).toHaveAttribute("src", expect.stringContaining("token=strictmode-token"));
+    expect(document.querySelector(".public-chat-widget__stage-fallback")).not.toBeInTheDocument();
   });
 });
