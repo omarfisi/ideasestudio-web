@@ -87,3 +87,16 @@ describe("getPublicAvatarRuntime", () => {
     expect(options.headers).toEqual({ "Content-Type": "application/json" });
   });
 });
+
+describe("publicChatApi local backend base", () => {
+  it("resolves every request against the configured local CRM backend, never the Vite dev proxy", async () => {
+    fetch.mockResolvedValue(jsonResponse(200, { ok: true, status: "waiting_agent" }));
+    await requestPublicChatHuman("session-local-base-check");
+    const [url] = fetch.mock.calls[0];
+    // import.meta.env.VITE_CRM_BASE_URL in this test run comes from
+    // .env.local (http://127.0.0.1:8000) — publicChatApi.js has no
+    // relative-path fallback at all (getPublicChatBaseUrl() throws if the
+    // env var is missing), so this must always be absolute and local here.
+    expect(String(url)).toMatch(/^http:\/\/127\.0\.0\.1:8000\/public\/chat\//);
+  });
+});
