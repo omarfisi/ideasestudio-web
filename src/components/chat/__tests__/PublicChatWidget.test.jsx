@@ -459,6 +459,37 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     );
   });
 
+  it("conecta la edición textual con listening y vuelve a idle al limpiar", async () => {
+    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime({
+      rules: [{ event_key: "chat.opened", rule_type: "pose", payload: { pose: "neutral" } }],
+    }));
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    render(<PublicChatWidget />);
+    openWidget();
+    await screen.findByRole("img", { name: "AIRA: Disponible" });
+
+    const input = screen.getByLabelText(/escribe tu mensaje/i);
+    fireEvent.change(input, { target: { value: "hola" } });
+    expect(await screen.findByRole("img", { name: "AIRA: Escuchando" })).toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: "" } });
+    expect(await screen.findByRole("img", { name: "AIRA: Disponible" })).toBeInTheDocument();
+  });
+
+  it("no repite invite al recuperar una conversación activa", async () => {
+    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime({
+      rules: [{ event_key: "chat.opened", rule_type: "pose", payload: { pose: "waving" } }],
+    }));
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_history_v1", JSON.stringify([
+      { id: "user-1", role: "user", content: "hola", source: "server" },
+    ]));
+    render(<PublicChatWidget />);
+    openWidget();
+    expect(await screen.findByRole("img", { name: "AIRA: Disponible" })).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "AIRA: Saludando" })).not.toBeInTheDocument();
+  });
+
   it("si falta neutral usa default_pose y si falla el runtime conserva el placeholder", async () => {
     getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime({
       default_pose: "waving",
@@ -558,7 +589,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     expect(await screen.findByText("Pensando")).toBeInTheDocument();
     resolveResponse({ response_text: "Estos son nuestros servicios.", responder: AIRA_RESPONDER });
     await screen.findByText("Estos son nuestros servicios.");
-    expect(screen.getByText("Pensando")).toBeInTheDocument();
+    expect(screen.getByText("Disponible")).toBeInTheDocument();
   });
 
   it("inicia thinking, alterna left/right y solo después pasa a talking", async () => {
