@@ -72,6 +72,22 @@ const AIRA_PRELOAD_POSE_KEYS = Object.freeze([
   "hands-clasped",
 ]);
 const PUBLIC_AVATAR_SEMANTIC_EVENTS = new Set(["intent.services", "confidence.low"]);
+const AVATAR_STATE_BY_EVENT = Object.freeze({
+  "chat.opened": "invite",
+  "message.submitted": "thinking",
+  "message.streaming": "talking",
+  "message.completed": "idle",
+  "intent.services": "talking",
+  "confidence.low": "talking",
+  "handoff.created": "idle",
+});
+const AVATAR_STATE_LABELS = Object.freeze({
+  invite: "Saludando",
+  listening: "Escuchando",
+  thinking: "Pensando",
+  talking: "Respondiendo",
+  idle: "Disponible",
+});
 
 // FASE HANDOFF H3B — polling de GET /public/chat/events. Encadenado
 // (nunca setInterval): cada corrida programa la siguiente recién cuando
@@ -454,9 +470,15 @@ function AiraStage({ pose, poseKey, visualState, runtimeAvailable, compact, onEx
   }, []);
 
   const visibleFrame = displayedFrame?.pose.url !== failedUrl ? displayedFrame : previousFrame;
-  const label = visibleFrame?.visualState === "thinking"
-    ? "Pensando"
-    : AIRA_POSE_LABELS[visibleFrame?.poseKey] || "Disponible";
+  const poseLabel = AIRA_POSE_LABELS[visibleFrame?.poseKey];
+  const currentVisualState = displayedFrame?.pose.url === pose?.url
+    ? visualState || displayedFrame?.visualState
+    : visibleFrame?.visualState;
+  const stateLabelHasPriority = ["listening", "thinking", "talking"].includes(currentVisualState)
+    && (!poseLabel || poseLabel === "Disponible");
+  const label = stateLabelHasPriority
+    ? AVATAR_STATE_LABELS[currentVisualState]
+    : poseLabel || AVATAR_STATE_LABELS[currentVisualState] || "Disponible";
 
   function handleCurrentImageError() {
     setFailedUrl(displayedFrame?.pose.url || null);
@@ -658,7 +680,9 @@ export default function PublicChatWidget() {
   const [responder, setResponder] = useState(AIRA_RESPONDER);
   const [airaAvatarRuntime, setAiraAvatarRuntime] = useState(null);
   const [airaPoseKey, setAiraPoseKey] = useState("neutral");
-  const [airaVisualState, setAiraVisualState] = useState("neutral");
+  const [avatarState, setAvatarState] = useState("idle");
+  const [assistantResponseVersion, setAssistantResponseVersion] = useState(0);
+  const [responseSettledVersion, setResponseSettledVersion] = useState(0);
   const [airaLauncherFrame, setAiraLauncherFrame] = useState("point-viewer");
   // FASE HANDOFF H4B — ¿el visitante ya pidió hablar con una persona?
   // Fuente de verdad real: el backend (handoff_requested de GET /events y
@@ -863,6 +887,7 @@ export default function PublicChatWidget() {
   const activateAiraEvent = useCallback((eventKey) => {
     clearAiraReactionTimers();
     if (currentResponderRef.current.type !== "aira") return;
+    const eventState = AVATAR_STATE_BY_EVENT[eventKey];
     const reactionGeneration = airaReactionGenerationRef.current;
     const runtime = airaAvatarRuntime;
     const resolved = runtimeRulePayload(runtime, eventKey);
@@ -874,12 +899,12 @@ export default function PublicChatWidget() {
     const applyPreparedPose = async (poseKey, visualState = poseKey) => {
       const prepared = await prepareAiraPose(runtime, poseKey);
       if (!prepared || !reactionStillCurrent()) return false;
-      setAiraVisualState(visualState);
+      setAvatarState(visualState);
       setAiraPoseKey(poseKey);
       return true;
     };
     const applyFallback = () => {
-      void applyPreparedPose(fallbackKey, "neutral");
+      void applyPreparedPose(fallbackKey, "idle");
     };
 
     if (!resolved) {
@@ -890,7 +915,7 @@ export default function PublicChatWidget() {
     const { rule, payload } = resolved;
     if (rule.rule_type === "state") {
       const state = typeof payload.state === "string" ? payload.state : "neutral";
-      setAiraVisualState(state);
+      setAvatarState(AVATAR_STATE_LABELS[state] ? state : (eventState || "idle"));
       return;
     }
 
@@ -910,7 +935,7 @@ export default function PublicChatWidget() {
         const applySequencePose = () => {
           if (!reactionStillCurrent()) return;
           const poseKey = sequence[airaStreamingIndexRef.current % sequence.length];
-          setAiraVisualState(poseKey);
+          setAvatarState(eventState || "idle");
           setAiraPoseKey(poseKey);
           airaStreamingIndexRef.current += 1;
         };
@@ -940,7 +965,7 @@ export default function PublicChatWidget() {
       : fallbackKey;
     const transition = async () => {
       airaPoseTransitionTimerRef.current = null;
-      await applyPreparedPose(nextPoseKey, nextPoseKey === fallbackKey ? "neutral" : nextPoseKey);
+      await applyPreparedPose(nextPoseKey, nextPoseKey === fallbackKey ? "idle" : (eventState || "idle"));
     };
     const scheduleNextPose = () => {
       if (Number.isFinite(duration) && duration > 0 && payload.next && reactionStillCurrent()) {
@@ -949,7 +974,7 @@ export default function PublicChatWidget() {
     };
     const applyRulePose = async () => {
       airaPoseTransitionTimerRef.current = null;
-      const applied = await applyPreparedPose(poseKey);
+      const applied = await applyPreparedPose(poseKey, eventState || "idle");
       if (applied) scheduleNextPose();
     };
     if (delay > 0) {
@@ -964,6 +989,7 @@ export default function PublicChatWidget() {
     clearAiraReactionTimers();
     const nextResponder = sanitizeResponder(response?.responder);
     if (nextResponder?.type === "human" || currentResponderRef.current.type !== "aira") return;
+    setAvatarState("talking");
     const avatarEvents = Array.isArray(response?.avatar_events)
       ? response.avatar_events.filter((event) => PUBLIC_AVATAR_SEMANTIC_EVENTS.has(event))
       : [];
@@ -977,7 +1003,13 @@ export default function PublicChatWidget() {
         ? "confidence.low"
         : "message.completed";
     activateAiraEvent(nextEventKey);
+    setAssistantResponseVersion((version) => version + 1);
   }, [activateAiraEvent, clearAiraReactionTimers]);
+
+  useEffect(() => {
+    if (!assistantResponseVersion || !responseSettledVersion) return;
+    setAvatarState((current) => current === "talking" ? "idle" : current);
+  }, [assistantResponseVersion, responseSettledVersion]);
 
   const scheduleAiraRuntimeRefresh = useCallback((runtime) => {
     if (airaRuntimeRefreshTimerRef.current) {
@@ -1063,7 +1095,7 @@ export default function PublicChatWidget() {
   useEffect(() => {
     if (responder.type === "human") {
       clearAiraReactionTimers();
-      setAiraVisualState("neutral");
+      setAvatarState("idle");
       setAiraPoseKey("neutral");
     }
   }, [clearAiraReactionTimers, responder.type]);
@@ -1089,7 +1121,11 @@ export default function PublicChatWidget() {
     }
     if (responder.type === "aira" && airaAvatarRuntime && !airaOpeningRuntimeAppliedRef.current) {
       airaOpeningRuntimeAppliedRef.current = true;
-      activateAiraEvent("chat.opened");
+      if (hasRealConversationRef.current) {
+        setAvatarState("idle");
+      } else {
+        activateAiraEvent("chat.opened");
+      }
     }
   }, [activateAiraEvent, airaAvatarRuntime, isOpen, responder.type]);
 
@@ -1379,6 +1415,7 @@ export default function PublicChatWidget() {
     setHandoffRequested(false);
     setHandoffRequestLoading(false);
     setHumanActivePendingConfirmation(false);
+    setAvatarState("idle");
     // FASE HANDOFF H4B.2 — frontera de sesión: cualquier lectura /events o
     // /status todavía en vuelo de la sesión que expira queda, a partir de
     // acá, más vieja que esta frontera -- defensa adicional junto con el
@@ -1692,7 +1729,7 @@ export default function PublicChatWidget() {
       activateAiraEvent("chat.opened");
     } else {
       clearAiraReactionTimers();
-      setAiraVisualState("neutral");
+      setAvatarState("idle");
       setAiraPoseKey("neutral");
     }
     if (!nextOpen || hasHandledFirstOpenRef.current) return;
@@ -1949,8 +1986,19 @@ export default function PublicChatWidget() {
       // ya fue reseteado (o reactivado por un envío propio de la sesión
       // nueva) por expireSession()/su propio flujo — la finalización
       // tardía de un envío ajeno nunca debe pisarlo.
-      if (currentSessionIdRef.current === sentForSessionId) setIsLoading(false);
+      if (currentSessionIdRef.current === sentForSessionId) {
+        setIsLoading(false);
+        setResponseSettledVersion((version) => version + 1);
+        if (currentResponderRef.current.type === "aira") setAvatarState("idle");
+      }
     }
+  }
+
+  function handleComposerChange(event) {
+    const nextValue = event.target.value.slice(0, MAX_MESSAGE_CHARS);
+    setInput(nextValue);
+    if (currentResponderRef.current.type !== "aira" || isLoading || isStarting || !sessionReady) return;
+    setAvatarState(nextValue.trim() ? "listening" : "idle");
   }
 
   const activeAiraPose = responder.type === "aira"
@@ -2043,7 +2091,7 @@ export default function PublicChatWidget() {
               onClick={() => {
                 setIsOpen(false);
                 clearAiraReactionTimers();
-                setAiraVisualState("neutral");
+                setAvatarState("idle");
                 setAiraPoseKey("neutral");
               }}
               aria-label="Cerrar chat"
@@ -2068,7 +2116,7 @@ export default function PublicChatWidget() {
               <AiraStage
                 pose={activeAiraPose}
                 poseKey={airaPoseKey}
-                visualState={airaVisualState}
+                visualState={avatarState}
                 runtimeAvailable={Boolean(airaAvatarRuntime)}
                 compact={hasRealConversationRef.current}
                 onExhaustedFailure={handleAiraStageExhaustedFailure}
@@ -2194,7 +2242,7 @@ export default function PublicChatWidget() {
                   ref={inputRef}
                   type="text"
                   value={input}
-                  onChange={(event) => setInput(event.target.value.slice(0, MAX_MESSAGE_CHARS))}
+                  onChange={handleComposerChange}
                   placeholder="Escribe tu pregunta…"
                   maxLength={MAX_MESSAGE_CHARS}
                   disabled={isLoading || isStarting || !sessionReady}
