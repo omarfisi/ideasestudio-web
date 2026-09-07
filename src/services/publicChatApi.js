@@ -86,6 +86,24 @@ export async function sendPublicChatMessage(sessionId, message, clientMessageId)
   });
 }
 
+export async function sendPublicChatQuickReply(sessionId, quickReplyId, clientMessageId) {
+  return publicChatFetch("/quick-reply", {
+    method: "POST",
+    body: JSON.stringify({
+      session_id: sessionId,
+      quick_reply_id: quickReplyId,
+      client_message_id: clientMessageId,
+    }),
+  });
+}
+
+export async function submitProjectDetails(payload) {
+  return publicChatFetch("/project-details", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 // FASE HANDOFF H3B.1 — snapshot completo de mensajes públicos visibles +
 // responder actual de la sesión (ver GET /public/chat/events, agregado en
 // FASE HANDOFF H1/H3A). Nunca envía conversation_id/workspace_id/
