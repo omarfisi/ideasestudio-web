@@ -1,3 +1,4 @@
+import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
 import { appendWorkspace } from "@/lib/workspace.js";
 
 export async function submitLeadForm({
@@ -13,8 +14,13 @@ export async function submitLeadForm({
   submission_kind = "lead_capture",
   meta = {},
 }) {
-  const CRM_BASE =
-    import.meta.env.VITE_CRM_BASE_URL || "https://ideasestudio-api.onrender.com";
+  const CRM_BASE = String(CRM_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "");
+
+  if (!CRM_BASE) {
+    throw new Error(
+      "Falta VITE_CRM_BASE_URL. Define la URL del backend CRM antes de enviar el formulario.",
+    );
+  }
 
   const normalizedName = String(full_name || "").trim();
   const normalizedEmail = String(email || "").trim().toLowerCase();
