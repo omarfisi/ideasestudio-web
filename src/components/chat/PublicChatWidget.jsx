@@ -8,6 +8,8 @@ import {
   getPublicAvatarRuntime,
   recognizeVisitor,
   requestPublicChatHuman,
+  submitProjectDetails,
+  sendPublicChatQuickReply,
   sendPublicChatMessage,
   startPublicChat,
 } from "@/services/publicChatApi.js";
@@ -47,6 +49,7 @@ function createClientMessageId() {
 
 const SESSION_STORAGE_KEY = "aira_public_chat_session_v1";
 const HISTORY_STORAGE_KEY = "aira_public_chat_history_v1";
+const QUICK_REPLIES_STORAGE_KEY = "aira_public_chat_quick_replies_v1";
 // FASE HANDOFF H4B — UX optimista/restore inmediato ÚNICAMENTE. La fuente
 // de verdad real es siempre el backend (handoff_requested de GET /status y
 // GET /events, ver su reconciliación más abajo) -- esta key solo evita que
@@ -117,6 +120,28 @@ function normalizeServerMessage(row) {
     created_at: row.created_at,
     source: "server",
   };
+}
+
+function normalizeQuickReplies(value) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((reply) => reply && typeof reply.id === "string" && typeof reply.button_label === "string");
+}
+
+function normalizeActions(value) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((action) => action && typeof action === "object" && typeof action.label === "string");
+}
+
+function safeActionHref(value) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const href = value.trim();
+  if (href.startsWith("/") && !href.startsWith("//")) return href;
+  try {
+    const parsed = new URL(href);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? href : null;
+  } catch {
+    return null;
+  }
 }
 
 // FASE HANDOFF H3B.6/H3B.8/H3B.1 — reconcilia el snapshot server-
@@ -192,7 +217,9 @@ function reconcileMessages(localMessages, serverRows, knownServerIds, claimBySer
     if (knownServerIds?.has(serverMessage.id)) {
       // Ya visto -- nunca vuelve a ser candidato de matching, pero SÍ
       // conserva la cta ya reclamada en un poll (o envío) anterior.
-      return existingClaim?.cta ? { ...serverMessage, cta: existingClaim.cta } : serverMessage;
+      return existingClaim?.cta || existingClaim?.actions?.length
+        ? { ...serverMessage, cta: existingClaim.cta || null, actions: existingClaim.actions || [] }
+        : serverMessage;
     }
     const bucket = pendingByRole[serverMessage.role];
     if (!bucket) return serverMessage;
@@ -201,8 +228,9 @@ function reconcileMessages(localMessages, serverRows, knownServerIds, claimBySer
       consumedCount[serverMessage.role] += 1;
       consumedLocalIds.add(candidate.sendAttemptId);
       const cta = candidate.cta || null;
-      newClaims.push({ serverId: serverMessage.id, sendAttemptId: candidate.sendAttemptId, cta });
-      return cta ? { ...serverMessage, cta } : serverMessage;
+      const actions = candidate.actions || [];
+      newClaims.push({ serverId: serverMessage.id, sendAttemptId: candidate.sendAttemptId, cta, actions });
+      return cta || actions.length ? { ...serverMessage, cta, actions } : serverMessage;
     }
     return serverMessage;
   });
@@ -251,6 +279,7 @@ function messagesEqualForRender(a, b) {
     if (x.content !== y.content) return false;
     if (JSON.stringify(x.citations || []) !== JSON.stringify(y.citations || [])) return false;
     if (JSON.stringify(x.cta || null) !== JSON.stringify(y.cta || null)) return false;
+    if (JSON.stringify(x.actions || []) !== JSON.stringify(y.actions || [])) return false;
   }
   return true;
 }
@@ -552,6 +581,29 @@ function loadStoredHistory() {
   }
 }
 
+function loadStoredQuickReplies(currentSessionId) {
+  if (!currentSessionId) return [];
+  try {
+    const raw = sessionStorage.getItem(QUICK_REPLIES_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed?.session_id === currentSessionId ? normalizeQuickReplies(parsed.options) : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistQuickReplies(sessionIdValue, options) {
+  try {
+    if (sessionIdValue && options.length) {
+      sessionStorage.setItem(QUICK_REPLIES_STORAGE_KEY, JSON.stringify({ session_id: sessionIdValue, options }));
+    } else {
+      sessionStorage.removeItem(QUICK_REPLIES_STORAGE_KEY);
+    }
+  } catch {
+    // El chat continúa sin persistencia de opciones en sesiones privadas.
+  }
+}
+
 function persistHistory(history) {
   try {
     sessionStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
@@ -677,6 +729,20 @@ export default function PublicChatWidget() {
   const [isLoading, setIsLoading] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState(null);
+  const [availableQuickReplies, setAvailableQuickReplies] = useState(() => loadStoredQuickReplies(loadStoredSession()));
+  const [quickReplyLoading, setQuickReplyLoading] = useState(false);
+  const [projectDetailsForm, setProjectDetailsForm] = useState(null);
+  const [projectDetailsState, setProjectDetailsState] = useState("idle");
+  const [projectDetailsError, setProjectDetailsError] = useState(null);
+  const projectDetailsSubmissionIdRef = useRef(null);
+  const projectDetailsFormRef = useRef(null);
+
+  useEffect(() => {
+    if (projectDetailsForm) {
+      projectDetailsFormRef.current?.querySelector("input")?.focus();
+    }
+  }, [projectDetailsForm]);
+  const rootQuickRepliesRef = useRef(loadStoredQuickReplies(loadStoredSession()));
   const [responder, setResponder] = useState(AIRA_RESPONDER);
   const [airaAvatarRuntime, setAiraAvatarRuntime] = useState(null);
   const [airaPoseKey, setAiraPoseKey] = useState("neutral");
@@ -1409,6 +1475,9 @@ export default function PublicChatWidget() {
     setSessionId(null);
     setSessionReady(false);
     setMessages([]);
+    setAvailableQuickReplies([]);
+    rootQuickRepliesRef.current = [];
+    persistQuickReplies(null, []);
     hasRealConversationRef.current = false;
     setScreen("prechat");
     setResponder(AIRA_RESPONDER);
@@ -1513,8 +1582,8 @@ export default function PublicChatWidget() {
     );
     claimByServerIdRef.current = new Map(
       messagesRef.current
-        .filter((m) => m.source === "server" && m.id && m.cta)
-        .map((m) => [m.id, { sendAttemptId: null, cta: m.cta }])
+        .filter((m) => m.source === "server" && m.id && (m.cta || m.actions?.length))
+        .map((m) => [m.id, { sendAttemptId: null, cta: m.cta, actions: m.actions || [] }])
     );
 
     async function runPoll() {
@@ -1573,7 +1642,11 @@ export default function PublicChatWidget() {
           if (newClaims.length) {
             const nextClaims = new Map(claimByServerIdRef.current);
             for (const claim of newClaims) {
-              nextClaims.set(claim.serverId, { sendAttemptId: claim.sendAttemptId, cta: claim.cta });
+              nextClaims.set(claim.serverId, {
+                sendAttemptId: claim.sendAttemptId,
+                cta: claim.cta,
+                actions: claim.actions || [],
+              });
             }
             claimByServerIdRef.current = nextClaims;
           }
@@ -1678,6 +1751,10 @@ export default function PublicChatWidget() {
       sessionStorage.setItem(SESSION_STORAGE_KEY, data.session_id);
       setSessionId(data.session_id);
       setSessionReady(true);
+      const initialQuickReplies = normalizeQuickReplies(data.quick_replies);
+      rootQuickRepliesRef.current = initialQuickReplies;
+      setAvailableQuickReplies(initialQuickReplies);
+      persistQuickReplies(data.session_id, initialQuickReplies);
       hasRealConversationRef.current = false;
       // FASE HANDOFF H3B.13 — una sesión NUEVA (por definición, este es el
       // único camino que llega hasta acá: ensureSession() ya devolvió antes
@@ -1833,6 +1910,178 @@ export default function PublicChatWidget() {
     }
   }
 
+  async function handleQuickReplyClick(reply) {
+    if (!reply?.id || quickReplyLoading || isLoading || projectDetailsForm || !sessionId || !sessionReady) return;
+    const sentForSessionId = sessionId;
+    const clientMessageId = createClientMessageId();
+    const assistantSendAttemptId = createClientMessageId();
+    const selectedVisitorMessage = typeof reply.visitor_message === "string" ? reply.visitor_message.trim() : "";
+    setQuickReplyLoading(true);
+    setError(null);
+    if (currentResponderRef.current.type === "aira") activateAiraEvent("message.submitted");
+
+    try {
+      const data = await sendPublicChatQuickReply(sentForSessionId, reply.id, clientMessageId);
+      if (currentSessionIdRef.current !== sentForSessionId) return;
+      const visitorMessage = typeof data?.visitor_message === "string"
+        ? data.visitor_message.trim()
+        : selectedVisitorMessage;
+      if (visitorMessage) {
+        setMessages((prev) => [
+          ...prev,
+          { sendAttemptId: clientMessageId, role: "user", content: visitorMessage, pending: true, source: "local" },
+        ]);
+      }
+      const actions = normalizeActions(data?.actions);
+      setMessages((prev) => [
+        ...prev,
+        {
+          sendAttemptId: assistantSendAttemptId,
+          role: "assistant",
+          content: data?.response_text || "",
+          citations: data?.citations || [],
+          cta: data?.cta || null,
+          actions,
+          pending: true,
+          source: "local",
+        },
+      ]);
+      const nextQuickReplies = normalizeQuickReplies(data?.next_questions);
+      setAvailableQuickReplies(nextQuickReplies);
+      persistQuickReplies(sentForSessionId, nextQuickReplies);
+      applyCompletedAvatarReaction(data);
+    } catch (err) {
+      if (currentSessionIdRef.current !== sentForSessionId) return;
+      if (err.status === 404) {
+        expireSession("Tu sesión anterior expiró. Completa el formulario de nuevo para continuar.");
+      } else if (err.status === 409) {
+        setError(err.message || "La conversación está siendo atendida por un agente.");
+        await refreshStatus(sentForSessionId);
+      } else if (err.status === 429) {
+        setError("Estás enviando opciones muy rápido. Espera un momento e intenta de nuevo.");
+      } else {
+        setError("No pude procesar esa opción. Puedes continuar escribiendo tu pregunta.");
+      }
+      if (currentResponderRef.current.type === "aira") activateAiraEvent("message.completed");
+    } finally {
+      if (currentSessionIdRef.current === sentForSessionId) {
+        setQuickReplyLoading(false);
+        setResponseSettledVersion((version) => version + 1);
+      }
+    }
+  }
+
+  function openProjectDetailsForm() {
+    if (projectDetailsState === "submitting" || projectDetailsForm || !sessionId || !sessionReady) return;
+    projectDetailsSubmissionIdRef.current = createClientMessageId();
+    setProjectDetailsForm({
+      full_name: "",
+      email: "",
+      phone: "",
+      message: "",
+      service_interest: "",
+      project_timing: "",
+      preferred_contact: "",
+      additional_info: "",
+      consent: false,
+    });
+    setProjectDetailsError(null);
+    setProjectDetailsState("editing");
+  }
+
+  function updateProjectDetailsField(field, value) {
+    setProjectDetailsForm((current) => (current ? { ...current, [field]: value } : current));
+  }
+
+  async function handleProjectDetailsSubmit(event) {
+    event.preventDefault();
+    if (!projectDetailsForm || projectDetailsState === "submitting") return;
+    const requiredFields = ["full_name", "email", "message"];
+    const missingRequired = requiredFields.some((field) => !projectDetailsForm[field].trim());
+    if (missingRequired || !projectDetailsForm.consent) {
+      setProjectDetailsError("Completa nombre, correo, detalles del proyecto y consentimiento para continuar.");
+      return;
+    }
+
+    const sentForSessionId = sessionId;
+    const payload = {
+      session_id: sentForSessionId,
+      full_name: projectDetailsForm.full_name.trim(),
+      email: projectDetailsForm.email.trim(),
+      message: projectDetailsForm.message.trim(),
+      consent: true,
+      client_submission_id: projectDetailsSubmissionIdRef.current,
+    };
+    for (const field of ["phone", "service_interest", "project_timing", "preferred_contact", "additional_info"]) {
+      const value = projectDetailsForm[field].trim();
+      if (value) payload[field] = value;
+    }
+
+    setProjectDetailsState("submitting");
+    setProjectDetailsError(null);
+    if (currentResponderRef.current.type === "aira") activateAiraEvent("message.submitted");
+    try {
+      const data = await submitProjectDetails(payload);
+      if (currentSessionIdRef.current !== sentForSessionId) return;
+      if (data?.response_text) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            sendAttemptId: createClientMessageId(),
+            role: "assistant",
+            content: data.response_text,
+            actions: normalizeActions(data.actions),
+            citations: data.citations || [],
+            pending: true,
+            source: "local",
+          },
+        ]);
+      }
+      if (Array.isArray(data?.next_questions)) {
+        const nextQuickReplies = normalizeQuickReplies(data.next_questions);
+        setAvailableQuickReplies(nextQuickReplies);
+        persistQuickReplies(sentForSessionId, nextQuickReplies);
+      }
+      setProjectDetailsState("success");
+      setProjectDetailsForm(null);
+      applyCompletedAvatarReaction(data);
+    } catch (err) {
+      if (currentSessionIdRef.current !== sentForSessionId) return;
+      setProjectDetailsState("error");
+      if (err.status === 409) {
+        setProjectDetailsError(err.message || "Este formulario ya está siendo procesado. Puedes reintentar sin cambiar tus datos.");
+      } else {
+        setProjectDetailsError("No pude enviar los detalles del proyecto. Revisa tus datos e inténtalo de nuevo.");
+      }
+      if (currentResponderRef.current.type === "aira") activateAiraEvent("message.completed");
+    } finally {
+      if (currentSessionIdRef.current === sentForSessionId) {
+        setResponseSettledVersion((version) => version + 1);
+        if (currentResponderRef.current.type === "aira") setAvatarState("idle");
+      }
+    }
+  }
+
+  async function handleQuickReplyAction(action) {
+    if (!action || quickReplyLoading) return;
+    const actionType = String(action.action_type || action.type || action.action || "").toLowerCase();
+    if (actionType === "handoff") {
+      await handleRequestHuman();
+      return;
+    }
+    if (actionType === "restart_flow") {
+      setAvailableQuickReplies(rootQuickRepliesRef.current);
+      persistQuickReplies(sessionId, rootQuickRepliesRef.current);
+      setError(null);
+      return;
+    }
+    if (actionType === "form" && action.form_kind === "project_details") {
+      openProjectDetailsForm();
+      return;
+    }
+    setError("Esta acción todavía no está disponible en el chat público.");
+  }
+
   async function handleSend(event) {
     event.preventDefault();
     const trimmed = input.trim();
@@ -1925,13 +2174,14 @@ export default function PublicChatWidget() {
         );
         if (alreadyPolled) {
           const cta = data.cta || null;
+          const actions = normalizeActions(data.actions);
           // Reasignación, nunca mutación in-place del Map anterior (mismo
           // criterio que knownServerIdsRef/claimByServerIdRef en el poller).
           const nextClaims = new Map(claimByServerIdRef.current);
-          nextClaims.set(alreadyPolled.id, { sendAttemptId: assistantSendAttemptId, cta });
+          nextClaims.set(alreadyPolled.id, { sendAttemptId: assistantSendAttemptId, cta, actions });
           claimByServerIdRef.current = nextClaims;
-          if (!cta) return prev;
-          return prev.map((m) => (m === alreadyPolled ? { ...m, cta } : m));
+          if (!cta && !actions.length) return prev;
+          return prev.map((m) => (m === alreadyPolled ? { ...m, cta, actions } : m));
         }
         // Camino normal: el POST ganó la carrera (o no hay carrera en
         // absoluto) — se agrega como pending local, igual que siempre.
@@ -1952,6 +2202,7 @@ export default function PublicChatWidget() {
             content: data.response_text,
             citations: data.citations || [],
             cta: data.cta || null,
+            actions: normalizeActions(data.actions),
             pending: true,
             source: "local",
           },
@@ -1959,6 +2210,11 @@ export default function PublicChatWidget() {
       });
       const sanitized = sanitizeResponder(data.responder);
       if (sanitized) setResponder(sanitized);
+      const nextQuickReplies = normalizeQuickReplies(data.next_questions);
+      if (Array.isArray(data.next_questions)) {
+        setAvailableQuickReplies(nextQuickReplies);
+        persistQuickReplies(sentForSessionId, nextQuickReplies);
+      }
       applyCompletedAvatarReaction(data);
     } catch (err) {
       if (currentSessionIdRef.current !== sentForSessionId) return; // stale — idem para error/red/409/429
@@ -2190,6 +2446,43 @@ export default function PublicChatWidget() {
                         <ArrowRight size={14} />
                       </Link>
                     )}
+                    {message.actions?.length > 0 && (
+                      <div className="public-chat-widget__quick-reply-actions" aria-label="Acciones de la respuesta">
+                        {message.actions.map((action, actionIndex) => {
+                          const actionType = String(action.action_type || action.type || action.action || "").toLowerCase();
+                          const key = action.id || `${actionType}-${actionIndex}`;
+                          const safeHref = safeActionHref(action.href);
+                          if (safeHref) {
+                            return (
+                              <a
+                                key={key}
+                                className="public-chat-widget__cta"
+                                href={safeHref}
+                                target={action.open_new_tab ? "_blank" : undefined}
+                                rel={action.open_new_tab ? "noreferrer" : undefined}
+                              >
+                                {action.label}
+                                <ArrowRight size={14} />
+                              </a>
+                            );
+                          }
+                          if (actionType !== "handoff" && actionType !== "restart_flow" && !(actionType === "form" && action.form_kind === "project_details")) {
+                            return null;
+                          }
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              className="public-chat-widget__cta"
+                              onClick={() => handleQuickReplyAction(action)}
+                            >
+                              {action.label}
+                              <ArrowRight size={14} />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 ))}
                 {isLoading && (
@@ -2210,6 +2503,45 @@ export default function PublicChatWidget() {
                 >
                   Nuevos mensajes <span aria-hidden="true">↓</span>
                 </button>
+              )}
+
+              {responder.type === "aira" && availableQuickReplies.length > 0 && (
+                <div className="public-chat-widget__quick-replies" aria-label="Opciones rápidas">
+                  {availableQuickReplies.map((reply) => (
+                    <button
+                      key={reply.id}
+                      type="button"
+                      className="public-chat-widget__quick-reply"
+                      onClick={() => handleQuickReplyClick(reply)}
+                      disabled={quickReplyLoading || isLoading || isStarting || Boolean(projectDetailsForm) || !sessionReady || responder.type === "human"}
+                    >
+                      {reply.button_label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {projectDetailsForm && (
+                <form
+                  ref={projectDetailsFormRef}
+                  className="public-chat-widget__project-details-form"
+                  onSubmit={handleProjectDetailsSubmit}
+                  aria-label="Formulario de detalles del proyecto"
+                >
+                  <h3>Cuéntanos sobre tu proyecto</h3>
+                  <p>Comparte los detalles y te contactaremos para orientarte.</p>
+                  <label>Nombre completo<input value={projectDetailsForm.full_name} onChange={(event) => updateProjectDetailsField("full_name", event.target.value)} autoComplete="name" required disabled={projectDetailsState === "submitting"} /></label>
+                  <label>Correo electrónico<input type="email" value={projectDetailsForm.email} onChange={(event) => updateProjectDetailsField("email", event.target.value)} autoComplete="email" required disabled={projectDetailsState === "submitting"} /></label>
+                  <label>Teléfono (opcional)<input value={projectDetailsForm.phone} onChange={(event) => updateProjectDetailsField("phone", event.target.value)} autoComplete="tel" disabled={projectDetailsState === "submitting"} /></label>
+                  <label>Detalles del proyecto<textarea value={projectDetailsForm.message} onChange={(event) => updateProjectDetailsField("message", event.target.value)} required disabled={projectDetailsState === "submitting"} /></label>
+                  <label>Servicio de interés (opcional)<input value={projectDetailsForm.service_interest} onChange={(event) => updateProjectDetailsField("service_interest", event.target.value)} disabled={projectDetailsState === "submitting"} /></label>
+                  <label>Cuándo te gustaría comenzar (opcional)<input value={projectDetailsForm.project_timing} onChange={(event) => updateProjectDetailsField("project_timing", event.target.value)} disabled={projectDetailsState === "submitting"} /></label>
+                  <label>Medio de contacto preferido (opcional)<input value={projectDetailsForm.preferred_contact} onChange={(event) => updateProjectDetailsField("preferred_contact", event.target.value)} disabled={projectDetailsState === "submitting"} /></label>
+                  <label>Información adicional (opcional)<textarea value={projectDetailsForm.additional_info} onChange={(event) => updateProjectDetailsField("additional_info", event.target.value)} disabled={projectDetailsState === "submitting"} /></label>
+                  <label className="public-chat-widget__project-details-consent"><input type="checkbox" checked={projectDetailsForm.consent} onChange={(event) => updateProjectDetailsField("consent", event.target.checked)} required disabled={projectDetailsState === "submitting"} />Acepto que Ideas Estudio use estos datos para contactarme sobre mi proyecto.</label>
+                  {projectDetailsError && <p className="public-chat-widget__error" role="alert">{projectDetailsError}</p>}
+                  <button type="submit" className="public-chat-widget__send" disabled={projectDetailsState === "submitting"}>{projectDetailsState === "submitting" ? "Enviando…" : "Enviar detalles"}</button>
+                </form>
               )}
 
               {/* FASE HANDOFF H4B/H4B.1 — acción secundaria, deliberadamente
@@ -2245,13 +2577,13 @@ export default function PublicChatWidget() {
                   onChange={handleComposerChange}
                   placeholder="Escribe tu pregunta…"
                   maxLength={MAX_MESSAGE_CHARS}
-                  disabled={isLoading || isStarting || !sessionReady}
+                  disabled={isLoading || quickReplyLoading || isStarting || !sessionReady}
                   aria-label="Escribe tu mensaje"
                 />
                 <button
                   type="submit"
                   className="public-chat-widget__send"
-                  disabled={isLoading || isStarting || !sessionReady || !input.trim()}
+                  disabled={isLoading || quickReplyLoading || isStarting || !sessionReady || !input.trim()}
                   aria-label="Enviar mensaje"
                 >
                   <Send size={18} />

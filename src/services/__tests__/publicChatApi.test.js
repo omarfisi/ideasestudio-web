@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { requestPublicChatHuman, getPublicAvatarRuntime } = await import("@/services/publicChatApi.js");
+const { requestPublicChatHuman, getPublicAvatarRuntime, sendPublicChatQuickReply, submitProjectDetails } = await import("@/services/publicChatApi.js");
 
 function jsonResponse(status, body, headers = {}) {
   return {
@@ -64,6 +64,59 @@ describe("requestPublicChatHuman", () => {
   it("un 503 lanza un Error con status=503", async () => {
     fetch.mockResolvedValue(jsonResponse(503, { detail: "El chat público no está disponible temporalmente." }));
     await expect(requestPublicChatHuman("session-1")).rejects.toMatchObject({ status: 503 });
+  });
+});
+
+describe("sendPublicChatQuickReply", () => {
+  it("hace POST al endpoint público con el contrato exacto", async () => {
+    fetch.mockResolvedValue(jsonResponse(200, {
+      ok: true,
+      response_text: "Respuesta",
+      visitor_message: "Quiero cotizar.",
+      next_questions: [],
+      actions: [],
+    }));
+
+    const result = await sendPublicChatQuickReply("session-1", "reply-1", "client-1");
+    const [url, options] = fetch.mock.calls[0];
+    expect(String(url)).toMatch(/\/public\/chat\/quick-reply$/);
+    expect(options.method).toBe("POST");
+    expect(JSON.parse(options.body)).toEqual({
+      session_id: "session-1",
+      quick_reply_id: "reply-1",
+      client_message_id: "client-1",
+    });
+    expect(result.response_text).toBe("Respuesta");
+  });
+
+  it("conserva los errores HTTP del backend", async () => {
+    fetch.mockResolvedValue(jsonResponse(409, { detail: "Conversación bajo control humano." }));
+    await expect(sendPublicChatQuickReply("session-1", "reply-1", "client-1")).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe("submitProjectDetails", () => {
+  it("hace POST al contrato público de project-details", async () => {
+    fetch.mockResolvedValue(jsonResponse(200, { ok: true, submission_id: "sub-1", response_text: "Recibido" }));
+    const payload = {
+      session_id: "session-1",
+      full_name: "Ana Pérez",
+      email: "ana@example.com",
+      message: "Necesito una identidad visual.",
+      consent: true,
+      client_submission_id: "client-sub-1",
+      phone: "7875550100",
+    };
+    await submitProjectDetails(payload);
+    const [url, options] = fetch.mock.calls[0];
+    expect(String(url)).toMatch(/\/public\/chat\/project-details$/);
+    expect(options.method).toBe("POST");
+    expect(JSON.parse(options.body)).toEqual(payload);
+  });
+
+  it("conserva 409 para que el widget pueda permitir retry con la misma identidad", async () => {
+    fetch.mockResolvedValue(jsonResponse(409, { detail: "Procesando" }));
+    await expect(submitProjectDetails({ session_id: "session-1" })).rejects.toMatchObject({ status: 409 });
   });
 });
 

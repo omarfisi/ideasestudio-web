@@ -11,6 +11,8 @@ vi.mock("@/services/publicChatApi.js", () => ({
   getPublicChatEvents: vi.fn(),
   getPublicAvatarRuntime: vi.fn(),
   requestPublicChatHuman: vi.fn(),
+  sendPublicChatQuickReply: vi.fn(),
+  submitProjectDetails: vi.fn(),
   recognizeVisitor: vi.fn(),
   forgetVisitor: vi.fn(),
 }));
@@ -28,6 +30,8 @@ const {
   getPublicChatEvents,
   getPublicAvatarRuntime,
   requestPublicChatHuman,
+  sendPublicChatQuickReply,
+  submitProjectDetails,
   recognizeVisitor,
   forgetVisitor,
 } = await import("@/services/publicChatApi.js");
@@ -821,6 +825,7 @@ beforeEach(() => {
     visitor_id: "visitor-1",
     greeting: "¡Hola! ¿En qué puedo ayudarte?",
     responder: AIRA_RESPONDER,
+    quick_replies: [],
   });
   sendPublicChatMessage.mockResolvedValue({
     ok: true,
@@ -843,6 +848,21 @@ beforeEach(() => {
   getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], handoff_requested: false });
   getPublicAvatarRuntime.mockResolvedValue(null);
   requestPublicChatHuman.mockResolvedValue({ ok: true, status: "waiting_agent" });
+  sendPublicChatQuickReply.mockResolvedValue({
+    ok: true,
+    response_text: "Podemos orientarte.",
+    visitor_message: "Quiero cotizar.",
+    next_questions: [],
+    actions: [],
+    responder: AIRA_RESPONDER,
+  });
+  submitProjectDetails.mockResolvedValue({
+    ok: true,
+    submission_id: "submission-1",
+    response_text: "Gracias por compartir los detalles.",
+    next_questions: [],
+    actions: [],
+  });
   recognizeVisitor.mockResolvedValue({ recognized: false, full_name: null, email: null, phone: null });
   forgetVisitor.mockResolvedValue({ ok: true });
 });
@@ -850,6 +870,172 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+});
+
+describe("PublicChatWidget — quick replies públicas", () => {
+  it("muestra las opciones raíz recibidas en /start y envía el contrato exacto", async () => {
+    const rootReply = { id: "reply-root", button_label: "Quiero cotizar", visitor_message: "Quiero cotizar." };
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-1",
+      visitor_id: "visitor-1",
+      greeting: "Hola",
+      responder: AIRA_RESPONDER,
+      quick_replies: [rootReply],
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+
+    expect(await screen.findByRole("button", { name: "Quiero cotizar" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Quiero cotizar" }));
+    await waitFor(() => expect(sendPublicChatQuickReply).toHaveBeenCalledTimes(1));
+    expect(sendPublicChatQuickReply.mock.calls[0][0]).toBe("session-1");
+    expect(sendPublicChatQuickReply.mock.calls[0][1]).toBe("reply-root");
+    expect(sendPublicChatQuickReply.mock.calls[0][2]).toMatch(UUID_V4_REGEX);
+    expect(await screen.findByText("Podemos orientarte.")).toBeInTheDocument();
+    expect(screen.getByText("Quiero cotizar.")).toBeInTheDocument();
+  });
+
+  it("ignora quick replies malformadas sin inventar labels", async () => {
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-1", visitor_id: "visitor-1", greeting: "Hola", responder: AIRA_RESPONDER,
+      quick_replies: [null, {}, { id: "missing-label" }, { button_label: "missing-id" }, { id: "valid", button_label: "Válida" }],
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    expect(await screen.findByRole("button", { name: "Válida" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "missing-label" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "missing-id" })).not.toBeInTheDocument();
+  });
+
+  it("reemplaza las opciones con next_questions y renderiza una acción URL segura", async () => {
+    const rootReply = { id: "reply-root", button_label: "Explorar", visitor_message: "Quiero explorar." };
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-1", visitor_id: "visitor-1", greeting: "Hola", responder: AIRA_RESPONDER,
+      quick_replies: [rootReply],
+    });
+    sendPublicChatQuickReply.mockResolvedValueOnce({
+      ok: true,
+      response_text: "Elige un servicio.",
+      next_questions: [{ id: "reply-next", button_label: "Branding", visitor_message: "Me interesa branding." }],
+      actions: [{ type: "url", label: "Ver servicios", href: "/servicios", open_new_tab: false }],
+      responder: AIRA_RESPONDER,
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    fireEvent.click(await screen.findByRole("button", { name: "Explorar" }));
+    expect(await screen.findByRole("button", { name: "Branding" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Explorar" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /ver servicios/i })).toHaveAttribute("href", "/servicios");
+  });
+
+  it("abre el formulario público y mantiene ocultas las acciones sin contrato", async () => {
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-1", visitor_id: "visitor-1", greeting: "Hola", responder: AIRA_RESPONDER,
+      quick_replies: [{ id: "reply-root", button_label: "Explorar", visitor_message: "Quiero explorar." }],
+    });
+    sendPublicChatQuickReply.mockResolvedValueOnce({
+      ok: true,
+      response_text: "Podemos ayudarte.",
+      next_questions: [],
+      actions: [
+        { type: "form", form_kind: "project_details", label: "Contar detalles" },
+        { type: "portfolio", label: "Ver portafolio" },
+        { type: "handoff", label: "Hablar con una persona" },
+      ],
+      responder: AIRA_RESPONDER,
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    fireEvent.click(await screen.findByRole("button", { name: "Explorar" }));
+
+    expect(await screen.findByText("Podemos ayudarte.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Contar detalles" }));
+    expect(await screen.findByRole("form", { name: "Formulario de detalles del proyecto" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ver portafolio" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Hablar con una persona" }).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("ignora el segundo click mientras la primera selección está en vuelo", async () => {
+    let resolveReply;
+    sendPublicChatQuickReply.mockReturnValueOnce(new Promise((resolve) => { resolveReply = resolve; }));
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-1", visitor_id: "visitor-1", greeting: "Hola", responder: AIRA_RESPONDER,
+      quick_replies: [{ id: "reply-root", button_label: "Cotizar", visitor_message: "Quiero cotizar." }],
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    const button = await screen.findByRole("button", { name: "Cotizar" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(sendPublicChatQuickReply).toHaveBeenCalledTimes(1);
+    resolveReply({ ok: true, response_text: "Respuesta", next_questions: [], actions: [], responder: AIRA_RESPONDER });
+    await screen.findByText("Respuesta");
+  });
+
+  it("envía project_details con la sesión actual y sin IDs administrativos", async () => {
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-1", visitor_id: "visitor-1", greeting: "Hola", responder: AIRA_RESPONDER,
+      quick_replies: [{ id: "reply-root", button_label: "Cotizar" }],
+    });
+    sendPublicChatQuickReply.mockResolvedValueOnce({
+      ok: true, response_text: "Cuéntame más.", next_questions: [],
+      actions: [{ type: "form", form_kind: "project_details", label: "Contar detalles" }], responder: AIRA_RESPONDER,
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    fireEvent.click(await screen.findByRole("button", { name: "Cotizar" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Contar detalles" }));
+    fireEvent.change(screen.getByLabelText("Nombre completo"), { target: { value: "Ana Pérez" } });
+    fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "ana@example.com" } });
+    fireEvent.change(screen.getByLabelText("Detalles del proyecto"), { target: { value: "Necesito una identidad visual." } });
+    fireEvent.click(screen.getByLabelText(/acepto que ideas estudio/i));
+    fireEvent.click(screen.getByRole("button", { name: "Enviar detalles" }));
+    await waitFor(() => expect(submitProjectDetails).toHaveBeenCalledTimes(1));
+    const payload = submitProjectDetails.mock.calls[0][0];
+    expect(payload).toMatchObject({ session_id: "session-1", full_name: "Ana Pérez", email: "ana@example.com", message: "Necesito una identidad visual.", consent: true });
+    expect(payload).not.toHaveProperty("workspace_id");
+    expect(payload).not.toHaveProperty("chatbot_id");
+    expect(await screen.findByText("Gracias por compartir los detalles.")).toBeInTheDocument();
+  });
+
+  it("protege doble click y conserva client_submission_id al reintentar un 409", async () => {
+    let rejectSubmission;
+    submitProjectDetails.mockImplementationOnce(() => new Promise((_, reject) => { rejectSubmission = reject; }));
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-1", visitor_id: "visitor-1", greeting: "Hola", responder: AIRA_RESPONDER,
+      quick_replies: [{ id: "reply-root", button_label: "Detalles" }],
+    });
+    sendPublicChatQuickReply.mockResolvedValueOnce({
+      ok: true, response_text: "Completa el formulario.", next_questions: [],
+      actions: [{ type: "form", form_kind: "project_details", label: "Contar detalles" }], responder: AIRA_RESPONDER,
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    fireEvent.click(await screen.findByRole("button", { name: "Detalles" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Contar detalles" }));
+    fireEvent.change(screen.getByLabelText("Nombre completo"), { target: { value: "Ana" } });
+    fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "ana@example.com" } });
+    fireEvent.change(screen.getByLabelText("Detalles del proyecto"), { target: { value: "Proyecto" } });
+    fireEvent.click(screen.getByLabelText(/acepto que ideas estudio/i));
+    const submitButton = screen.getByRole("button", { name: "Enviar detalles" });
+    fireEvent.click(submitButton);
+    fireEvent.click(submitButton);
+    expect(submitProjectDetails).toHaveBeenCalledTimes(1);
+    const firstId = submitProjectDetails.mock.calls[0][0].client_submission_id;
+    rejectSubmission(Object.assign(new Error("Procesando"), { status: 409 }));
+    expect(await screen.findByText("Procesando")).toBeInTheDocument();
+    submitProjectDetails.mockResolvedValueOnce({ ok: true, submission_id: "submission-1", response_text: "Recibido" });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar detalles" }));
+    await waitFor(() => expect(submitProjectDetails).toHaveBeenCalledTimes(2));
+    expect(submitProjectDetails.mock.calls[1][0].client_submission_id).toBe(firstId);
+  });
 });
 
 describe("PublicChatWidget — estado inicial", () => {
