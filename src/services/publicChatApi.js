@@ -86,6 +86,49 @@ export async function sendPublicChatMessage(sessionId, message, clientMessageId)
   });
 }
 
+export async function sendPublicChatQuickReply(sessionId, quickReplyId, clientMessageId) {
+  return publicChatFetch("/quick-reply", {
+    method: "POST",
+    body: JSON.stringify({
+      session_id: sessionId,
+      quick_reply_id: quickReplyId,
+      client_message_id: clientMessageId,
+    }),
+  });
+}
+
+export async function submitPublicProjectDetails({ profile, sessionId, serviceInterest, projectTiming, preferredContact, message, additionalInfo }) {
+  const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+  const configuredBase = (CRM_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "");
+  const base = import.meta.env.DEV && isPrivateLanHost(hostname) ? "" : configuredBase;
+  if (!base && !(import.meta.env.DEV && isPrivateLanHost(hostname))) {
+    throw new Error("Falta VITE_CRM_BASE_URL. Define la URL del backend en tu .env.");
+  }
+  const response = await fetch(`${base}/api/public/contact-submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({
+      full_name: profile?.full_name || "",
+      email: profile?.email || "",
+      phone: profile?.phone || null,
+      service_interest: serviceInterest || null,
+      message,
+      source: "public_chat_quick_reply",
+      segment: "aira_project_details",
+      segments: ["aira_project_details"],
+      meta: { session_id: sessionId, project_timing: projectTiming || null, preferred_contact: preferredContact || null, additional_info: additionalInfo || null },
+    }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = new Error(data?.detail || data?.message || `Request failed with status ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return data;
+}
+
 // FASE HANDOFF H3B.1 — snapshot completo de mensajes públicos visibles +
 // responder actual de la sesión (ver GET /public/chat/events, agregado en
 // FASE HANDOFF H1/H3A). Nunca envía conversation_id/workspace_id/
@@ -126,7 +169,10 @@ export async function getPublicChatStatus(sessionId) {
 // el backend resuelve server-side la publicación válida y devuelve solo
 // poses públicas con URLs temporales.
 export async function getPublicAvatarRuntime(options = {}) {
-  return publicChatFetch("/avatar", {
+  const profile = typeof options.profile === "string" && options.profile.trim()
+    ? `?profile=${encodeURIComponent(options.profile.trim())}`
+    : "";
+  return publicChatFetch(`/avatar${profile}`, {
     method: "GET",
     signal: options.signal,
   });

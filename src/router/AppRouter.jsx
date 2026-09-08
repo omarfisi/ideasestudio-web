@@ -33,6 +33,7 @@ import ContactPage from "@/pages/ContactPage.jsx";
 import BusinessIntakeLanding from "@/pages/BusinessIntakeLanding.jsx";
 import CartPage from "@/pages/CartPage.jsx";
 import CheckoutPage from "@/pages/CheckoutPage.jsx";
+import PublicBookingPage from "@/pages/PublicBookingPage.jsx";
 import OrderConfirmationPage from "@/pages/OrderConfirmationPage.jsx";
 import AccountLoginPage from "@/pages/AccountLoginPage.jsx";
 import AccountCallbackPage from "@/pages/AccountCallbackPage.jsx";
@@ -250,6 +251,14 @@ const router = createBrowserRouter([
       {
         path: "servicios/checkout",
         element: <CheckoutPage />,
+      },
+      {
+        path: "reservar",
+        element: <PublicBookingPage />,
+      },
+      {
+        path: "reservar/:slug",
+        element: <PublicBookingPage />,
       },
       {
         path: "servicios/ordenes/:orderNumber",

@@ -111,7 +111,11 @@ export default function PrechatForm({ onVerified, onCancel, recognized, onForget
         throw new Error("No se pudo verificar tu información. Intenta de nuevo.");
       }
 
-      onVerified(verification.prechat_token, values.remember_me);
+      onVerified(verification.prechat_token, values.remember_me, {
+        full_name: values.full_name.trim(),
+        email: values.email.trim(),
+        phone: values.phone.trim(),
+      });
     } catch (error) {
       setStatus("error");
       setServerError(error?.message || "No se pudo iniciar la conversación. Intenta de nuevo en un momento.");
