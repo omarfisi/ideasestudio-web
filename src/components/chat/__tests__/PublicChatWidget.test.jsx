@@ -155,6 +155,18 @@ function publicAvatarRuntime(overrides = {}) {
   };
 }
 
+function ivoxAvatarRuntime(overrides = {}) {
+  const runtime = publicAvatarRuntime({
+    profile: "ivox",
+    poses: {
+      "point-viewer": { url: "https://cdn.example/ivox-point-viewer.png" },
+      neutral: { url: "https://cdn.example/ivox-neutral.png" },
+    },
+    ...overrides,
+  });
+  return runtime;
+}
+
 describe("PublicChatWidget — runtime visual público de AIRA", () => {
   it("expone un rail cerrado específico para mobile y un estado fullscreen al abrir", async () => {
     getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
@@ -217,9 +229,60 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     expect(screen.queryByLabelText(/aira invitando a abrir el chat/i)).not.toBeInTheDocument();
     expect(await screen.findByRole("img", { name: /AIRA:/i })).toBeInTheDocument();
     expect(document.querySelector(".public-chat-widget__stage")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /ivox/i })).toBeDisabled();
+    expect(screen.queryByText("No disponible")).not.toBeInTheDocument();
     expect(screen.getByRole("group", { name: /escoge con quién hablar/i })).toBeInTheDocument();
     expect(screen.queryByLabelText(/acciones rápidas/i)).not.toBeInTheDocument();
+  });
+
+  it("presenta IVOX desde el runtime y nunca usa el launcher estático de AIRA", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    getPublicAvatarRuntime.mockResolvedValueOnce(ivoxAvatarRuntime());
+    render(<PublicChatWidget />);
+
+    expect(await screen.findByRole("button", { name: /abrir chat con ivox/i })).toBeInTheDocument();
+    const launcherCharacter = screen.getByLabelText(/ivox invitando a abrir el chat/i);
+    expect(launcherCharacter.querySelector(".public-chat-widget__launcher-image")).not.toBeInTheDocument();
+    expect(launcherCharacter.querySelector("img")).toHaveAttribute("src", "https://cdn.example/ivox-point-viewer.png");
+    expect(document.querySelector(".public-chat-widget__pill-name")).toHaveTextContent("IVOX");
+    expect(screen.queryByText("No disponible")).not.toBeInTheDocument();
+    expect(screen.queryByText("AIRA")).not.toBeInTheDocument();
+
+    openWidget();
+    expect(await screen.findByRole("region", { name: /vista previa del avatar ivox/i })).toBeInTheDocument();
+  });
+
+  it("degrada a placeholder si falla la imagen del launcher IVOX sin usar AIRA", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    getPublicAvatarRuntime.mockResolvedValueOnce(ivoxAvatarRuntime());
+    render(<PublicChatWidget />);
+
+    const launcherCharacter = await screen.findByLabelText(/ivox invitando a abrir el chat/i);
+    const launcherImage = launcherCharacter.querySelector("img");
+    expect(launcherImage).toHaveAttribute("src", "https://cdn.example/ivox-point-viewer.png");
+
+    fireEvent.error(launcherImage);
+
+    expect(launcherCharacter.querySelector(".public-chat-widget__launcher-image")).not.toBeInTheDocument();
+    expect(launcherCharacter.querySelector(".public-chat-widget__avatar-placeholder")).toBeInTheDocument();
+    expect(launcherCharacter).not.toHaveTextContent("AIRA");
+  });
+
+  it("refresca el perfil público al reabrir el widget", async () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    getPublicAvatarRuntime
+      .mockResolvedValueOnce(publicAvatarRuntime())
+      .mockResolvedValueOnce(publicAvatarRuntime())
+      .mockResolvedValueOnce(ivoxAvatarRuntime());
+    render(<PublicChatWidget />);
+    await screen.findByRole("button", { name: /abrir chat con aira/i });
+
+    openWidget();
+    closeWidget();
+    openWidget();
+
+    await waitFor(() => expect(getPublicAvatarRuntime).toHaveBeenCalledTimes(3));
+    expect(widgetRoot()).toHaveClass("public-chat-widget--open");
+    expect(document.querySelector(".public-chat-widget__title")).toHaveTextContent("IVOX");
   });
 
   it("alterna point-viewer e invite-chat únicamente en el personaje externo", () => {

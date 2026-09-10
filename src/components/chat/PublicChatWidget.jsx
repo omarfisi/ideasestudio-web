@@ -295,6 +295,15 @@ const AIRA_RESPONDER = Object.freeze({
   status_label: "Asistente virtual",
 });
 
+const PUBLIC_AVATAR_IDENTITIES = Object.freeze({
+  aira: Object.freeze({ profile: "aira", display_name: "AIRA" }),
+  ivox: Object.freeze({ profile: "ivox", display_name: "IVOX" }),
+});
+
+function publicAvatarIdentity(runtime) {
+  return PUBLIC_AVATAR_IDENTITIES[runtime?.profile] || PUBLIC_AVATAR_IDENTITIES.aira;
+}
+
 function isAvatarRuntimeExpired(runtime, now = Date.now()) {
   const expiresAt = Date.parse(runtime?.expires_at || "");
   return Number.isFinite(expiresAt) && expiresAt <= now;
@@ -435,7 +444,15 @@ function ResponderAvatar({
   );
 }
 
-function AiraStage({ pose, poseKey, visualState, runtimeAvailable, compact, onExhaustedFailure }) {
+function AiraStage({
+  pose,
+  poseKey,
+  visualState,
+  runtimeAvailable,
+  compact,
+  onExhaustedFailure,
+  avatarName = "AIRA",
+}) {
   const initialFrame = pose ? { pose, poseKey, visualState } : null;
   const [displayedFrame, setDisplayedFrame] = useState(initialFrame);
   const [previousFrame, setPreviousFrame] = useState(null);
@@ -530,7 +547,7 @@ function AiraStage({ pose, poseKey, visualState, runtimeAvailable, compact, onEx
   return (
     <section
       className={`public-chat-widget__stage public-chat-widget__stage--${compact ? "compact" : "expanded"}`}
-      aria-label="Vista previa del avatar AIRA"
+      aria-label={`Vista previa del avatar ${avatarName}`}
       data-stage-size={compact ? "compact" : "expanded"}
     >
       {visibleFrame ? (
@@ -545,15 +562,15 @@ function AiraStage({ pose, poseKey, visualState, runtimeAvailable, compact, onEx
           )}
           <img
             src={visibleFrame.pose.url}
-            alt={`AIRA: ${label}`}
+            alt={`${avatarName}: ${label}`}
             className="public-chat-widget__stage-image public-chat-widget__stage-image--current"
             onError={handleCurrentImageError}
           />
         </>
       ) : (
-        <div className="public-chat-widget__stage-fallback" role="img" aria-label="AIRA no disponible">
+        <div className="public-chat-widget__stage-fallback" role="img" aria-label={`${avatarName} no disponible`}>
           <MessageCircle size={42} aria-hidden="true" />
-          <span>{runtimeAvailable ? "Vista previa no disponible" : "AIRA"}</span>
+          <span>{runtimeAvailable ? "Vista previa no disponible" : avatarName}</span>
         </div>
       )}
       <div className="public-chat-widget__stage-status" role="status">
@@ -1097,13 +1114,15 @@ export default function PublicChatWidget() {
     const request = getPublicAvatarRuntime()
       .then((runtime) => {
         if (requestSeq !== airaRuntimeRequestSeqRef.current) return runtime;
-        setAiraAvatarRuntime(runtime && typeof runtime === "object" ? runtime : null);
+        setAiraAvatarRuntime((current) => (
+          runtime && typeof runtime === "object" ? runtime : current
+        ));
         scheduleAiraRuntimeRefresh(runtime);
         return runtime;
       })
       .catch(() => {
         if (requestSeq === airaRuntimeRequestSeqRef.current) {
-          setAiraAvatarRuntime(null);
+          setAiraAvatarRuntime((current) => current);
           scheduleAiraRuntimeRefresh(null);
         }
         return null;
@@ -1140,6 +1159,18 @@ export default function PublicChatWidget() {
       airaRuntimeRequestRef.current = null;
       if (airaRuntimeRefreshTimerRef.current) window.clearTimeout(airaRuntimeRefreshTimerRef.current);
       airaRuntimeRefreshTimerRef.current = null;
+    };
+  }, [loadAiraAvatarRuntime]);
+
+  useEffect(() => {
+    const refreshRuntime = () => {
+      if (document.visibilityState === "visible") void loadAiraAvatarRuntime(true);
+    };
+    window.addEventListener("focus", refreshRuntime);
+    document.addEventListener("visibilitychange", refreshRuntime);
+    return () => {
+      window.removeEventListener("focus", refreshRuntime);
+      document.removeEventListener("visibilitychange", refreshRuntime);
     };
   }, [loadAiraAvatarRuntime]);
 
@@ -1803,6 +1834,7 @@ export default function PublicChatWidget() {
     const nextOpen = !isOpen;
     setIsOpen(nextOpen);
     if (nextOpen) {
+      void loadAiraAvatarRuntime(Boolean(airaAvatarRuntime));
       activateAiraEvent("chat.opened");
     } else {
       clearAiraReactionTimers();
@@ -2262,23 +2294,41 @@ export default function PublicChatWidget() {
     : null;
   const responderAvatarKey = `${responder.type}:${responder.avatar_url || ""}:${activeAiraPose?.url || ""}`;
   const isAiraResponder = responder.type === "aira";
-  const launcherPortraitPose = isAiraResponder ? exactRuntimePose(airaAvatarRuntime, "neutral") : null;
+  const publicAvatar = publicAvatarIdentity(airaAvatarRuntime);
+  const publicResponder = isAiraResponder
+    ? { ...responder, display_name: publicAvatar.display_name }
+    : responder;
+  const launcherPoseKey = publicAvatar.profile === "ivox"
+    ? exactRuntimePose(airaAvatarRuntime, "point-viewer") ? "point-viewer" : "neutral"
+    : "neutral";
+  const launcherPortraitPose = isAiraResponder ? exactRuntimePose(airaAvatarRuntime, launcherPoseKey) : null;
   const launcherAsset = airaLauncherFrame === "invite-chat" ? airaInviteAsset : airaLauncherAsset;
 
   return (
     <div ref={wrapperRef} className={`public-chat-widget${isOpen ? " public-chat-widget--open" : ""}`}>
       <div className="public-chat-widget__launcher-composition">
         {!isOpen && isAiraResponder && (
-          <div className="public-chat-widget__launcher-character" aria-label="AIRA invitando a abrir el chat">
+          <div className="public-chat-widget__launcher-character" aria-label={`${publicResponder.display_name} invitando a abrir el chat`}>
             <span className="public-chat-widget__launcher-callout">¿Hablamos?</span>
-            <img className="public-chat-widget__launcher-image" src={launcherAsset} alt="" aria-hidden="true" />
+            {publicAvatar.profile === "aira" ? (
+              <img className="public-chat-widget__launcher-image" src={launcherAsset} alt="" aria-hidden="true" />
+            ) : (
+              <ResponderAvatar
+                key={`launcher-character:${launcherPortraitPose?.url || "fallback"}`}
+                responder={publicResponder}
+                airaAvatarRuntime={airaAvatarRuntime}
+                airaPoseKey={launcherPoseKey}
+                size={96}
+                strictAiraPose
+              />
+            )}
           </div>
         )}
         <button
           type="button"
           className={`public-chat-widget__toggle${isOpen ? "" : " public-chat-widget__toggle--pill public-chat-widget__toggle--mobile-rail"}`}
           onClick={handleToggle}
-          aria-label={isOpen ? "Cerrar chat" : `Abrir chat con ${responder.display_name}`}
+          aria-label={isOpen ? "Cerrar chat" : `Abrir chat con ${publicResponder.display_name}`}
           aria-expanded={isOpen}
         >
           {isOpen ? (
@@ -2289,9 +2339,9 @@ export default function PublicChatWidget() {
                 <span className="public-chat-widget__launcher-portrait">
                   <ResponderAvatar
                     key={`launcher:${launcherPortraitPose?.url || "fallback"}`}
-                    responder={responder}
+                    responder={publicResponder}
                     airaAvatarRuntime={airaAvatarRuntime}
-                    airaPoseKey="neutral"
+                    airaPoseKey={launcherPoseKey}
                     size={38}
                     strictAiraPose
                   />
@@ -2299,14 +2349,14 @@ export default function PublicChatWidget() {
               ) : (
                 <ResponderAvatar
                   key={responderAvatarKey}
-                  responder={responder}
+                  responder={publicResponder}
                   airaAvatarRuntime={airaAvatarRuntime}
                   airaPoseKey={airaPoseKey}
                   size={36}
                 />
               )}
               <span className="public-chat-widget__pill-text">
-                <span className="public-chat-widget__pill-name">{responder.display_name}</span>
+                <span className="public-chat-widget__pill-name">{publicResponder.display_name}</span>
                 <span className="public-chat-widget__pill-status">
                   {isAiraResponder ? "Iniciar conversación" : responder.status_label}
                 </span>
@@ -2337,8 +2387,8 @@ export default function PublicChatWidget() {
                 />
               )}
               <div>
-                <p className="public-chat-widget__title">{responder.display_name}</p>
-                <p className="public-chat-widget__subtitle">{responder.status_label}</p>
+                <p className="public-chat-widget__title">{publicResponder.display_name}</p>
+                <p className="public-chat-widget__subtitle">{publicResponder.status_label}</p>
               </div>
             </div>
             <button
@@ -2361,12 +2411,8 @@ export default function PublicChatWidget() {
               <div className="public-chat-widget__assistant-switcher" role="group" aria-label="Escoge con quién hablar">
                 <button type="button" className="public-chat-widget__assistant-choice public-chat-widget__assistant-choice--active" aria-pressed="true">
                   <span className="public-chat-widget__assistant-choice-icon" aria-hidden="true"><MessageCircle size={16} /></span>
-                  <span><strong>AIRA</strong><small>Seleccionada</small></span>
+                  <span><strong>{publicAvatar.display_name}</strong><small>Seleccionada</small></span>
                   <Check size={15} aria-hidden="true" />
-                </button>
-                <button type="button" className="public-chat-widget__assistant-choice" disabled aria-pressed="false" title="IVOX no está disponible todavía">
-                  <span className="public-chat-widget__assistant-choice-icon" aria-hidden="true"><User size={16} /></span>
-                  <span><strong>IVOX</strong><small>No disponible</small></span>
                 </button>
               </div>
               <AiraStage
@@ -2375,6 +2421,7 @@ export default function PublicChatWidget() {
                 visualState={avatarState}
                 runtimeAvailable={Boolean(airaAvatarRuntime)}
                 compact={hasRealConversationRef.current}
+                avatarName={publicAvatar.display_name}
                 onExhaustedFailure={handleAiraStageExhaustedFailure}
               />
             </>
