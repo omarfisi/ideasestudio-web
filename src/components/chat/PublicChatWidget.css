@@ -905,6 +905,116 @@
   background: var(--brand-strong, #e5c200);
 }
 
+.public-chat-widget__quick-replies,
+.public-chat-widget__quick-reply-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.public-chat-widget__quick-replies {
+  padding: 10px 16px 4px;
+}
+
+.public-chat-widget__quick-reply {
+  border: 1px solid var(--aira-border, #d7dbe2);
+  border-radius: 999px;
+  background: #fff;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.public-chat-widget__quick-reply:hover:not(:disabled),
+.public-chat-widget__quick-reply:focus-visible {
+  border-color: var(--aira-accent, #d5aa00);
+}
+
+.public-chat-widget__quick-reply:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.public-chat-widget__quick-reply-actions {
+  margin-top: 8px;
+}
+
+.public-chat-widget__project-details-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 12px;
+  padding: 14px;
+  border: 1px solid var(--line-strong, rgba(22, 22, 22, 0.18));
+  border-radius: 16px;
+  background: var(--bg-soft, #fbf8f3);
+}
+
+.public-chat-widget__project-details-form h3,
+.public-chat-widget__project-details-form p {
+  margin: 0;
+}
+
+.public-chat-widget__project-details-form h3 {
+  font-size: 0.95rem;
+}
+
+.public-chat-widget__project-details-form p {
+  color: var(--muted, #5c5347);
+  font-size: 0.78rem;
+}
+
+.public-chat-widget__project-details-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text, #161616);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.public-chat-widget__project-details-form input,
+.public-chat-widget__project-details-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--line-strong, rgba(22, 22, 22, 0.18));
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #fff;
+  color: var(--text, #161616);
+  font: inherit;
+  font-weight: 400;
+}
+
+.public-chat-widget__project-details-form textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.public-chat-widget__project-details-form input:focus,
+.public-chat-widget__project-details-form textarea:focus {
+  outline: 2px solid var(--brand, #f1d146);
+  outline-offset: 1px;
+}
+
+.public-chat-widget__project-details-consent {
+  flex-direction: row !important;
+  align-items: flex-start;
+  font-weight: 400 !important;
+}
+
+.public-chat-widget__project-details-consent input {
+  width: auto;
+  margin-top: 2px;
+}
+
+.public-chat-widget__project-details-form .public-chat-widget__send {
+  width: 100%;
+  align-self: stretch;
+}
+
 .public-chat-widget__typing {
   display: flex;
   gap: 4px;
