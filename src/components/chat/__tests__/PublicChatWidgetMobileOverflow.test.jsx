@@ -25,6 +25,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 
 vi.mock("@/services/publicChatApi.js", () => ({
+  getPublicChatAssistants: vi.fn(),
   startPublicChat: vi.fn(),
   sendPublicChatMessage: vi.fn(),
   verifyPrechat: vi.fn(),
@@ -38,7 +39,7 @@ vi.mock("@/services/publicChatApi.js", () => ({
 vi.mock("@/lib/publicFormsApi.js", () => ({ submitPublicForm: vi.fn() }));
 
 const { default: PublicChatWidget } = await import("@/components/chat/PublicChatWidget.jsx");
-const { getPublicChatEvents, getPublicAvatarRuntime, recognizeVisitor } = await import(
+const { getPublicChatAssistants, getPublicChatEvents, getPublicAvatarRuntime, recognizeVisitor } = await import(
   "@/services/publicChatApi.js"
 );
 
@@ -108,6 +109,7 @@ describe("PublicChatWidget mobile CSS — auditoría estática de overflow horiz
 describe("PublicChatWidget mobile — smoke check de scrollWidth/clientWidth (NO prueba geometría real)", () => {
   beforeEach(() => {
     sessionStorage.clear();
+    getPublicChatAssistants.mockResolvedValue([]);
     getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], handoff_requested: false });
     getPublicAvatarRuntime.mockResolvedValue(null);
     recognizeVisitor.mockResolvedValue({ recognized: false, full_name: null, email: null, phone: null });
