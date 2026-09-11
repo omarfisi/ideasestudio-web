@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { requestPublicChatHuman, getPublicAvatarRuntime } = await import("@/services/publicChatApi.js");
+const { requestPublicChatHuman, getPublicAvatarRuntime, sendPublicChatQuickReply, submitPublicProjectDetails } = await import("@/services/publicChatApi.js");
 
 function jsonResponse(status, body, headers = {}) {
   return {
@@ -67,6 +67,52 @@ describe("requestPublicChatHuman", () => {
   });
 });
 
+describe("sendPublicChatQuickReply", () => {
+  it("envía solo la sesión, la opción y el idempotency id", async () => {
+    fetch.mockResolvedValue(jsonResponse(200, { ok: true, response_text: "Respuesta", next_questions: [] }));
+    await sendPublicChatQuickReply("session-1", "reply-1", "message-1");
+    const [url, options] = fetch.mock.calls[0];
+    expect(String(url)).toMatch(/\/public\/chat\/quick-reply$/);
+    expect(options.method).toBe("POST");
+    expect(JSON.parse(options.body)).toEqual({
+      session_id: "session-1",
+      quick_reply_id: "reply-1",
+      client_message_id: "message-1",
+    });
+  });
+});
+
+describe("submitPublicProjectDetails", () => {
+  it("envía el formulario dentro de la sesión pública", async () => {
+    fetch.mockResolvedValue(jsonResponse(200, { ok: true, submission_id: "submission-1" }));
+    await submitPublicProjectDetails({
+      profile: { full_name: "Ana Pérez", email: "ana@example.com", phone: "" },
+      sessionId: "session-1",
+      serviceInterest: "Diseño web y presencia digital",
+      projectTiming: "Este mes",
+      preferredContact: "Correo electrónico",
+      message: "Necesito una página web para mi negocio.",
+      additionalInfo: "Ya tengo el contenido preparado.",
+    });
+    const [url, options] = fetch.mock.calls[0];
+    expect(String(url)).toMatch(/^http:\/\/127\.0\.0\.1:8000\/public\/chat\/project-details$/);
+    expect(options.method).toBe("POST");
+    expect(JSON.parse(options.body)).toMatchObject({
+      session_id: "session-1",
+      full_name: "Ana Pérez",
+      email: "ana@example.com",
+      phone: null,
+      service_interest: "Diseño web y presencia digital",
+      message: "Necesito una página web para mi negocio.",
+      project_timing: "Este mes",
+      preferred_contact: "Correo electrónico",
+      additional_info: "Ya tengo el contenido preparado.",
+      consent: true,
+    });
+    expect(JSON.parse(options.body).client_submission_id).toMatch(/^[0-9a-f-]{36}$/i);
+  });
+});
+
 describe("getPublicAvatarRuntime", () => {
   it("hace GET público sin parámetros administrativos ni autenticación Supabase", async () => {
     fetch.mockResolvedValue(jsonResponse(200, {
@@ -85,6 +131,17 @@ describe("getPublicAvatarRuntime", () => {
     expect(options.body).toBeUndefined();
     expect(String(url)).not.toMatch(/workspace_id|profile_id|variant_id|version_id/);
     expect(options.headers).toEqual({ "Content-Type": "application/json" });
+  });
+
+  it("envía el perfil público seleccionado sin exponer identificadores internos", async () => {
+    fetch.mockResolvedValue(jsonResponse(200, { profile: "ivox", variant: "default", poses: {}, rules: [] }));
+
+    await getPublicAvatarRuntime({ profile: "ivox" });
+
+    const [url, options] = fetch.mock.calls[0];
+    expect(String(url)).toMatch(/\/public\/chat\/avatar\?profile=ivox$/);
+    expect(options.method).toBe("GET");
+    expect(String(url)).not.toMatch(/workspace_id|profile_id|variant_id|version_id/);
   });
 });
 

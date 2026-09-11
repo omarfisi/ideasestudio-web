@@ -43,7 +43,7 @@ const REMEMBER_ME_LABEL = "Recuérdame en este navegador para no pedirte tus dat
  * (`consent`) — sin marcar, nunca se le pide al backend que recuerde al
  * visitante, sin importar que `consent` sí esté marcado.
  */
-export default function PrechatForm({ onVerified, onCancel, recognized, onForget }) {
+export default function PrechatForm({ onVerified, onCancel, recognized, onForget, assistantName = "el asistente" }) {
   const [values, setValues] = useState({
     full_name: "",
     email: "",
@@ -111,7 +111,11 @@ export default function PrechatForm({ onVerified, onCancel, recognized, onForget
         throw new Error("No se pudo verificar tu información. Intenta de nuevo.");
       }
 
-      onVerified(verification.prechat_token, values.remember_me);
+      onVerified(verification.prechat_token, values.remember_me, {
+        full_name: values.full_name.trim(),
+        email: values.email.trim(),
+        phone: values.phone.trim(),
+      });
     } catch (error) {
       setStatus("error");
       setServerError(error?.message || "No se pudo iniciar la conversación. Intenta de nuevo en un momento.");
@@ -137,7 +141,7 @@ export default function PrechatForm({ onVerified, onCancel, recognized, onForget
     <form className="public-chat-widget__prechat" onSubmit={handleSubmit} noValidate>
       <div className="public-chat-widget__prechat-intro">
         <h2>Antes de comenzar</h2>
-        <p>Cuéntanos quién eres para que AIRA pueda ayudarte y darte seguimiento si hace falta.</p>
+        <p>Cuéntanos quién eres para que {assistantName} pueda ayudarte y darte seguimiento si hace falta.</p>
         {recognized && (
           <p className="public-chat-widget__prechat-recognized">
             Ya te reconocemos de una visita anterior — revisa tus datos abajo.{" "}

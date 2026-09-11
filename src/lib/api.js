@@ -572,6 +572,7 @@ function normalizeOrder(raw) {
     : [];
   const summary = raw.summary && typeof raw.summary === "object" ? raw.summary : {};
   const totals = mapOrderTotals(raw);
+  const bookingSummary = normalizeBookingSummary(raw.booking_summary || raw.bookingSummary);
 
   return {
     id: raw.id,
@@ -602,6 +603,7 @@ function normalizeOrder(raw) {
       raw.metadata && typeof raw.metadata === "object" ? raw.metadata : {},
     createdAt: raw.created_at || null,
     updatedAt: raw.updated_at || null,
+    bookingSummary,
     // Present on endpoints that select the full store_orders row (e.g. Mi
     // cuenta order detail); null on the guest-by-number confirmation
     // endpoint, which selects an explicit column allowlist that doesn't
@@ -728,7 +730,7 @@ export async function getPublicServiceCategories() {
 }
 
 export async function getPublicCatalog(filters = {}) {
-  const url = buildUrl("/services");
+  const url = buildUrl("/public/services");
   const data = await apiFetch(url);
   const result = normalizeCatalogResponse(data);
 
@@ -788,7 +790,7 @@ export async function getPublicCatalogByClientType(clientType) {
 }
 
 export async function getPublicServiceBySlug(slug) {
-  const url = buildUrl(`/services/${slug}`);
+  const url = buildUrl(`/public/services/${slug}`);
   const data = await apiFetch(url);
   const service = normalizeService(data?.item);
 

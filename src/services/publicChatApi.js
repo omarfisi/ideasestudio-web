@@ -62,11 +62,17 @@ async function publicChatFetch(path, options = {}) {
   return data;
 }
 
-export async function startPublicChat(prechatToken, rememberMe = false) {
+export async function startPublicChat(prechatToken, rememberMe = false, chatbotKey = null) {
+  const body = { prechat_token: prechatToken || null, remember_me: Boolean(rememberMe) };
+  if (chatbotKey) body.chatbot_key = chatbotKey;
   return publicChatFetch("/start", {
     method: "POST",
-    body: JSON.stringify({ prechat_token: prechatToken || null, remember_me: Boolean(rememberMe) }),
+    body: JSON.stringify(body),
   });
+}
+
+export async function getPublicChatAssistants() {
+  return publicChatFetch("/assistants", { method: "GET" });
 }
 
 // FASE 1AA.1 — clientMessageId es la identidad lógica estable de este envío:
@@ -84,6 +90,40 @@ export async function sendPublicChatMessage(sessionId, message, clientMessageId)
       client_message_id: clientMessageId,
     }),
   });
+}
+
+export async function sendPublicChatQuickReply(sessionId, quickReplyId, clientMessageId) {
+  return publicChatFetch("/quick-reply", {
+    method: "POST",
+    body: JSON.stringify({
+      session_id: sessionId,
+      quick_reply_id: quickReplyId,
+      client_message_id: clientMessageId,
+    }),
+  });
+}
+
+export async function submitPublicProjectDetails({ profile, sessionId, serviceInterest, projectTiming, preferredContact, message, additionalInfo }) {
+  const clientSubmissionId = typeof globalThis.crypto?.randomUUID === "function"
+    ? globalThis.crypto.randomUUID()
+    : `project-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const response = await publicChatFetch("/project-details", {
+    method: "POST",
+    body: JSON.stringify({
+      session_id: sessionId,
+      full_name: profile?.full_name || "",
+      email: profile?.email || "",
+      phone: profile?.phone || null,
+      service_interest: serviceInterest || null,
+      message,
+      project_timing: projectTiming || null,
+      preferred_contact: preferredContact || null,
+      additional_info: additionalInfo || null,
+      consent: true,
+      client_submission_id: clientSubmissionId,
+    }),
+  });
+  return response;
 }
 
 // FASE HANDOFF H3B.1 — snapshot completo de mensajes públicos visibles +
@@ -126,7 +166,10 @@ export async function getPublicChatStatus(sessionId) {
 // el backend resuelve server-side la publicación válida y devuelve solo
 // poses públicas con URLs temporales.
 export async function getPublicAvatarRuntime(options = {}) {
-  return publicChatFetch("/avatar", {
+  const profile = typeof options.profile === "string" && options.profile.trim()
+    ? `?profile=${encodeURIComponent(options.profile.trim())}`
+    : "";
+  return publicChatFetch(`/avatar${profile}`, {
     method: "GET",
     signal: options.signal,
   });
