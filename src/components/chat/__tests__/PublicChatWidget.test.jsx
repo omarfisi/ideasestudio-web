@@ -882,6 +882,29 @@ describe("PublicChatWidget — estado inicial", () => {
     expect(getPublicAvatarRuntime.mock.calls.some(([options]) => options.chatbotKey === "aira-webchat-public")).toBe(false);
   });
 
+
+  it("no muestra AIRA mientras resuelve el default del CRM y luego presenta IVOX con su nombre", async () => {
+    let resolveDefault;
+    getPublicChatDefaultAssistant.mockReturnValueOnce(new Promise((resolve) => { resolveDefault = resolve; }));
+    getPublicAvatarRuntime.mockResolvedValue(publicAvatarRuntime({
+      profile: "ivox",
+      default_pose: "point-viewer",
+      poses: {
+        "point-viewer": { url: "https://cdn.example/ivox-point-viewer.png" },
+      },
+      rules: [],
+    }));
+
+    render(<PublicChatWidget />);
+    expect(widgetRoot()).toHaveClass("public-chat-widget--identity-pending");
+
+    resolveDefault({ key: "ivox-webchat-public", display_name: "IVOX" });
+
+    await waitFor(() => expect(widgetRoot()).not.toHaveClass("public-chat-widget--identity-pending"));
+    expect(document.querySelector(".public-chat-widget__pill-name")).toHaveTextContent("IVOX");
+    expect(screen.getByRole("button", { name: /abrir chat con ivox/i })).toBeInTheDocument();
+  });
+
   it("usa el default pose transparente de IVOX en el launcher público", async () => {
     sessionStorage.setItem("aira_public_chat_assistant_v2", "ivox-webchat-public");
     getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime({
@@ -913,17 +936,21 @@ describe("PublicChatWidget — estado inicial", () => {
     expect(getPublicAvatarRuntime.mock.calls[0][0]).toEqual({ chatbotKey: "aira-webchat-public" });
   });
 
-  it("no reutiliza una sesión sin scope ni una sesión de otro chatbot", () => {
+  it("descarta una sesión sin scope y conserva una sesión v2 scoped a su propio chatbot", () => {
     sessionStorage.setItem("aira_public_chat_session_v2", "unscoped-session");
-    render(<PublicChatWidget />);
+    const first = render(<PublicChatWidget />);
     expect(sessionStorage.getItem("aira_public_chat_session_v2")).toBeNull();
+    first.unmount();
 
     sessionStorage.setItem("aira_public_chat_session_v2", JSON.stringify({
       session_id: "ivox-session",
       chatbot_key: "ivox-webchat-public",
     }));
     render(<PublicChatWidget />);
-    expect(sessionStorage.getItem("aira_public_chat_session_v2")).toBeNull();
+    expect(JSON.parse(sessionStorage.getItem("aira_public_chat_session_v2"))).toEqual({
+      session_id: "ivox-session",
+      chatbot_key: "ivox-webchat-public",
+    });
     expect(startPublicChat).not.toHaveBeenCalled();
   });
 
