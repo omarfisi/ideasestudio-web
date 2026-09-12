@@ -75,6 +75,26 @@ export async function getPublicChatAssistants() {
   return publicChatFetch("/assistants", { method: "GET" });
 }
 
+// Read-only bridge from Avatar Manager's server-selected public profile to
+// the public chat assistant key. The browser never receives an internal
+// chatbot UUID or workspace identifier.
+export async function getPublicChatDefaultAssistant() {
+  return publicChatFetch("/default-assistant", { method: "GET" });
+}
+
+// Switch AIRA <-> IVOX from an already verified live session. The backend
+// creates a fresh chatbot-scoped conversation and copies only the verified
+// internal visitor linkage; no prechat token is reused or exposed.
+export async function switchPublicChatAssistant(sessionId, chatbotKey) {
+  return publicChatFetch("/switch-assistant", {
+    method: "POST",
+    body: JSON.stringify({
+      session_id: sessionId,
+      chatbot_key: chatbotKey,
+    }),
+  });
+}
+
 // FASE 1AA.1 — clientMessageId es la identidad lógica estable de este envío:
 // lo genera el caller (ver PublicChatWidget.jsx::handleSend) UNA vez por
 // intento lógico de mensaje y lo reutiliza si esa misma operación se
@@ -155,16 +175,16 @@ export async function requestPublicChatHuman(sessionId) {
 // LEVEL2: consulta read-only del responder actual de una sesión existente
 // (AIRA o el agente humano que tomó control), sin generar mensaje. Nunca
 // envía workspace_id/assigned_user_id/control_mode — el backend los resuelve
-// server-side a partir de session_id. Ver GET /public/chat/status.
+// server-side a partir de session_id. Devuelve el responder público actual.
 export async function getPublicChatStatus(sessionId) {
   return publicChatFetch(`/status?session_id=${encodeURIComponent(sessionId)}`, {
     method: "GET",
   });
 }
 
-// Runtime público de AIRA. No recibe identidad de workspace ni session_id:
-// el backend resuelve server-side la publicación válida y devuelve solo
-// poses públicas con URLs temporales.
+// Runtime público de AIRA/IVOX. No recibe identidad de workspace ni
+// session_id: el backend resuelve server-side la publicación válida y
+// devuelve solo poses públicas con URLs temporales.
 export async function getPublicAvatarRuntime(options = {}) {
   const chatbotKey = typeof options.chatbotKey === "string" && options.chatbotKey.trim()
     ? `?chatbot_key=${encodeURIComponent(options.chatbotKey.trim())}`
