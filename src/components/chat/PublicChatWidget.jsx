@@ -4,6 +4,7 @@ import { ArrowRight, Check, ChevronDown, ChevronUp, Copy, MessageCircle, Send, U
 import {
   forgetVisitor,
   getPublicChatAssistants,
+  getPublicChatDefaultAssistant,
   getPublicChatEvents,
   getPublicChatStatus,
   getPublicAvatarRuntime,
@@ -13,6 +14,7 @@ import {
   sendPublicChatQuickReply,
   sendPublicChatMessage,
   startPublicChat,
+  switchPublicChatAssistant,
 } from "@/services/publicChatApi.js";
 import PrechatForm from "./PrechatForm.jsx";
 import "./PublicChatWidget.css";
@@ -623,13 +625,17 @@ function AiraStage({ pose, poseKey, visualState, runtimeAvailable, compact, onEx
   );
 }
 
-function storedAssistantKey() {
+function explicitStoredAssistantKey() {
   try {
     const value = sessionStorage.getItem(ASSISTANT_STORAGE_KEY);
-    return value === "ivox-webchat-public" ? value : "aira-webchat-public";
+    return value === "aira-webchat-public" || value === "ivox-webchat-public" ? value : null;
   } catch {
-    return "aira-webchat-public";
+    return null;
   }
+}
+
+function storedAssistantKey() {
+  return explicitStoredAssistantKey() || "aira-webchat-public";
 }
 
 function clearStoredConversationState() {
@@ -1193,21 +1199,35 @@ export default function PublicChatWidget() {
   useEffect(() => {
     let cancelled = false;
     getPublicChatAssistants()
-      .then((items) => {
+      .then(async (items) => {
         if (cancelled) return;
         const next = Array.isArray(items) ? items : [];
         setAssistants(next);
-        if (next.length > 0 && !next.some((item) => item.key === selectedAssistantKey)) {
-          const fallback = next[0].key;
-          setSelectedAssistantKey(fallback);
-          sessionStorage.setItem(ASSISTANT_STORAGE_KEY, fallback);
+        if (next.length === 0 || sessionId) return;
+
+        const explicitChoice = explicitStoredAssistantKey();
+        if (explicitChoice && next.some((item) => item.key === explicitChoice)) {
+          setSelectedAssistantKey(explicitChoice);
+          return;
         }
+        if (explicitChoice) sessionStorage.removeItem(ASSISTANT_STORAGE_KEY);
+
+        let defaultKey = next[0].key;
+        try {
+          const selected = await getPublicChatDefaultAssistant();
+          if (cancelled) return;
+          if (next.some((item) => item.key === selected?.key)) defaultKey = selected.key;
+        } catch {
+          // Compatibility fallback: configured assistant order remains usable
+          // if Avatar Manager cannot resolve a public default temporarily.
+        }
+        if (!cancelled) setSelectedAssistantKey(defaultKey);
       })
       .catch(() => {
         if (!cancelled) setAssistants([]);
       });
     return () => { cancelled = true; };
-  }, [selectedAssistantKey]);
+  }, [sessionId]);
 
   const handleAvatarProfileChange = useCallback(async (profileSlug) => {
     const assistant = assistants.find((item) => item.key === profileSlug) || { key: profileSlug, display_name: profileSlug };
@@ -1215,18 +1235,85 @@ export default function PublicChatWidget() {
       await loadAiraAvatarRuntime(true, profileSlug);
       return;
     }
-    sessionStorage.setItem(ASSISTANT_STORAGE_KEY, profileSlug);
-    setSelectedAssistantKey(profileSlug);
-    if (sessionId) {
-      sessionStorage.removeItem(SESSION_STORAGE_KEY);
-      setSessionId(null);
-      setSessionReady(false);
-      setMessages([]);
-      setScreen("prechat");
+
+    // Before the visitor has completed prechat, assistant selection is only
+    // presentation state. Persist the explicit choice so /start uses it once
+    // verification succeeds.
+    if (!sessionId) {
+      sessionStorage.setItem(ASSISTANT_STORAGE_KEY, profileSlug);
+      setSelectedAssistantKey(profileSlug);
+      setAiraAvatarRuntime(null);
+      if (assistant.key === "aira-webchat-public" || assistant.key === "ivox-webchat-public") {
+        await loadAiraAvatarRuntime(true, assistant.key);
+      }
+      return;
     }
-    setAiraAvatarRuntime(null);
-    if (assistant.key === "aira-webchat-public" || assistant.key === "ivox-webchat-public") {
-      await loadAiraAvatarRuntime(true, assistant.key);
+
+    // A live conversation switches assistants server-side. The source session
+    // stays untouched until the new scoped conversation is fully created; on
+    // any failure the visitor remains in the original open conversation and
+    // never returns to prechat.
+    const sourceSessionId = sessionId;
+    setIsStarting(true);
+    setError(null);
+    try {
+      const data = await switchPublicChatAssistant(sourceSessionId, profileSlug);
+      if (currentSessionIdRef.current !== sourceSessionId) return;
+      if (!data?.session_id) throw new Error("La respuesta de cambio no incluyó una sesión válida.");
+
+      const nextSessionId = data.session_id;
+      const initialQuickReplies = Array.isArray(data.quick_replies) ? data.quick_replies : [];
+      const greetingMessage = {
+        sendAttemptId: "greeting",
+        source: "greeting",
+        role: "assistant",
+        content: data.greeting || `Ahora estás conversando con ${assistant.display_name || "el asistente"}.`,
+        citations: [],
+      };
+
+      sessionStorage.setItem(ASSISTANT_STORAGE_KEY, profileSlug);
+      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+        session_id: nextSessionId,
+        chatbot_key: profileSlug,
+      }));
+      persistHistory([greetingMessage]);
+      persistQuickReplies(nextSessionId, initialQuickReplies);
+
+      setSelectedAssistantKey(profileSlug);
+      setSessionId(nextSessionId);
+      setSessionReady(true);
+      setMessages([greetingMessage]);
+      rootQuickRepliesRef.current = initialQuickReplies;
+      setAvailableQuickReplies(initialQuickReplies);
+      setQuickRepliesOpen(initialQuickReplies.length > 0);
+      setProjectFormOpen(false);
+      setInput("");
+      hasRealConversationRef.current = false;
+      knownServerIdsRef.current = new Set();
+      claimByServerIdRef.current = new Map();
+      setHandoffRequested(false);
+      persistHandoff(nextSessionId, false);
+      setHandoffRequestLoading(false);
+      setHumanActivePendingConfirmation(false);
+      handoffMutationEpochRef.current += 1;
+      setScreen("chat");
+      const sanitized = sanitizeResponder(data.responder);
+      if (sanitized) setResponder(sanitized);
+      setAiraAvatarRuntime(null);
+      if (assistant.key === "aira-webchat-public" || assistant.key === "ivox-webchat-public") {
+        await loadAiraAvatarRuntime(true, assistant.key);
+      }
+    } catch (err) {
+      if (currentSessionIdRef.current !== sourceSessionId) return;
+      setError(
+        err?.status === 409
+          ? (err.message || "No se puede cambiar de asistente mientras una persona atiende esta conversación.")
+          : "No se pudo cambiar de asistente. La conversación actual sigue abierta."
+      );
+    } finally {
+      if (currentSessionIdRef.current === sourceSessionId || currentSessionIdRef.current === sessionId) {
+        setIsStarting(false);
+      }
     }
   }, [assistants, loadAiraAvatarRuntime, selectedAssistantKey, sessionId]);
 
@@ -1856,17 +1943,19 @@ export default function PublicChatWidget() {
     try {
       const data = await startPublicChat(prechatToken, rememberMe, chatbotKey);
       if (!data?.session_id) throw new Error("La respuesta de inicio no incluyó una sesión válida.");
+      sessionStorage.setItem(ASSISTANT_STORAGE_KEY, chatbotKey);
       sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
         session_id: data.session_id,
         chatbot_key: chatbotKey,
       }));
+      setSelectedAssistantKey(chatbotKey);
       setSessionId(data.session_id);
       setSessionReady(true);
       const initialQuickReplies = Array.isArray(data.quick_replies) ? data.quick_replies : [];
       rootQuickRepliesRef.current = initialQuickReplies;
       setAvailableQuickReplies(initialQuickReplies);
       persistQuickReplies(data.session_id, initialQuickReplies);
-      setQuickRepliesOpen(false);
+      setQuickRepliesOpen(initialQuickReplies.length > 0);
       hasRealConversationRef.current = false;
       // FASE HANDOFF H3B.13 — una sesión NUEVA (por definición, este es el
       // único camino que llega hasta acá: ensureSession() ya devolvió antes
