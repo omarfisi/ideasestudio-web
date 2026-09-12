@@ -12,6 +12,8 @@ jobs:
   validate:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    env:
+      VITE_CRM_BASE_URL: http://127.0.0.1:8000
     steps:
       - name: Checkout branch
         uses: actions/checkout@v4
