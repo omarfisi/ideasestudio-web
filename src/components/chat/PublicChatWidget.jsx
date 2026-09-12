@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Check, Copy, MessageCircle, Send, User, X } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ChevronUp, Copy, MessageCircle, Send, User, X } from "lucide-react";
 import {
   forgetVisitor,
+  getPublicChatAssistants,
   getPublicChatEvents,
   getPublicChatStatus,
   getPublicAvatarRuntime,
   recognizeVisitor,
   requestPublicChatHuman,
-  submitProjectDetails,
+  submitPublicProjectDetails,
   sendPublicChatQuickReply,
   sendPublicChatMessage,
   startPublicChat,
@@ -56,6 +57,7 @@ const QUICK_REPLIES_STORAGE_KEY = "aira_public_chat_quick_replies_v1";
 // el botón "Hablar con una persona" reaparezca por una fracción de segundo
 // al recargar la página antes de que llegue el primer poll.
 const HANDOFF_STORAGE_KEY = "aira_public_chat_handoff_v1";
+const ASSISTANT_STORAGE_KEY = "aira_public_chat_assistant_v1";
 const MAX_MESSAGE_CHARS = 800;
 const AIRA_RUNTIME_REFRESH_LEAD_MS = 45_000;
 const AIRA_LAUNCHER_FRAME_MS = 1_100;
@@ -75,22 +77,89 @@ const AIRA_PRELOAD_POSE_KEYS = Object.freeze([
   "hands-clasped",
 ]);
 const PUBLIC_AVATAR_SEMANTIC_EVENTS = new Set(["intent.services", "confidence.low"]);
-const AVATAR_STATE_BY_EVENT = Object.freeze({
-  "chat.opened": "invite",
-  "message.submitted": "thinking",
-  "message.streaming": "talking",
-  "message.completed": "idle",
-  "intent.services": "talking",
-  "confidence.low": "talking",
-  "handoff.created": "idle",
-});
-const AVATAR_STATE_LABELS = Object.freeze({
-  invite: "Saludando",
-  listening: "Escuchando",
-  thinking: "Pensando",
-  talking: "Respondiendo",
-  idle: "Disponible",
-});
+
+function isHumanHandoffQuickReply(reply) {
+  const semanticTypes = [
+    reply?.action_type,
+    reply?.action,
+    reply?.type,
+    reply?.typed_action?.type,
+    reply?.typed_action?.action,
+  ].map((value) => String(value || "").trim().toLowerCase());
+  if (semanticTypes.some((value) => ["handoff", "request_human", "human_handoff"].includes(value))) return true;
+  return String(reply?.button_label || "").trim().toLocaleLowerCase() === "hablar con una persona";
+}
+
+function ProjectDetailsForm({ profile, sessionId, onCancel }) {
+  const [form, setForm] = useState({ serviceInterest: "", projectTiming: "", preferredContact: "", message: "", additionalInfo: "" });
+  const [status, setStatus] = useState("idle");
+  const [error, setError] = useState("");
+  const canSubmit = form.message.trim().length >= 10 && status !== "submitting";
+
+  function update(name, value) {
+    setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (!canSubmit) return;
+    setStatus("submitting");
+    setError("");
+    try {
+      await submitPublicProjectDetails({ profile, sessionId, ...form });
+      setStatus("success");
+    } catch (submitError) {
+      setStatus("error");
+      setError(submitError?.message || "No se pudieron enviar los detalles. Inténtalo nuevamente.");
+    }
+  }
+
+  if (status === "success") {
+    return <div className="public-chat-widget__project-form" role="status"><p>Gracias. Recibimos los detalles de tu proyecto.</p></div>;
+  }
+
+  return (
+    <form className="public-chat-widget__project-form" onSubmit={handleSubmit} noValidate>
+      <div className="public-chat-widget__project-form-heading">
+        <p className="public-chat-widget__project-form-eyebrow">AIRA</p>
+        <p className="public-chat-widget__project-form-title">Cuéntame más sobre tu proyecto</p>
+        <p className="public-chat-widget__project-form-intro">Una breve descripción nos ayudará a orientarte mejor.</p>
+      </div>
+      <label className="public-chat-widget__project-form-field" htmlFor="project-details-service">Tipo de proyecto
+        <select id="project-details-service" value={form.serviceInterest} onChange={(event) => update("serviceInterest", event.target.value)} disabled={status === "submitting"}>
+          <option value="">Selecciona una opción</option>
+          <option>Branding e identidad visual</option>
+          <option>Diseño web y presencia digital</option>
+          <option>Fotografía y video</option>
+          <option>Marketing y contenido</option>
+          <option>Otro</option>
+        </select>
+      </label>
+      <label className="public-chat-widget__project-form-field" htmlFor="project-details-message">¿Qué necesitas?
+        <textarea id="project-details-message" aria-label="Cuéntanos brevemente qué necesitas" placeholder="Cuéntanos sobre tu idea, lo que necesitas o lo que quieres lograr." value={form.message} onChange={(event) => update("message", event.target.value)} minLength={10} required disabled={status === "submitting"} />
+      </label>
+      <label className="public-chat-widget__project-form-field" htmlFor="project-details-timing">¿Cuándo te gustaría comenzar?
+        <select id="project-details-timing" value={form.projectTiming} onChange={(event) => update("projectTiming", event.target.value)} disabled={status === "submitting"}>
+          <option value="">Selecciona una opción</option>
+          <option>Lo antes posible</option><option>Este mes</option><option>En 1–3 meses</option><option>Aún estoy explorando</option>
+        </select>
+      </label>
+      <label className="public-chat-widget__project-form-field" htmlFor="project-details-contact">Método preferido de contacto
+        <select id="project-details-contact" value={form.preferredContact} onChange={(event) => update("preferredContact", event.target.value)} disabled={status === "submitting"}>
+          <option value="">Selecciona una opción</option><option>Correo electrónico</option><option>Teléfono</option><option>Mensaje</option>
+        </select>
+      </label>
+      <label className="public-chat-widget__project-form-field" htmlFor="project-details-additional">Información adicional <span className="public-chat-widget__project-form-optional">Opcional</span>
+        <textarea id="project-details-additional" placeholder="Algo más que debamos saber." value={form.additionalInfo} onChange={(event) => update("additionalInfo", event.target.value)} disabled={status === "submitting"} />
+      </label>
+      {error && <p className="public-chat-widget__error" role="alert">{error}</p>}
+      <div className="public-chat-widget__project-form-actions">
+        <button type="button" onClick={onCancel} disabled={status === "submitting"}>Cerrar</button>
+        <button type="submit" disabled={!canSubmit}>{status === "submitting" ? "Enviando…" : "Enviar detalles"}</button>
+      </div>
+    </form>
+  );
+}
 
 // FASE HANDOFF H3B — polling de GET /public/chat/events. Encadenado
 // (nunca setInterval): cada corrida programa la siguiente recién cuando
@@ -120,28 +189,6 @@ function normalizeServerMessage(row) {
     created_at: row.created_at,
     source: "server",
   };
-}
-
-function normalizeQuickReplies(value) {
-  if (!Array.isArray(value)) return [];
-  return value.filter((reply) => reply && typeof reply.id === "string" && typeof reply.button_label === "string");
-}
-
-function normalizeActions(value) {
-  if (!Array.isArray(value)) return [];
-  return value.filter((action) => action && typeof action === "object" && typeof action.label === "string");
-}
-
-function safeActionHref(value) {
-  if (typeof value !== "string" || !value.trim()) return null;
-  const href = value.trim();
-  if (href.startsWith("/") && !href.startsWith("//")) return href;
-  try {
-    const parsed = new URL(href);
-    return parsed.protocol === "http:" || parsed.protocol === "https:" ? href : null;
-  } catch {
-    return null;
-  }
 }
 
 // FASE HANDOFF H3B.6/H3B.8/H3B.1 — reconcilia el snapshot server-
@@ -295,15 +342,6 @@ const AIRA_RESPONDER = Object.freeze({
   status_label: "Asistente virtual",
 });
 
-const PUBLIC_AVATAR_IDENTITIES = Object.freeze({
-  aira: Object.freeze({ profile: "aira", display_name: "AIRA" }),
-  ivox: Object.freeze({ profile: "ivox", display_name: "IVOX" }),
-});
-
-function publicAvatarIdentity(runtime) {
-  return PUBLIC_AVATAR_IDENTITIES[runtime?.profile] || PUBLIC_AVATAR_IDENTITIES.aira;
-}
-
 function isAvatarRuntimeExpired(runtime, now = Date.now()) {
   const expiresAt = Date.parse(runtime?.expires_at || "");
   return Number.isFinite(expiresAt) && expiresAt <= now;
@@ -444,15 +482,7 @@ function ResponderAvatar({
   );
 }
 
-function AiraStage({
-  pose,
-  poseKey,
-  visualState,
-  runtimeAvailable,
-  compact,
-  onExhaustedFailure,
-  avatarName = "AIRA",
-}) {
+function AiraStage({ pose, poseKey, visualState, runtimeAvailable, compact, onExhaustedFailure, avatarLabel = "AIRA" }) {
   const initialFrame = pose ? { pose, poseKey, visualState } : null;
   const [displayedFrame, setDisplayedFrame] = useState(initialFrame);
   const [previousFrame, setPreviousFrame] = useState(null);
@@ -516,15 +546,9 @@ function AiraStage({
   }, []);
 
   const visibleFrame = displayedFrame?.pose.url !== failedUrl ? displayedFrame : previousFrame;
-  const poseLabel = AIRA_POSE_LABELS[visibleFrame?.poseKey];
-  const currentVisualState = displayedFrame?.pose.url === pose?.url
-    ? visualState || displayedFrame?.visualState
-    : visibleFrame?.visualState;
-  const stateLabelHasPriority = ["listening", "thinking", "talking"].includes(currentVisualState)
-    && (!poseLabel || poseLabel === "Disponible");
-  const label = stateLabelHasPriority
-    ? AVATAR_STATE_LABELS[currentVisualState]
-    : poseLabel || AVATAR_STATE_LABELS[currentVisualState] || "Disponible";
+  const label = visibleFrame?.visualState === "thinking"
+    ? "Pensando"
+    : AIRA_POSE_LABELS[visibleFrame?.poseKey] || "Disponible";
 
   function handleCurrentImageError() {
     setFailedUrl(displayedFrame?.pose.url || null);
@@ -547,7 +571,7 @@ function AiraStage({
   return (
     <section
       className={`public-chat-widget__stage public-chat-widget__stage--${compact ? "compact" : "expanded"}`}
-      aria-label={`Vista previa del avatar ${avatarName}`}
+      aria-label={`Vista previa del avatar ${avatarLabel}`}
       data-stage-size={compact ? "compact" : "expanded"}
     >
       {visibleFrame ? (
@@ -562,15 +586,15 @@ function AiraStage({
           )}
           <img
             src={visibleFrame.pose.url}
-            alt={`${avatarName}: ${label}`}
+            alt={`${avatarLabel}: ${label}`}
             className="public-chat-widget__stage-image public-chat-widget__stage-image--current"
             onError={handleCurrentImageError}
           />
         </>
       ) : (
-        <div className="public-chat-widget__stage-fallback" role="img" aria-label={`${avatarName} no disponible`}>
+        <div className="public-chat-widget__stage-fallback" role="img" aria-label={`${avatarLabel} no disponible`}>
           <MessageCircle size={42} aria-hidden="true" />
-          <span>{runtimeAvailable ? "Vista previa no disponible" : avatarName}</span>
+          <span>{runtimeAvailable ? "Vista previa no disponible" : avatarLabel}</span>
         </div>
       )}
       <div className="public-chat-widget__stage-status" role="status">
@@ -598,12 +622,23 @@ function loadStoredHistory() {
   }
 }
 
+function persistHistory(history) {
+  try {
+    sessionStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+  } catch {
+    // Almacenamiento no disponible (modo privado, cuota excedida, etc.) —
+    // el chat sigue funcionando, solo no persiste entre recargas.
+  }
+}
+
 function loadStoredQuickReplies(currentSessionId) {
   if (!currentSessionId) return [];
   try {
     const raw = sessionStorage.getItem(QUICK_REPLIES_STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : null;
-    return parsed?.session_id === currentSessionId ? normalizeQuickReplies(parsed.options) : [];
+    return parsed?.session_id === currentSessionId && Array.isArray(parsed.options)
+      ? parsed.options
+      : [];
   } catch {
     return [];
   }
@@ -611,22 +646,16 @@ function loadStoredQuickReplies(currentSessionId) {
 
 function persistQuickReplies(sessionIdValue, options) {
   try {
-    if (sessionIdValue && options.length) {
-      sessionStorage.setItem(QUICK_REPLIES_STORAGE_KEY, JSON.stringify({ session_id: sessionIdValue, options }));
+    if (sessionIdValue && Array.isArray(options) && options.length > 0) {
+      sessionStorage.setItem(
+        QUICK_REPLIES_STORAGE_KEY,
+        JSON.stringify({ session_id: sessionIdValue, options })
+      );
     } else {
       sessionStorage.removeItem(QUICK_REPLIES_STORAGE_KEY);
     }
   } catch {
-    // El chat continúa sin persistencia de opciones en sesiones privadas.
-  }
-}
-
-function persistHistory(history) {
-  try {
-    sessionStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
-  } catch {
-    // Almacenamiento no disponible (modo privado, cuota excedida, etc.) —
-    // el chat sigue funcionando, solo no persiste entre recargas.
+    // Almacenamiento no disponible, las opciones siguen funcionando durante esta sesión.
   }
 }
 
@@ -747,25 +776,14 @@ export default function PublicChatWidget() {
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState(null);
   const [availableQuickReplies, setAvailableQuickReplies] = useState(() => loadStoredQuickReplies(loadStoredSession()));
+  const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
   const [quickReplyLoading, setQuickReplyLoading] = useState(false);
-  const [projectDetailsForm, setProjectDetailsForm] = useState(null);
-  const [projectDetailsState, setProjectDetailsState] = useState("idle");
-  const [projectDetailsError, setProjectDetailsError] = useState(null);
-  const projectDetailsSubmissionIdRef = useRef(null);
-  const projectDetailsFormRef = useRef(null);
-
-  useEffect(() => {
-    if (projectDetailsForm) {
-      projectDetailsFormRef.current?.querySelector("input")?.focus();
-    }
-  }, [projectDetailsForm]);
   const rootQuickRepliesRef = useRef(loadStoredQuickReplies(loadStoredSession()));
   const [responder, setResponder] = useState(AIRA_RESPONDER);
   const [airaAvatarRuntime, setAiraAvatarRuntime] = useState(null);
+  const [selectedAvatarProfile, setSelectedAvatarProfile] = useState("aira");
   const [airaPoseKey, setAiraPoseKey] = useState("neutral");
-  const [avatarState, setAvatarState] = useState("idle");
-  const [assistantResponseVersion, setAssistantResponseVersion] = useState(0);
-  const [responseSettledVersion, setResponseSettledVersion] = useState(0);
+  const [airaVisualState, setAiraVisualState] = useState("neutral");
   const [airaLauncherFrame, setAiraLauncherFrame] = useState("point-viewer");
   // FASE HANDOFF H4B — ¿el visitante ya pidió hablar con una persona?
   // Fuente de verdad real: el backend (handoff_requested de GET /events y
@@ -793,6 +811,10 @@ export default function PublicChatWidget() {
   // PrechatForm — nunca decide nada por sí solo, el usuario siempre ve y
   // puede editar/confirmar estos datos antes de enviarlos.
   const [recognizedVisitor, setRecognizedVisitor] = useState(null);
+  const [assistants, setAssistants] = useState([]);
+  const [selectedAssistantKey, setSelectedAssistantKey] = useState(() => sessionStorage.getItem(ASSISTANT_STORAGE_KEY) || "aira-webchat-public");
+  const [visitorProfile, setVisitorProfile] = useState(null);
+  const [projectFormOpen, setProjectFormOpen] = useState(false);
 
   const inputRef = useRef(null);
   const scrollRef = useRef(null);
@@ -970,7 +992,6 @@ export default function PublicChatWidget() {
   const activateAiraEvent = useCallback((eventKey) => {
     clearAiraReactionTimers();
     if (currentResponderRef.current.type !== "aira") return;
-    const eventState = AVATAR_STATE_BY_EVENT[eventKey];
     const reactionGeneration = airaReactionGenerationRef.current;
     const runtime = airaAvatarRuntime;
     const resolved = runtimeRulePayload(runtime, eventKey);
@@ -982,12 +1003,12 @@ export default function PublicChatWidget() {
     const applyPreparedPose = async (poseKey, visualState = poseKey) => {
       const prepared = await prepareAiraPose(runtime, poseKey);
       if (!prepared || !reactionStillCurrent()) return false;
-      setAvatarState(visualState);
+      setAiraVisualState(visualState);
       setAiraPoseKey(poseKey);
       return true;
     };
     const applyFallback = () => {
-      void applyPreparedPose(fallbackKey, "idle");
+      void applyPreparedPose(fallbackKey, "neutral");
     };
 
     if (!resolved) {
@@ -998,7 +1019,7 @@ export default function PublicChatWidget() {
     const { rule, payload } = resolved;
     if (rule.rule_type === "state") {
       const state = typeof payload.state === "string" ? payload.state : "neutral";
-      setAvatarState(AVATAR_STATE_LABELS[state] ? state : (eventState || "idle"));
+      setAiraVisualState(state);
       return;
     }
 
@@ -1018,7 +1039,7 @@ export default function PublicChatWidget() {
         const applySequencePose = () => {
           if (!reactionStillCurrent()) return;
           const poseKey = sequence[airaStreamingIndexRef.current % sequence.length];
-          setAvatarState(eventState || "idle");
+          setAiraVisualState(poseKey);
           setAiraPoseKey(poseKey);
           airaStreamingIndexRef.current += 1;
         };
@@ -1048,7 +1069,7 @@ export default function PublicChatWidget() {
       : fallbackKey;
     const transition = async () => {
       airaPoseTransitionTimerRef.current = null;
-      await applyPreparedPose(nextPoseKey, nextPoseKey === fallbackKey ? "idle" : (eventState || "idle"));
+      await applyPreparedPose(nextPoseKey, nextPoseKey === fallbackKey ? "neutral" : nextPoseKey);
     };
     const scheduleNextPose = () => {
       if (Number.isFinite(duration) && duration > 0 && payload.next && reactionStillCurrent()) {
@@ -1057,7 +1078,7 @@ export default function PublicChatWidget() {
     };
     const applyRulePose = async () => {
       airaPoseTransitionTimerRef.current = null;
-      const applied = await applyPreparedPose(poseKey, eventState || "idle");
+      const applied = await applyPreparedPose(poseKey);
       if (applied) scheduleNextPose();
     };
     if (delay > 0) {
@@ -1072,7 +1093,6 @@ export default function PublicChatWidget() {
     clearAiraReactionTimers();
     const nextResponder = sanitizeResponder(response?.responder);
     if (nextResponder?.type === "human" || currentResponderRef.current.type !== "aira") return;
-    setAvatarState("talking");
     const avatarEvents = Array.isArray(response?.avatar_events)
       ? response.avatar_events.filter((event) => PUBLIC_AVATAR_SEMANTIC_EVENTS.has(event))
       : [];
@@ -1086,13 +1106,7 @@ export default function PublicChatWidget() {
         ? "confidence.low"
         : "message.completed";
     activateAiraEvent(nextEventKey);
-    setAssistantResponseVersion((version) => version + 1);
   }, [activateAiraEvent, clearAiraReactionTimers]);
-
-  useEffect(() => {
-    if (!assistantResponseVersion || !responseSettledVersion) return;
-    setAvatarState((current) => current === "talking" ? "idle" : current);
-  }, [assistantResponseVersion, responseSettledVersion]);
 
   const scheduleAiraRuntimeRefresh = useCallback((runtime) => {
     if (airaRuntimeRefreshTimerRef.current) {
@@ -1108,21 +1122,19 @@ export default function PublicChatWidget() {
     }, delay);
   }, []);
 
-  const loadAiraAvatarRuntime = useCallback(async (force = false) => {
+  const loadAiraAvatarRuntime = useCallback(async (force = false, profileSlug = selectedAvatarProfile) => {
     if (airaRuntimeRequestRef.current && !force) return airaRuntimeRequestRef.current;
     const requestSeq = ++airaRuntimeRequestSeqRef.current;
-    const request = getPublicAvatarRuntime()
+    const request = getPublicAvatarRuntime({ profile: profileSlug })
       .then((runtime) => {
         if (requestSeq !== airaRuntimeRequestSeqRef.current) return runtime;
-        setAiraAvatarRuntime((current) => (
-          runtime && typeof runtime === "object" ? runtime : current
-        ));
+        setAiraAvatarRuntime(runtime && typeof runtime === "object" ? runtime : null);
         scheduleAiraRuntimeRefresh(runtime);
         return runtime;
       })
       .catch(() => {
         if (requestSeq === airaRuntimeRequestSeqRef.current) {
-          setAiraAvatarRuntime((current) => current);
+          setAiraAvatarRuntime(null);
           scheduleAiraRuntimeRefresh(null);
         }
         return null;
@@ -1132,8 +1144,47 @@ export default function PublicChatWidget() {
       });
     airaRuntimeRequestRef.current = request;
     return request;
-  }, [scheduleAiraRuntimeRefresh]);
+  }, [scheduleAiraRuntimeRefresh, selectedAvatarProfile]);
   loadAiraAvatarRuntimeRef.current = loadAiraAvatarRuntime;
+
+  useEffect(() => {
+    let cancelled = false;
+    getPublicChatAssistants()
+      .then((items) => {
+        if (cancelled) return;
+        const next = Array.isArray(items) ? items : [];
+        setAssistants(next);
+        if (next.length > 0 && !next.some((item) => item.key === selectedAssistantKey)) {
+          const fallback = next[0].key;
+          setSelectedAssistantKey(fallback);
+          sessionStorage.setItem(ASSISTANT_STORAGE_KEY, fallback);
+          setSelectedAvatarProfile(fallback.includes("ivox") ? "ivox" : "aira");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAssistants([]);
+      });
+    return () => { cancelled = true; };
+  }, [selectedAssistantKey]);
+
+  const handleAvatarProfileChange = useCallback(async (profileSlug) => {
+    const assistant = assistants.find((item) => item.key === profileSlug) || { key: profileSlug, display_name: profileSlug };
+    if (profileSlug === selectedAssistantKey) return;
+    sessionStorage.setItem(ASSISTANT_STORAGE_KEY, profileSlug);
+    setSelectedAssistantKey(profileSlug);
+    setSelectedAvatarProfile(profileSlug.includes("ivox") ? "ivox" : "aira");
+    if (sessionId) {
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      setSessionId(null);
+      setSessionReady(false);
+      setMessages([]);
+      setScreen("prechat");
+    }
+    setAiraAvatarRuntime(null);
+    if (assistant.key === "aira-webchat-public" || assistant.key === "ivox-webchat-public") {
+      await loadAiraAvatarRuntime(true, assistant.key === "ivox-webchat-public" ? "ivox" : "aira");
+    }
+  }, [assistants, loadAiraAvatarRuntime, selectedAssistantKey, sessionId]);
 
   const handleAiraStageExhaustedFailure = useCallback(() => {
     void loadAiraAvatarRuntimeRef.current?.(true);
@@ -1163,18 +1214,6 @@ export default function PublicChatWidget() {
   }, [loadAiraAvatarRuntime]);
 
   useEffect(() => {
-    const refreshRuntime = () => {
-      if (document.visibilityState === "visible") void loadAiraAvatarRuntime(true);
-    };
-    window.addEventListener("focus", refreshRuntime);
-    document.addEventListener("visibilitychange", refreshRuntime);
-    return () => {
-      window.removeEventListener("focus", refreshRuntime);
-      document.removeEventListener("visibilitychange", refreshRuntime);
-    };
-  }, [loadAiraAvatarRuntime]);
-
-  useEffect(() => {
     const preparedPoses = airaPreparedPosesRef.current;
     if (airaAvatarRuntime) {
       for (const poseKey of AIRA_PRELOAD_POSE_KEYS) {
@@ -1192,7 +1231,7 @@ export default function PublicChatWidget() {
   useEffect(() => {
     if (responder.type === "human") {
       clearAiraReactionTimers();
-      setAvatarState("idle");
+      setAiraVisualState("neutral");
       setAiraPoseKey("neutral");
     }
   }, [clearAiraReactionTimers, responder.type]);
@@ -1218,11 +1257,7 @@ export default function PublicChatWidget() {
     }
     if (responder.type === "aira" && airaAvatarRuntime && !airaOpeningRuntimeAppliedRef.current) {
       airaOpeningRuntimeAppliedRef.current = true;
-      if (hasRealConversationRef.current) {
-        setAvatarState("idle");
-      } else {
-        activateAiraEvent("chat.opened");
-      }
+      activateAiraEvent("chat.opened");
     }
   }, [activateAiraEvent, airaAvatarRuntime, isOpen, responder.type]);
 
@@ -1507,7 +1542,6 @@ export default function PublicChatWidget() {
     setSessionReady(false);
     setMessages([]);
     setAvailableQuickReplies([]);
-    rootQuickRepliesRef.current = [];
     persistQuickReplies(null, []);
     hasRealConversationRef.current = false;
     setScreen("prechat");
@@ -1515,7 +1549,6 @@ export default function PublicChatWidget() {
     setHandoffRequested(false);
     setHandoffRequestLoading(false);
     setHumanActivePendingConfirmation(false);
-    setAvatarState("idle");
     // FASE HANDOFF H4B.2 — frontera de sesión: cualquier lectura /events o
     // /status todavía en vuelo de la sesión que expira queda, a partir de
     // acá, más vieja que esta frontera -- defensa adicional junto con el
@@ -1601,7 +1634,7 @@ export default function PublicChatWidget() {
 
     const myGeneration = ++pollGenerationRef.current;
     pollDelayRef.current = EVENTS_POLL_NORMAL_MS;
-    // FASE HANDOFF H3B.1/H3B.3 — semilla con los ids server (y sus cta ya
+    // FASE HANDOFF H3B.1/H3B.3 — semilla con los ids server (y sus cta/actions ya
     // reclamadas) YA presentes en el estado local en este momento (de una
     // reconciliación previa en esta misma cadena, o restaurados de
     // sessionStorage al montar/restaurar — ver H3B.15 item 6). El primer
@@ -1758,7 +1791,7 @@ export default function PublicChatWidget() {
   // /public/chat/start solo se ejercite una vez por visita. rememberMe
   // (FASE 4) solo importa la primera vez (cuando sí se llama a /start) —
   // nunca se reenvía en el camino de sesión ya existente.
-  async function ensureSession(prechatToken, rememberMe = false) {
+  async function ensureSession(prechatToken, rememberMe = false, chatbotKey = selectedAssistantKey) {
     const existing = loadStoredSession();
     if (existing) {
       setSessionReady(false);
@@ -1777,15 +1810,16 @@ export default function PublicChatWidget() {
     setMessages([]);
     setScreen("chat");
     try {
-      const data = await startPublicChat(prechatToken, rememberMe);
+      const data = await startPublicChat(prechatToken, rememberMe, chatbotKey);
       if (!data?.session_id) throw new Error("La respuesta de inicio no incluyó una sesión válida.");
       sessionStorage.setItem(SESSION_STORAGE_KEY, data.session_id);
       setSessionId(data.session_id);
       setSessionReady(true);
-      const initialQuickReplies = normalizeQuickReplies(data.quick_replies);
+      const initialQuickReplies = Array.isArray(data.quick_replies) ? data.quick_replies : [];
       rootQuickRepliesRef.current = initialQuickReplies;
       setAvailableQuickReplies(initialQuickReplies);
       persistQuickReplies(data.session_id, initialQuickReplies);
+      setQuickRepliesOpen(false);
       hasRealConversationRef.current = false;
       // FASE HANDOFF H3B.13 — una sesión NUEVA (por definición, este es el
       // único camino que llega hasta acá: ensureSession() ya devolvió antes
@@ -1834,11 +1868,10 @@ export default function PublicChatWidget() {
     const nextOpen = !isOpen;
     setIsOpen(nextOpen);
     if (nextOpen) {
-      void loadAiraAvatarRuntime(Boolean(airaAvatarRuntime));
       activateAiraEvent("chat.opened");
     } else {
       clearAiraReactionTimers();
-      setAvatarState("idle");
+      setAiraVisualState("neutral");
       setAiraPoseKey("neutral");
     }
     if (!nextOpen || hasHandledFirstOpenRef.current) return;
@@ -1866,8 +1899,52 @@ export default function PublicChatWidget() {
     }
   }
 
-  async function handlePrechatVerified(prechatToken, rememberMe) {
-    await ensureSession(prechatToken, rememberMe);
+  async function handlePrechatVerified(prechatToken, rememberMe, profile) {
+    setVisitorProfile(profile || null);
+    await ensureSession(prechatToken, rememberMe, selectedAssistantKey);
+  }
+
+  async function handleQuickReplyClick(reply) {
+    if (!reply?.id || quickReplyLoading || isLoading || !sessionId || !sessionReady) return;
+    const sentForSessionId = sessionId;
+    const clientMessageId = createClientMessageId();
+    setQuickReplyLoading(true);
+    setError(null);
+    setMessages((prev) => [...prev, {
+      sendAttemptId: clientMessageId,
+      role: "user",
+      content: reply.visitor_message || reply.button_label,
+      pending: true,
+      source: "local",
+    }]);
+    try {
+      const data = await sendPublicChatQuickReply(sentForSessionId, reply.id, clientMessageId);
+      if (currentSessionIdRef.current !== sentForSessionId) return;
+      const actions = Array.isArray(data.actions) ? data.actions : [];
+      setMessages((prev) => [...prev, {
+        sendAttemptId: createClientMessageId(),
+        role: "assistant",
+        content: data.response_text,
+        citations: data.citations || [],
+        cta: data.cta || null,
+        actions,
+        pending: true,
+        source: "local",
+      }]);
+      const nextQuickReplies = Array.isArray(data.next_questions) ? data.next_questions : [];
+      setAvailableQuickReplies(nextQuickReplies);
+      persistQuickReplies(sentForSessionId, nextQuickReplies);
+      if (nextQuickReplies.length === 0) setQuickRepliesOpen(false);
+      if (actions.some((action) => action.type === "form" && action.form_kind === "project_details")) {
+        setProjectFormOpen(true);
+      }
+      applyCompletedAvatarReaction(data);
+    } catch (err) {
+      if (currentSessionIdRef.current !== sentForSessionId) return;
+      setError(err.status === 409 ? (err.message || "La conversación está siendo atendida por un agente.") : "No pude procesar esa opción. Puedes continuar escribiendo tu pregunta.");
+    } finally {
+      if (currentSessionIdRef.current === sentForSessionId) setQuickReplyLoading(false);
+    }
   }
 
   // FASE 4 — "olvidar" al visitante en este navegador. Best-effort desde la
@@ -1940,178 +2017,6 @@ export default function PublicChatWidget() {
     } finally {
       if (currentSessionIdRef.current === sentForSessionId) setHandoffRequestLoading(false);
     }
-  }
-
-  async function handleQuickReplyClick(reply) {
-    if (!reply?.id || quickReplyLoading || isLoading || projectDetailsForm || !sessionId || !sessionReady) return;
-    const sentForSessionId = sessionId;
-    const clientMessageId = createClientMessageId();
-    const assistantSendAttemptId = createClientMessageId();
-    const selectedVisitorMessage = typeof reply.visitor_message === "string" ? reply.visitor_message.trim() : "";
-    setQuickReplyLoading(true);
-    setError(null);
-    if (currentResponderRef.current.type === "aira") activateAiraEvent("message.submitted");
-
-    try {
-      const data = await sendPublicChatQuickReply(sentForSessionId, reply.id, clientMessageId);
-      if (currentSessionIdRef.current !== sentForSessionId) return;
-      const visitorMessage = typeof data?.visitor_message === "string"
-        ? data.visitor_message.trim()
-        : selectedVisitorMessage;
-      if (visitorMessage) {
-        setMessages((prev) => [
-          ...prev,
-          { sendAttemptId: clientMessageId, role: "user", content: visitorMessage, pending: true, source: "local" },
-        ]);
-      }
-      const actions = normalizeActions(data?.actions);
-      setMessages((prev) => [
-        ...prev,
-        {
-          sendAttemptId: assistantSendAttemptId,
-          role: "assistant",
-          content: data?.response_text || "",
-          citations: data?.citations || [],
-          cta: data?.cta || null,
-          actions,
-          pending: true,
-          source: "local",
-        },
-      ]);
-      const nextQuickReplies = normalizeQuickReplies(data?.next_questions);
-      setAvailableQuickReplies(nextQuickReplies);
-      persistQuickReplies(sentForSessionId, nextQuickReplies);
-      applyCompletedAvatarReaction(data);
-    } catch (err) {
-      if (currentSessionIdRef.current !== sentForSessionId) return;
-      if (err.status === 404) {
-        expireSession("Tu sesión anterior expiró. Completa el formulario de nuevo para continuar.");
-      } else if (err.status === 409) {
-        setError(err.message || "La conversación está siendo atendida por un agente.");
-        await refreshStatus(sentForSessionId);
-      } else if (err.status === 429) {
-        setError("Estás enviando opciones muy rápido. Espera un momento e intenta de nuevo.");
-      } else {
-        setError("No pude procesar esa opción. Puedes continuar escribiendo tu pregunta.");
-      }
-      if (currentResponderRef.current.type === "aira") activateAiraEvent("message.completed");
-    } finally {
-      if (currentSessionIdRef.current === sentForSessionId) {
-        setQuickReplyLoading(false);
-        setResponseSettledVersion((version) => version + 1);
-      }
-    }
-  }
-
-  function openProjectDetailsForm() {
-    if (projectDetailsState === "submitting" || projectDetailsForm || !sessionId || !sessionReady) return;
-    projectDetailsSubmissionIdRef.current = createClientMessageId();
-    setProjectDetailsForm({
-      full_name: "",
-      email: "",
-      phone: "",
-      message: "",
-      service_interest: "",
-      project_timing: "",
-      preferred_contact: "",
-      additional_info: "",
-      consent: false,
-    });
-    setProjectDetailsError(null);
-    setProjectDetailsState("editing");
-  }
-
-  function updateProjectDetailsField(field, value) {
-    setProjectDetailsForm((current) => (current ? { ...current, [field]: value } : current));
-  }
-
-  async function handleProjectDetailsSubmit(event) {
-    event.preventDefault();
-    if (!projectDetailsForm || projectDetailsState === "submitting") return;
-    const requiredFields = ["full_name", "email", "message"];
-    const missingRequired = requiredFields.some((field) => !projectDetailsForm[field].trim());
-    if (missingRequired || !projectDetailsForm.consent) {
-      setProjectDetailsError("Completa nombre, correo, detalles del proyecto y consentimiento para continuar.");
-      return;
-    }
-
-    const sentForSessionId = sessionId;
-    const payload = {
-      session_id: sentForSessionId,
-      full_name: projectDetailsForm.full_name.trim(),
-      email: projectDetailsForm.email.trim(),
-      message: projectDetailsForm.message.trim(),
-      consent: true,
-      client_submission_id: projectDetailsSubmissionIdRef.current,
-    };
-    for (const field of ["phone", "service_interest", "project_timing", "preferred_contact", "additional_info"]) {
-      const value = projectDetailsForm[field].trim();
-      if (value) payload[field] = value;
-    }
-
-    setProjectDetailsState("submitting");
-    setProjectDetailsError(null);
-    if (currentResponderRef.current.type === "aira") activateAiraEvent("message.submitted");
-    try {
-      const data = await submitProjectDetails(payload);
-      if (currentSessionIdRef.current !== sentForSessionId) return;
-      if (data?.response_text) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            sendAttemptId: createClientMessageId(),
-            role: "assistant",
-            content: data.response_text,
-            actions: normalizeActions(data.actions),
-            citations: data.citations || [],
-            pending: true,
-            source: "local",
-          },
-        ]);
-      }
-      if (Array.isArray(data?.next_questions)) {
-        const nextQuickReplies = normalizeQuickReplies(data.next_questions);
-        setAvailableQuickReplies(nextQuickReplies);
-        persistQuickReplies(sentForSessionId, nextQuickReplies);
-      }
-      setProjectDetailsState("success");
-      setProjectDetailsForm(null);
-      applyCompletedAvatarReaction(data);
-    } catch (err) {
-      if (currentSessionIdRef.current !== sentForSessionId) return;
-      setProjectDetailsState("error");
-      if (err.status === 409) {
-        setProjectDetailsError(err.message || "Este formulario ya está siendo procesado. Puedes reintentar sin cambiar tus datos.");
-      } else {
-        setProjectDetailsError("No pude enviar los detalles del proyecto. Revisa tus datos e inténtalo de nuevo.");
-      }
-      if (currentResponderRef.current.type === "aira") activateAiraEvent("message.completed");
-    } finally {
-      if (currentSessionIdRef.current === sentForSessionId) {
-        setResponseSettledVersion((version) => version + 1);
-        if (currentResponderRef.current.type === "aira") setAvatarState("idle");
-      }
-    }
-  }
-
-  async function handleQuickReplyAction(action) {
-    if (!action || quickReplyLoading) return;
-    const actionType = String(action.action_type || action.type || action.action || "").toLowerCase();
-    if (actionType === "handoff") {
-      await handleRequestHuman();
-      return;
-    }
-    if (actionType === "restart_flow") {
-      setAvailableQuickReplies(rootQuickRepliesRef.current);
-      persistQuickReplies(sessionId, rootQuickRepliesRef.current);
-      setError(null);
-      return;
-    }
-    if (actionType === "form" && action.form_kind === "project_details") {
-      openProjectDetailsForm();
-      return;
-    }
-    setError("Esta acción todavía no está disponible en el chat público.");
   }
 
   async function handleSend(event) {
@@ -2206,13 +2111,17 @@ export default function PublicChatWidget() {
         );
         if (alreadyPolled) {
           const cta = data.cta || null;
-          const actions = normalizeActions(data.actions);
+          const actions = Array.isArray(data.actions) ? data.actions : [];
           // Reasignación, nunca mutación in-place del Map anterior (mismo
           // criterio que knownServerIdsRef/claimByServerIdRef en el poller).
           const nextClaims = new Map(claimByServerIdRef.current);
-          nextClaims.set(alreadyPolled.id, { sendAttemptId: assistantSendAttemptId, cta, actions });
+          nextClaims.set(alreadyPolled.id, {
+            sendAttemptId: assistantSendAttemptId,
+            cta,
+            actions,
+          });
           claimByServerIdRef.current = nextClaims;
-          if (!cta && !actions.length) return prev;
+          if (!cta && actions.length === 0) return prev;
           return prev.map((m) => (m === alreadyPolled ? { ...m, cta, actions } : m));
         }
         // Camino normal: el POST ganó la carrera (o no hay carrera en
@@ -2234,7 +2143,6 @@ export default function PublicChatWidget() {
             content: data.response_text,
             citations: data.citations || [],
             cta: data.cta || null,
-            actions: normalizeActions(data.actions),
             pending: true,
             source: "local",
           },
@@ -2242,11 +2150,6 @@ export default function PublicChatWidget() {
       });
       const sanitized = sanitizeResponder(data.responder);
       if (sanitized) setResponder(sanitized);
-      const nextQuickReplies = normalizeQuickReplies(data.next_questions);
-      if (Array.isArray(data.next_questions)) {
-        setAvailableQuickReplies(nextQuickReplies);
-        persistQuickReplies(sentForSessionId, nextQuickReplies);
-      }
       applyCompletedAvatarReaction(data);
     } catch (err) {
       if (currentSessionIdRef.current !== sentForSessionId) return; // stale — idem para error/red/409/429
@@ -2274,19 +2177,8 @@ export default function PublicChatWidget() {
       // ya fue reseteado (o reactivado por un envío propio de la sesión
       // nueva) por expireSession()/su propio flujo — la finalización
       // tardía de un envío ajeno nunca debe pisarlo.
-      if (currentSessionIdRef.current === sentForSessionId) {
-        setIsLoading(false);
-        setResponseSettledVersion((version) => version + 1);
-        if (currentResponderRef.current.type === "aira") setAvatarState("idle");
-      }
+      if (currentSessionIdRef.current === sentForSessionId) setIsLoading(false);
     }
-  }
-
-  function handleComposerChange(event) {
-    const nextValue = event.target.value.slice(0, MAX_MESSAGE_CHARS);
-    setInput(nextValue);
-    if (currentResponderRef.current.type !== "aira" || isLoading || isStarting || !sessionReady) return;
-    setAvatarState(nextValue.trim() ? "listening" : "idle");
   }
 
   const activeAiraPose = responder.type === "aira"
@@ -2294,41 +2186,26 @@ export default function PublicChatWidget() {
     : null;
   const responderAvatarKey = `${responder.type}:${responder.avatar_url || ""}:${activeAiraPose?.url || ""}`;
   const isAiraResponder = responder.type === "aira";
-  const publicAvatar = publicAvatarIdentity(airaAvatarRuntime);
-  const publicResponder = isAiraResponder
-    ? { ...responder, display_name: publicAvatar.display_name }
-    : responder;
-  const launcherPoseKey = publicAvatar.profile === "ivox"
-    ? exactRuntimePose(airaAvatarRuntime, "point-viewer") ? "point-viewer" : "neutral"
-    : "neutral";
-  const launcherPortraitPose = isAiraResponder ? exactRuntimePose(airaAvatarRuntime, launcherPoseKey) : null;
+  const launcherPortraitPose = isAiraResponder ? exactRuntimePose(airaAvatarRuntime, "neutral") : null;
   const launcherAsset = airaLauncherFrame === "invite-chat" ? airaInviteAsset : airaLauncherAsset;
+  const launcherOptions = availableQuickReplies.length > 0
+    ? availableQuickReplies
+    : rootQuickRepliesRef.current;
 
   return (
     <div ref={wrapperRef} className={`public-chat-widget${isOpen ? " public-chat-widget--open" : ""}`}>
       <div className="public-chat-widget__launcher-composition">
         {!isOpen && isAiraResponder && (
-          <div className="public-chat-widget__launcher-character" aria-label={`${publicResponder.display_name} invitando a abrir el chat`}>
+          <div className="public-chat-widget__launcher-character" aria-label="AIRA invitando a abrir el chat">
             <span className="public-chat-widget__launcher-callout">¿Hablamos?</span>
-            {publicAvatar.profile === "aira" ? (
-              <img className="public-chat-widget__launcher-image" src={launcherAsset} alt="" aria-hidden="true" />
-            ) : (
-              <ResponderAvatar
-                key={`launcher-character:${launcherPortraitPose?.url || "fallback"}`}
-                responder={publicResponder}
-                airaAvatarRuntime={airaAvatarRuntime}
-                airaPoseKey={launcherPoseKey}
-                size={96}
-                strictAiraPose
-              />
-            )}
+            <img className="public-chat-widget__launcher-image" src={launcherAsset} alt="" aria-hidden="true" />
           </div>
         )}
         <button
           type="button"
           className={`public-chat-widget__toggle${isOpen ? "" : " public-chat-widget__toggle--pill public-chat-widget__toggle--mobile-rail"}`}
           onClick={handleToggle}
-          aria-label={isOpen ? "Cerrar chat" : `Abrir chat con ${publicResponder.display_name}`}
+          aria-label={isOpen ? "Cerrar chat" : `Abrir chat con ${responder.display_name}`}
           aria-expanded={isOpen}
         >
           {isOpen ? (
@@ -2339,9 +2216,9 @@ export default function PublicChatWidget() {
                 <span className="public-chat-widget__launcher-portrait">
                   <ResponderAvatar
                     key={`launcher:${launcherPortraitPose?.url || "fallback"}`}
-                    responder={publicResponder}
+                    responder={responder}
                     airaAvatarRuntime={airaAvatarRuntime}
-                    airaPoseKey={launcherPoseKey}
+                    airaPoseKey="neutral"
                     size={38}
                     strictAiraPose
                   />
@@ -2349,14 +2226,14 @@ export default function PublicChatWidget() {
               ) : (
                 <ResponderAvatar
                   key={responderAvatarKey}
-                  responder={publicResponder}
+                  responder={responder}
                   airaAvatarRuntime={airaAvatarRuntime}
                   airaPoseKey={airaPoseKey}
                   size={36}
                 />
               )}
               <span className="public-chat-widget__pill-text">
-                <span className="public-chat-widget__pill-name">{publicResponder.display_name}</span>
+                <span className="public-chat-widget__pill-name">{responder.display_name}</span>
                 <span className="public-chat-widget__pill-status">
                   {isAiraResponder ? "Iniciar conversación" : responder.status_label}
                 </span>
@@ -2387,8 +2264,8 @@ export default function PublicChatWidget() {
                 />
               )}
               <div>
-                <p className="public-chat-widget__title">{publicResponder.display_name}</p>
-                <p className="public-chat-widget__subtitle">{publicResponder.status_label}</p>
+                <p className="public-chat-widget__title">{responder.display_name}</p>
+                <p className="public-chat-widget__subtitle">{responder.status_label}</p>
               </div>
             </div>
             <button
@@ -2397,7 +2274,7 @@ export default function PublicChatWidget() {
               onClick={() => {
                 setIsOpen(false);
                 clearAiraReactionTimers();
-                setAvatarState("idle");
+                setAiraVisualState("neutral");
                 setAiraPoseKey("neutral");
               }}
               aria-label="Cerrar chat"
@@ -2406,24 +2283,28 @@ export default function PublicChatWidget() {
             </button>
           </header>
 
-          {isAiraResponder && screen === "chat" && sessionReady && (
+          {assistants.length > 0 && (
             <>
               <div className="public-chat-widget__assistant-switcher" role="group" aria-label="Escoge con quién hablar">
-                <button type="button" className="public-chat-widget__assistant-choice public-chat-widget__assistant-choice--active" aria-pressed="true">
-                  <span className="public-chat-widget__assistant-choice-icon" aria-hidden="true"><MessageCircle size={16} /></span>
-                  <span><strong>{publicAvatar.display_name}</strong><small>Seleccionada</small></span>
-                  <Check size={15} aria-hidden="true" />
-                </button>
+                {assistants.map((assistant) => (
+                  <button key={assistant.key} type="button" className={`public-chat-widget__assistant-choice${selectedAssistantKey === assistant.key ? " public-chat-widget__assistant-choice--active" : ""}`} aria-pressed={selectedAssistantKey === assistant.key} onClick={() => void handleAvatarProfileChange(assistant.key)}>
+                    <span className="public-chat-widget__assistant-choice-icon" aria-hidden="true"><User size={16} /></span>
+                    <span><strong>{assistant.display_name}</strong><small>{selectedAssistantKey === assistant.key ? "Seleccionada" : "Elegir"}</small></span>
+                    {selectedAssistantKey === assistant.key && <Check size={15} aria-hidden="true" />}
+                  </button>
+                ))}
               </div>
+              {isAiraResponder && screen === "chat" && sessionReady && (
               <AiraStage
                 pose={activeAiraPose}
                 poseKey={airaPoseKey}
-                visualState={avatarState}
+                visualState={airaVisualState}
                 runtimeAvailable={Boolean(airaAvatarRuntime)}
                 compact={hasRealConversationRef.current}
-                avatarName={publicAvatar.display_name}
                 onExhaustedFailure={handleAiraStageExhaustedFailure}
+                avatarLabel={selectedAvatarProfile.toUpperCase()}
               />
+              )}
             </>
           )}
 
@@ -2433,6 +2314,7 @@ export default function PublicChatWidget() {
                 onVerified={handlePrechatVerified}
                 recognized={recognizedVisitor}
                 onForget={handleForgetVisitor}
+                assistantName={assistants.find((assistant) => assistant.key === selectedAssistantKey)?.display_name || "el asistente"}
               />
               {error && (
                 <p className="public-chat-widget__error" role="alert" aria-live="assertive">
@@ -2494,40 +2376,35 @@ export default function PublicChatWidget() {
                       </Link>
                     )}
                     {message.actions?.length > 0 && (
-                      <div className="public-chat-widget__quick-reply-actions" aria-label="Acciones de la respuesta">
-                        {message.actions.map((action, actionIndex) => {
-                          const actionType = String(action.action_type || action.type || action.action || "").toLowerCase();
-                          const key = action.id || `${actionType}-${actionIndex}`;
-                          const safeHref = safeActionHref(action.href);
-                          if (safeHref) {
-                            return (
-                              <a
-                                key={key}
-                                className="public-chat-widget__cta"
-                                href={safeHref}
-                                target={action.open_new_tab ? "_blank" : undefined}
-                                rel={action.open_new_tab ? "noreferrer" : undefined}
-                              >
-                                {action.label}
-                                <ArrowRight size={14} />
-                              </a>
-                            );
-                          }
-                          if (actionType !== "handoff" && actionType !== "restart_flow" && !(actionType === "form" && action.form_kind === "project_details")) {
-                            return null;
-                          }
-                          return (
-                            <button
-                              key={key}
-                              type="button"
-                              className="public-chat-widget__cta"
-                              onClick={() => handleQuickReplyAction(action)}
-                            >
-                              {action.label}
-                              <ArrowRight size={14} />
-                            </button>
-                          );
-                        })}
+                      <div className="public-chat-widget__quick-actions" role="group" aria-label="Acciones de la respuesta">
+                        {message.actions.map((action, actionIndex) => action.href ? (
+                          <a
+                            key={`${action.type}-${actionIndex}`}
+                            className="public-chat-widget__quick-action"
+                            href={action.href}
+                            target={action.open_new_tab ? "_blank" : undefined}
+                            rel={action.open_new_tab ? "noreferrer" : undefined}
+                          >
+                            {action.label || "Continuar"}
+                          </a>
+                        ) : (
+                          <button
+                            key={`${action.type}-${actionIndex}`}
+                            type="button"
+                            className="public-chat-widget__quick-action"
+                            onClick={() => {
+                              if (action.type === "restart_flow") {
+                                setAvailableQuickReplies(rootQuickRepliesRef.current);
+                                persistQuickReplies(sessionId, rootQuickRepliesRef.current);
+                                setQuickRepliesOpen(true);
+                              }
+                              if (action.type === "handoff") handleRequestHuman();
+                              if (action.type === "form") setProjectFormOpen(true);
+                            }}
+                          >
+                            {action.label || "Continuar"}
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -2539,8 +2416,55 @@ export default function PublicChatWidget() {
                     <span />
                   </div>
                 )}
+                {projectFormOpen && (
+                  <ProjectDetailsForm
+                    profile={visitorProfile}
+                    sessionId={sessionId}
+                    onCancel={() => setProjectFormOpen(false)}
+                  />
+                )}
                 {error && <p className="public-chat-widget__error">{error}</p>}
               </div>
+
+              {sessionId && launcherOptions.length > 0 && !projectFormOpen && (
+                <div className="public-chat-widget__quick-replies">
+                  <button
+                    type="button"
+                    className="public-chat-widget__quick-replies-toggle"
+                    aria-expanded={quickRepliesOpen}
+                    aria-controls="public-chat-widget-quick-replies"
+                    onClick={() => {
+                      if (!quickRepliesOpen && availableQuickReplies.length === 0) {
+                        setAvailableQuickReplies(rootQuickRepliesRef.current);
+                      }
+                      setQuickRepliesOpen((open) => !open);
+                    }}
+                  >
+                    <span className="public-chat-widget__quick-replies-toggle-icon" aria-hidden="true">
+                      <MessageCircle size={15} strokeWidth={2.2} />
+                    </span>
+                    <span>Explorar opciones</span>
+                    <span className="public-chat-widget__quick-replies-toggle-chevron" aria-hidden="true">
+                      {quickRepliesOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                    </span>
+                  </button>
+                  {quickRepliesOpen && (
+                    <div id="public-chat-widget-quick-replies" className="public-chat-widget__quick-actions" role="group" aria-label="Opciones de respuesta rápida">
+                      {launcherOptions.map((reply) => (
+                        <button
+                          key={reply.id}
+                          type="button"
+                          className="public-chat-widget__quick-action"
+                          onClick={() => handleQuickReplyClick(reply)}
+                          disabled={quickReplyLoading || isLoading}
+                        >
+                          {reply.button_label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {hasNewMessagesBelow && (
                 <button
@@ -2552,45 +2476,6 @@ export default function PublicChatWidget() {
                 </button>
               )}
 
-              {responder.type === "aira" && availableQuickReplies.length > 0 && (
-                <div className="public-chat-widget__quick-replies" aria-label="Opciones rápidas">
-                  {availableQuickReplies.map((reply) => (
-                    <button
-                      key={reply.id}
-                      type="button"
-                      className="public-chat-widget__quick-reply"
-                      onClick={() => handleQuickReplyClick(reply)}
-                      disabled={quickReplyLoading || isLoading || isStarting || Boolean(projectDetailsForm) || !sessionReady || responder.type === "human"}
-                    >
-                      {reply.button_label}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {projectDetailsForm && (
-                <form
-                  ref={projectDetailsFormRef}
-                  className="public-chat-widget__project-details-form"
-                  onSubmit={handleProjectDetailsSubmit}
-                  aria-label="Formulario de detalles del proyecto"
-                >
-                  <h3>Cuéntanos sobre tu proyecto</h3>
-                  <p>Comparte los detalles y te contactaremos para orientarte.</p>
-                  <label>Nombre completo<input value={projectDetailsForm.full_name} onChange={(event) => updateProjectDetailsField("full_name", event.target.value)} autoComplete="name" required disabled={projectDetailsState === "submitting"} /></label>
-                  <label>Correo electrónico<input type="email" value={projectDetailsForm.email} onChange={(event) => updateProjectDetailsField("email", event.target.value)} autoComplete="email" required disabled={projectDetailsState === "submitting"} /></label>
-                  <label>Teléfono (opcional)<input value={projectDetailsForm.phone} onChange={(event) => updateProjectDetailsField("phone", event.target.value)} autoComplete="tel" disabled={projectDetailsState === "submitting"} /></label>
-                  <label>Detalles del proyecto<textarea value={projectDetailsForm.message} onChange={(event) => updateProjectDetailsField("message", event.target.value)} required disabled={projectDetailsState === "submitting"} /></label>
-                  <label>Servicio de interés (opcional)<input value={projectDetailsForm.service_interest} onChange={(event) => updateProjectDetailsField("service_interest", event.target.value)} disabled={projectDetailsState === "submitting"} /></label>
-                  <label>Cuándo te gustaría comenzar (opcional)<input value={projectDetailsForm.project_timing} onChange={(event) => updateProjectDetailsField("project_timing", event.target.value)} disabled={projectDetailsState === "submitting"} /></label>
-                  <label>Medio de contacto preferido (opcional)<input value={projectDetailsForm.preferred_contact} onChange={(event) => updateProjectDetailsField("preferred_contact", event.target.value)} disabled={projectDetailsState === "submitting"} /></label>
-                  <label>Información adicional (opcional)<textarea value={projectDetailsForm.additional_info} onChange={(event) => updateProjectDetailsField("additional_info", event.target.value)} disabled={projectDetailsState === "submitting"} /></label>
-                  <label className="public-chat-widget__project-details-consent"><input type="checkbox" checked={projectDetailsForm.consent} onChange={(event) => updateProjectDetailsField("consent", event.target.checked)} required disabled={projectDetailsState === "submitting"} />Acepto que Ideas Estudio use estos datos para contactarme sobre mi proyecto.</label>
-                  {projectDetailsError && <p className="public-chat-widget__error" role="alert">{projectDetailsError}</p>}
-                  <button type="submit" className="public-chat-widget__send" disabled={projectDetailsState === "submitting"}>{projectDetailsState === "submitting" ? "Enviando…" : "Enviar detalles"}</button>
-                </form>
-              )}
-
               {/* FASE HANDOFF H4B/H4B.1 — acción secundaria, deliberadamente
                   fuera del área de burbujas de mensaje (nunca se confunde
                   con un CTA server-driven de FASE 3B.2). Oculto SIEMPRE
@@ -2598,7 +2483,7 @@ export default function PublicChatWidget() {
                   H3B ya cubre ese caso) y también mientras
                   humanActivePendingConfirmation -- ver ese estado para la
                   carrera de /events stale que cubre. */}
-              {sessionId && responder.type === "aira" && !handoffRequested && !humanActivePendingConfirmation && (
+              {sessionId && responder.type === "aira" && !projectFormOpen && !handoffRequested && !humanActivePendingConfirmation && !launcherOptions.some(isHumanHandoffQuickReply) && (
                 <div className="public-chat-widget__handoff-bar">
                   <button
                     type="button"
@@ -2621,16 +2506,16 @@ export default function PublicChatWidget() {
                   ref={inputRef}
                   type="text"
                   value={input}
-                  onChange={handleComposerChange}
+                  onChange={(event) => setInput(event.target.value.slice(0, MAX_MESSAGE_CHARS))}
                   placeholder="Escribe tu pregunta…"
                   maxLength={MAX_MESSAGE_CHARS}
-                  disabled={isLoading || quickReplyLoading || isStarting || !sessionReady}
+                  disabled={isLoading || isStarting || !sessionReady}
                   aria-label="Escribe tu mensaje"
                 />
                 <button
                   type="submit"
                   className="public-chat-widget__send"
-                  disabled={isLoading || quickReplyLoading || isStarting || !sessionReady || !input.trim()}
+                  disabled={isLoading || isStarting || !sessionReady || !input.trim()}
                   aria-label="Enviar mensaje"
                 >
                   <Send size={18} />

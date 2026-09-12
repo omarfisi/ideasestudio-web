@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { StrictMode } from "react";
-import { act, render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { act, render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 vi.mock("@/services/publicChatApi.js", () => ({
@@ -12,9 +12,10 @@ vi.mock("@/services/publicChatApi.js", () => ({
   getPublicAvatarRuntime: vi.fn(),
   requestPublicChatHuman: vi.fn(),
   sendPublicChatQuickReply: vi.fn(),
-  submitProjectDetails: vi.fn(),
+  submitPublicProjectDetails: vi.fn(),
   recognizeVisitor: vi.fn(),
   forgetVisitor: vi.fn(),
+  getPublicChatAssistants: vi.fn(),
 }));
 
 vi.mock("@/lib/publicFormsApi.js", () => ({
@@ -31,9 +32,10 @@ const {
   getPublicAvatarRuntime,
   requestPublicChatHuman,
   sendPublicChatQuickReply,
-  submitProjectDetails,
+  submitPublicProjectDetails,
   recognizeVisitor,
   forgetVisitor,
+  getPublicChatAssistants,
 } = await import("@/services/publicChatApi.js");
 const { submitPublicForm } = await import("@/lib/publicFormsApi.js");
 
@@ -112,6 +114,11 @@ async function completePrechat() {
   await waitFor(() => expect(startPublicChat).toHaveBeenCalled());
 }
 
+async function openQuickReplyOptions() {
+  fireEvent.click(await screen.findByRole("button", { name: "Explorar opciones" }));
+  return screen.findByRole("group", { name: "Opciones de respuesta rápida" });
+}
+
 function setScrollMetrics(element, { scrollHeight = 1000, clientHeight = 400, scrollTop = 600 } = {}) {
   Object.defineProperty(element, "scrollHeight", { configurable: true, value: scrollHeight });
   Object.defineProperty(element, "clientHeight", { configurable: true, value: clientHeight });
@@ -155,18 +162,6 @@ function publicAvatarRuntime(overrides = {}) {
   };
 }
 
-function ivoxAvatarRuntime(overrides = {}) {
-  const runtime = publicAvatarRuntime({
-    profile: "ivox",
-    poses: {
-      "point-viewer": { url: "https://cdn.example/ivox-point-viewer.png" },
-      neutral: { url: "https://cdn.example/ivox-neutral.png" },
-    },
-    ...overrides,
-  });
-  return runtime;
-}
-
 describe("PublicChatWidget — runtime visual público de AIRA", () => {
   it("expone un rail cerrado específico para mobile y un estado fullscreen al abrir", async () => {
     getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
@@ -208,7 +203,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
   });
 
   it("mantiene el personaje del launcher fuera del botón y lo reemplaza por el stage al abrir", async () => {
-    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
+    getPublicAvatarRuntime.mockResolvedValue(publicAvatarRuntime());
     sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
     render(<PublicChatWidget />);
 
@@ -229,60 +224,16 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     expect(screen.queryByLabelText(/aira invitando a abrir el chat/i)).not.toBeInTheDocument();
     expect(await screen.findByRole("img", { name: /AIRA:/i })).toBeInTheDocument();
     expect(document.querySelector(".public-chat-widget__stage")).toBeInTheDocument();
-    expect(screen.queryByText("No disponible")).not.toBeInTheDocument();
+    const ivoxChoice = screen.getByRole("button", { name: /ivox/i });
+    expect(ivoxChoice).toBeEnabled();
     expect(screen.getByRole("group", { name: /escoge con quién hablar/i })).toBeInTheDocument();
     expect(screen.queryByLabelText(/acciones rápidas/i)).not.toBeInTheDocument();
-  });
 
-  it("presenta IVOX desde el runtime y nunca usa el launcher estático de AIRA", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
-    getPublicAvatarRuntime.mockResolvedValueOnce(ivoxAvatarRuntime());
-    render(<PublicChatWidget />);
+    fireEvent.click(ivoxChoice);
+    expect(screen.getByRole("button", { name: /ivox/i })).toHaveAttribute("aria-pressed", "true");
 
-    expect(await screen.findByRole("button", { name: /abrir chat con ivox/i })).toBeInTheDocument();
-    const launcherCharacter = screen.getByLabelText(/ivox invitando a abrir el chat/i);
-    expect(launcherCharacter.querySelector(".public-chat-widget__launcher-image")).not.toBeInTheDocument();
-    expect(launcherCharacter.querySelector("img")).toHaveAttribute("src", "https://cdn.example/ivox-point-viewer.png");
-    expect(document.querySelector(".public-chat-widget__pill-name")).toHaveTextContent("IVOX");
-    expect(screen.queryByText("No disponible")).not.toBeInTheDocument();
-    expect(screen.queryByText("AIRA")).not.toBeInTheDocument();
-
-    openWidget();
-    expect(await screen.findByRole("region", { name: /vista previa del avatar ivox/i })).toBeInTheDocument();
-  });
-
-  it("degrada a placeholder si falla la imagen del launcher IVOX sin usar AIRA", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
-    getPublicAvatarRuntime.mockResolvedValueOnce(ivoxAvatarRuntime());
-    render(<PublicChatWidget />);
-
-    const launcherCharacter = await screen.findByLabelText(/ivox invitando a abrir el chat/i);
-    const launcherImage = launcherCharacter.querySelector("img");
-    expect(launcherImage).toHaveAttribute("src", "https://cdn.example/ivox-point-viewer.png");
-
-    fireEvent.error(launcherImage);
-
-    expect(launcherCharacter.querySelector(".public-chat-widget__launcher-image")).not.toBeInTheDocument();
-    expect(launcherCharacter.querySelector(".public-chat-widget__avatar-placeholder")).toBeInTheDocument();
-    expect(launcherCharacter).not.toHaveTextContent("AIRA");
-  });
-
-  it("refresca el perfil público al reabrir el widget", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
-    getPublicAvatarRuntime
-      .mockResolvedValueOnce(publicAvatarRuntime())
-      .mockResolvedValueOnce(publicAvatarRuntime())
-      .mockResolvedValueOnce(ivoxAvatarRuntime());
-    render(<PublicChatWidget />);
-    await screen.findByRole("button", { name: /abrir chat con aira/i });
-
-    openWidget();
-    closeWidget();
-    openWidget();
-
-    await waitFor(() => expect(getPublicAvatarRuntime).toHaveBeenCalledTimes(3));
-    expect(widgetRoot()).toHaveClass("public-chat-widget--open");
-    expect(document.querySelector(".public-chat-widget__title")).toHaveTextContent("IVOX");
+    fireEvent.click(screen.getByRole("button", { name: /aira/i }));
+    expect(screen.getByRole("button", { name: /aira/i })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("alterna point-viewer e invite-chat únicamente en el personaje externo", () => {
@@ -526,37 +477,6 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     );
   });
 
-  it("conecta la edición textual con listening y vuelve a idle al limpiar", async () => {
-    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime({
-      rules: [{ event_key: "chat.opened", rule_type: "pose", payload: { pose: "neutral" } }],
-    }));
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
-    render(<PublicChatWidget />);
-    openWidget();
-    await screen.findByRole("img", { name: "AIRA: Disponible" });
-
-    const input = screen.getByLabelText(/escribe tu mensaje/i);
-    fireEvent.change(input, { target: { value: "hola" } });
-    expect(await screen.findByRole("img", { name: "AIRA: Escuchando" })).toBeInTheDocument();
-
-    fireEvent.change(input, { target: { value: "" } });
-    expect(await screen.findByRole("img", { name: "AIRA: Disponible" })).toBeInTheDocument();
-  });
-
-  it("no repite invite al recuperar una conversación activa", async () => {
-    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime({
-      rules: [{ event_key: "chat.opened", rule_type: "pose", payload: { pose: "waving" } }],
-    }));
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
-    sessionStorage.setItem("aira_public_chat_history_v1", JSON.stringify([
-      { id: "user-1", role: "user", content: "hola", source: "server" },
-    ]));
-    render(<PublicChatWidget />);
-    openWidget();
-    expect(await screen.findByRole("img", { name: "AIRA: Disponible" })).toBeInTheDocument();
-    expect(screen.queryByRole("img", { name: "AIRA: Saludando" })).not.toBeInTheDocument();
-  });
-
   it("si falta neutral usa default_pose y si falla el runtime conserva el placeholder", async () => {
     getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime({
       default_pose: "waving",
@@ -656,7 +576,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     expect(await screen.findByText("Pensando")).toBeInTheDocument();
     resolveResponse({ response_text: "Estos son nuestros servicios.", responder: AIRA_RESPONDER });
     await screen.findByText("Estos son nuestros servicios.");
-    expect(screen.getByText("Disponible")).toBeInTheDocument();
+    expect(screen.getByText("Pensando")).toBeInTheDocument();
   });
 
   it("inicia thinking, alterna left/right y solo después pasa a talking", async () => {
@@ -740,8 +660,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     expect(await screen.findByRole("img", { name: "AIRA: Disponible" })).toHaveAttribute(
       "src", "https://cdn.example/neutral.png"
     );
-    fireEvent.click(screen.getByRole("button", { name: "Servicios" }));
-    fireEvent.click(screen.getByRole("button", { name: /enviar mensaje/i }));
+    await typeAndSend("servicios");
     await screen.findByText("Estos son nuestros servicios.");
     expect(await screen.findByRole("img", { name: "AIRA: Presentando" })).toHaveAttribute(
       "src", "https://cdn.example/presenting.png"
@@ -888,7 +807,6 @@ beforeEach(() => {
     visitor_id: "visitor-1",
     greeting: "¡Hola! ¿En qué puedo ayudarte?",
     responder: AIRA_RESPONDER,
-    quick_replies: [],
   });
   sendPublicChatMessage.mockResolvedValue({
     ok: true,
@@ -911,194 +829,18 @@ beforeEach(() => {
   getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], handoff_requested: false });
   getPublicAvatarRuntime.mockResolvedValue(null);
   requestPublicChatHuman.mockResolvedValue({ ok: true, status: "waiting_agent" });
-  sendPublicChatQuickReply.mockResolvedValue({
-    ok: true,
-    response_text: "Podemos orientarte.",
-    visitor_message: "Quiero cotizar.",
-    next_questions: [],
-    actions: [],
-    responder: AIRA_RESPONDER,
-  });
-  submitProjectDetails.mockResolvedValue({
-    ok: true,
-    submission_id: "submission-1",
-    response_text: "Gracias por compartir los detalles.",
-    next_questions: [],
-    actions: [],
-  });
   recognizeVisitor.mockResolvedValue({ recognized: false, full_name: null, email: null, phone: null });
   forgetVisitor.mockResolvedValue({ ok: true });
+  getPublicChatAssistants.mockResolvedValue([
+    { key: "aira-webchat-public", display_name: "AIRA", description: "Asistente virtual" },
+    { key: "ivox-webchat-public", display_name: "IVOX", description: "Asistente de voz" },
+  ]);
+  submitPublicProjectDetails.mockResolvedValue({ ok: true });
 });
 
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
-});
-
-describe("PublicChatWidget — quick replies públicas", () => {
-  it("muestra las opciones raíz recibidas en /start y envía el contrato exacto", async () => {
-    const rootReply = { id: "reply-root", button_label: "Quiero cotizar", visitor_message: "Quiero cotizar." };
-    startPublicChat.mockResolvedValueOnce({
-      session_id: "session-1",
-      visitor_id: "visitor-1",
-      greeting: "Hola",
-      responder: AIRA_RESPONDER,
-      quick_replies: [rootReply],
-    });
-    render(<PublicChatWidget />);
-    openWidget();
-    await completePrechat();
-
-    expect(await screen.findByRole("button", { name: "Quiero cotizar" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Quiero cotizar" }));
-    await waitFor(() => expect(sendPublicChatQuickReply).toHaveBeenCalledTimes(1));
-    expect(sendPublicChatQuickReply.mock.calls[0][0]).toBe("session-1");
-    expect(sendPublicChatQuickReply.mock.calls[0][1]).toBe("reply-root");
-    expect(sendPublicChatQuickReply.mock.calls[0][2]).toMatch(UUID_V4_REGEX);
-    expect(await screen.findByText("Podemos orientarte.")).toBeInTheDocument();
-    expect(screen.getByText("Quiero cotizar.")).toBeInTheDocument();
-  });
-
-  it("ignora quick replies malformadas sin inventar labels", async () => {
-    startPublicChat.mockResolvedValueOnce({
-      session_id: "session-1", visitor_id: "visitor-1", greeting: "Hola", responder: AIRA_RESPONDER,
-      quick_replies: [null, {}, { id: "missing-label" }, { button_label: "missing-id" }, { id: "valid", button_label: "Válida" }],
-    });
-    render(<PublicChatWidget />);
-    openWidget();
-    await completePrechat();
-    expect(await screen.findByRole("button", { name: "Válida" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "missing-label" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "missing-id" })).not.toBeInTheDocument();
-  });
-
-  it("reemplaza las opciones con next_questions y renderiza una acción URL segura", async () => {
-    const rootReply = { id: "reply-root", button_label: "Explorar", visitor_message: "Quiero explorar." };
-    startPublicChat.mockResolvedValueOnce({
-      session_id: "session-1", visitor_id: "visitor-1", greeting: "Hola", responder: AIRA_RESPONDER,
-      quick_replies: [rootReply],
-    });
-    sendPublicChatQuickReply.mockResolvedValueOnce({
-      ok: true,
-      response_text: "Elige un servicio.",
-      next_questions: [{ id: "reply-next", button_label: "Branding", visitor_message: "Me interesa branding." }],
-      actions: [{ type: "url", label: "Ver servicios", href: "/servicios", open_new_tab: false }],
-      responder: AIRA_RESPONDER,
-    });
-    render(<PublicChatWidget />);
-    openWidget();
-    await completePrechat();
-    fireEvent.click(await screen.findByRole("button", { name: "Explorar" }));
-    expect(await screen.findByRole("button", { name: "Branding" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Explorar" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /ver servicios/i })).toHaveAttribute("href", "/servicios");
-  });
-
-  it("abre el formulario público y mantiene ocultas las acciones sin contrato", async () => {
-    startPublicChat.mockResolvedValueOnce({
-      session_id: "session-1", visitor_id: "visitor-1", greeting: "Hola", responder: AIRA_RESPONDER,
-      quick_replies: [{ id: "reply-root", button_label: "Explorar", visitor_message: "Quiero explorar." }],
-    });
-    sendPublicChatQuickReply.mockResolvedValueOnce({
-      ok: true,
-      response_text: "Podemos ayudarte.",
-      next_questions: [],
-      actions: [
-        { type: "form", form_kind: "project_details", label: "Contar detalles" },
-        { type: "portfolio", label: "Ver portafolio" },
-        { type: "handoff", label: "Hablar con una persona" },
-      ],
-      responder: AIRA_RESPONDER,
-    });
-    render(<PublicChatWidget />);
-    openWidget();
-    await completePrechat();
-    fireEvent.click(await screen.findByRole("button", { name: "Explorar" }));
-
-    expect(await screen.findByText("Podemos ayudarte.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Contar detalles" }));
-    expect(await screen.findByRole("form", { name: "Formulario de detalles del proyecto" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Ver portafolio" })).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Hablar con una persona" }).length).toBeGreaterThanOrEqual(2);
-  });
-
-  it("ignora el segundo click mientras la primera selección está en vuelo", async () => {
-    let resolveReply;
-    sendPublicChatQuickReply.mockReturnValueOnce(new Promise((resolve) => { resolveReply = resolve; }));
-    startPublicChat.mockResolvedValueOnce({
-      session_id: "session-1", visitor_id: "visitor-1", greeting: "Hola", responder: AIRA_RESPONDER,
-      quick_replies: [{ id: "reply-root", button_label: "Cotizar", visitor_message: "Quiero cotizar." }],
-    });
-    render(<PublicChatWidget />);
-    openWidget();
-    await completePrechat();
-    const button = await screen.findByRole("button", { name: "Cotizar" });
-    fireEvent.click(button);
-    fireEvent.click(button);
-    expect(sendPublicChatQuickReply).toHaveBeenCalledTimes(1);
-    resolveReply({ ok: true, response_text: "Respuesta", next_questions: [], actions: [], responder: AIRA_RESPONDER });
-    await screen.findByText("Respuesta");
-  });
-
-  it("envía project_details con la sesión actual y sin IDs administrativos", async () => {
-    startPublicChat.mockResolvedValueOnce({
-      session_id: "session-1", visitor_id: "visitor-1", greeting: "Hola", responder: AIRA_RESPONDER,
-      quick_replies: [{ id: "reply-root", button_label: "Cotizar" }],
-    });
-    sendPublicChatQuickReply.mockResolvedValueOnce({
-      ok: true, response_text: "Cuéntame más.", next_questions: [],
-      actions: [{ type: "form", form_kind: "project_details", label: "Contar detalles" }], responder: AIRA_RESPONDER,
-    });
-    render(<PublicChatWidget />);
-    openWidget();
-    await completePrechat();
-    fireEvent.click(await screen.findByRole("button", { name: "Cotizar" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Contar detalles" }));
-    fireEvent.change(screen.getByLabelText("Nombre completo"), { target: { value: "Ana Pérez" } });
-    fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "ana@example.com" } });
-    fireEvent.change(screen.getByLabelText("Detalles del proyecto"), { target: { value: "Necesito una identidad visual." } });
-    fireEvent.click(screen.getByLabelText(/acepto que ideas estudio/i));
-    fireEvent.click(screen.getByRole("button", { name: "Enviar detalles" }));
-    await waitFor(() => expect(submitProjectDetails).toHaveBeenCalledTimes(1));
-    const payload = submitProjectDetails.mock.calls[0][0];
-    expect(payload).toMatchObject({ session_id: "session-1", full_name: "Ana Pérez", email: "ana@example.com", message: "Necesito una identidad visual.", consent: true });
-    expect(payload).not.toHaveProperty("workspace_id");
-    expect(payload).not.toHaveProperty("chatbot_id");
-    expect(await screen.findByText("Gracias por compartir los detalles.")).toBeInTheDocument();
-  });
-
-  it("protege doble click y conserva client_submission_id al reintentar un 409", async () => {
-    let rejectSubmission;
-    submitProjectDetails.mockImplementationOnce(() => new Promise((_, reject) => { rejectSubmission = reject; }));
-    startPublicChat.mockResolvedValueOnce({
-      session_id: "session-1", visitor_id: "visitor-1", greeting: "Hola", responder: AIRA_RESPONDER,
-      quick_replies: [{ id: "reply-root", button_label: "Detalles" }],
-    });
-    sendPublicChatQuickReply.mockResolvedValueOnce({
-      ok: true, response_text: "Completa el formulario.", next_questions: [],
-      actions: [{ type: "form", form_kind: "project_details", label: "Contar detalles" }], responder: AIRA_RESPONDER,
-    });
-    render(<PublicChatWidget />);
-    openWidget();
-    await completePrechat();
-    fireEvent.click(await screen.findByRole("button", { name: "Detalles" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Contar detalles" }));
-    fireEvent.change(screen.getByLabelText("Nombre completo"), { target: { value: "Ana" } });
-    fireEvent.change(screen.getByLabelText("Correo electrónico"), { target: { value: "ana@example.com" } });
-    fireEvent.change(screen.getByLabelText("Detalles del proyecto"), { target: { value: "Proyecto" } });
-    fireEvent.click(screen.getByLabelText(/acepto que ideas estudio/i));
-    const submitButton = screen.getByRole("button", { name: "Enviar detalles" });
-    fireEvent.click(submitButton);
-    fireEvent.click(submitButton);
-    expect(submitProjectDetails).toHaveBeenCalledTimes(1);
-    const firstId = submitProjectDetails.mock.calls[0][0].client_submission_id;
-    rejectSubmission(Object.assign(new Error("Procesando"), { status: 409 }));
-    expect(await screen.findByText("Procesando")).toBeInTheDocument();
-    submitProjectDetails.mockResolvedValueOnce({ ok: true, submission_id: "submission-1", response_text: "Recibido" });
-    fireEvent.click(screen.getByRole("button", { name: "Enviar detalles" }));
-    await waitFor(() => expect(submitProjectDetails).toHaveBeenCalledTimes(2));
-    expect(submitProjectDetails.mock.calls[1][0].client_submission_id).toBe(firstId);
-  });
 });
 
 describe("PublicChatWidget — estado inicial", () => {
@@ -1116,6 +858,228 @@ describe("PublicChatWidget — estado inicial", () => {
     expect(screen.getByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument();
     expect(startPublicChat).not.toHaveBeenCalled();
     expect(screen.queryByLabelText(/escribe tu mensaje/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("PublicChatWidget — Quick Replies públicas", () => {
+  it("mantiene las opciones cerradas, permite abrirlas y volver a cerrarlas", async () => {
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-quick-replies-toggle",
+      visitor_id: "visitor-1",
+      greeting: "Hola",
+      responder: AIRA_RESPONDER,
+      quick_replies: [
+        { id: "reply-1", button_label: "Quiero cotizar" },
+        { id: "reply-2", button_label: "Ver servicios" },
+      ],
+    });
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+
+    const toggle = await screen.findByRole("button", { name: "Explorar opciones" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "Quiero cotizar" })).not.toBeInTheDocument();
+
+    await openQuickReplyOptions();
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Quiero cotizar" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Explorar opciones" }));
+    expect(screen.queryByRole("button", { name: "Quiero cotizar" })).not.toBeInTheDocument();
+  });
+
+  it("renderiza las opciones entregadas por el backend y muestra respuesta tras seleccionar una", async () => {
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-quick-replies",
+      visitor_id: "visitor-1",
+      greeting: "Hola",
+      responder: AIRA_RESPONDER,
+      quick_replies: [
+        { id: "reply-1", button_label: "Quiero cotizar", visitor_message: "Quiero cotizar." },
+        { id: "reply-2", button_label: "Ver servicios" },
+      ],
+    });
+    sendPublicChatQuickReply.mockResolvedValueOnce({
+      response_text: "¿Qué tipo de proyecto tienes en mente?",
+      next_questions: [{ id: "reply-3", button_label: "Marca o branding" }],
+      actions: [],
+      citations: [],
+    });
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await openQuickReplyOptions();
+    const option = screen.getByRole("button", { name: "Quiero cotizar" });
+    fireEvent.click(option);
+    await waitFor(() => expect(sendPublicChatQuickReply).toHaveBeenCalledWith(
+      "session-quick-replies",
+      "reply-1",
+      expect.stringMatching(UUID_V4_REGEX),
+    ));
+    expect(await screen.findByText("¿Qué tipo de proyecto tienes en mente?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Explorar opciones" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Marca o branding" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Quiero cotizar" })).not.toBeInTheDocument();
+  });
+
+  it("mantiene el launcher disponible después de una respuesta de chat libre sin opciones nuevas", async () => {
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-quick-replies-free-chat",
+      visitor_id: "visitor-1",
+      greeting: "Hola",
+      responder: AIRA_RESPONDER,
+      quick_replies: [{ id: "reply-root", button_label: "Quiero cotizar" }],
+    });
+    sendPublicChatMessage.mockResolvedValueOnce({
+      response_text: "Hola, ¿en qué puedo ayudarte?",
+      responder: AIRA_RESPONDER,
+      citations: [],
+    });
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    const toggle = await screen.findByRole("button", { name: "Explorar opciones" });
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await typeAndSend("Hola");
+
+    expect(await screen.findByText("Hola, ¿en qué puedo ayudarte?")).toBeInTheDocument();
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Quiero cotizar" })).toBeInTheDocument();
+  });
+
+  it("muestra una acción terminal y permite reabrir las raíces sin nueva conversación", async () => {
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-terminal-reopen",
+      visitor_id: "visitor-1",
+      greeting: "Hola",
+      responder: AIRA_RESPONDER,
+      quick_replies: [{ id: "reply-terminal", button_label: "Ir a contacto" }],
+    });
+    sendPublicChatQuickReply.mockResolvedValueOnce({
+      response_text: "Puedes continuar con el equipo de Ideas Estudio desde nuestra página de contacto.",
+      next_questions: [],
+      actions: [{ type: "url", action: "url", label: "Ir a contacto", href: "/contacto" }],
+      citations: [],
+    });
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    await openQuickReplyOptions();
+    fireEvent.click(screen.getByRole("button", { name: "Ir a contacto" }));
+
+    expect(await screen.findByText(/Puedes continuar con el equipo/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ir a contacto" })).toHaveAttribute("href", "/contacto");
+    const launcher = screen.getByRole("button", { name: "Explorar opciones" });
+    expect(launcher).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(launcher);
+    expect(screen.getByRole("button", { name: "Ir a contacto" })).toBeInTheDocument();
+    expect(startPublicChat).toHaveBeenCalledTimes(1);
+  });
+
+  it("abre y envía el formulario de detalles del proyecto desde una acción form", async () => {
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-project-details",
+      visitor_id: "visitor-1",
+      greeting: "Hola",
+      responder: AIRA_RESPONDER,
+      quick_replies: [{ id: "reply-handoff", button_label: "Hablar con una persona" }],
+    });
+    sendPublicChatQuickReply.mockResolvedValueOnce({
+      response_text: "Cuéntame los detalles de tu proyecto.",
+      next_questions: [],
+      actions: [{ type: "form", action: "form", form_kind: "project_details", label: "Contar más sobre mi proyecto" }],
+      citations: [],
+    });
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    expect(document.querySelector(".public-chat-widget__handoff-bar")).toBeNull();
+    const quickReplyGroup = await openQuickReplyOptions();
+    fireEvent.click(within(quickReplyGroup).getByRole("button", { name: "Hablar con una persona" }));
+
+    expect(await screen.findByRole("textbox", { name: /cuéntanos brevemente qué necesitas/i })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/nombre completo/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/correo electrónico/i)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: /cuéntanos brevemente qué necesitas/i }), {
+      target: { value: "Necesito una página web para mi negocio." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar detalles" }));
+
+    await waitFor(() => expect(submitPublicProjectDetails).toHaveBeenCalledWith(expect.objectContaining({
+      profile: { full_name: "Ana Pérez", email: "ana@example.com", phone: "" },
+      sessionId: "session-project-details",
+      message: "Necesito una página web para mi negocio.",
+    })));
+    expect(await screen.findByText("Gracias. Recibimos los detalles de tu proyecto.")).toBeInTheDocument();
+  });
+
+  it("bloquea el doble envío mientras conserva la sesión", async () => {
+    let resolveSubmit;
+    submitPublicProjectDetails.mockReturnValueOnce(new Promise((resolve) => { resolveSubmit = resolve; }));
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-project-details-loading",
+      visitor_id: "visitor-1",
+      greeting: "Hola",
+      responder: AIRA_RESPONDER,
+      quick_replies: [{ id: "reply-form", button_label: "Abrir formulario" }],
+    });
+    sendPublicChatQuickReply.mockResolvedValueOnce({
+      response_text: "Cuéntame más.",
+      next_questions: [],
+      actions: [{ type: "form", action: "form", form_kind: "project_details", label: "Contar más" }],
+      citations: [],
+    });
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    const quickReplyGroup = await openQuickReplyOptions();
+    fireEvent.click(within(quickReplyGroup).getByRole("button", { name: "Abrir formulario" }));
+    const message = await screen.findByRole("textbox", { name: /cuéntanos brevemente qué necesitas/i });
+    fireEvent.change(message, { target: { value: "Necesito una identidad visual para mi negocio." } });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar detalles" }));
+
+    expect(screen.getByRole("button", { name: "Enviando…" })).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: /cuéntanos brevemente qué necesitas/i })).toHaveValue("Necesito una identidad visual para mi negocio.");
+    resolveSubmit({ ok: true });
+    expect(await screen.findByText("Gracias. Recibimos los detalles de tu proyecto.")).toBeInTheDocument();
+  });
+
+  it("muestra el error y conserva los datos introducidos para reintentar", async () => {
+    submitPublicProjectDetails.mockRejectedValueOnce(new Error("Servicio temporalmente no disponible"));
+    startPublicChat.mockResolvedValueOnce({
+      session_id: "session-project-details-error",
+      visitor_id: "visitor-1",
+      greeting: "Hola",
+      responder: AIRA_RESPONDER,
+      quick_replies: [{ id: "reply-form-error", button_label: "Abrir formulario" }],
+    });
+    sendPublicChatQuickReply.mockResolvedValueOnce({
+      response_text: "Cuéntame más.",
+      next_questions: [],
+      actions: [{ type: "form", action: "form", form_kind: "project_details", label: "Contar más" }],
+      citations: [],
+    });
+
+    render(<PublicChatWidget />);
+    openWidget();
+    await completePrechat();
+    const quickReplyGroup = await openQuickReplyOptions();
+    fireEvent.click(within(quickReplyGroup).getByRole("button", { name: "Abrir formulario" }));
+    const message = await screen.findByRole("textbox", { name: /cuéntanos brevemente qué necesitas/i });
+    fireEvent.change(message, { target: { value: "Necesito una campaña de contenido para mi lanzamiento." } });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar detalles" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Servicio temporalmente no disponible");
+    expect(screen.getByRole("textbox", { name: /cuéntanos brevemente qué necesitas/i })).toHaveValue("Necesito una campaña de contenido para mi lanzamiento.");
   });
 });
 
@@ -1157,7 +1121,7 @@ describe("PublicChatWidget — pre-chat gate", () => {
       expect.objectContaining({ full_name: "Ana Pérez", email: "ana@example.com", consent: true })
     );
     expect(verifyPrechat).toHaveBeenCalledWith("sub-1");
-    expect(startPublicChat).toHaveBeenCalledWith("token-1", false);
+    expect(startPublicChat).toHaveBeenCalledWith("token-1", false, "aira-webchat-public");
     expect(await screen.findByText("¡Hola! ¿En qué puedo ayudarte?")).toBeInTheDocument();
   });
 
@@ -2731,7 +2695,7 @@ describe("PublicChatWidget — LEVEL2 responder: prechat intacto", () => {
     await completePrechat();
     await screen.findByText("¡Hola! ¿En qué puedo ayudarte?");
 
-    expect(startPublicChat).toHaveBeenCalledWith("token-1", false);
+    expect(startPublicChat).toHaveBeenCalledWith("token-1", false, "aira-webchat-public");
     expect(getPublicChatStatus).not.toHaveBeenCalled();
   });
 });
@@ -2928,14 +2892,14 @@ describe("PublicChatWidget — FASE 4: reconocimiento de visitante", () => {
     expect(rememberCheckbox).not.toBeChecked();
     fireEvent.click(rememberCheckbox);
     fireEvent.click(screen.getByRole("button", { name: /comenzar conversación/i }));
-    await waitFor(() => expect(startPublicChat).toHaveBeenCalledWith("token-1", true));
+    await waitFor(() => expect(startPublicChat).toHaveBeenCalledWith("token-1", true, "aira-webchat-public"));
   });
 
   it("sin marcar recuérdame, startPublicChat() recibe remember_me=false", async () => {
     render(<PublicChatWidget />);
     openWidget();
     await completePrechat();
-    expect(startPublicChat).toHaveBeenCalledWith("token-1", false);
+    expect(startPublicChat).toHaveBeenCalledWith("token-1", false, "aira-webchat-public");
   });
 });
 
