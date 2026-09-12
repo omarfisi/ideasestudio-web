@@ -1,4 +1,4 @@
-name: AIRA IVOX Final Branch Patch
+name: AIRA IVOX Final Branch Validation
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  patch:
+  validate:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
@@ -19,18 +19,34 @@ jobs:
           ref: fix/aira-ivox-final-flow
           fetch-depth: 0
 
-      - name: Apply scoped AIRA/IVOX frontend patch
-        run: python3 scripts/patch_aira_ivox_final_frontend.py
+      - name: Apply switch loading follow-up
+        run: python3 scripts/fix_aira_ivox_switch_loading.py
 
-      - name: Commit patched widget when changed
+      - name: Commit follow-up when changed
         shell: bash
         run: |
-          if git diff --quiet -- src/components/chat/PublicChatWidget.jsx; then
-            echo "Widget already patched; nothing to commit."
-            exit 0
+          if ! git diff --quiet -- src/components/chat/PublicChatWidget.jsx; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add src/components/chat/PublicChatWidget.jsx
+            git commit -m "fix(aira): clear loading after assistant switch"
+            git push origin HEAD:fix/aira-ivox-final-flow
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/components/chat/PublicChatWidget.jsx
-          git commit -m "fix(aira): keep chat open while switching AIRA and IVOX"
-          git push origin HEAD:fix/aira-ivox-final-flow
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run focused public chat tests
+        run: npx vitest run src/services/__tests__/publicChatApi.test.js src/components/chat/__tests__/PublicChatWidget.test.jsx src/components/chat/__tests__/PublicChatWidgetMobileOverflow.test.jsx
+
+      - name: Run full test suite
+        run: npm test -- --run
+
+      - name: Build production frontend
+        run: npm run build
