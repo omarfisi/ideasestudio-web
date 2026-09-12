@@ -2380,13 +2380,6 @@ export default function PublicChatWidget() {
             <img className="public-chat-widget__launcher-image" src={launcherAsset} alt="" aria-hidden="true" />
           </div>
         )}
-        {!isOpen && isIvoxAssistant && (
-          <div className="public-chat-widget__launcher-character public-chat-widget__launcher-character--runtime" aria-label="IVOX listo para conversar">
-            {launcherRuntimePose ? (
-              <img className="public-chat-widget__launcher-image" src={launcherRuntimePose.url} alt="IVOX" />
-            ) : <span className="public-chat-widget__launcher-runtime-fallback">IVOX</span>}
-          </div>
-        )}
         <button
           type="button"
           className={`public-chat-widget__toggle${isOpen ? "" : " public-chat-widget__toggle--pill public-chat-widget__toggle--mobile-rail"}`}

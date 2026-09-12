@@ -184,8 +184,10 @@
 }
 
 .public-chat-widget__launcher-mini-character {
-  width: 42px;
-  height: 44px;
+  width: 48px;
+  height: 52px;
+  border-radius: 0;
+  background: transparent;
 }
 
 .public-chat-widget__header-runtime-character {

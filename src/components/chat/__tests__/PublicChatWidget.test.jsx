@@ -905,7 +905,7 @@ describe("PublicChatWidget — estado inicial", () => {
     expect(screen.getByRole("button", { name: /abrir chat con ivox/i })).toBeInTheDocument();
   });
 
-  it("usa el default pose transparente de IVOX en el launcher público", async () => {
+  it("usa una sola figura transparente de IVOX integrada al launcher público", async () => {
     sessionStorage.setItem("aira_public_chat_assistant_v2", "ivox-webchat-public");
     getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime({
       profile: "ivox",
@@ -919,11 +919,14 @@ describe("PublicChatWidget — estado inicial", () => {
 
     render(<PublicChatWidget />);
 
-    const character = await screen.findByLabelText(/ivox listo para conversar/i);
-    expect(within(character).getByRole("img", { name: "IVOX" })).toHaveAttribute(
+    const launcher = await screen.findByRole("button", { name: /abrir chat con ivox/i });
+    await waitFor(() => expect(launcher.querySelector(".public-chat-widget__launcher-mini-character img")).toHaveAttribute(
       "src",
       "https://cdn.example/ivox-point-viewer.png",
-    );
+    ));
+    expect(document.querySelector(".public-chat-widget__launcher-character--runtime")).toBeNull();
+    expect(document.querySelectorAll('img[src="https://cdn.example/ivox-point-viewer.png"]')).toHaveLength(1);
+    expect(screen.queryByText("¿Hablamos?")).not.toBeInTheDocument();
   });
 
   it("usa AIRA como primer runtime cuando esa es la identidad persistida", async () => {
