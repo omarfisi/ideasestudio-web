@@ -1301,7 +1301,7 @@ export default function PublicChatWidget() {
       if (sanitized) setResponder(sanitized);
       setAiraAvatarRuntime(null);
       if (assistant.key === "aira-webchat-public" || assistant.key === "ivox-webchat-public") {
-        await loadAiraAvatarRuntime(true, assistant.key);
+        void loadAiraAvatarRuntime(true, assistant.key);
       }
     } catch (err) {
       if (currentSessionIdRef.current !== sourceSessionId) return;
