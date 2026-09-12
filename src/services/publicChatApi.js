@@ -166,10 +166,10 @@ export async function getPublicChatStatus(sessionId) {
 // el backend resuelve server-side la publicación válida y devuelve solo
 // poses públicas con URLs temporales.
 export async function getPublicAvatarRuntime(options = {}) {
-  const profile = typeof options.profile === "string" && options.profile.trim()
-    ? `?profile=${encodeURIComponent(options.profile.trim())}`
+  const chatbotKey = typeof options.chatbotKey === "string" && options.chatbotKey.trim()
+    ? `?chatbot_key=${encodeURIComponent(options.chatbotKey.trim())}`
     : "";
-  return publicChatFetch(`/avatar${profile}`, {
+  return publicChatFetch(`/avatar${chatbotKey}`, {
     method: "GET",
     signal: options.signal,
   });

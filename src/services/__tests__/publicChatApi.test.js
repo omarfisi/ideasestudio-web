@@ -133,13 +133,13 @@ describe("getPublicAvatarRuntime", () => {
     expect(options.headers).toEqual({ "Content-Type": "application/json" });
   });
 
-  it("envía el perfil público seleccionado sin exponer identificadores internos", async () => {
+  it("envía la key pública seleccionada sin exponer identificadores internos", async () => {
     fetch.mockResolvedValue(jsonResponse(200, { profile: "ivox", variant: "default", poses: {}, rules: [] }));
 
-    await getPublicAvatarRuntime({ profile: "ivox" });
+    await getPublicAvatarRuntime({ chatbotKey: "ivox-webchat-public" });
 
     const [url, options] = fetch.mock.calls[0];
-    expect(String(url)).toMatch(/\/public\/chat\/avatar\?profile=ivox$/);
+    expect(String(url)).toMatch(/\/public\/chat\/avatar\?chatbot_key=ivox-webchat-public$/);
     expect(options.method).toBe("GET");
     expect(String(url)).not.toMatch(/workspace_id|profile_id|variant_id|version_id/);
   });
