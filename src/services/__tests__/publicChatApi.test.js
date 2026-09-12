@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { requestPublicChatHuman, getPublicAvatarRuntime, sendPublicChatQuickReply, submitPublicProjectDetails } = await import("@/services/publicChatApi.js");
+const {
+  requestPublicChatHuman,
+  getPublicAvatarRuntime,
+  getPublicChatDefaultAssistant,
+  switchPublicChatAssistant,
+  sendPublicChatQuickReply,
+  submitPublicProjectDetails,
+} = await import("@/services/publicChatApi.js");
 
 function jsonResponse(status, body, headers = {}) {
   return {
@@ -64,6 +71,43 @@ describe("requestPublicChatHuman", () => {
   it("un 503 lanza un Error con status=503", async () => {
     fetch.mockResolvedValue(jsonResponse(503, { detail: "El chat público no está disponible temporalmente." }));
     await expect(requestPublicChatHuman("session-1")).rejects.toMatchObject({ status: 503 });
+  });
+});
+
+describe("assistant selection API", () => {
+  it("lee el asistente público seleccionado por el CRM", async () => {
+    fetch.mockResolvedValue(jsonResponse(200, { key: "ivox-webchat-public" }));
+
+    const result = await getPublicChatDefaultAssistant();
+
+    expect(result).toEqual({ key: "ivox-webchat-public" });
+    const [url, options] = fetch.mock.calls[0];
+    expect(String(url)).toMatch(/\/public\/chat\/default-assistant$/);
+    expect(options.method).toBe("GET");
+  });
+
+  it("cambia de asistente con la sesión existente sin reenviar prechat", async () => {
+    fetch.mockResolvedValue(jsonResponse(200, {
+      session_id: "session-ivox",
+      visitor_id: "visitor-2",
+      greeting: "Hola",
+      responder: { type: "aira", display_name: "IVOX", status_label: "Asistente virtual" },
+      quick_replies: [{ id: "qr-1", button_label: "Servicios" }],
+    }));
+
+    const result = await switchPublicChatAssistant("session-aira", "ivox-webchat-public");
+
+    expect(result.session_id).toBe("session-ivox");
+    const [url, options] = fetch.mock.calls[0];
+    expect(String(url)).toMatch(/\/public\/chat\/switch-assistant$/);
+    expect(options.method).toBe("POST");
+    expect(JSON.parse(options.body)).toEqual({
+      session_id: "session-aira",
+      chatbot_key: "ivox-webchat-public",
+    });
+    expect(options.body).not.toContain("prechat");
+    expect(options.body).not.toContain("workspace_id");
+    expect(options.body).not.toContain("chatbot_id");
   });
 });
 

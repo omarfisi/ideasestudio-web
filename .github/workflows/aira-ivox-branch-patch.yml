@@ -1,0 +1,54 @@
+name: AIRA IVOX Final Branch Validation
+
+on:
+  push:
+    branches:
+      - fix/aira-ivox-final-flow
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      VITE_CRM_BASE_URL: http://127.0.0.1:8000
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/aira-ivox-final-flow
+          fetch-depth: 0
+
+      - name: Apply switch loading follow-up
+        run: python3 scripts/fix_aira_ivox_switch_loading.py
+
+      - name: Commit follow-up when changed
+        shell: bash
+        run: |
+          if ! git diff --quiet -- src/components/chat/PublicChatWidget.jsx; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add src/components/chat/PublicChatWidget.jsx
+            git commit -m "fix(aira): clear loading after assistant switch"
+            git push origin HEAD:fix/aira-ivox-final-flow
+          fi
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run focused public chat tests
+        run: npx vitest run src/services/__tests__/publicChatApi.test.js src/components/chat/__tests__/PublicChatWidget.test.jsx src/components/chat/__tests__/PublicChatWidgetMobileOverflow.test.jsx
+
+      - name: Run full test suite
+        run: npm test -- --run
+
+      - name: Build production frontend
+        run: npm run build
