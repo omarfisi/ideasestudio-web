@@ -1,0 +1,36 @@
+name: AIRA IVOX Final Branch Patch
+
+on:
+  push:
+    branches:
+      - fix/aira-ivox-final-flow
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/aira-ivox-final-flow
+          fetch-depth: 0
+
+      - name: Apply scoped AIRA/IVOX frontend patch
+        run: python3 scripts/patch_aira_ivox_final_frontend.py
+
+      - name: Commit patched widget when changed
+        shell: bash
+        run: |
+          if git diff --quiet -- src/components/chat/PublicChatWidget.jsx; then
+            echo "Widget already patched; nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/chat/PublicChatWidget.jsx
+          git commit -m "fix(aira): keep chat open while switching AIRA and IVOX"
+          git push origin HEAD:fix/aira-ivox-final-flow
