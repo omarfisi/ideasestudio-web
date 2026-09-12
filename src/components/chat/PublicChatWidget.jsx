@@ -1955,7 +1955,7 @@ export default function PublicChatWidget() {
       rootQuickRepliesRef.current = initialQuickReplies;
       setAvailableQuickReplies(initialQuickReplies);
       persistQuickReplies(data.session_id, initialQuickReplies);
-      setQuickRepliesOpen(initialQuickReplies.length > 0);
+      setQuickRepliesOpen(false);
       hasRealConversationRef.current = false;
       // FASE HANDOFF H3B.13 — una sesión NUEVA (por definición, este es el
       // único camino que llega hasta acá: ensureSession() ya devolvió antes
