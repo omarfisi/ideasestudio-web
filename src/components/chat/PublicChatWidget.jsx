@@ -634,8 +634,21 @@ function explicitStoredAssistantKey() {
   }
 }
 
+function storedSessionAssistantKey() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const stored = JSON.parse(raw);
+    return stored?.chatbot_key === "aira-webchat-public" || stored?.chatbot_key === "ivox-webchat-public"
+      ? stored.chatbot_key
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 function storedAssistantKey() {
-  return explicitStoredAssistantKey() || "aira-webchat-public";
+  return explicitStoredAssistantKey() || storedSessionAssistantKey() || "aira-webchat-public";
 }
 
 function clearStoredConversationState() {
@@ -861,6 +874,7 @@ export default function PublicChatWidget() {
   const [recognizedVisitor, setRecognizedVisitor] = useState(null);
   const [assistants, setAssistants] = useState([]);
   const [selectedAssistantKey, setSelectedAssistantKey] = useState(() => storedAssistantKey());
+  const [assistantIdentityResolved, setAssistantIdentityResolved] = useState(() => Boolean(explicitStoredAssistantKey() || storedSessionAssistantKey()));
   const [visitorProfile, setVisitorProfile] = useState(null);
   const [projectFormOpen, setProjectFormOpen] = useState(false);
 
@@ -1171,6 +1185,7 @@ export default function PublicChatWidget() {
   }, []);
 
   const loadAiraAvatarRuntime = useCallback(async (force = false, chatbotKey = selectedAssistantKey) => {
+    if (!chatbotKey) return null;
     if (airaRuntimeRequestRef.current && !force) return airaRuntimeRequestRef.current;
     const requestSeq = ++airaRuntimeRequestSeqRef.current;
     const scopedChatbotKey = chatbotKey === "ivox-webchat-public" ? chatbotKey : "aira-webchat-public";
@@ -1203,14 +1218,26 @@ export default function PublicChatWidget() {
         if (cancelled) return;
         const next = Array.isArray(items) ? items : [];
         setAssistants(next);
-        if (next.length === 0 || sessionId) return;
-
-        const explicitChoice = explicitStoredAssistantKey();
-        if (explicitChoice && next.some((item) => item.key === explicitChoice)) {
-          setSelectedAssistantKey(explicitChoice);
+        if (next.length === 0) {
+          if (!cancelled) {
+            setSelectedAssistantKey((current) => current || "aira-webchat-public");
+            setAssistantIdentityResolved(true);
+          }
           return;
         }
-        if (explicitChoice) sessionStorage.removeItem(ASSISTANT_STORAGE_KEY);
+
+        const explicitChoice = explicitStoredAssistantKey() || storedSessionAssistantKey();
+        if (explicitChoice && next.some((item) => item.key === explicitChoice)) {
+          setSelectedAssistantKey(explicitChoice);
+          setAssistantIdentityResolved(true);
+          return;
+        }
+        if (explicitStoredAssistantKey()) sessionStorage.removeItem(ASSISTANT_STORAGE_KEY);
+        if (sessionId) {
+          setSelectedAssistantKey(next[0].key);
+          setAssistantIdentityResolved(true);
+          return;
+        }
 
         let defaultKey = next[0].key;
         try {
@@ -1221,10 +1248,18 @@ export default function PublicChatWidget() {
           // Compatibility fallback: configured assistant order remains usable
           // if Avatar Manager cannot resolve a public default temporarily.
         }
-        if (!cancelled) setSelectedAssistantKey(defaultKey);
+        if (!cancelled) {
+          if (defaultKey !== selectedAssistantKey) setAiraAvatarRuntime(null);
+          setSelectedAssistantKey(defaultKey);
+          setAssistantIdentityResolved(true);
+        }
       })
       .catch(() => {
-        if (!cancelled) setAssistants([]);
+        if (!cancelled) {
+          setAssistants([]);
+          setSelectedAssistantKey((current) => current || "aira-webchat-public");
+          setAssistantIdentityResolved(true);
+        }
       });
     return () => { cancelled = true; };
   }, [sessionId]);
@@ -2323,6 +2358,10 @@ export default function PublicChatWidget() {
   const responderAvatarKey = `${responder.type}:${responder.avatar_url || ""}:${activeAiraPose?.url || ""}`;
   const isAiraResponder = responder.type === "aira";
   const isIvoxAssistant = selectedAssistantKey === "ivox-webchat-public";
+  const selectedAssistant = assistants.find((assistant) => assistant.key === selectedAssistantKey) || null;
+  const publicResponder = isAiraResponder && selectedAssistant
+    ? { ...responder, display_name: selectedAssistant.display_name || (isIvoxAssistant ? "IVOX" : "AIRA") }
+    : responder;
   const launcherPortraitPose = isAiraResponder ? exactRuntimePose(airaAvatarRuntime, "neutral") : null;
   const launcherRuntimePose = isIvoxAssistant
     ? getRuntimePose(airaAvatarRuntime, airaAvatarRuntime?.default_pose || "neutral")
@@ -2333,7 +2372,7 @@ export default function PublicChatWidget() {
     : rootQuickRepliesRef.current;
 
   return (
-    <div ref={wrapperRef} className={`public-chat-widget${isOpen ? " public-chat-widget--open" : ""}`}>
+    <div ref={wrapperRef} className={`public-chat-widget${isOpen ? " public-chat-widget--open" : ""}${assistantIdentityResolved ? "" : " public-chat-widget--identity-pending"}`}>
       <div className="public-chat-widget__launcher-composition">
         {!isOpen && isAiraResponder && !isIvoxAssistant && (
           <div className="public-chat-widget__launcher-character" aria-label="AIRA invitando a abrir el chat">
@@ -2352,7 +2391,7 @@ export default function PublicChatWidget() {
           type="button"
           className={`public-chat-widget__toggle${isOpen ? "" : " public-chat-widget__toggle--pill public-chat-widget__toggle--mobile-rail"}`}
           onClick={handleToggle}
-          aria-label={isOpen ? "Cerrar chat" : `Abrir chat con ${responder.display_name}`}
+          aria-label={isOpen ? "Cerrar chat" : `Abrir chat con ${publicResponder.display_name}`}
           aria-expanded={isOpen}
         >
           {isOpen ? (
@@ -2363,7 +2402,7 @@ export default function PublicChatWidget() {
                 <span className="public-chat-widget__launcher-portrait">
                   <ResponderAvatar
                     key={`launcher:${launcherPortraitPose?.url || "fallback"}`}
-                    responder={responder}
+                    responder={publicResponder}
                     airaAvatarRuntime={airaAvatarRuntime}
                     airaPoseKey="neutral"
                     size={38}
@@ -2377,16 +2416,16 @@ export default function PublicChatWidget() {
               ) : (
                 <ResponderAvatar
                   key={responderAvatarKey}
-                  responder={responder}
+                  responder={publicResponder}
                   airaAvatarRuntime={airaAvatarRuntime}
                   airaPoseKey={airaPoseKey}
                   size={36}
                 />
               )}
               <span className="public-chat-widget__pill-text">
-                <span className="public-chat-widget__pill-name">{responder.display_name}</span>
+                <span className="public-chat-widget__pill-name">{publicResponder.display_name}</span>
                 <span className="public-chat-widget__pill-status">
-                  {isAiraResponder ? "Iniciar conversación" : responder.status_label}
+                  {isAiraResponder ? "Iniciar conversación" : publicResponder.status_label}
                 </span>
               </span>
             </span>
@@ -2412,15 +2451,15 @@ export default function PublicChatWidget() {
               ) : (
                 <ResponderAvatar
                   key={responderAvatarKey}
-                  responder={responder}
+                  responder={publicResponder}
                   airaAvatarRuntime={airaAvatarRuntime}
                   airaPoseKey={airaPoseKey}
                   size={40}
                 />
               )}
               <div>
-                <p className="public-chat-widget__title">{responder.display_name}</p>
-                <p className="public-chat-widget__subtitle">{responder.status_label}</p>
+                <p className="public-chat-widget__title">{publicResponder.display_name}</p>
+                <p className="public-chat-widget__subtitle">{publicResponder.status_label}</p>
               </div>
             </div>
             <button
