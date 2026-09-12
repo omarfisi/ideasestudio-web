@@ -183,7 +183,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
   });
 
   it("mantiene stage, mensajes, acciones, handoff y composer como regiones hermanas", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
     render(<PublicChatWidget />);
     openWidget();
@@ -204,7 +204,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
 
   it("mantiene el personaje del launcher fuera del botón y lo reemplaza por el stage al abrir", async () => {
     getPublicAvatarRuntime.mockResolvedValue(publicAvatarRuntime());
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
 
     const launcher = screen.getByRole("button", { name: /abrir chat/i });
@@ -270,8 +270,8 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
         content: `Mensaje ${index + 1}`,
         source: "server",
       }));
-      sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
-      sessionStorage.setItem("aira_public_chat_history_v1", JSON.stringify(history));
+      sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
+      sessionStorage.setItem("aira_public_chat_history_v2", JSON.stringify(history));
       getPublicChatEvents.mockResolvedValue({
         ok: true,
         messages: history.map((message, index) => ({
@@ -297,7 +297,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
   );
 
   it("mantiene el stage expandido antes de que exista una conversación real", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
     render(<PublicChatWidget />);
 
@@ -356,7 +356,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
 
     await waitFor(() => expect(decodedUrls).toHaveLength(poseKeys.length));
     expect(decodedUrls).toEqual(expect.arrayContaining(poseKeys.map((key) => `https://cdn.example/${key}.png`)));
-    expect(sessionStorage.getItem("aira_public_chat_history_v1") || "").not.toContain("cdn.example");
+    expect(sessionStorage.getItem("aira_public_chat_history_v2") || "").not.toContain("cdn.example");
   });
 
   it("prepara talk-a y talk-o antes de iniciar la secuencia", async () => {
@@ -381,7 +381,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
         payload: { sequence: ["talk-a", "talk-o"], interval_ms: 280 },
       }],
     }));
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
 
@@ -428,7 +428,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
       avatar_events: ["intent.services"],
       responder: AIRA_RESPONDER,
     });
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     const { unmount } = render(<PublicChatWidget />);
     openWidget();
     expect(await screen.findByRole("img", { name: "AIRA: Disponible" })).toHaveAttribute(
@@ -453,7 +453,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
 
   it("carga el runtime y muestra neutral inicialmente", async () => {
     getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
 
     openWidget();
@@ -461,13 +461,13 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     const avatar = await screen.findByRole("img", { name: "AIRA: Disponible" }, { timeout: 2_000 });
     expect(getPublicAvatarRuntime).toHaveBeenCalledTimes(1);
     expect(avatar).toHaveAttribute("src", "https://cdn.example/neutral.png");
-    expect(sessionStorage.getItem("aira_public_chat_session_v1")).toBe("existing-session");
-    expect(sessionStorage.getItem("aira_public_chat_history_v1")).not.toContain("neutral.png");
+    expect(sessionStorage.getItem("aira_public_chat_session_v2")).toBe("existing-session");
+    expect(sessionStorage.getItem("aira_public_chat_history_v2")).not.toContain("neutral.png");
   });
 
   it("usa waving al abrir", async () => {
     getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
 
     openWidget();
@@ -482,7 +482,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
       default_pose: "waving",
       poses: { waving: { url: "https://cdn.example/waving.png" } },
     }));
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     const { unmount } = render(<PublicChatWidget />);
     openWidget();
     expect(await screen.findByRole("img", { name: "AIRA: Saludando" })).toHaveAttribute(
@@ -510,7 +510,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
       return Promise.resolve(requestCount === 1 ? expired : fresh);
     });
 
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
 
     await waitFor(() => expect(getPublicAvatarRuntime.mock.calls.length).toBeGreaterThanOrEqual(2));
@@ -523,7 +523,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
 
   it("si falla una pose nueva conserva la pose anterior sin mostrar error interno", async () => {
     getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
 
     openWidget();
@@ -539,7 +539,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
   });
 
   it("un responder humano conserva su avatar y nunca usa una pose de AIRA", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());
     getPublicChatStatus.mockResolvedValueOnce({
       ok: true,
@@ -567,7 +567,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     let resolveResponse;
     const response = new Promise((resolve) => { resolveResponse = resolve; });
     sendPublicChatMessage.mockReturnValueOnce(response);
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await screen.findByRole("img", { name: "AIRA: Saludando" });
@@ -596,7 +596,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     });
     getPublicAvatarRuntime.mockResolvedValueOnce(runtime);
     sendPublicChatMessage.mockReturnValueOnce(new Promise(() => {}));
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await screen.findByRole("img", { name: "AIRA: Disponible" });
@@ -627,7 +627,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
       ],
     });
     getPublicAvatarRuntime.mockResolvedValueOnce(runtime);
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     renderWithRouter();
     openWidget();
     expect(await screen.findByRole("img", { name: "AIRA: Respondiendo" })).toHaveAttribute(
@@ -654,7 +654,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
       avatar_events: ["intent.services"],
       responder: AIRA_RESPONDER,
     });
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     expect(await screen.findByRole("img", { name: "AIRA: Disponible" })).toHaveAttribute(
@@ -685,7 +685,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
       avatar_events: [],
       responder: AIRA_RESPONDER,
     });
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     renderWithRouter();
     openWidget();
     await screen.findByRole("img", { name: "AIRA: Disponible" });
@@ -715,7 +715,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     let resolveResponse;
     const response = new Promise((resolve) => { resolveResponse = resolve; });
     sendPublicChatMessage.mockReturnValueOnce(response);
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await screen.findByRole("img", { name: "AIRA: Disponible" });
@@ -758,7 +758,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
       avatar_events: ["confidence.low", "internal.secret"],
       responder: AIRA_RESPONDER,
     });
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await screen.findByRole("img", { name: "AIRA: Disponible" });
@@ -783,7 +783,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
       ],
     }));
     requestPublicChatHuman.mockResolvedValueOnce({ ok: true, status: "waiting_agent" });
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await screen.findByRole("img", { name: "AIRA: Disponible" });
@@ -844,6 +844,22 @@ afterEach(() => {
 });
 
 describe("PublicChatWidget — estado inicial", () => {
+  it("invalida una sesión v1 una sola vez y exige un nuevo pre-chat", () => {
+    sessionStorage.setItem("aira_public_chat_session_v1", "stale-session");
+    sessionStorage.setItem("aira_public_chat_history_v1", JSON.stringify([{ role: "user", content: "stale" }]));
+    sessionStorage.setItem("aira_public_chat_quick_replies_v1", JSON.stringify({ session_id: "stale-session", options: [{ id: "old" }] }));
+    sessionStorage.setItem("aira_public_chat_assistant_v1", "ivox-webchat-public");
+
+    render(<PublicChatWidget />);
+
+    expect(sessionStorage.getItem("aira_public_chat_storage_version")).toBe("2");
+    expect(sessionStorage.getItem("aira_public_chat_session_v1")).toBeNull();
+    expect(sessionStorage.getItem("aira_public_chat_history_v1")).toBeNull();
+    expect(sessionStorage.getItem("aira_public_chat_quick_replies_v1")).toBeNull();
+    expect(sessionStorage.getItem("aira_public_chat_assistant_v1")).toBeNull();
+    expect(sessionStorage.getItem("aira_public_chat_session_v2")).toBeNull();
+  });
+
   it("renderiza cerrado por defecto (solo el botón flotante)", () => {
     render(<PublicChatWidget />);
     expect(screen.getByRole("button", { name: /abrir chat/i })).toBeInTheDocument();
@@ -1267,7 +1283,7 @@ describe("PublicChatWidget — pre-chat gate", () => {
     expect(screen.queryByLabelText(/escribe tu mensaje/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/acciones rápidas/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: /vista previa del avatar aira/i })).not.toBeInTheDocument();
-    expect(sessionStorage.getItem("aira_public_chat_session_v1")).toBeNull();
+    expect(sessionStorage.getItem("aira_public_chat_session_v2")).toBeNull();
   });
 
   it("permite reintentar después de un fallo de /start y entra al chat con la sesión válida", async () => {
@@ -1292,7 +1308,7 @@ describe("PublicChatWidget — pre-chat gate", () => {
   });
 
   it("no trata una sesión stale de sessionStorage como un chat operativo", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "stale-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "stale-session");
     const expired = new Error("Sesión no encontrada");
     expired.status = 404;
     getPublicChatStatus.mockRejectedValueOnce(expired);
@@ -1304,7 +1320,7 @@ describe("PublicChatWidget — pre-chat gate", () => {
     expect(screen.getByLabelText(/escribe tu mensaje/i)).toBeDisabled();
     expect(screen.queryByLabelText(/acciones rápidas/i)).not.toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument();
-    expect(sessionStorage.getItem("aira_public_chat_session_v1")).toBeNull();
+    expect(sessionStorage.getItem("aira_public_chat_session_v2")).toBeNull();
   });
 
   it("si falla solo el runtime del avatar, conserva la sesión y el composer operativo", async () => {
@@ -1437,7 +1453,7 @@ describe("PublicChatWidget — auto-scroll inteligente", () => {
     });
     getPublicAvatarRuntime.mockResolvedValueOnce(runtime);
     sendPublicChatMessage.mockReturnValueOnce(new Promise(() => {}));
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await screen.findByRole("img", { name: "AIRA: Disponible" });
@@ -1487,7 +1503,7 @@ describe("PublicChatWidget — auto-scroll inteligente", () => {
     });
     getPublicAvatarRuntime.mockResolvedValueOnce(runtime);
     sendPublicChatMessage.mockReturnValueOnce(new Promise(() => {}));
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await screen.findByRole("img", { name: "AIRA: Disponible" });
@@ -1613,10 +1629,10 @@ describe("PublicChatWidget — auto-scroll inteligente", () => {
   // y solo tocarlo lleva al fondo y reactiva follow=true.
   it("PARTE M — historial largo: sube a mitad de un párrafo, follow=false sobrevive 3 polls (>9s), y solo el indicador restaura el fondo", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     const longParagraph = "Este es un párrafo muy largo sobre nuestros servicios. ".repeat(30);
     sessionStorage.setItem(
-      "aira_public_chat_history_v1",
+      "aira_public_chat_history_v2",
       JSON.stringify([
         {
           id: "srv-long-1",
@@ -1683,7 +1699,7 @@ describe("PublicChatWidget — auto-scroll inteligente", () => {
   // reales) -> nunca debe volver al fondo.
   it("PARTE N — open/close/reopen + scroll up sobrevive 3 ciclos de polling sin volver al fondo", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], handoff_requested: false });
 
     render(<PublicChatWidget />);
@@ -2021,7 +2037,7 @@ describe("PublicChatWidget — mobile: el composer sigue siendo 100% interactivo
 
 describe("PublicChatWidget — apertura e inicio de sesión con sesión existente", () => {
   it("reutiliza la sesión existente en sessionStorage sin volver a pedir el pre-chat", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await waitFor(() => expect(startPublicChat).not.toHaveBeenCalled());
@@ -2412,7 +2428,7 @@ describe("PublicChatWidget — LEVEL2 responder: avatar", () => {
 
 describe("PublicChatWidget — LEVEL2 responder: GET /status", () => {
   it("6) abrir el widget con session_id existente llama a /status exactamente una vez", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
 
@@ -2421,7 +2437,7 @@ describe("PublicChatWidget — LEVEL2 responder: GET /status", () => {
   });
 
   it("7) /status AI -> el header refleja AIRA", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     getPublicChatStatus.mockResolvedValueOnce({ ok: true, responder: AIRA_RESPONDER });
     render(<PublicChatWidget />);
     openWidget();
@@ -2432,7 +2448,7 @@ describe("PublicChatWidget — LEVEL2 responder: GET /status", () => {
   });
 
   it("8) /status human -> el header cambia a la identidad humana", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     getPublicChatStatus.mockResolvedValueOnce({
       ok: true,
       responder: humanResponder({ display_name: "Osvaldo" }),
@@ -2445,7 +2461,7 @@ describe("PublicChatWidget — LEVEL2 responder: GET /status", () => {
   });
 
   it("9) /status 503 conserva el último responder conocido", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     getPublicChatStatus.mockResolvedValueOnce({
       ok: true,
       responder: humanResponder({ display_name: "Osvaldo" }),
@@ -2472,7 +2488,7 @@ describe("PublicChatWidget — LEVEL2 responder: GET /status", () => {
   });
 
   it("10) /status 429 no reintenta en loop", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await waitFor(() => expect(getPublicChatStatus).toHaveBeenCalledTimes(1));
@@ -2493,7 +2509,7 @@ describe("PublicChatWidget — LEVEL2 responder: GET /status", () => {
   });
 
   it("11) /status 404 reutiliza el comportamiento existente de sesión expirada", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     const notFound = new Error("Sesión no encontrada.");
     notFound.status = 404;
     getPublicChatStatus.mockRejectedValueOnce(notFound);
@@ -2503,7 +2519,7 @@ describe("PublicChatWidget — LEVEL2 responder: GET /status", () => {
 
     expect(await screen.findByText(/completa el formulario de nuevo para continuar/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument();
-    expect(sessionStorage.getItem("aira_public_chat_session_v1")).toBeNull();
+    expect(sessionStorage.getItem("aira_public_chat_session_v2")).toBeNull();
   });
 });
 
@@ -2624,7 +2640,7 @@ describe("PublicChatWidget — LEVEL2 responder: sin polling continuo", () => {
   it("16) no existe ningún timer recurrente consultando /status", async () => {
     vi.useFakeTimers();
     try {
-      sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+      sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
       render(<PublicChatWidget />);
       fireEvent.click(screen.getByRole("button", { name: /abrir chat/i }));
 
@@ -2956,7 +2972,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
 
   // 2 — sesión restaurada inicia /events sin necesidad de abrir el panel
   it("2) con una sesión restaurada, el polling arranca en cuanto monta, sin abrir el panel", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     await waitFor(() =>
       expect(getPublicChatEvents).toHaveBeenCalledWith("existing-session", expect.objectContaining({ signal: expect.anything() }))
@@ -2966,7 +2982,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
   // 3 — cadencia ~3s
   it("3) el polling corre cada ~3s mientras la sesión sigue activa", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
     await vi.advanceTimersByTimeAsync(3000);
@@ -2978,7 +2994,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
   // 4 — nunca dos /events en vuelo (encadenado, no setInterval)
   it("4) nunca hay dos /events concurrentes: la siguiente corrida espera a que la anterior termine", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     let resolveFirst;
     getPublicChatEvents.mockReturnValueOnce(new Promise((resolve) => { resolveFirst = resolve; }));
     render(<PublicChatWidget />);
@@ -2995,7 +3011,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
 
   // 5 — cleanup al unmount aborta el fetch en vuelo
   it("5) al desmontar, aborta el /events en vuelo", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     let capturedSignal;
     getPublicChatEvents.mockImplementationOnce((_sid, opts = {}) => {
       capturedSignal = opts.signal;
@@ -3010,7 +3026,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
 
   // 6 — respuesta stale de una sesión ya reemplazada se ignora
   it("6) una respuesta tardía del poll de una sesión ya expirada (A) nunca contamina la sesión nueva (B)", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "session-a");
+    sessionStorage.setItem("aira_public_chat_session_v2", "session-a");
     let resolveA;
     getPublicChatEvents.mockImplementationOnce(() => new Promise((resolve) => { resolveA = resolve; }));
     render(<PublicChatWidget />);
@@ -3043,7 +3059,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
 
   // 7 — 200 con mensajes nuevos los agrega al historial (también cubre restore con historial vacío, item 21)
   it("7) un snapshot 200 con mensajes nuevos del servidor los muestra en el historial", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     getPublicChatEvents.mockResolvedValueOnce({
       ok: true,
       messages: [serverMsg({ id: "m1", role: "agent", content: "Ya reviso tu caso." })],
@@ -3057,7 +3073,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
   // 8 — un customer server no duplica la burbuja optimista del usuario
   it("8) un mensaje customer devuelto por /events no duplica la burbuja optimista del usuario", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -3078,7 +3094,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
   // 9 — dos mensajes customer idénticos se emparejan 1:1
   it("9) dos mensajes customer con contenido idéntico se emparejan 1:1, ninguno se pierde ni colapsa", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -3105,7 +3121,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
   // 10 — un pending local sin contraparte todavía en el snapshot permanece visible
   it("10) un mensaje local pendiente que el snapshot todavía no confirma permanece visible", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -3124,7 +3140,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
   // 11 — assistant devuelto por POST + luego el mismo assistant en /events: una sola bubble
   it("11) la respuesta de AIRA mostrada por el POST y luego confirmada por /events no se duplica", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -3152,7 +3168,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
   // 12 — la CTA de una respuesta POST no se pierde al reconciliar contra /events (que no expone cta)
   it("12) la CTA de una respuesta POST se conserva después de que /events la reconcilie", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     renderWithRouter();
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -3184,7 +3200,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
 
   // 13 — role="agent" se muestra con estilo/identidad humana, nunca como AIRA
   it("13) un mensaje role=agent aparece en la UI con estilo/etiqueta de agente humano, nunca como AIRA", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     getPublicChatEvents.mockResolvedValueOnce({
       ok: true,
       messages: [serverMsg({ id: "m1", role: "agent", content: "Hola, soy Osvaldo, ya puedo ayudarte." })],
@@ -3201,7 +3217,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
   // 14 — responder cambia AIRA -> humano vía /events
   it("14) el responder cambia de AIRA a humano cuando /events lo reporta, sin acción del visitante", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -3219,7 +3235,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
   // 15 — responder cambia humano -> AIRA vía /events
   it("15) el responder cambia de humano a AIRA cuando /events lo reporta (return-to-ai)", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     getPublicChatEvents.mockResolvedValueOnce({
       ok: true, messages: [], responder: humanResponder({ display_name: "Osvaldo" }),
     });
@@ -3241,8 +3257,8 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
 
   // 16 — 404 detiene el poll, limpia sesión/historial y vuelve a prechat
   it("16) un 404 de /events detiene el polling, limpia sesión e historial, y vuelve a prechat", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
-    sessionStorage.setItem("aira_public_chat_history_v1", JSON.stringify([{ role: "user", content: "mensaje viejo" }]));
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
+    sessionStorage.setItem("aira_public_chat_history_v2", JSON.stringify([{ role: "user", content: "mensaje viejo" }]));
     const notFound = new Error("Sesión no encontrada.");
     notFound.status = 404;
     getPublicChatEvents.mockRejectedValueOnce(notFound);
@@ -3252,13 +3268,13 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
 
     expect(await screen.findByText(/completa el formulario de nuevo para continuar/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument();
-    expect(sessionStorage.getItem("aira_public_chat_session_v1")).toBeNull();
+    expect(sessionStorage.getItem("aira_public_chat_session_v2")).toBeNull();
     // El efecto persistHistory (keyed on messages) vuelve a escribir la key
     // en cuanto expireSession() pone messages en [] -- funcionalmente
     // equivalente a "sin historial" (loadStoredHistory() de un array vacío
     // y de una key ausente producen el mismo []), así que se verifica el
     // CONTENIDO, no la presencia literal de la key.
-    expect(JSON.parse(sessionStorage.getItem("aira_public_chat_history_v1") || "[]")).toEqual([]);
+    expect(JSON.parse(sessionStorage.getItem("aira_public_chat_history_v2") || "[]")).toEqual([]);
     expect(screen.queryByText("mensaje viejo")).not.toBeInTheDocument();
 
     // No reprograma un poll más allá del que causó el 404.
@@ -3270,7 +3286,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
   // 17 — 429 aplica backoff sin borrar la sesión, y vuelve a 3s tras el próximo éxito
   it("17) un 429 de /events no borra la sesión, aplica backoff, y vuelve al ritmo normal tras el próximo éxito", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -3283,7 +3299,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(2));
 
     // La sesión sigue viva — nunca se borró ni volvió a prechat.
-    expect(sessionStorage.getItem("aira_public_chat_session_v1")).toBe("existing-session");
+    expect(sessionStorage.getItem("aira_public_chat_session_v2")).toBe("existing-session");
     expect(screen.queryByRole("heading", { name: /antes de comenzar/i })).not.toBeInTheDocument();
 
     // No reintenta antes del Retry-After real (7s) del backend.
@@ -3300,7 +3316,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
   // 18 — 503 conserva sesión/historial y reintenta
   it("18) un 503 de /events conserva la sesión y el historial, y reintenta en el próximo ciclo", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     getPublicChatEvents.mockResolvedValueOnce({
       ok: true, messages: [serverMsg({ id: "m1", role: "agent", content: "hola humano" })], responder: humanResponder(),
     });
@@ -3315,7 +3331,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(2));
 
     // Sesión e historial intactos — nunca vuelve a prechat por un 503.
-    expect(sessionStorage.getItem("aira_public_chat_session_v1")).toBe("existing-session");
+    expect(sessionStorage.getItem("aira_public_chat_session_v2")).toBe("existing-session");
     expect(screen.getByText("hola humano")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /antes de comenzar/i })).not.toBeInTheDocument();
 
@@ -3327,7 +3343,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
   // 19 — error de red: mismo criterio que 503
   it("19) un error de red en /events conserva la sesión/historial y reintenta", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -3336,7 +3352,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
     await vi.advanceTimersByTimeAsync(3000);
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(2));
 
-    expect(sessionStorage.getItem("aira_public_chat_session_v1")).toBe("existing-session");
+    expect(sessionStorage.getItem("aira_public_chat_session_v2")).toBe("existing-session");
     expect(screen.queryByRole("heading", { name: /antes de comenzar/i })).not.toBeInTheDocument();
 
     await vi.advanceTimersByTimeAsync(5000);
@@ -3345,7 +3361,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
 
   // 20 — AbortError es silencioso (nunca error visible, nunca reprograma desde acá)
   it("20) un AbortError (cleanup) nunca se muestra como error al visitante", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     const abortError = new DOMException("The operation was aborted.", "AbortError");
     getPublicChatEvents.mockImplementationOnce(() => Promise.reject(abortError));
     const { unmount } = render(<PublicChatWidget />);
@@ -3360,7 +3376,7 @@ describe("PublicChatWidget — H3B: polling de /events", () => {
   // 22 — cerrar el widget no detiene el polling mientras la sesión sigue activa
   it("22) cerrar el panel no detiene el polling: sigue vivo mientras la sesión siga activa", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -3398,7 +3414,7 @@ describe("PublicChatWidget — H3B.1: reconciliación no usa historial para pend
   // pending NEW assistant "respuesta" con CTA.
   it("una respuesta assistant nueva con CTA nunca se empareja con una histórica idéntica, hasta que la fila NUEVA real aparece", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     // Primer poll: el snapshot ya trae la respuesta HISTÓRICA (OLD).
     getPublicChatEvents.mockResolvedValueOnce({
       ok: true,
@@ -3457,7 +3473,7 @@ describe("PublicChatWidget — H3B.1: reconciliación no usa historial para pend
   // funcionando correctamente tras el fix de knownServerIds.
   it("dos pending idénticos se confirman de a uno, en el orden en que aparecen sus ids server nuevos", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -3496,9 +3512,9 @@ describe("PublicChatWidget — H3B.1: reconciliación no usa historial para pend
   // pending, aunque sea la primera corrida de esta cadena (knownServerIdsRef
   // debe sembrarse ANTES de ese primer poll, no arrancar vacío).
   it("con historia restaurada (id server conocido) + un pending idéntico también restaurado, el primer poll no consume el pending contra el histórico", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     sessionStorage.setItem(
-      "aira_public_chat_history_v1",
+      "aira_public_chat_history_v2",
       JSON.stringify([
         { id: "hist-1", role: "user", content: "hola", source: "server", citations: [] },
         { sendAttemptId: "pending-1", role: "user", content: "hola", pending: true, source: "local" },
@@ -3525,9 +3541,9 @@ describe("PublicChatWidget — H3B.1: reconciliación no usa historial para pend
   // por completo, sin interpretarlos como pending outbound nuevos y sin
   // producir un duplicado (ni la copia legacy junto a la fila server real).
   it("historial legacy (sin id/source, de antes de H3B) no se interpreta como pending nuevo ni genera duplicados", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     sessionStorage.setItem(
-      "aira_public_chat_history_v1",
+      "aira_public_chat_history_v2",
       JSON.stringify([
         { role: "assistant", content: "Hola, soy el asistente virtual." },
         { role: "user", content: "hola" },
@@ -3559,7 +3575,7 @@ describe("PublicChatWidget — H3B.1: reconciliación no usa historial para pend
 describe("PublicChatWidget — H3B.2: carrera POST /message vs. poll /events", () => {
   it("si el poll gana la carrera y ya incorpora la respuesta assistant, el POST tardío no duplica la burbuja y la CTA se aplica a la fila existente", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     renderWithRouter(); // la CTA usa <Link>
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -3611,7 +3627,7 @@ describe("PublicChatWidget — H3B.2: carrera POST /message vs. poll /events", (
     // normal (ya cubierto por el resto de la suite, p. ej. el test 11 de
     // H3B) — acá se confirma puntualmente que, sin ningún poll de por
     // medio, el POST sigue mostrando su respuesta de inmediato.
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -3627,7 +3643,7 @@ describe("PublicChatWidget — H3B.2: carrera POST /message vs. poll /events", (
   // 6 — sesión A→B mientras el POST de A sigue en vuelo
   it("una respuesta tardía del POST de la sesión A (ya reemplazada por B) se ignora por completo", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "session-a");
+    sessionStorage.setItem("aira_public_chat_session_v2", "session-a");
     renderWithRouter();
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -3695,7 +3711,7 @@ describe("PublicChatWidget — H3B.2: carrera POST /message vs. poll /events", (
 describe("PublicChatWidget — H3B.3: asociación estable send↔servidor y persistencia de CTA", () => {
   it("dos sends consecutivos con respuesta idéntica: el segundo nunca reclama la fila ya reclamada por el primero, ni le pisa la CTA", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     renderWithRouter();
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -3755,7 +3771,7 @@ describe("PublicChatWidget — H3B.3: asociación estable send↔servidor y pers
 
   it("una CTA ya reclamada por un id server sobrevive a los polls siguientes, aunque /events nunca la devuelva", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     renderWithRouter();
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -3810,7 +3826,7 @@ describe("PublicChatWidget — H3B.4: cronología de mensajes locales pendientes
   // 1 — orden básico, nada confirmado todavía
   it("1) orden básico: user1, assistant1, user2 se preserva cuando nada fue confirmado todavía", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -3850,7 +3866,7 @@ describe("PublicChatWidget — H3B.4: cronología de mensajes locales pendientes
   // 2 — confirmación parcial: solo user1
   it("2) confirmación parcial: el snapshot confirma solo user1, el resto conserva su orden original", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -3887,7 +3903,7 @@ describe("PublicChatWidget — H3B.4: cronología de mensajes locales pendientes
   // 3 — confirmación de un intercambio completo (user1 + assistant1)
   it("3) confirmación de un intercambio completo: server confirma user1+assistant1, el resto conserva su orden", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -3930,7 +3946,7 @@ describe("PublicChatWidget — H3B.4: cronología de mensajes locales pendientes
   // incorrecto).
   it("4) tres preguntas y dos respuestas sin confirmar: el orden final nunca agrupa por rol", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -3976,7 +3992,7 @@ describe("PublicChatWidget — H3B.4: cronología de mensajes locales pendientes
   // asociación 1:1 Y orden correctos, nunca cruzados por ser idénticos.
   it("5) contenido idéntico (hola/ok dos veces): confirmación parcial mantiene asociación y orden 1:1", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -4018,7 +4034,7 @@ describe("PublicChatWidget — H3B.4: cronología de mensajes locales pendientes
   // 6 — CTA: assistant1 con CTA debe permanecer antes de user2 y conservarla
   it("6) una CTA en assistant1 se conserva y assistant1 permanece antes de user2", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     renderWithRouter(); // la CTA usa <Link>
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -4059,7 +4075,7 @@ describe("PublicChatWidget — H3B.4: cronología de mensajes locales pendientes
   // 7 — reproducción explícita del P2 original: dos sends superpuestos
   it("7) dos sends superpuestos (repro exacta del P2): user1, assistant1, user2 -- nunca user1, user2, assistant1", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -4124,7 +4140,7 @@ function handoffStatusText() {
 // H3B.4 -- nunca asumir que un mock resuelto ya se aplicó al estado).
 async function primeSessionAndOpenWidget(sessionId = "session-1") {
   vi.useFakeTimers();
-  sessionStorage.setItem("aira_public_chat_session_v1", sessionId);
+  sessionStorage.setItem("aira_public_chat_session_v2", sessionId);
   render(<PublicChatWidget />);
   openWidget();
   await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -4214,9 +4230,9 @@ describe("PublicChatWidget — H4B: botón y estado de handoff", () => {
 
   it("12) /events con handoff_requested=false revierte el estado optimista previo", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "session-1");
+    sessionStorage.setItem("aira_public_chat_session_v2", "session-1");
     sessionStorage.setItem(
-      "aira_public_chat_handoff_v1",
+      "aira_public_chat_handoff_v2",
       JSON.stringify({ session_id: "session-1", requested: true })
     );
     render(<PublicChatWidget />);
@@ -4233,9 +4249,9 @@ describe("PublicChatWidget — H4B: botón y estado de handoff", () => {
 
   // 13/14/15 — sessionStorage: restore optimista + reconciliación posterior
   it("13) reload con storage requested=true muestra el estado inmediatamente, antes del primer poll", () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "session-restored");
+    sessionStorage.setItem("aira_public_chat_session_v2", "session-restored");
     sessionStorage.setItem(
-      "aira_public_chat_handoff_v1",
+      "aira_public_chat_handoff_v2",
       JSON.stringify({ session_id: "session-restored", requested: true })
     );
     render(<PublicChatWidget />);
@@ -4248,9 +4264,9 @@ describe("PublicChatWidget — H4B: botón y estado de handoff", () => {
 
   it("14) el primer /events con false elimina el estado optimista de sessionStorage", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "session-restored");
+    sessionStorage.setItem("aira_public_chat_session_v2", "session-restored");
     sessionStorage.setItem(
-      "aira_public_chat_handoff_v1",
+      "aira_public_chat_handoff_v2",
       JSON.stringify({ session_id: "session-restored", requested: true })
     );
     getPublicChatEvents.mockResolvedValue({ ok: true, messages: [], handoff_requested: false });
@@ -4258,13 +4274,13 @@ describe("PublicChatWidget — H4B: botón y estado de handoff", () => {
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
     await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
-    expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toBeNull();
+    expect(sessionStorage.getItem("aira_public_chat_handoff_v2")).toBeNull();
   });
 
   it("15) storage de OTRA sesión se ignora (nunca aplica un requested ajeno)", () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "session-current");
+    sessionStorage.setItem("aira_public_chat_session_v2", "session-current");
     sessionStorage.setItem(
-      "aira_public_chat_handoff_v1",
+      "aira_public_chat_handoff_v2",
       JSON.stringify({ session_id: "session-old", requested: true })
     );
     render(<PublicChatWidget />);
@@ -4276,9 +4292,9 @@ describe("PublicChatWidget — H4B: botón y estado de handoff", () => {
   // 16/17 — limpieza de sesión
   it("16) expireSession() borra también el handoff storage", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "session-1");
+    sessionStorage.setItem("aira_public_chat_session_v2", "session-1");
     sessionStorage.setItem(
-      "aira_public_chat_handoff_v1",
+      "aira_public_chat_handoff_v2",
       JSON.stringify({ session_id: "session-1", requested: true })
     );
     const notFound = new Error("Sesión no encontrada.");
@@ -4288,7 +4304,7 @@ describe("PublicChatWidget — H4B: botón y estado de handoff", () => {
     openWidget();
     await vi.advanceTimersByTimeAsync(3000);
     await vi.waitFor(() => expect(screen.getByRole("heading", { name: /antes de comenzar/i })).toBeInTheDocument());
-    expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toBeNull();
+    expect(sessionStorage.getItem("aira_public_chat_handoff_v2")).toBeNull();
   });
 
   it("17) una sesión nueva siempre empieza con requested=false", async () => {
@@ -4314,7 +4330,7 @@ describe("PublicChatWidget — H4B: botón y estado de handoff", () => {
     // del beforeEach) -- el botón no debe reaparecer.
     await vi.waitFor(() => expect(requestHumanButton()).not.toBeInTheDocument());
     // Nunca se persiste "waiting_agent" cuando el backend dijo human_active.
-    expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toBeNull();
+    expect(sessionStorage.getItem("aira_public_chat_handoff_v2")).toBeNull();
   });
 
   it("19) el siguiente /events con responder human oculta el estado de espera y lo mantiene oculto", async () => {
@@ -4344,7 +4360,7 @@ describe("PublicChatWidget — H4B: botón y estado de handoff", () => {
   // reactivaría el botón "Hablar con una persona" por unos segundos.
   it("H4B.1) un /events viejo que resuelve tarde con snapshot stale (aira + false) tras human_active nunca reactiva el botón", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "session-1");
+    sessionStorage.setItem("aira_public_chat_session_v2", "session-1");
 
     // 1 — el primer /events queda deliberadamente EN VUELO (nunca resuelto
     // todavía) -- simula la request que ya estaba viajando cuando ocurrió
@@ -4485,7 +4501,7 @@ describe("PublicChatWidget — H4B: botón y estado de handoff", () => {
 
     expect(requestHumanButton()).toBeInTheDocument(); // B nunca quedó marcada como requested
     expect(handoffStatusText()).not.toBeInTheDocument();
-    expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toBeNull();
+    expect(sessionStorage.getItem("aira_public_chat_handoff_v2")).toBeNull();
   });
 
   it("26) un ERROR tardío del POST de la sesión A (ya reemplazada por B) se ignora por completo", async () => {
@@ -4634,7 +4650,7 @@ describe("PublicChatWidget — H4B.2: protección de waiting_agent contra lectur
     getPublicChatEvents.mockReturnValueOnce(new Promise((resolve) => { resolveStaleEvents = resolve; }));
 
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "session-1");
+    sessionStorage.setItem("aira_public_chat_session_v2", "session-1");
     render(<PublicChatWidget />);
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -4647,7 +4663,7 @@ describe("PublicChatWidget — H4B.2: protección de waiting_agent contra lectur
       expect(requestHumanButton()).not.toBeInTheDocument();
       expect(handoffStatusText()).toBeInTheDocument();
     });
-    expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toContain('"requested":true');
+    expect(sessionStorage.getItem("aira_public_chat_handoff_v2")).toContain('"requested":true');
 
     // El /events viejo resuelve TARDE con el snapshot stale exacto del
     // hallazgo -- capturado ANTES de que el POST mutara nada.
@@ -4660,7 +4676,7 @@ describe("PublicChatWidget — H4B.2: protección de waiting_agent contra lectur
       expect(requestHumanButton()).not.toBeInTheDocument();
       expect(handoffStatusText()).toBeInTheDocument();
     });
-    expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toContain('"requested":true');
+    expect(sessionStorage.getItem("aira_public_chat_handoff_v2")).toContain('"requested":true');
   });
 
   // 2 — el siguiente /events (iniciado DESPUÉS de la mutación) confirma
@@ -4670,7 +4686,7 @@ describe("PublicChatWidget — H4B.2: protección de waiting_agent contra lectur
     getPublicChatEvents.mockReturnValueOnce(new Promise((resolve) => { resolveStaleEvents = resolve; }));
 
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "session-1");
+    sessionStorage.setItem("aira_public_chat_session_v2", "session-1");
     render(<PublicChatWidget />);
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -4698,7 +4714,7 @@ describe("PublicChatWidget — H4B.2: protección de waiting_agent contra lectur
   // de verdad -- nunca "true sticky" para siempre.
   it("3) una lectura /events genuinamente posterior a la mutación con handoff_requested=false SÍ revierte el estado", async () => {
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "session-1");
+    sessionStorage.setItem("aira_public_chat_session_v2", "session-1");
     render(<PublicChatWidget />);
     openWidget();
     await vi.waitFor(() => expect(getPublicChatEvents).toHaveBeenCalledTimes(1));
@@ -4706,7 +4722,7 @@ describe("PublicChatWidget — H4B.2: protección de waiting_agent contra lectur
 
     fireEvent.click(requestHumanButton());
     await vi.waitFor(() => expect(requestHumanButton()).not.toBeInTheDocument());
-    expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toContain('"requested":true');
+    expect(sessionStorage.getItem("aira_public_chat_handoff_v2")).toContain('"requested":true');
 
     // El backend real, en un poll que arranca DESPUÉS del POST, confirma
     // que ya no hace falta esperar (p. ej. staff resolvió la conversación
@@ -4715,7 +4731,7 @@ describe("PublicChatWidget — H4B.2: protección de waiting_agent contra lectur
     await vi.advanceTimersByTimeAsync(3000);
     await vi.waitFor(() => expect(requestHumanButton()).toBeInTheDocument());
     expect(handoffStatusText()).not.toBeInTheDocument();
-    expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toBeNull();
+    expect(sessionStorage.getItem("aira_public_chat_handoff_v2")).toBeNull();
   });
 
   // 4 — reproducción equivalente con GET /status stale (el finding señala
@@ -4725,7 +4741,7 @@ describe("PublicChatWidget — H4B.2: protección de waiting_agent contra lectur
     getPublicChatStatus.mockReturnValueOnce(new Promise((resolve) => { resolveStaleStatus = resolve; }));
 
     vi.useFakeTimers();
-    sessionStorage.setItem("aira_public_chat_session_v1", "session-1");
+    sessionStorage.setItem("aira_public_chat_session_v2", "session-1");
     render(<PublicChatWidget />);
     // openWidget() sobre una sesión restaurada dispara refreshStatus() (LEVEL2)
     // -- esa es la llamada que queda deliberadamente en vuelo acá.
@@ -4734,7 +4750,7 @@ describe("PublicChatWidget — H4B.2: protección de waiting_agent contra lectur
 
     fireEvent.click(requestHumanButton());
     await vi.waitFor(() => expect(requestHumanButton()).not.toBeInTheDocument());
-    expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toContain('"requested":true');
+    expect(sessionStorage.getItem("aira_public_chat_handoff_v2")).toContain('"requested":true');
 
     // El /status viejo (comenzó ANTES del POST) resuelve TARDE con su
     // propio snapshot stale.
@@ -4745,7 +4761,7 @@ describe("PublicChatWidget — H4B.2: protección de waiting_agent contra lectur
       expect(requestHumanButton()).not.toBeInTheDocument();
       expect(handoffStatusText()).toBeInTheDocument();
     });
-    expect(sessionStorage.getItem("aira_public_chat_handoff_v1")).toContain('"requested":true');
+    expect(sessionStorage.getItem("aira_public_chat_handoff_v2")).toContain('"requested":true');
   });
 });
 
@@ -4782,7 +4798,7 @@ describe("PublicChatWidget — stage muestra la imagen real del payload de avata
 
   it("renderiza el <img> de la pose neutral (no el placeholder) con el payload real del backend", async () => {
     getPublicAvatarRuntime.mockResolvedValueOnce(realAvatarRuntimePayload());
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
 
     openWidget();
@@ -4796,7 +4812,7 @@ describe("PublicChatWidget — stage muestra la imagen real del payload de avata
 
   it("si la primera pose (sin frame previo) falla al cargar, refresca el runtime y recupera la imagen en vez de quedar en placeholder", async () => {
     getPublicAvatarRuntime.mockResolvedValueOnce(realAvatarRuntimePayload());
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
 
     openWidget();
@@ -4865,7 +4881,7 @@ describe("PublicChatWidget — stage muestra la imagen real del payload de avata
         },
       })
     );
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
 
     render(
       <StrictMode>

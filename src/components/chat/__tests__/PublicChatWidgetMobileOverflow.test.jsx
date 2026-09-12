@@ -147,7 +147,7 @@ describe("PublicChatWidget mobile — smoke check de scrollWidth/clientWidth (NO
   });
 
   it("panel + handoff-bar + composer existen en el DOM y no hay quick replies", async () => {
-    sessionStorage.setItem("aira_public_chat_session_v1", "existing-session");
+    sessionStorage.setItem("aira_public_chat_session_v2", "existing-session");
     render(<PublicChatWidget />);
     fireEvent.click(screen.getByRole("button", { name: /abrir chat/i }));
     await screen.findByRole("dialog");

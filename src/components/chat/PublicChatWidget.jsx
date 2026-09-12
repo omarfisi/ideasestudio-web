@@ -48,16 +48,24 @@ function createClientMessageId() {
   return `aira-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-const SESSION_STORAGE_KEY = "aira_public_chat_session_v1";
-const HISTORY_STORAGE_KEY = "aira_public_chat_history_v1";
-const QUICK_REPLIES_STORAGE_KEY = "aira_public_chat_quick_replies_v1";
+const STORAGE_VERSION_KEY = "aira_public_chat_storage_version";
+const SESSION_STORAGE_KEY = "aira_public_chat_session_v2";
+const HISTORY_STORAGE_KEY = "aira_public_chat_history_v2";
+const QUICK_REPLIES_STORAGE_KEY = "aira_public_chat_quick_replies_v2";
 // FASE HANDOFF H4B — UX optimista/restore inmediato ÚNICAMENTE. La fuente
 // de verdad real es siempre el backend (handoff_requested de GET /status y
 // GET /events, ver su reconciliación más abajo) -- esta key solo evita que
 // el botón "Hablar con una persona" reaparezca por una fracción de segundo
 // al recargar la página antes de que llegue el primer poll.
-const HANDOFF_STORAGE_KEY = "aira_public_chat_handoff_v1";
-const ASSISTANT_STORAGE_KEY = "aira_public_chat_assistant_v1";
+const HANDOFF_STORAGE_KEY = "aira_public_chat_handoff_v2";
+const ASSISTANT_STORAGE_KEY = "aira_public_chat_assistant_v2";
+const LEGACY_STORAGE_KEYS = Object.freeze([
+  "aira_public_chat_session_v1",
+  "aira_public_chat_history_v1",
+  "aira_public_chat_quick_replies_v1",
+  "aira_public_chat_handoff_v1",
+  "aira_public_chat_assistant_v1",
+]);
 const MAX_MESSAGE_CHARS = 800;
 const AIRA_RUNTIME_REFRESH_LEAD_MS = 45_000;
 const AIRA_LAUNCHER_FRAME_MS = 1_100;
@@ -77,6 +85,16 @@ const AIRA_PRELOAD_POSE_KEYS = Object.freeze([
   "hands-clasped",
 ]);
 const PUBLIC_AVATAR_SEMANTIC_EVENTS = new Set(["intent.services", "confidence.low"]);
+
+function ensurePublicChatStorageVersion() {
+  try {
+    if (sessionStorage.getItem(STORAGE_VERSION_KEY) === "2") return;
+    LEGACY_STORAGE_KEYS.forEach((key) => sessionStorage.removeItem(key));
+    sessionStorage.setItem(STORAGE_VERSION_KEY, "2");
+  } catch {
+    // Storage unavailable: the widget remains usable without persistence.
+  }
+}
 
 function isHumanHandoffQuickReply(reply) {
   const semanticTypes = [
@@ -606,6 +624,7 @@ function AiraStage({ pose, poseKey, visualState, runtimeAvailable, compact, onEx
 }
 
 function loadStoredSession() {
+  ensurePublicChatStorageVersion();
   try {
     return sessionStorage.getItem(SESSION_STORAGE_KEY) || null;
   } catch {
@@ -1125,7 +1144,8 @@ export default function PublicChatWidget() {
   const loadAiraAvatarRuntime = useCallback(async (force = false, profileSlug = selectedAvatarProfile) => {
     if (airaRuntimeRequestRef.current && !force) return airaRuntimeRequestRef.current;
     const requestSeq = ++airaRuntimeRequestSeqRef.current;
-    const request = getPublicAvatarRuntime({ profile: profileSlug })
+    const chatbotKey = profileSlug === "ivox" ? "ivox-webchat-public" : "aira-webchat-public";
+    const request = getPublicAvatarRuntime({ chatbotKey })
       .then((runtime) => {
         if (requestSeq !== airaRuntimeRequestSeqRef.current) return runtime;
         setAiraAvatarRuntime(runtime && typeof runtime === "object" ? runtime : null);
@@ -2186,7 +2206,9 @@ export default function PublicChatWidget() {
     : null;
   const responderAvatarKey = `${responder.type}:${responder.avatar_url || ""}:${activeAiraPose?.url || ""}`;
   const isAiraResponder = responder.type === "aira";
+  const isIvoxAssistant = selectedAssistantKey === "ivox-webchat-public";
   const launcherPortraitPose = isAiraResponder ? exactRuntimePose(airaAvatarRuntime, "neutral") : null;
+  const launcherRuntimePose = exactRuntimePose(airaAvatarRuntime, "neutral");
   const launcherAsset = airaLauncherFrame === "invite-chat" ? airaInviteAsset : airaLauncherAsset;
   const launcherOptions = availableQuickReplies.length > 0
     ? availableQuickReplies
@@ -2195,10 +2217,17 @@ export default function PublicChatWidget() {
   return (
     <div ref={wrapperRef} className={`public-chat-widget${isOpen ? " public-chat-widget--open" : ""}`}>
       <div className="public-chat-widget__launcher-composition">
-        {!isOpen && isAiraResponder && (
+        {!isOpen && isAiraResponder && !isIvoxAssistant && (
           <div className="public-chat-widget__launcher-character" aria-label="AIRA invitando a abrir el chat">
             <span className="public-chat-widget__launcher-callout">¿Hablamos?</span>
             <img className="public-chat-widget__launcher-image" src={launcherAsset} alt="" aria-hidden="true" />
+          </div>
+        )}
+        {!isOpen && isIvoxAssistant && (
+          <div className="public-chat-widget__launcher-character public-chat-widget__launcher-character--runtime" aria-label="IVOX listo para conversar">
+            {launcherRuntimePose ? (
+              <img className="public-chat-widget__launcher-image" src={launcherRuntimePose.url} alt="IVOX" />
+            ) : <span className="public-chat-widget__launcher-runtime-fallback">IVOX</span>}
           </div>
         )}
         <button
@@ -2212,7 +2241,7 @@ export default function PublicChatWidget() {
             <X size={22} />
           ) : (
             <span className="public-chat-widget__pill">
-              {isAiraResponder ? (
+              {isAiraResponder && !isIvoxAssistant ? (
                 <span className="public-chat-widget__launcher-portrait">
                   <ResponderAvatar
                     key={`launcher:${launcherPortraitPose?.url || "fallback"}`}
@@ -2222,6 +2251,10 @@ export default function PublicChatWidget() {
                     size={38}
                     strictAiraPose
                   />
+                </span>
+              ) : isIvoxAssistant && launcherRuntimePose ? (
+                <span className="public-chat-widget__launcher-mini-character">
+                  <img src={launcherRuntimePose.url} alt="" aria-hidden="true" />
                 </span>
               ) : (
                 <ResponderAvatar
@@ -2252,8 +2285,12 @@ export default function PublicChatWidget() {
         >
           <header className="public-chat-widget__header">
             <div className="public-chat-widget__header-identity">
-              {isAiraResponder ? (
+              {isAiraResponder && !isIvoxAssistant ? (
                 <span className="public-chat-widget__header-icon" aria-hidden="true"><MessageCircle size={20} /></span>
+              ) : isIvoxAssistant && launcherRuntimePose ? (
+                <span className="public-chat-widget__header-runtime-character">
+                  <img src={launcherRuntimePose.url} alt="IVOX" />
+                </span>
               ) : (
                 <ResponderAvatar
                   key={responderAvatarKey}
