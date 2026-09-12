@@ -882,6 +882,27 @@ describe("PublicChatWidget — estado inicial", () => {
     expect(getPublicAvatarRuntime.mock.calls.some(([options]) => options.chatbotKey === "aira-webchat-public")).toBe(false);
   });
 
+  it("usa el default pose transparente de IVOX en el launcher público", async () => {
+    sessionStorage.setItem("aira_public_chat_assistant_v2", "ivox-webchat-public");
+    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime({
+      profile: "ivox",
+      default_pose: "point-viewer",
+      poses: {
+        "point-viewer": { url: "https://cdn.example/ivox-point-viewer.png" },
+        "invite-chat": { url: "https://cdn.example/ivox-invite-chat.png" },
+      },
+      rules: [],
+    }));
+
+    render(<PublicChatWidget />);
+
+    const character = await screen.findByLabelText(/ivox listo para conversar/i);
+    expect(within(character).getByRole("img", { name: "IVOX" })).toHaveAttribute(
+      "src",
+      "https://cdn.example/ivox-point-viewer.png",
+    );
+  });
+
   it("usa AIRA como primer runtime cuando esa es la identidad persistida", async () => {
     sessionStorage.setItem("aira_public_chat_assistant_v2", "aira-webchat-public");
     getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime());

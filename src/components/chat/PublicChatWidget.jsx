@@ -2324,7 +2324,9 @@ export default function PublicChatWidget() {
   const isAiraResponder = responder.type === "aira";
   const isIvoxAssistant = selectedAssistantKey === "ivox-webchat-public";
   const launcherPortraitPose = isAiraResponder ? exactRuntimePose(airaAvatarRuntime, "neutral") : null;
-  const launcherRuntimePose = exactRuntimePose(airaAvatarRuntime, "neutral");
+  const launcherRuntimePose = isIvoxAssistant
+    ? getRuntimePose(airaAvatarRuntime, airaAvatarRuntime?.default_pose || "neutral")
+    : exactRuntimePose(airaAvatarRuntime, "neutral");
   const launcherAsset = airaLauncherFrame === "invite-chat" ? airaInviteAsset : airaLauncherAsset;
   const launcherOptions = availableQuickReplies.length > 0
     ? availableQuickReplies
