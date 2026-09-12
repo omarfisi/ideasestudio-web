@@ -623,11 +623,35 @@ function AiraStage({ pose, poseKey, visualState, runtimeAvailable, compact, onEx
   );
 }
 
-function loadStoredSession() {
+function storedAssistantKey() {
+  try {
+    const value = sessionStorage.getItem(ASSISTANT_STORAGE_KEY);
+    return value === "ivox-webchat-public" ? value : "aira-webchat-public";
+  } catch {
+    return "aira-webchat-public";
+  }
+}
+
+function clearStoredConversationState() {
+  sessionStorage.removeItem(SESSION_STORAGE_KEY);
+  sessionStorage.removeItem(HISTORY_STORAGE_KEY);
+  sessionStorage.removeItem(QUICK_REPLIES_STORAGE_KEY);
+  sessionStorage.removeItem(HANDOFF_STORAGE_KEY);
+}
+
+function loadStoredSession(chatbotKey = storedAssistantKey()) {
   ensurePublicChatStorageVersion();
   try {
-    return sessionStorage.getItem(SESSION_STORAGE_KEY) || null;
+    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const stored = JSON.parse(raw);
+    if (!stored?.session_id || stored.chatbot_key !== chatbotKey) {
+      clearStoredConversationState();
+      return null;
+    }
+    return stored.session_id;
   } catch {
+    clearStoredConversationState();
     return null;
   }
 }
@@ -800,7 +824,6 @@ export default function PublicChatWidget() {
   const rootQuickRepliesRef = useRef(loadStoredQuickReplies(loadStoredSession()));
   const [responder, setResponder] = useState(AIRA_RESPONDER);
   const [airaAvatarRuntime, setAiraAvatarRuntime] = useState(null);
-  const [selectedAvatarProfile, setSelectedAvatarProfile] = useState("aira");
   const [airaPoseKey, setAiraPoseKey] = useState("neutral");
   const [airaVisualState, setAiraVisualState] = useState("neutral");
   const [airaLauncherFrame, setAiraLauncherFrame] = useState("point-viewer");
@@ -831,7 +854,7 @@ export default function PublicChatWidget() {
   // puede editar/confirmar estos datos antes de enviarlos.
   const [recognizedVisitor, setRecognizedVisitor] = useState(null);
   const [assistants, setAssistants] = useState([]);
-  const [selectedAssistantKey, setSelectedAssistantKey] = useState(() => sessionStorage.getItem(ASSISTANT_STORAGE_KEY) || "aira-webchat-public");
+  const [selectedAssistantKey, setSelectedAssistantKey] = useState(() => storedAssistantKey());
   const [visitorProfile, setVisitorProfile] = useState(null);
   const [projectFormOpen, setProjectFormOpen] = useState(false);
 
@@ -1141,11 +1164,11 @@ export default function PublicChatWidget() {
     }, delay);
   }, []);
 
-  const loadAiraAvatarRuntime = useCallback(async (force = false, profileSlug = selectedAvatarProfile) => {
+  const loadAiraAvatarRuntime = useCallback(async (force = false, chatbotKey = selectedAssistantKey) => {
     if (airaRuntimeRequestRef.current && !force) return airaRuntimeRequestRef.current;
     const requestSeq = ++airaRuntimeRequestSeqRef.current;
-    const chatbotKey = profileSlug === "ivox" ? "ivox-webchat-public" : "aira-webchat-public";
-    const request = getPublicAvatarRuntime({ chatbotKey })
+    const scopedChatbotKey = chatbotKey === "ivox-webchat-public" ? chatbotKey : "aira-webchat-public";
+    const request = getPublicAvatarRuntime({ chatbotKey: scopedChatbotKey })
       .then((runtime) => {
         if (requestSeq !== airaRuntimeRequestSeqRef.current) return runtime;
         setAiraAvatarRuntime(runtime && typeof runtime === "object" ? runtime : null);
@@ -1164,7 +1187,7 @@ export default function PublicChatWidget() {
       });
     airaRuntimeRequestRef.current = request;
     return request;
-  }, [scheduleAiraRuntimeRefresh, selectedAvatarProfile]);
+  }, [scheduleAiraRuntimeRefresh, selectedAssistantKey]);
   loadAiraAvatarRuntimeRef.current = loadAiraAvatarRuntime;
 
   useEffect(() => {
@@ -1178,7 +1201,6 @@ export default function PublicChatWidget() {
           const fallback = next[0].key;
           setSelectedAssistantKey(fallback);
           sessionStorage.setItem(ASSISTANT_STORAGE_KEY, fallback);
-          setSelectedAvatarProfile(fallback.includes("ivox") ? "ivox" : "aira");
         }
       })
       .catch(() => {
@@ -1189,10 +1211,12 @@ export default function PublicChatWidget() {
 
   const handleAvatarProfileChange = useCallback(async (profileSlug) => {
     const assistant = assistants.find((item) => item.key === profileSlug) || { key: profileSlug, display_name: profileSlug };
-    if (profileSlug === selectedAssistantKey) return;
+    if (profileSlug === selectedAssistantKey) {
+      await loadAiraAvatarRuntime(true, profileSlug);
+      return;
+    }
     sessionStorage.setItem(ASSISTANT_STORAGE_KEY, profileSlug);
     setSelectedAssistantKey(profileSlug);
-    setSelectedAvatarProfile(profileSlug.includes("ivox") ? "ivox" : "aira");
     if (sessionId) {
       sessionStorage.removeItem(SESSION_STORAGE_KEY);
       setSessionId(null);
@@ -1202,7 +1226,7 @@ export default function PublicChatWidget() {
     }
     setAiraAvatarRuntime(null);
     if (assistant.key === "aira-webchat-public" || assistant.key === "ivox-webchat-public") {
-      await loadAiraAvatarRuntime(true, assistant.key === "ivox-webchat-public" ? "ivox" : "aira");
+      await loadAiraAvatarRuntime(true, assistant.key);
     }
   }, [assistants, loadAiraAvatarRuntime, selectedAssistantKey, sessionId]);
 
@@ -1812,7 +1836,7 @@ export default function PublicChatWidget() {
   // (FASE 4) solo importa la primera vez (cuando sí se llama a /start) —
   // nunca se reenvía en el camino de sesión ya existente.
   async function ensureSession(prechatToken, rememberMe = false, chatbotKey = selectedAssistantKey) {
-    const existing = loadStoredSession();
+    const existing = loadStoredSession(chatbotKey);
     if (existing) {
       setSessionReady(false);
       setSessionId(existing);
@@ -1832,7 +1856,10 @@ export default function PublicChatWidget() {
     try {
       const data = await startPublicChat(prechatToken, rememberMe, chatbotKey);
       if (!data?.session_id) throw new Error("La respuesta de inicio no incluyó una sesión válida.");
-      sessionStorage.setItem(SESSION_STORAGE_KEY, data.session_id);
+      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+        session_id: data.session_id,
+        chatbot_key: chatbotKey,
+      }));
       setSessionId(data.session_id);
       setSessionReady(true);
       const initialQuickReplies = Array.isArray(data.quick_replies) ? data.quick_replies : [];
@@ -2339,7 +2366,7 @@ export default function PublicChatWidget() {
                 runtimeAvailable={Boolean(airaAvatarRuntime)}
                 compact={hasRealConversationRef.current}
                 onExhaustedFailure={handleAiraStageExhaustedFailure}
-                avatarLabel={selectedAvatarProfile.toUpperCase()}
+                avatarLabel={selectedAssistantKey === "ivox-webchat-public" ? "IVOX" : "AIRA"}
               />
               )}
             </>
