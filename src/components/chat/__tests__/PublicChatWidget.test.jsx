@@ -345,7 +345,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
 
     const stageBefore = document.querySelector(".public-chat-widget__stage");
     expect(stageBefore).toHaveClass("public-chat-widget__stage--expanded");
-    expect(stageBefore.querySelector("img")).not.toBeNull();
+    await waitFor(() => expect(stageBefore.querySelector("img")).not.toBeNull());
 
     await act(async () => {
       await typeAndSend("hola");
@@ -819,7 +819,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
 
 beforeEach(() => {
   sessionStorage.clear();
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   submitPublicForm.mockResolvedValue({ ok: true, submission_id: "sub-1", contact_id: "contact-1" });
   verifyPrechat.mockResolvedValue({ prechat_token: "token-1", expires_in: 900 });
   startPublicChat.mockResolvedValue({
@@ -871,15 +871,21 @@ afterEach(() => {
 });
 
 describe("PublicChatWidget — estado inicial", () => {
-  it("usa IVOX como primer runtime cuando esa es la identidad persistida", async () => {
-    sessionStorage.setItem("aira_public_chat_assistant_v2", "ivox-webchat-public");
-    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime({ profile: "ivox" }));
+  it("ignora una preferencia vieja de AIRA y usa IVOX cuando el CRM lo marca como default", async () => {
+    sessionStorage.setItem("aira_public_chat_assistant_v2", "aira-webchat-public");
+    getPublicChatDefaultAssistant.mockResolvedValueOnce({ key: "ivox-webchat-public", display_name: "IVOX" });
+    getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime({
+      profile: "ivox",
+      default_pose: "point-viewer",
+      poses: { "point-viewer": { url: "https://cdn.example/ivox-point-viewer.png" } },
+      rules: [],
+    }));
 
     render(<PublicChatWidget />);
 
-    await waitFor(() => expect(getPublicAvatarRuntime).toHaveBeenCalled());
-    expect(getPublicAvatarRuntime.mock.calls[0][0]).toEqual({ chatbotKey: "ivox-webchat-public" });
-    expect(getPublicAvatarRuntime.mock.calls.some(([options]) => options.chatbotKey === "aira-webchat-public")).toBe(false);
+    await waitFor(() => expect(getPublicAvatarRuntime).toHaveBeenCalledWith({ chatbotKey: "ivox-webchat-public" }));
+    expect(sessionStorage.getItem("aira_public_chat_assistant_v2")).toBeNull();
+    expect(screen.getByRole("button", { name: /abrir chat con ivox/i })).toBeInTheDocument();
   });
 
 
@@ -906,7 +912,7 @@ describe("PublicChatWidget — estado inicial", () => {
   });
 
   it("presenta IVOX como AIRA: personaje externo grande, gesto de señalar y retrato limpio en el launcher", async () => {
-    sessionStorage.setItem("aira_public_chat_assistant_v2", "ivox-webchat-public");
+    getPublicChatDefaultAssistant.mockResolvedValueOnce({ key: "ivox-webchat-public", display_name: "IVOX" });
     getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime({
       profile: "ivox",
       default_pose: "point-viewer",

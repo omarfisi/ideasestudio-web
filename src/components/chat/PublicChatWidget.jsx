@@ -873,8 +873,8 @@ export default function PublicChatWidget() {
   // puede editar/confirmar estos datos antes de enviarlos.
   const [recognizedVisitor, setRecognizedVisitor] = useState(null);
   const [assistants, setAssistants] = useState([]);
-  const [selectedAssistantKey, setSelectedAssistantKey] = useState(() => storedAssistantKey());
-  const [assistantIdentityResolved, setAssistantIdentityResolved] = useState(() => Boolean(explicitStoredAssistantKey() || storedSessionAssistantKey()));
+  const [selectedAssistantKey, setSelectedAssistantKey] = useState(() => storedSessionAssistantKey());
+  const [assistantIdentityResolved, setAssistantIdentityResolved] = useState(() => Boolean(storedSessionAssistantKey()));
   const [visitorProfile, setVisitorProfile] = useState(null);
   const [projectFormOpen, setProjectFormOpen] = useState(false);
 
@@ -1226,12 +1226,15 @@ export default function PublicChatWidget() {
           return;
         }
 
-        const explicitChoice = explicitStoredAssistantKey() || storedSessionAssistantKey();
-        if (explicitChoice && next.some((item) => item.key === explicitChoice)) {
-          setSelectedAssistantKey(explicitChoice);
+        const sessionChoice = storedSessionAssistantKey();
+        if (sessionChoice && next.some((item) => item.key === sessionChoice)) {
+          setSelectedAssistantKey(sessionChoice);
           setAssistantIdentityResolved(true);
           return;
         }
+        // Sin conversación activa, el asistente público seleccionado en el CRM
+        // es autoritativo. Una preferencia vieja del navegador no debe mantener
+        // AIRA cuando el administrador activó IVOX (o viceversa).
         if (explicitStoredAssistantKey()) sessionStorage.removeItem(ASSISTANT_STORAGE_KEY);
         if (sessionId) {
           setSelectedAssistantKey(next[0].key);
@@ -1272,10 +1275,10 @@ export default function PublicChatWidget() {
     }
 
     // Before the visitor has completed prechat, assistant selection is only
-    // presentation state. Persist the explicit choice so /start uses it once
-    // verification succeeds.
+    // presentation state for this mounted widget. Do not persist it across a
+    // reload, because the CRM public default must remain authoritative.
     if (!sessionId) {
-      sessionStorage.setItem(ASSISTANT_STORAGE_KEY, profileSlug);
+      sessionStorage.removeItem(ASSISTANT_STORAGE_KEY);
       setSelectedAssistantKey(profileSlug);
       setAiraAvatarRuntime(null);
       if (assistant.key === "aira-webchat-public" || assistant.key === "ivox-webchat-public") {
@@ -2072,7 +2075,26 @@ export default function PublicChatWidget() {
 
   async function handlePrechatVerified(prechatToken, rememberMe, profile) {
     setVisitorProfile(profile || null);
-    await ensureSession(prechatToken, rememberMe, selectedAssistantKey);
+
+    // El visitante puede completar el pre-chat antes de que la carga inicial
+    // de identidad termine. En ese caso resolvemos el default público aquí
+    // mismo para no crear una sesión sin chatbot_key ni volver al fallback
+    // histórico de AIRA.
+    let chatbotKey = selectedAssistantKey;
+    if (!chatbotKey) {
+      try {
+        const defaultAssistant = await getPublicChatDefaultAssistant();
+        chatbotKey = defaultAssistant?.key || null;
+        if (chatbotKey) {
+          setSelectedAssistantKey(chatbotKey);
+          setAssistantIdentityResolved(true);
+        }
+      } catch {
+        chatbotKey = null;
+      }
+    }
+
+    await ensureSession(prechatToken, rememberMe, chatbotKey);
   }
 
   async function handleQuickReplyClick(reply) {
