@@ -2374,10 +2374,22 @@ export default function PublicChatWidget() {
   return (
     <div ref={wrapperRef} className={`public-chat-widget${isOpen ? " public-chat-widget--open" : ""}${assistantIdentityResolved ? "" : " public-chat-widget--identity-pending"}`}>
       <div className="public-chat-widget__launcher-composition">
-        {!isOpen && isAiraResponder && !isIvoxAssistant && (
-          <div className="public-chat-widget__launcher-character" aria-label="AIRA invitando a abrir el chat">
+        {!isOpen && isAiraResponder && (
+          <div
+            className={`public-chat-widget__launcher-character${isIvoxAssistant ? " public-chat-widget__launcher-character--runtime public-chat-widget__launcher-character--ivox" : ""}`}
+            aria-label={`${publicResponder.display_name} invitando a abrir el chat`}
+          >
             <span className="public-chat-widget__launcher-callout">¿Hablamos?</span>
-            <img className="public-chat-widget__launcher-image" src={launcherAsset} alt="" aria-hidden="true" />
+            {isIvoxAssistant && launcherRuntimePose ? (
+              <img
+                className="public-chat-widget__launcher-image public-chat-widget__launcher-image--ivox"
+                src={launcherRuntimePose.url}
+                alt=""
+                aria-hidden="true"
+              />
+            ) : (
+              <img className="public-chat-widget__launcher-image" src={launcherAsset} alt="" aria-hidden="true" />
+            )}
           </div>
         )}
         <button
@@ -2403,8 +2415,8 @@ export default function PublicChatWidget() {
                   />
                 </span>
               ) : isIvoxAssistant && launcherRuntimePose ? (
-                <span className="public-chat-widget__launcher-mini-character">
-                  <img src={launcherRuntimePose.url} alt="" aria-hidden="true" />
+                <span className="public-chat-widget__launcher-portrait public-chat-widget__launcher-portrait--ivox">
+                  <img className="public-chat-widget__launcher-portrait-runtime" src={launcherRuntimePose.url} alt="IVOX" />
                 </span>
               ) : (
                 <ResponderAvatar

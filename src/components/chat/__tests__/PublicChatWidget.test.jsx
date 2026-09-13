@@ -905,14 +905,13 @@ describe("PublicChatWidget — estado inicial", () => {
     expect(screen.getByRole("button", { name: /abrir chat con ivox/i })).toBeInTheDocument();
   });
 
-  it("usa una sola figura transparente de IVOX integrada al launcher público", async () => {
+  it("presenta IVOX como AIRA: personaje externo grande, gesto de señalar y retrato limpio en el launcher", async () => {
     sessionStorage.setItem("aira_public_chat_assistant_v2", "ivox-webchat-public");
     getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime({
       profile: "ivox",
       default_pose: "point-viewer",
       poses: {
         "point-viewer": { url: "https://cdn.example/ivox-point-viewer.png" },
-        "invite-chat": { url: "https://cdn.example/ivox-invite-chat.png" },
       },
       rules: [],
     }));
@@ -920,13 +919,17 @@ describe("PublicChatWidget — estado inicial", () => {
     render(<PublicChatWidget />);
 
     const launcher = await screen.findByRole("button", { name: /abrir chat con ivox/i });
-    await waitFor(() => expect(launcher.querySelector(".public-chat-widget__launcher-mini-character img")).toHaveAttribute(
-      "src",
-      "https://cdn.example/ivox-point-viewer.png",
-    ));
-    expect(document.querySelector(".public-chat-widget__launcher-character--runtime")).toBeNull();
-    expect(document.querySelectorAll('img[src="https://cdn.example/ivox-point-viewer.png"]')).toHaveLength(1);
-    expect(screen.queryByText("¿Hablamos?")).not.toBeInTheDocument();
+    const external = await screen.findByLabelText(/ivox invitando a abrir el chat/i);
+    const externalImage = external.querySelector(".public-chat-widget__launcher-image--ivox");
+    expect(external).toHaveClass("public-chat-widget__launcher-character--runtime", "public-chat-widget__launcher-character--ivox");
+    expect(externalImage).toHaveAttribute("src", "https://cdn.example/ivox-point-viewer.png");
+    expect(screen.getByText("¿Hablamos?")).toBeInTheDocument();
+    const portrait = launcher.querySelector(".public-chat-widget__launcher-portrait--ivox img");
+    expect(portrait).toHaveAttribute("src", "https://cdn.example/ivox-point-viewer.png");
+    expect(document.querySelectorAll('img[src="https://cdn.example/ivox-point-viewer.png"]')).toHaveLength(2);
+
+    fireEvent.click(launcher);
+    expect(screen.queryByLabelText(/ivox invitando a abrir el chat/i)).not.toBeInTheDocument();
   });
 
   it("usa AIRA como primer runtime cuando esa es la identidad persistida", async () => {
