@@ -166,18 +166,12 @@
 }
 
 .public-chat-widget__launcher-image--ivox {
+  position: absolute;
   right: -4px;
   bottom: calc(-1 * var(--launcher-alpha-bottom-offset));
   width: 176px;
   height: 264px;
   transform-origin: 52% 82%;
-  animation: public-chat-widget-ivox-point 1.8s ease-in-out infinite;
-}
-
-@keyframes public-chat-widget-ivox-point {
-  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
-  45% { transform: translate3d(3px, -1px, 0) rotate(-1.2deg); }
-  70% { transform: translate3d(1px, 0, 0) rotate(-0.35deg); }
 }
 
 .public-chat-widget__launcher-runtime-fallback {

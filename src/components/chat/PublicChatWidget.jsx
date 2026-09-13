@@ -2386,7 +2386,12 @@ export default function PublicChatWidget() {
     : responder;
   const launcherPortraitPose = isAiraResponder ? exactRuntimePose(airaAvatarRuntime, "neutral") : null;
   const launcherRuntimePose = isIvoxAssistant
-    ? getRuntimePose(airaAvatarRuntime, airaAvatarRuntime?.default_pose || "neutral")
+    ? (
+      exactRuntimePose(
+        airaAvatarRuntime,
+        airaLauncherFrame === "invite-chat" ? "point-right" : "point-viewer",
+      ) || getRuntimePose(airaAvatarRuntime, airaAvatarRuntime?.default_pose || "point-viewer")
+    )
     : exactRuntimePose(airaAvatarRuntime, "neutral");
   const launcherAsset = airaLauncherFrame === "invite-chat" ? airaInviteAsset : airaLauncherAsset;
   const launcherOptions = availableQuickReplies.length > 0

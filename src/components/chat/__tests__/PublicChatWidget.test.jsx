@@ -911,28 +911,40 @@ describe("PublicChatWidget — estado inicial", () => {
     expect(screen.getByRole("button", { name: /abrir chat con ivox/i })).toBeInTheDocument();
   });
 
-  it("presenta IVOX como AIRA: personaje externo grande, gesto de señalar y retrato limpio en el launcher", async () => {
+  it("presenta IVOX como AIRA: alterna point-viewer y point-right sin crossfade", async () => {
+    vi.useFakeTimers();
     getPublicChatDefaultAssistant.mockResolvedValueOnce({ key: "ivox-webchat-public", display_name: "IVOX" });
     getPublicAvatarRuntime.mockResolvedValueOnce(publicAvatarRuntime({
       profile: "ivox",
       default_pose: "point-viewer",
       poses: {
         "point-viewer": { url: "https://cdn.example/ivox-point-viewer.png" },
+        "point-right": { url: "https://cdn.example/ivox-point-right.png" },
       },
       rules: [],
     }));
 
     render(<PublicChatWidget />);
 
-    const launcher = await screen.findByRole("button", { name: /abrir chat con ivox/i });
-    const external = await screen.findByLabelText(/ivox invitando a abrir el chat/i);
-    const externalImage = external.querySelector(".public-chat-widget__launcher-image--ivox");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    const launcher = screen.getByRole("button", { name: /abrir chat con ivox/i });
+    const external = screen.getByLabelText(/ivox invitando a abrir el chat/i);
+    const gestureImage = external.querySelector(".public-chat-widget__launcher-image--ivox");
     expect(external).toHaveClass("public-chat-widget__launcher-character--runtime", "public-chat-widget__launcher-character--ivox");
-    expect(externalImage).toHaveAttribute("src", "https://cdn.example/ivox-point-viewer.png");
+    expect(gestureImage).toHaveAttribute("src", "https://cdn.example/ivox-point-viewer.png");
+    expect(external.querySelectorAll(".public-chat-widget__launcher-image--ivox")).toHaveLength(1);
     expect(screen.getByText("¿Hablamos?")).toBeInTheDocument();
     const portrait = launcher.querySelector(".public-chat-widget__launcher-portrait--ivox img");
     expect(portrait).toHaveAttribute("src", "https://cdn.example/ivox-point-viewer.png");
-    expect(document.querySelectorAll('img[src="https://cdn.example/ivox-point-viewer.png"]')).toHaveLength(2);
+
+    act(() => vi.advanceTimersByTime(1_100));
+    expect(gestureImage).toHaveAttribute("src", "https://cdn.example/ivox-point-right.png");
+
+    act(() => vi.advanceTimersByTime(1_100));
+    expect(gestureImage).toHaveAttribute("src", "https://cdn.example/ivox-point-viewer.png");
 
     fireEvent.click(launcher);
     expect(screen.queryByLabelText(/ivox invitando a abrir el chat/i)).not.toBeInTheDocument();
