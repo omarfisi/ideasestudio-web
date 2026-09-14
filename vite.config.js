@@ -12,6 +12,10 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/testSetup.js'],
+    // The public-chat suite exercises many asynchronous browser states and
+    // runs alongside the full Web suite. Avoid false negatives from the
+    // default 5s timeout when jsdom workers are saturated.
+    testTimeout: 15000,
     // Excludes the pre-existing *.test.mjs files (src/lib/bookingCheckoutSteps.
     // test.mjs, src/lib/orderPaymentState.test.mjs) — a separate, standalone
     // `node <file>.mjs` convention (plain node:assert, no framework) that

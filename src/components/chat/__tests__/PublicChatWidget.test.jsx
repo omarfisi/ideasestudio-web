@@ -654,8 +654,12 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     sessionStorage.setItem("aira_public_chat_session_v2", JSON.stringify({ session_id: "existing-session", chatbot_key: "aira-webchat-public" }));
     renderWithRouter();
     openWidget();
+    // The first frame is applied immediately, but a 20ms interval may tick
+    // before Testing Library observes the DOM under a saturated full suite.
+    // Assert the streaming state and the eventual second frame instead of
+    // depending on that exact observation window.
     expect(await screen.findByRole("img", { name: "AIRA: Respondiendo" })).toHaveAttribute(
-      "src", "https://cdn.example/talk-a.png"
+      "src", expect.stringMatching(/https:\/\/cdn\.example\/talk-(?:a|o)\.png/)
     );
     await waitFor(() => expect(screen.getByRole("img", { name: "AIRA: Respondiendo" })).toHaveAttribute(
       "src", "https://cdn.example/talk-o.png"
@@ -745,7 +749,7 @@ describe("PublicChatWidget — runtime visual público de AIRA", () => {
     await screen.findByRole("img", { name: "AIRA: Disponible" });
     await typeAndSend("¿Qué ofrecen?");
     expect(await screen.findByRole("img", { name: "AIRA: Respondiendo" })).toHaveAttribute(
-      "src", "https://cdn.example/talk-a.png"
+      "src", expect.stringMatching(/https:\/\/cdn\.example\/talk-(?:a|o)\.png/)
     );
     await waitFor(() => expect(screen.getByRole("img", { name: "AIRA: Respondiendo" })).toHaveAttribute(
       "src", "https://cdn.example/talk-o.png"

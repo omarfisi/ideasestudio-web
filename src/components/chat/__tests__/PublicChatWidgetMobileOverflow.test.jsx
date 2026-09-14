@@ -146,7 +146,7 @@ describe("PublicChatWidget mobile — smoke check de scrollWidth/clientWidth (NO
     ]);
   });
 
-  it("panel + handoff-bar + composer existen en el DOM y no hay quick replies", async () => {
+  it("panel + composer existen en el DOM y no hay quick replies", async () => {
     sessionStorage.setItem("aira_public_chat_session_v2", JSON.stringify({ session_id: "existing-session", chatbot_key: "aira-webchat-public" }));
     render(<PublicChatWidget />);
     fireEvent.click(screen.getByRole("button", { name: /abrir chat/i }));
@@ -155,9 +155,11 @@ describe("PublicChatWidget mobile — smoke check de scrollWidth/clientWidth (NO
 
     assertNoTrivialOverflow([
       ".public-chat-widget__panel",
-      ".public-chat-widget__handoff-bar",
       ".public-chat-widget__form",
     ]);
+    // The canonical handoff status is conditional: this fixture explicitly
+    // returns handoff_requested=false, so no status bar should be rendered.
+    expect(document.querySelector(".public-chat-widget__handoff-status")).toBeNull();
     expect(document.querySelector(".public-chat-widget__quick-actions")).toBeNull();
   });
 });
