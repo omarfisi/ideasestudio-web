@@ -699,7 +699,7 @@ function loadStoredQuickReplies(currentSessionId) {
     const raw = sessionStorage.getItem(QUICK_REPLIES_STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : null;
     return parsed?.session_id === currentSessionId && Array.isArray(parsed.options)
-      ? parsed.options
+      ? parsed.options.filter((option) => !isHumanHandoffQuickReply(option))
       : [];
   } catch {
     return [];
@@ -873,8 +873,12 @@ export default function PublicChatWidget() {
   // puede editar/confirmar estos datos antes de enviarlos.
   const [recognizedVisitor, setRecognizedVisitor] = useState(null);
   const [assistants, setAssistants] = useState([]);
-  const [selectedAssistantKey, setSelectedAssistantKey] = useState(() => storedSessionAssistantKey());
-  const [assistantIdentityResolved, setAssistantIdentityResolved] = useState(() => Boolean(storedSessionAssistantKey()));
+  // Keep the provisional assistant in the DOM for backwards-compatible
+  // behavior, but NEVER mark it visually resolved on the first frame. Browser
+  // storage may be stale and must not flash AIRA before the CRM-selected
+  // public assistant (IVOX) is validated by the assistants/default lookup.
+  const [selectedAssistantKey, setSelectedAssistantKey] = useState(() => storedSessionAssistantKey() || "aira-webchat-public");
+  const [assistantIdentityResolved, setAssistantIdentityResolved] = useState(false);
   const [visitorProfile, setVisitorProfile] = useState(null);
   const [projectFormOpen, setProjectFormOpen] = useState(false);
 
@@ -1227,7 +1231,14 @@ export default function PublicChatWidget() {
         }
 
         const sessionChoice = storedSessionAssistantKey();
-        if (sessionChoice && next.some((item) => item.key === sessionChoice)) {
+        // A stored chatbot key is authoritative only for a conversation that
+        // has actually started. A stale/pre-chat session must never flash AIRA
+        // before the current CRM public default (for example IVOX) resolves.
+        if (
+          sessionChoice
+          && hasRealConversationRef.current
+          && next.some((item) => item.key === sessionChoice)
+        ) {
           setSelectedAssistantKey(sessionChoice);
           setAssistantIdentityResolved(true);
           return;
@@ -1236,7 +1247,10 @@ export default function PublicChatWidget() {
         // es autoritativo. Una preferencia vieja del navegador no debe mantener
         // AIRA cuando el administrador activó IVOX (o viceversa).
         if (explicitStoredAssistantKey()) sessionStorage.removeItem(ASSISTANT_STORAGE_KEY);
-        if (sessionId) {
+        // Only an actual restored conversation may fall back to the configured
+        // assistant order. A stale/pre-chat session id must continue to the
+        // CRM default lookup instead of forcing next[0] (historically AIRA).
+        if (sessionId && hasRealConversationRef.current) {
           setSelectedAssistantKey(next[0].key);
           setAssistantIdentityResolved(true);
           return;
@@ -1360,6 +1374,7 @@ export default function PublicChatWidget() {
   }, []);
 
   useEffect(() => {
+    if (!assistantIdentityResolved) return undefined;
     const runtimeRequestSeqRef = airaRuntimeRequestSeqRef;
     void loadAiraAvatarRuntime();
     return () => {
@@ -1380,7 +1395,7 @@ export default function PublicChatWidget() {
       if (airaRuntimeRefreshTimerRef.current) window.clearTimeout(airaRuntimeRefreshTimerRef.current);
       airaRuntimeRefreshTimerRef.current = null;
     };
-  }, [loadAiraAvatarRuntime]);
+  }, [assistantIdentityResolved, loadAiraAvatarRuntime]);
 
   useEffect(() => {
     const preparedPoses = airaPreparedPosesRef.current;
@@ -1714,6 +1729,13 @@ export default function PublicChatWidget() {
     persistQuickReplies(null, []);
     hasRealConversationRef.current = false;
     setScreen("prechat");
+    // An expired conversation must not keep its former assistant selected.
+    // Return to unresolved identity so the assistants/default effect resolves
+    // the current CRM public default (IVOX in the present configuration).
+    sessionStorage.removeItem(ASSISTANT_STORAGE_KEY);
+    setSelectedAssistantKey(null);
+    setAssistantIdentityResolved(false);
+    setAiraAvatarRuntime(null);
     setResponder(AIRA_RESPONDER);
     setHandoffRequested(false);
     setHandoffRequestLoading(false);
@@ -2378,7 +2400,7 @@ export default function PublicChatWidget() {
     ? getRuntimePose(airaAvatarRuntime, airaPoseKey)
     : null;
   const responderAvatarKey = `${responder.type}:${responder.avatar_url || ""}:${activeAiraPose?.url || ""}`;
-  const isAiraResponder = responder.type === "aira";
+  const isAiraResponder = responder.type === "aira" && Boolean(selectedAssistantKey);
   const isIvoxAssistant = selectedAssistantKey === "ivox-webchat-public";
   const selectedAssistant = assistants.find((assistant) => assistant.key === selectedAssistantKey) || null;
   const publicResponder = isAiraResponder && selectedAssistant
@@ -2386,29 +2408,41 @@ export default function PublicChatWidget() {
     : responder;
   const launcherPortraitPose = isAiraResponder ? exactRuntimePose(airaAvatarRuntime, "neutral") : null;
   const launcherRuntimePose = isIvoxAssistant
-    ? getRuntimePose(airaAvatarRuntime, airaAvatarRuntime?.default_pose || "neutral")
+    ? (
+      exactRuntimePose(
+        airaAvatarRuntime,
+        airaLauncherFrame === "invite-chat" ? "invite-chat" : "point-viewer",
+      ) || getRuntimePose(airaAvatarRuntime, airaAvatarRuntime?.default_pose || "point-viewer")
+    )
     : exactRuntimePose(airaAvatarRuntime, "neutral");
   const launcherAsset = airaLauncherFrame === "invite-chat" ? airaInviteAsset : airaLauncherAsset;
+  // IVOX must never borrow AIRA's static launcher while its signed runtime
+  // image is still loading. Keep the launcher visually suppressed until the
+  // selected assistant has a real pose ready; otherwise refresh paints AIRA
+  // for a fraction of a second and then swaps to IVOX.
+  const launcherPresentationReady = assistantIdentityResolved && (!isIvoxAssistant || Boolean(launcherRuntimePose));
   const launcherOptions = availableQuickReplies.length > 0
     ? availableQuickReplies
     : rootQuickRepliesRef.current;
 
   return (
-    <div ref={wrapperRef} className={`public-chat-widget${isOpen ? " public-chat-widget--open" : ""}${assistantIdentityResolved ? "" : " public-chat-widget--identity-pending"}`}>
+    <div ref={wrapperRef} className={`public-chat-widget${isOpen ? " public-chat-widget--open" : ""}${assistantIdentityResolved ? "" : " public-chat-widget--identity-pending"}${launcherPresentationReady ? "" : " public-chat-widget--launcher-pending"}`}>
       <div className="public-chat-widget__launcher-composition">
-        {!isOpen && isAiraResponder && (
+        {launcherPresentationReady && !isOpen && isAiraResponder && (
           <div
             className={`public-chat-widget__launcher-character${isIvoxAssistant ? " public-chat-widget__launcher-character--runtime public-chat-widget__launcher-character--ivox" : ""}`}
             aria-label={`${publicResponder.display_name} invitando a abrir el chat`}
           >
             <span className="public-chat-widget__launcher-callout">¿Hablamos?</span>
-            {isIvoxAssistant && launcherRuntimePose ? (
-              <img
-                className="public-chat-widget__launcher-image public-chat-widget__launcher-image--ivox"
-                src={launcherRuntimePose.url}
-                alt=""
-                aria-hidden="true"
-              />
+            {isIvoxAssistant ? (
+              launcherRuntimePose ? (
+                <img
+                  className="public-chat-widget__launcher-image public-chat-widget__launcher-image--ivox"
+                  src={launcherRuntimePose.url}
+                  alt=""
+                  aria-hidden="true"
+                />
+              ) : null
             ) : (
               <img className="public-chat-widget__launcher-image" src={launcherAsset} alt="" aria-hidden="true" />
             )}
@@ -2697,25 +2731,6 @@ export default function PublicChatWidget() {
                 </button>
               )}
 
-              {/* FASE HANDOFF H4B/H4B.1 — acción secundaria, deliberadamente
-                  fuera del área de burbujas de mensaje (nunca se confunde
-                  con un CTA server-driven de FASE 3B.2). Oculto SIEMPRE
-                  que responder.type==="human" (identidad humana real de
-                  H3B ya cubre ese caso) y también mientras
-                  humanActivePendingConfirmation -- ver ese estado para la
-                  carrera de /events stale que cubre. */}
-              {sessionId && responder.type === "aira" && !projectFormOpen && !handoffRequested && !humanActivePendingConfirmation && !launcherOptions.some(isHumanHandoffQuickReply) && (
-                <div className="public-chat-widget__handoff-bar">
-                  <button
-                    type="button"
-                    className="public-chat-widget__handoff-btn"
-                    onClick={handleRequestHuman}
-                    disabled={handoffRequestLoading}
-                  >
-                    {handoffRequestLoading ? "Solicitando…" : "Hablar con una persona"}
-                  </button>
-                </div>
-              )}
               {sessionId && responder.type === "aira" && handoffRequested && (
                 <p className="public-chat-widget__handoff-status" role="status">
                   Solicitaste atención de una persona. AIRA puede seguir ayudándote mientras un agente se conecta.
