@@ -1,4 +1,13 @@
 import "@testing-library/jest-dom/vitest";
+import { cleanup } from "@testing-library/react";
+import { afterEach } from "vitest";
+
+// Every test may render its own router tree. Cleaning the DOM after each test
+// prevents a previous RouterProvider from remaining mounted and duplicating
+// pages or navigation state in later tests.
+afterEach(() => {
+  cleanup();
+});
 
 // Node's own experimental native `localStorage` global shadows jsdom's
 // implementation in this Node/jsdom version combination, leaving
