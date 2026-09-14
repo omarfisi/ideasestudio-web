@@ -127,7 +127,8 @@
 /* While the CRM-selected public assistant is resolving, keep the launcher in
    layout but visually suppressed. This prevents the hard-coded AIRA fallback
    from flashing before /default-assistant resolves to IVOX. */
-.public-chat-widget--identity-pending .public-chat-widget__launcher-composition {
+.public-chat-widget--identity-pending .public-chat-widget__launcher-composition,
+.public-chat-widget--launcher-pending .public-chat-widget__launcher-composition {
   opacity: 0;
   pointer-events: none;
 }
@@ -233,7 +234,7 @@
 .public-chat-widget__launcher-callout {
   position: absolute;
   z-index: 2;
-  top: -18px;
+  top: 8px;
   right: -13px;
   padding: 8px 12px;
   border: 1px solid var(--line, #e6e7e1);
