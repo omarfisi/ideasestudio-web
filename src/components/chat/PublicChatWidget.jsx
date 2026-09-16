@@ -18,8 +18,8 @@ import {
 } from "@/services/publicChatApi.js";
 import PrechatForm from "./PrechatForm.jsx";
 import "./PublicChatWidget.css";
-import airaLauncherAsset from "@/assets/chat/aira-point-viewer.png";
-import airaInviteAsset from "@/assets/chat/aira-invite-chat.png";
+import airaLauncherAsset from "@/assets/chat/aira-point-viewer.webp";
+import airaInviteAsset from "@/assets/chat/aira-invite-chat.webp";
 
 // P0 IPHONE SEND FIX — root cause confirmed via real Safari console:
 // `crypto.randomUUID` is part of the Web Crypto API and browsers restrict

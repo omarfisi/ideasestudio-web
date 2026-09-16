@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "images:webp": "node scripts/convert-raster-to-webp.mjs",
+    "prebuild": "npm run images:webp",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",

@@ -109,6 +109,8 @@ export default function ProductDetailPage() {
   const { product } = useLoaderData();
   const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
+  const variants = Array.isArray(product?.variants) ? product.variants : [];
+  const [selectedVariantId, setSelectedVariantId] = useState(variants[0]?.id || "");
   const [selectedImage, setSelectedImage] = useState("");
   const [actionState, setActionState] = useState({
     status: "idle",
@@ -140,6 +142,13 @@ export default function ProductDetailPage() {
     () => parseLongDescription(product?.longDescription),
     [product]
   );
+  const selectedVariant = variants.find((v) => v.id === selectedVariantId) || null;
+
+  useEffect(() => {
+    if (variants.length && !variants.some((v) => v.id === selectedVariantId)) {
+      setSelectedVariantId(variants[0].id);
+    }
+  }, [product?.id, selectedVariantId, variants]);
 
   // Services on the "monthly" purchase flow already have their own
   // checkout-flow CTA labeled "Conocer planes" (CTA_LABELS.monthly in
@@ -283,6 +292,7 @@ export default function ProductDetailPage() {
         productId: product.id,
         productSlug: product.slug,
         quantity,
+        variantId: selectedVariant?.id || null,
       });
 
       setActionState({
@@ -426,8 +436,21 @@ export default function ProductDetailPage() {
 
             <div className="service-detail-content__price">
               <small>Desde</small>
-              <strong>{getPriceLabel(product)}</strong>
+              <strong>{selectedVariant ? formatPrice(selectedVariant.price, selectedVariant.currency) : getPriceLabel(product)}</strong>
             </div>
+
+            {variants.length ? (
+              <div className="service-detail-purchase__variant">
+                <label htmlFor="sticker-size">Selecciona el tamaño</label>
+                <select id="sticker-size" value={selectedVariantId} onChange={(e) => setSelectedVariantId(e.target.value)}>
+                  {variants.map((variant) => (
+                    <option key={variant.id} value={variant.id}>
+                      {variant.sizeLabel || variant.name} — {formatPrice(variant.price, variant.currency)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
 
             {quickFacts.length > 0 ? (
               <ul

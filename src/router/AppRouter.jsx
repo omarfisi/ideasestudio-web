@@ -13,6 +13,8 @@ import {
   getPublicServiceSegment,
 } from "@/lib/api.js";
 import HomePage from "@/pages/HomePage.jsx";
+import JJPegaHomePage from "@/pages/JJPegaHomePage.jsx";
+import JJPersonalizePage from "@/pages/JJPersonalizePage.jsx";
 import SmallBusinessPage from "@/pages/SmallBusinessPage.jsx";
 import EntrepreneurPage from "@/pages/EntrepreneurPage.jsx";
 import EmergingBusinessPage from "@/pages/EmergingBusinessPage.jsx";
@@ -43,6 +45,7 @@ import AccountOrderDetailPage from "@/pages/AccountOrderDetailPage.jsx";
 import AccountOrderPaymentPage from "@/pages/AccountOrderPaymentPage.jsx";
 import AccountOrderReschedulePage from "@/pages/AccountOrderReschedulePage.jsx";
 import NotFoundPage from "@/pages/NotFoundPage.jsx";
+const IS_JJ_PEGA = true;
 import CmsPage from "@/pages/CmsPage.jsx";
 import UnsubscribePage from "@/pages/UnsubscribePage.jsx";
 import RouteErrorPage from "@/pages/RouteErrorPage.jsx";
@@ -78,7 +81,7 @@ const loadProductsCatalog = ({ request }) => {
   const url = new URL(request.url);
   const filters = {
     category: url.searchParams.get("category") || "all",
-    productType: "service",
+    productType: "physical",
     search: url.searchParams.get("q") || "",
   };
 
@@ -88,7 +91,8 @@ const loadProductsCatalog = ({ request }) => {
 const loadProductDetail = async ({ params }) => {
   try {
     const product = await getPublicProductBySlug(params.slug);
-    if (!product || product.productType !== "service" || !product.isActive) {
+    const expectedType = IS_JJ_PEGA ? "physical" : "service";
+    if (!product || product.productType !== expectedType || !product.isActive) {
       return { product: null };
     }
 
@@ -181,7 +185,7 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <HomePage />,
+        element: <JJPegaHomePage />,
       },
       {
         path: "pequenos-negocios",
@@ -207,6 +211,10 @@ const router = createBrowserRouter([
         path: "servicios",
         loader: loadProductsCatalog,
         element: <StorePage />,
+      },
+      {
+        path: "personaliza",
+        element: <JJPersonalizePage />,
       },
       {
         path: "servicios/marca-o-negocio",

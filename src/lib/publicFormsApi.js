@@ -139,7 +139,7 @@ async function _publicFetch(path, opts = {}) {
 }
 
 export async function getPublicForm(slug) {
-  return _publicFetch(`/public/forms/${encodeURIComponent(slug)}`);
+  return _publicFetch(appendWorkspace(`/public/forms/${encodeURIComponent(slug)}`));
 }
 
 export async function getPublicFormLanding(slug) {

@@ -12,11 +12,11 @@ import {
   TESTIMONIAL_SECTION_COPY,
 } from "@/data/testimonials.js";
 import { getPublicPortfolioItems } from "@/lib/api.js";
-import portfolioProcessHero from "../assets/quland-process/process-1.png";
-import portfolioProcessStep1 from "../assets/quland-process/process-2.png";
-import portfolioProcessStep2 from "../assets/quland-process/process-3.png";
-import portfolioProcessStep3 from "../assets/quland-process/process-4.png";
-import portfolioProcessStep4 from "../assets/quland-process/process-5.png";
+import portfolioProcessHero from "../assets/quland-process/process-1.webp";
+import portfolioProcessStep1 from "../assets/quland-process/process-2.webp";
+import portfolioProcessStep2 from "../assets/quland-process/process-3.webp";
+import portfolioProcessStep3 from "../assets/quland-process/process-4.webp";
+import portfolioProcessStep4 from "../assets/quland-process/process-5.webp";
 
 const PORTFOLIO_VISUAL_SLIDES = [
   {

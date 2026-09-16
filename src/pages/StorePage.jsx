@@ -5,11 +5,17 @@ import { usePageSeo } from "@/hooks/usePageSeo.js";
 import { Link, useLoaderData, useSearchParams } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
 import ProductsGrid from "@/components/shared/ProductsGrid.jsx";
+import CategorySection from "@/components/store/CategorySection.jsx";
+import "@/components/store/ShopProductCard.css";
+import "./JJPegaTestimonials.css";
+import BlogNewsletterSection from "@/components/blog/BlogNewsletterSection.jsx";
 import {
   addProductToPublicCart,
   getPublicProductCategories,
   getPublicProducts,
+  getPublicTestimonials,
 } from "@/lib/api.js";
+const IS_JJ_PEGA = true;
 
 const SORT_OPTIONS = [
   { value: "popular", label: "Más populares" },
@@ -84,6 +90,16 @@ function getSaleModeLabel(product) {
   return SALE_MODE_LABELS[mode] || toReadableLabel(mode);
 }
 
+function getReviewInitials(name) {
+  return String(name || "Cliente")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
 export default function StorePage() {
   const pageSeo = usePageSeo();
   const loaderData = useLoaderData();
@@ -96,6 +112,8 @@ export default function StorePage() {
   const [categories, setCategories] = useState([]);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(true);
   const [catalogError, setCatalogError] = useState("");
+  const [publicTestimonials, setPublicTestimonials] = useState([]);
+  const [reviewIndex, setReviewIndex] = useState(0);
   const [addingProductSlug, setAddingProductSlug] = useState(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [cartState, setCartState] = useState({
@@ -103,6 +121,20 @@ export default function StorePage() {
     message: "",
   });
   const productsRequestRef = useRef(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPublicTestimonials()
+      .then((payload) => {
+        if (cancelled) return;
+        const rows = Array.isArray(payload) ? payload : payload?.items;
+        if (Array.isArray(rows)) setPublicTestimonials(rows);
+      })
+      .catch(() => {
+        // Conserva los testimonios de respaldo si el endpoint no está disponible.
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const filters = useMemo(
     () => ({
@@ -205,7 +237,7 @@ export default function StorePage() {
         const catalog = await withTimeout(
           getPublicProducts({
             category: filters.category,
-            productType: "service",
+            productType: IS_JJ_PEGA ? "physical" : "service",
             search: filters.search,
             limit: 60,
             offset: 0,
@@ -220,7 +252,7 @@ export default function StorePage() {
 
         const items = Array.isArray(catalog?.items)
           ? catalog.items.filter(
-              (item) => item?.productType === "service" && item?.isActive !== false
+              (item) => item?.productType === (IS_JJ_PEGA ? "physical" : "service") && item?.isActive !== false
             )
           : [];
         setProducts(items);
@@ -445,249 +477,98 @@ export default function StorePage() {
     }
   }
 
-  return (
-    <section className="section services-market">
-      <SEOHead
-        title="Servicios Creativos | Ideas Estudio"
-        description="Explora fotografía, video, diseño gráfico y branding profesional para tu marca, negocio o evento en Puerto Rico."
-        canonical="https://ideasestudio.com/servicios"
-        seoEntry={pageSeo}
-      />
-      <div className="container services-market__container">
-        <nav className="services-market__breadcrumb" aria-label="Breadcrumb">
-          <Link to="/">Inicio</Link>
-          <span>/</span>
-          <span>Servicios</span>
-        </nav>
+  const storeAssets = [
+    "sticker-good-vibes.webp", "sticker-corazon-rosa.webp", "sticker-corona-jj.webp",
+    "sticker-margarita.webp", "sticker-arcoiris.webp", "sticker-good-vibes-text.webp",
+    "sticker-aguacate-feliz.webp", "sticker-shaka.webp",
+  ];
+  const getStoreCategoryHref = (title) => {
+    const normalizedTitle = title.toLowerCase();
+    const match = categoryOptions.find((category) => {
+      const normalizedLabel = category.label.toLowerCase();
+      return normalizedLabel.includes(normalizedTitle) || normalizedTitle.includes(normalizedLabel);
+    });
+    return match
+      ? `/servicios?category=${encodeURIComponent(match.value)}`
+      : `/servicios?q=${encodeURIComponent(title)}`;
+  };
+  const storeExampleProducts = [
+    { id: "example-good-vibes", slug: "example-good-vibes", name: "Sticker Good Vibes", price: 15, coverImage: "/assets/jj-high-quality/sticker-good-vibes.webp", isExample: true },
+    { id: "example-corazon-rosa", slug: "example-corazon-rosa", name: "Sticker Corazón Rosa", price: 15, coverImage: "/assets/jj-high-quality/sticker-corazon-rosa.webp", isExample: true },
+    { id: "example-good-ideas", slug: "example-good-ideas", name: "Sticker Good Ideas Always", price: 15, coverImage: "/assets/jj-high-quality/sticker-good-vibes-text.webp", isExample: true },
+    { id: "example-aguacate", slug: "example-aguacate", name: "Sticker Aguacate Cool", price: 15, coverImage: "/assets/jj-high-quality/sticker-aguacate-feliz.webp", isExample: true },
+    { id: "example-flower", slug: "example-flower", name: "Sticker Flower Power", price: 15, coverImage: "/assets/jj-high-quality/sticker-margarita.webp", isExample: true },
+  ];
+  const shopProducts = visibleProducts.length ? visibleProducts.slice(0, 5) : storeExampleProducts;
+  const popularProducts = visibleProducts.length ? visibleProducts.slice(0, 5).reverse() : storeExampleProducts.slice().reverse();
+  const reviewItems = publicTestimonials.length ? publicTestimonials.map((item) => ({
+    ...item,
+    meta: item.role_or_meta || item.meta || "Cliente",
+  })) : [
+    { id: "jj-fallback-1", rating: 5, quote: "Excelente calidad y los colores están increíbles. Llegaron súper rápido.", name: "Mariana G.", meta: "Compra verificada" },
+    { id: "jj-fallback-2", rating: 5, quote: "Mis stickers personalizados quedaron perfectos. Justo como los imaginé.", name: "Carlos R.", meta: "Compra verificada" },
+    { id: "jj-fallback-3", rating: 5, quote: "Amo los diseños, se nota una gran calidad y el empaque está súper lindo.", name: "Fernanda L.", meta: "Compra verificada" },
+  ];
+  const reviewPageSize = 3;
+  const reviewPageCount = Math.max(1, Math.ceil(reviewItems.length / reviewPageSize));
+  const visibleReviewItems = reviewItems.slice(reviewIndex * reviewPageSize, reviewIndex * reviewPageSize + reviewPageSize);
 
-        <header className="services-market__header">
-          <div>
-            <h1>Servicios profesionales</h1>
-            <p>
-              Soluciones creativas y estratégicas para impulsar tu marca, evento o negocio.
-            </p>
-          </div>
+  useEffect(() => {
+    setReviewIndex((current) => current >= reviewPageCount ? 0 : current);
+  }, [reviewPageCount]);
 
-          <div className="services-market__header-meta">
-            <strong>{isLoadingCatalog ? "..." : visibleProducts.length}</strong>
-            <span>
-              {visibleProducts.length === 1
-                ? "servicio visible"
-                : "servicios visibles"}
-            </span>
-          </div>
-        </header>
+  useEffect(() => {
+    if (reviewPageCount <= 1) return undefined;
+    const timer = window.setInterval(() => {
+      setReviewIndex((current) => (current + 1) % reviewPageCount);
+    }, 7000);
+    return () => window.clearInterval(timer);
+  }, [reviewPageCount]);
 
-        <div className="services-market__toolbar">
-          <label className="field services-market__search">
-            <span>Buscar servicios</span>
-            <input
-              type="search"
-              value={searchDraft}
-              placeholder="Buscar por nombre, categoría o segmento"
-              onChange={(event) => setSearchDraft(event.target.value)}
-            />
-          </label>
+  function showPreviousReview() {
+    setReviewIndex((current) => (current - 1 + reviewPageCount) % reviewPageCount);
+  }
 
-          <label className="field services-market__sort">
-            <span>Ordenar por</span>
-            <select
-              value={filters.sort}
-              onChange={(event) => updateFilter("sort", event.target.value)}
-            >
-              {SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <Button
-            to="/servicios/carrito"
-            variant="secondary"
-            className="services-market__toolbar-cta"
-          >
-            Resumen de contratación
-          </Button>
-        </div>
-
-        <div className="services-market__counter">
-          <p>
-            Mostrando {visibleProducts.length} de {activeProducts.length} servicios activos.
-          </p>
-          <button
-            type="button"
-            className="services-market__mobile-filter-btn"
-            onClick={() => setMobileFiltersOpen((current) => !current)}
-          >
-            {mobileFiltersOpen ? "Ocultar filtros" : "Mostrar filtros"}
-          </button>
-        </div>
-
-        <div className="services-market__layout">
-          <aside
-            className={`services-market__filters ${
-              mobileFiltersOpen ? "services-market__filters--open" : ""
-            }`}
-          >
-            <div className="services-market__filter-group">
-              <h3>Categorías</h3>
-              <select
-                value={filters.category}
-                onChange={(event) => updateFilter("category", event.target.value)}
-              >
-                <option value="all">Todas</option>
-                {categoryOptions.map((category) => (
-                  <option key={category.value} value={category.value}>
-                    {category.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="services-market__filter-group">
-              <h3>Segmento</h3>
-              <select
-                value={filters.segment}
-                onChange={(event) => updateFilter("segment", event.target.value)}
-              >
-                <option value="all">Todos</option>
-                {segmentOptions.map((segment) => (
-                  <option key={segment.value} value={segment.value}>
-                    {segment.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="services-market__filter-group">
-              <h3>Tipo de servicio</h3>
-              <select
-                value={filters.serviceType}
-                onChange={(event) => updateFilter("serviceType", event.target.value)}
-              >
-                <option value="all">Todos</option>
-                {serviceTypeOptions.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="services-market__filter-group">
-              <h3>Rango de precio (USD)</h3>
-              <div className="services-market__price-range">
-                <input
-                  type="number"
-                  min={priceStats.min}
-                  max={priceStats.max || undefined}
-                  value={filters.minPrice}
-                  onChange={(event) => updateFilter("minPrice", event.target.value)}
-                  placeholder={`Mín ${priceStats.min || 0}`}
-                />
-                <input
-                  type="number"
-                  min={priceStats.min}
-                  max={priceStats.max || undefined}
-                  value={filters.maxPrice}
-                  onChange={(event) => updateFilter("maxPrice", event.target.value)}
-                  placeholder={`Máx ${priceStats.max || 0}`}
-                />
-              </div>
-            </div>
-
-            <div className="services-market__filter-group">
-              <h3>Destacados</h3>
-              <label className="services-market__checkbox">
-                <input
-                  type="checkbox"
-                  checked={filters.featuredOnly}
-                  onChange={(event) =>
-                    updateFilter("featured", event.target.checked ? "1" : "")
-                  }
-                />
-                Solo mostrar destacados
-              </label>
-            </div>
-
-            <button
-              type="button"
-              className="services-market__clear-btn"
-              onClick={clearFilters}
-            >
-              Limpiar filtros
-            </button>
-          </aside>
-
-          <div className="services-market__results">
-            {cartState.status === "success" ? (
-              <div className="services-cart-success">
-                <div className="services-cart-success__content">
-                  <Check size={20} className="services-cart-success__icon" aria-hidden="true" />
-                  <p>
-                    {cartState.productName
-                      ? `${cartState.productName} agregado correctamente.`
-                      : "Servicio agregado correctamente."}{" "}
-                    Tu contratación ahora tiene{" "}
-                    {cartState.totalQuantity === 1
-                      ? "1 servicio."
-                      : `${cartState.totalQuantity} servicios.`}
-                  </p>
-                </div>
-                <div className="services-cart-success__actions">
-                  <Link
-                    to={
-                      cartState.sessionToken
-                        ? `/servicios/checkout?sessionToken=${encodeURIComponent(cartState.sessionToken)}`
-                        : "/servicios/checkout"
-                    }
-                    className="services-cart-success__cta"
-                  >
-                    Continuar al pago
-                    <ArrowRight size={16} aria-hidden="true" />
-                  </Link>
-                  <Link to="/servicios/carrito" className="services-cart-success__secondary">
-                    <ShoppingCart size={16} aria-hidden="true" />
-                    Ver carrito
-                  </Link>
-                </div>
-              </div>
-            ) : cartState.status !== "idle" ? (
-              <p className={`form-status form-status--${cartState.status}`}>
-                {cartState.message}
-              </p>
-            ) : null}
-
-            {catalogError ? (
-              <p className="form-status form-status--error">{catalogError}</p>
-            ) : null}
-
-            {isLoadingCatalog ? (
-              <div className="empty-state services-market__empty">
-                <h2>Cargando servicios...</h2>
-                <p>Estamos preparando el catálogo para ti.</p>
-              </div>
-            ) : visibleProducts.length ? (
-              <ProductsGrid
-                products={visibleProducts}
-                onAddToCart={handleAddToCart}
-                addingProductSlug={addingProductSlug}
-              />
-            ) : (
-              <div className="empty-state services-market__empty">
-                <h2>No encontramos servicios con esos filtros</h2>
-                <p>
-                  Ajusta búsqueda, categoría o rango de precio para descubrir más
-                  opciones disponibles.
-                </p>
-                <Button onClick={clearFilters}>Restablecer filtros</Button>
-              </div>
-            )}
-          </div>
-        </div>
+  function showNextReview() {
+    setReviewIndex((current) => (current + 1) % reviewPageCount);
+  }
+  const renderShopCard = (product, index, badge = "") => (
+    <article className={`jj-shop-product jj-shop-product--${index % 5}`} key={`${product.slug || product.id}-${index}`}>
+      <div className="jj-shop-product__media">
+        <img src={product.coverImage || `/assets/jj-high-quality/${storeAssets[index % storeAssets.length]}`} alt={product.name} />
+        {badge ? <span className="jj-shop-product__badge">{badge}</span> : null}
+        <button type="button" className="jj-shop-product__favorite" aria-label={`Añadir ${product.name} a favoritos`}>♡</button>
       </div>
-    </section>
+      <div className="jj-shop-product__body">
+        <h3>{product.name}</h3>
+        <p><strong>${Number(product.price || 0).toFixed(2)}</strong></p>
+        {product.isExample ? <Link className="jj-shop-product__add" to="/servicios">Ver producto</Link> : <button type="button" className="jj-shop-product__add" disabled={addingProductSlug === product.slug} onClick={() => handleAddToCart(product)}>{addingProductSlug === product.slug ? "Agregando..." : "Agregar al carrito"}</button>}
+      </div>
+    </article>
+  );
+
+  return (
+    <main className="jj-store-page">
+      <SEOHead title="Tienda JJ Pega | Stickers y buenas vibras" description="Compra stickers JJ Pega, elige tu tamaño y crea tu pedido." seoEntry={pageSeo} />
+      <section className="jj-store-hero"><img src="/assets/jj-high-quality/store-banner.webp" alt="Nuestra tienda JJ Pega" /></section>
+      <section className="jj-store-benefits"><div className="jj-store-container"><div className="jj-store-benefits__grid"><span>⚡ <b>Alta calidad</b><small>Colores que duran</small></span><span>🚚 <b>Envíos a todo el mundo</b><small>Tu idea, donde estés</small></span><span>♡ <b>Stickers que</b><small>hacen feliz</small></span></div></div></section>
+      <CategorySection searchDraft={searchDraft} setSearchDraft={setSearchDraft} getCategoryHref={getStoreCategoryHref} />
+      <section className="jj-store-section"><div className="jj-store-container"><div className="jj-store-products-banner"><img src="/assets/featured-products-title.webp" alt="Productos destacados" /></div>{isLoadingCatalog ? <p className="jj-store-loading">Cargando productos...</p> : shopProducts.length ? <div className="jj-shop-grid">{shopProducts.map((product, index) => renderShopCard(product, index, index === 0 ? "Más vendido" : index === 1 ? "Nuevo" : index === 2 ? "Popular" : "") )}</div> : <p className="jj-store-loading">No hay productos disponibles todavía.</p>}</div></section>
+      <BlogNewsletterSection
+        artBackground="/assets/jj-high-quality/newsletter/offers-banner.webp"
+        artAlt="Ofertas JJ Pega: recibe descuentos y novedades"
+        eyebrow="Ofertas JJ Pega"
+        title="Recibe 10% de descuento en tu primera compra."
+        description="Suscríbete al boletín de ofertas y recibe novedades, colecciones y promociones de stickers directamente en tu correo."
+        source="website_store_newsletter"
+        segment="store_newsletter"
+        segments={["store_newsletter", "newsletter", "jj_pega_offers"]}
+        successMessage="¡Listo! Revisa tu correo para recibir tu código de 10% de descuento."
+        consentLabel="Al suscribirte aceptas recibir ofertas de JJ Pega."
+      />
+      <section className="jj-store-section"><div className="jj-store-container"><div className="jj-store-most-ordered-title"><img src="/assets/most-ordered-title.webp" alt="Los más pedidos" /></div>{popularProducts.length ? <div className="jj-shop-grid">{popularProducts.map((product, index) => renderShopCard(product, index + 3))}</div> : null}<div className="jj-store-most-ordered-cta"><Link className="jj-image-button" to="/servicios"><img src="/assets/most-ordered-cta.webp" alt="Ver más productos" /></Link></div></div></section>
+      <section className="jj-store-section jj-store-reviews"><div className="jj-store-container"><div className="jj-store-section__head jj-store-reviews__head"><img className="jj-store-reviews-banner" src="/assets/jj-high-quality/reviews-title.webp" alt="Lo que dicen nuestros clientes" /></div><div className="jj-review-slideshow"><button type="button" className="jj-review-slideshow__arrow jj-review-slideshow__arrow--prev" onClick={showPreviousReview} aria-label="Testimonios anteriores">←</button><div className="jj-review-grid">{visibleReviewItems.map((item) => <article className="jj-review-card" key={item.id}><div className="jj-review-card__top"><span className="jj-review-card__avatar">{getReviewInitials(item.name)}</span><span className="jj-review-card__stars" aria-label={String(item.rating || 5) + " estrellas"}>{"★".repeat(Math.max(1, Math.min(5, Number(item.rating) || 5)))}</span><span className="jj-review-card__quote-mark" aria-hidden="true">“</span></div><p className="jj-review-card__quote">“{item.quote}”</p><div className="jj-review-card__author"><b>{item.name}</b><small><span aria-hidden="true">✓</span> {item.meta || "Compra verificada"}</small></div><span className="jj-review-card__heart" aria-hidden="true">♥</span></article>)}</div><button type="button" className="jj-review-slideshow__arrow jj-review-slideshow__arrow--next" onClick={showNextReview} aria-label="Siguientes testimonios">→</button></div>{reviewPageCount > 1 ? <div className="jj-review-slideshow__dots" aria-label="Navegación de testimonios">{Array.from({ length: reviewPageCount }).map((_, index) => <button type="button" key={index} className={index === reviewIndex ? "is-active" : ""} onClick={() => setReviewIndex(index)} aria-label={"Ver grupo de testimonios " + (index + 1)} />)}</div> : null}</div></section>
+      <section className="jj-store-container"><div className="jj-store-trust"><span>◇ <b>Calidad premium</b><small>Stickers que duran</small></span><span>🚚 <b>Envíos a todo el mundo</b><small>Rápido y seguro</small></span><span>☺ <b>Compra segura</b><small>Tus datos están protegidos</small></span><span>⌁ <b>Amamos el planeta</b><small>Empaques responsables</small></span></div></section>
+    </main>
   );
 }

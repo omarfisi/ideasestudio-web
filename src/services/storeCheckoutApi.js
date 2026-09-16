@@ -140,13 +140,14 @@ export async function getStoreCartCurrent({ cartId = null, cartToken = null } = 
   });
 }
 
-export async function addStoreCartItem({ cartId, productId, quantity = 1 }) {
+export async function addStoreCartItem({ cartId, productId, quantity = 1, variantId = null }) {
   return storeFetch("/cart/items", {
     method: "POST",
     body: JSON.stringify({
       cart_id: cartId,
       product_id: productId,
       quantity,
+      ...(variantId ? { variant_id: variantId } : {}),
     }),
   });
 }

@@ -1,20 +1,18 @@
-const SITE_URL = "https://www.ideasestudio.com";
+const SITE_URL = "https://jjpega.com";
 
 export function buildOrganizationSchema() {
   return {
     "@context": "https://schema.org",
     "@type": ["Organization", "LocalBusiness"],
-    name: "Ideas Estudio",
+    name: "JJ Pega",
     url: SITE_URL,
-    logo: "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/logos/favicon_ideasestudio.webp",
+    logo: "https://jjpega.com/assets/jj-high-quality/trimmed/logo-header.webp",
     description:
-      "Agencia creativa en Puerto Rico especializada en fotografía, diseño gráfico, video y branding.",
+      "Tienda de stickers, diseños personalizados y buenas vibras.",
     areaServed: "Puerto Rico",
     addressRegion: "Puerto Rico",
     addressCountry: "US",
-    sameAs: [
-      "https://www.instagram.com/ideasestudio.pr",
-    ],
+    sameAs: [],
   };
 }
 
@@ -26,7 +24,7 @@ export function buildServiceSchema(service) {
     name: service.name,
     description: service.shortDescription || service.longDescription || "",
     url: `${SITE_URL}/servicios/${service.slug}`,
-    provider: { "@type": "Organization", name: "Ideas Estudio", url: SITE_URL },
+    provider: { "@type": "Organization", name: "JJ Pega", url: SITE_URL },
     areaServed: "Puerto Rico",
     ...(service.price
       ? {
@@ -63,7 +61,7 @@ export function buildCreativeWorkSchema(project) {
     description: project.description || "",
     image: project.homeCoverUrl || project.portfolioCoverUrl || project.coverUrl || project.mediaUrls?.[0] || "",
     url: `${SITE_URL}/portafolio/${project.slug}`,
-    creator: { "@type": "Organization", name: "Ideas Estudio", url: SITE_URL },
+    creator: { "@type": "Organization", name: "JJ Pega", url: SITE_URL },
   };
 }
 
@@ -79,11 +77,11 @@ export function buildArticleSchema(post) {
     datePublished: post.publish_at || post.created_at || "",
     dateModified: post.updated_at || post.publish_at || "",
     author: post.author
-      ? { "@type": "Person", name: post.author.name || post.author.display_name || "Ideas Estudio" }
-      : { "@type": "Organization", name: "Ideas Estudio" },
+      ? { "@type": "Person", name: post.author.name || post.author.display_name || "JJ Pega" }
+      : { "@type": "Organization", name: "JJ Pega" },
     publisher: {
       "@type": "Organization",
-      name: "Ideas Estudio",
+      name: "JJ Pega",
       url: SITE_URL,
     },
   };

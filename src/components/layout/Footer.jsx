@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
 import { SITE_CONTACT } from "@/lib/siteContact.js";
+import "./JJPegaFooter.css";
 
-const BRAND_LOGO_URL =
-  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/logos/favicon_ideasestudio.webp";
+const BRAND_LOGO_URL = "/assets/jj-pega-logo.webp";
 
 // Real routes confirmed against src/data/clientNiches.js and the router
 // (src/router/AppRouter.jsx) — these previously all pointed at the same
@@ -166,20 +166,19 @@ export default function Footer() {
       <div className="container site-footer__shell">
         <div className="site-footer__grid">
           <div className="site-footer__brand">
-            <Link className="site-footer__brand-link" to="/" aria-label="Ideas Estudio">
+            <Link className="site-footer__brand-link" to="/" aria-label="JJ Pega">
               <span className="site-footer__brand-mark">
                 <img src={BRAND_LOGO_URL} alt="" loading="lazy" />
               </span>
               <span className="site-footer__brand-text">
-                <strong>Ideas Estudio</strong>
-                <small>La idea que tu negocio necesita</small>
+                <strong>JJ Pega</strong>
+                <small>Stickers hechos para ti</small>
               </span>
             </Link>
 
             <p className="site-footer__copy">
-              Un estudio creativo con soluciones visuales y digitales para marcas,
-              negocios, eventos y proyectos que necesitan una presencia clara,
-              coherente y bien producida.
+              Stickers, ideas y buenas vibras para darle personalidad a todo lo
+              que quieres pegar, compartir y recordar.
             </p>
 
             <div className="site-footer__socials" aria-label="Redes sociales">
@@ -258,8 +257,14 @@ export default function Footer() {
       <div className="site-footer__base">
         <div className="container site-footer__bottom">
           <div className="site-footer__bottom-copy">
-            <span>&copy; {new Date().getFullYear()} Ideas Estudio</span>
+            <span>&copy; {new Date().getFullYear()} JJ Pega</span>
             <span>Todos los derechos reservados.</span>
+            <span className="site-footer__credit">
+              Creado por{" "}
+              <a href="https://www.ideasestudio.com/" target="_blank" rel="noreferrer">
+                Ideas Estudio
+              </a>
+            </span>
           </div>
 
           <div className="site-footer__bottom-meta">

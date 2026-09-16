@@ -434,6 +434,15 @@ function normalizeProduct(raw) {
     coverImage: raw.cover_image || raw.cover_image_url || null,
     gallery,
     metadata: metadataSource,
+    variants: Array.isArray(raw.variants)
+      ? raw.variants.filter((v) => v?.is_active !== false).map((v) => ({
+          id: v.id,
+          name: v.name || v.size_label || "Opción",
+          sizeLabel: v.size_label || v.name || "",
+          price: Number(v.price ?? 0),
+          currency: v.currency || raw.currency || "USD",
+        }))
+      : [],
     // The public.services row this product was synced from, if any.
     // GET /api/store/products/{slug} (single-product detail) includes a
     // top-level service_id — but GET /api/store/products (the catalog
@@ -667,6 +676,7 @@ function serializeCartItems(items = []) {
       return {
         product_id: productId,
         quantity,
+        ...(item.variantId || item.variant_id ? { variant_id: item.variantId || item.variant_id } : {}),
       };
     })
     .filter(Boolean);
@@ -922,6 +932,7 @@ export async function createOrUpdatePublicCart(payload) {
         cartId,
         productId,
         quantity,
+        variantId: item.variant_id || null,
       });
     }
   } else {
@@ -930,6 +941,7 @@ export async function createOrUpdatePublicCart(payload) {
         cartId,
         productId: item.product_id,
         quantity: item.quantity,
+        variantId: item.variant_id || null,
       });
     }
   }
@@ -982,6 +994,7 @@ export async function addProductToPublicCart({
   productId = null,
   productSlug = null,
   quantity = 1,
+  variantId = null,
 }) {
   const resolvedProductId = await resolveProductIdForCart({
     productId,
@@ -999,6 +1012,7 @@ export async function addProductToPublicCart({
       {
         productId: resolvedProductId,
         quantity: Number(quantity || 1),
+        ...(variantId ? { variantId } : {}),
       },
     ],
     replaceItems: false,
@@ -1443,6 +1457,13 @@ export async function getMembershipCheckoutSessionStatus(sessionId) {
 
 export async function getBlogHome() {
   const url = buildUrl("/api/blog/home", { workspace_id: PUBLIC_WORKSPACE_ID || undefined });
+  return apiFetch(url);
+}
+
+export async function getPublicTestimonials() {
+  const url = buildUrl("/api/public/testimonials", {
+    workspace_id: PUBLIC_WORKSPACE_ID || undefined,
+  });
   return apiFetch(url);
 }
 

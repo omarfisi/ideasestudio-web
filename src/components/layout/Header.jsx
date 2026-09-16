@@ -36,8 +36,7 @@ const SOLUTIONS_MENU_ITEMS = [
   ...CLIENT_PATHS,
 ];
 
-const BRAND_LOGO_URL =
-  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/logos/favicon_ideasestudio.webp";
+const BRAND_LOGO_URL = "/assets/jj-pega-logo.webp";
 
 function ChevronDownIcon({ open = false }) {
   return (
@@ -855,18 +854,18 @@ export default function Header() {
           <div className="ie-header">
             <Link className="ie-brand" to="/">
               {logoError ? (
-                <span className="ie-brand__fallback">IE</span>
+                <span className="ie-brand__fallback">JJ</span>
               ) : (
                 <img
                   className="ie-brand__logo"
                   src={BRAND_LOGO_URL}
-                  alt="Ideas Estudio"
+                  alt="JJ Pega"
                   onError={() => setLogoError(true)}
                 />
               )}
               <span className="ie-brand__text">
-                <span className="ie-brand__name">Ideas Estudio</span>
-                <span className="ie-brand__slogan">La idea que tu negocio necesita</span>
+                <span className="ie-brand__name">JJ Pega</span>
+                <span className="ie-brand__slogan">Stickers hechos para ti</span>
               </span>
             </Link>
 

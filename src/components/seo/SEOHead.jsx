@@ -1,13 +1,13 @@
 import { Helmet } from "react-helmet-async";
 import { getArticleSocialImage, getSocialImageVersion, addImageCacheBust, buildProxyImageUrl } from "@/lib/socialMeta.js";
 
-const SITE_URL  = "https://www.ideasestudio.com";
-const SITE_NAME = "Ideas Estudio";
-const TWITTER_HANDLE = "@ideasestudio";
+const SITE_URL  = "https://jjpega.com";
+const SITE_NAME = "JJ Pega";
+const TWITTER_HANDLE = "";
 
-const DEFAULT_TITLE = "Ideas Estudio | La idea que tu negocio necesita";
+const DEFAULT_TITLE = "JJ Pega | Stickers & good vibes";
 const DEFAULT_DESCRIPTION =
-  "Fotografía profesional, diseño, video y branding en Puerto Rico. La agencia creativa que impulsa tu marca, negocio o evento especial.";
+  "Stickers, diseños personalizados y buenas vibras desde JJ Pega.";
 
 /**
  * Default OG image for pages that don't supply an article cover.
@@ -15,7 +15,7 @@ const DEFAULT_DESCRIPTION =
  * Replace with a proper 1200×630 image when available.
  */
 const DEFAULT_OG_IMAGE =
-  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/logos/favicon_ideasestudio.webp";
+  "https://jjpega.com/assets/jj-high-quality/trimmed/logo-header.webp";
 
 export default function SEOHead({
   title,
@@ -122,8 +122,8 @@ export default function SEOHead({
 
       {/* Twitter / X Card */}
       <meta name="twitter:card"        content="summary_large_image" />
-      <meta name="twitter:site"        content={TWITTER_HANDLE} />
-      <meta name="twitter:creator"     content={TWITTER_HANDLE} />
+      {TWITTER_HANDLE && <meta name="twitter:site" content={TWITTER_HANDLE} />}
+      {TWITTER_HANDLE && <meta name="twitter:creator" content={TWITTER_HANDLE} />}
       <meta name="twitter:title"       content={resolvedTwitterTitle} />
       <meta name="twitter:description" content={resolvedTwitterDescription} />
       <meta name="twitter:image"       content={resolvedTwitterImage} />

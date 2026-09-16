@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import heroPhoto from "@/assets/osvaldo-marfisi.jpg";
+import heroPhoto from "@/assets/osvaldo-marfisi.webp";
 
 const cards = [
   {
