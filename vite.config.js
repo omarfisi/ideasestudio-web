@@ -5,6 +5,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const localApiTarget = process.env.VITE_DEV_API_TARGET || 'http://127.0.0.1:8000'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -37,11 +38,11 @@ export default defineConfig({
     // class of bug in publicFormsApi.js's own fallback chain.
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: localApiTarget,
         changeOrigin: true,
       },
       '/public': {
-        target: 'http://127.0.0.1:8000',
+        target: localApiTarget,
         changeOrigin: true,
       },
     },
