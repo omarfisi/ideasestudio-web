@@ -22,7 +22,7 @@ vi.mock("@/lib/api.js", () => ({
 vi.mock("@/components/seo/SEOHead.jsx", () => ({ default: () => null }));
 vi.mock("@/hooks/usePageSeo.js", () => ({ usePageSeo: () => null }));
 
-const { default: StorePage } = await import("@/pages/StorePage.jsx");
+const { default: StorePage, isActiveServiceProduct } = await import("@/pages/StorePage.jsx");
 
 const pageSource = readFileSync(path.join(__dirname, "../StorePage.jsx"), "utf8");
 
@@ -48,6 +48,13 @@ beforeEach(() => {
 });
 
 describe("StorePage — services catalog is untouched", () => {
+  it("accepts canonical and legacy product field names from the Backend", () => {
+    expect(isActiveServiceProduct({ productType: "service", isActive: true })).toBe(true);
+    expect(isActiveServiceProduct({ product_type: "service", is_active: true })).toBe(true);
+    expect(isActiveServiceProduct({ product_type: "digital", is_active: true })).toBe(false);
+    expect(isActiveServiceProduct({ product_type: "service", is_active: false })).toBe(false);
+  });
+
   it("still renders the main services catalog heading", async () => {
     renderStorePage();
     expect(await screen.findByText("Servicios profesionales")).toBeInTheDocument();

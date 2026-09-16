@@ -84,6 +84,16 @@ function getSaleModeLabel(product) {
   return SALE_MODE_LABELS[mode] || toReadableLabel(mode);
 }
 
+// The canonical API normalizer exposes camelCase fields, while older proxy
+// responses can still arrive with the raw snake_case contract. Accept both
+// shapes at this boundary so a valid Backend product is never hidden by the
+// storefront solely because an intermediate adapter was bypassed.
+export function isActiveServiceProduct(product) {
+  const productType = product?.productType ?? product?.product_type;
+  const active = product?.isActive ?? product?.is_active;
+  return String(productType || "").trim().toLowerCase() === "service" && active !== false;
+}
+
 export default function StorePage() {
   const pageSeo = usePageSeo();
   const loaderData = useLoaderData();
@@ -219,9 +229,7 @@ export default function StorePage() {
         }
 
         const items = Array.isArray(catalog?.items)
-          ? catalog.items.filter(
-              (item) => item?.productType === "service" && item?.isActive !== false
-            )
+          ? catalog.items.filter(isActiveServiceProduct)
           : [];
         setProducts(items);
       } catch (error) {
