@@ -131,8 +131,10 @@ export default function HomePage() {
   const [wordIndex, setWordIndex] = useState(0);
   const [typedObjetivo, setTypedObjetivo] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
-  const [homePortfolioItems, setHomePortfolioItems] = useState([]);
-  const [portfolioLoading, setPortfolioLoading] = useState(true);
+  // Pintar el catálogo local desde el primer render evita que un Backend
+  // local caído deje skeletons beige permanentes en la portada.
+  const [homePortfolioItems, setHomePortfolioItems] = useState(LOCAL_PORTFOLIO_ITEMS);
+  const [portfolioLoading, setPortfolioLoading] = useState(false);
 
   const CAT_EYEBROW_HOME = { fotografia:"FOTOGRAFÍA", video:"VIDEO", branding_diseno:"DISEÑO GRÁFICO", web:"WEB", marketing_digital:"MARKETING" };
 
@@ -274,7 +276,6 @@ export default function HomePage() {
 
   useEffect(() => {
     let cancelled = false;
-    setPortfolioLoading(true);
     getPublicPortfolioItems({ limit: 500 }).then((all) => {
       if (cancelled) return;
       setHomePortfolioItems(all.length > 0 ? all : LOCAL_PORTFOLIO_ITEMS);

@@ -878,7 +878,10 @@ export default function PublicChatWidget() {
   // storage may be stale and must not flash AIRA before the CRM-selected
   // public assistant (IVOX) is validated by the assistants/default lookup.
   const [selectedAssistantKey, setSelectedAssistantKey] = useState(() => storedSessionAssistantKey() || "aira-webchat-public");
-  const [assistantIdentityResolved, setAssistantIdentityResolved] = useState(false);
+  // En desarrollo local el launcher debe seguir visible aunque el Backend
+  // todavía esté arrancando; cuando el endpoint responde, su identidad
+  // (IVOX/AIRA) reemplaza este fallback provisional.
+  const [assistantIdentityResolved, setAssistantIdentityResolved] = useState(import.meta.env.DEV);
   const [visitorProfile, setVisitorProfile] = useState(null);
   const [projectFormOpen, setProjectFormOpen] = useState(false);
 
