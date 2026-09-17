@@ -72,6 +72,19 @@ const PORTFOLIO_VISUAL_SLIDES = [
   },
 ];
 
+// El catálogo remoto puede no estar disponible durante el desarrollo local.
+// Usamos estos assets versionados para que la portada nunca quede con tarjetas vacías.
+const LOCAL_PORTFOLIO_ITEMS = PORTFOLIO_VISUAL_SLIDES.map((slide, index) => ({
+  id: `local-portfolio-${index + 1}`,
+  title: slide.title,
+  description: slide.text,
+  category: "branding_diseno",
+  subcategory: "ideas_estudio",
+  homeCoverUrl: slide.image,
+  coverUrl: slide.image,
+  placements: ["home_wide", "home_portrait", "home_cards"],
+}));
+
 const OBJETIVO_WORDS = ["marca", "empresa", "crecimiento", "presencia"];
 const PORTFOLIO_PROCESS_STEPS = [
   {
@@ -264,7 +277,7 @@ export default function HomePage() {
     setPortfolioLoading(true);
     getPublicPortfolioItems({ limit: 500 }).then((all) => {
       if (cancelled) return;
-      setHomePortfolioItems(all);
+      setHomePortfolioItems(all.length > 0 ? all : LOCAL_PORTFOLIO_ITEMS);
       setPortfolioLoading(false);
     });
     return () => { cancelled = true; };
@@ -558,7 +571,7 @@ export default function HomePage() {
                     eyebrow="Ideas Estudio"
                     title={<>Recibe ideas y <span style={{ color: "#f2cc3d" }}>estrategias</span> para hacer crecer tu negocio.</>}
                     description="Diseño, branding, contenido y marketing digital explicados de forma clara y útil para negocios reales."
-                    imageSrc="https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=900&q=80"
+                    imageSrc={portfolioProcessHero}
                     imageAlt="Ideas Estudio — Estrategias de marca"
                     buttonLabel="Quiero recibir ideas"
                     successMessage="Listo. Pronto recibirás contenido útil directamente en tu correo."
