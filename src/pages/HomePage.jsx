@@ -12,11 +12,14 @@ import {
   TESTIMONIAL_SECTION_COPY,
 } from "@/data/testimonials.js";
 import { getPublicPortfolioItems } from "@/lib/api.js";
-import portfolioProcessHero from "../assets/quland-process/process-1.png";
-import portfolioProcessStep1 from "../assets/quland-process/process-2.png";
-import portfolioProcessStep2 from "../assets/quland-process/process-3.png";
-import portfolioProcessStep3 from "../assets/quland-process/process-4.png";
-import portfolioProcessStep4 from "../assets/quland-process/process-5.png";
+// Los PNG de quland-process son placeholders de dimensiones, no imágenes de
+// contenido. En local usamos las imágenes públicas reales ya versionadas en
+// el catálogo de Ideas Estudio para no pintar bloques grises.
+const portfolioProcessHero = "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/Diseno%20de%20Marca%20Personal.png";
+const portfolioProcessStep1 = "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/1776851142698-sesion-de-fotografia-de-estudio-para-isaac-esquilin.webp";
+const portfolioProcessStep2 = "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/Collage.png";
+const portfolioProcessStep3 = "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/Impulso%20inicial.png";
+const portfolioProcessStep4 = "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/presencia-visual.webp";
 
 const PORTFOLIO_VISUAL_SLIDES = [
   {
