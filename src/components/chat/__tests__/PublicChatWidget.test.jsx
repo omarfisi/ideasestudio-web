@@ -2798,9 +2798,9 @@ describe("PublicChatWidget — LEVEL2 responder: sin polling continuo", () => {
 });
 
 describe("PublicChatWidget — LEVEL2 responder: pill cerrado", () => {
-  it("17) pill cerrado muestra la identidad real de AIRA", () => {
+  it("17) pill cerrado muestra la identidad real de AIRA", async () => {
     render(<PublicChatWidget />);
-    const button = closedToggleButton();
+    const button = await screen.findByRole("button", { name: "Abrir chat con AIRA" });
     expect(button).toHaveAttribute("aria-label", "Abrir chat con AIRA");
     expect(button.textContent).toContain("AIRA");
     expect(button.textContent).toContain("Iniciar conversación");
