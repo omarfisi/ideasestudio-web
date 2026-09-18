@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 const API_BASE = (
   import.meta.env.VITE_CRM_BASE_URL ||
   import.meta.env.VITE_API_BASE ||
-  "https://api.ideasestudiopr.com"
+  ""
 ).replace(/\/+$/, "");
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -103,7 +103,7 @@ export default function UnsubscribePage() {
         {/* Brand mark */}
         <div className="unsub-brand">
           <span className="unsub-brand__dot" />
-          <span className="unsub-brand__name">Ideas Estudio</span>
+          <span className="unsub-brand__name">JJ Pega</span>
         </div>
 
         {status === "ready" && (
@@ -112,7 +112,7 @@ export default function UnsubscribePage() {
             <h1 className="unsub-title">Cancelar suscripción</h1>
             <p className="unsub-body">
               Estás a punto de cancelar tu suscripción a los correos
-              promocionales de Ideas Estudio. No recibirás más mensajes de
+              promocionales de JJ Pega. No recibirás más mensajes de
               marketing.
             </p>
             <button className="unsub-btn unsub-btn--primary" onClick={confirmUnsubscribe}>
@@ -142,10 +142,10 @@ export default function UnsubscribePage() {
             </div>
             <h1 className="unsub-title">Suscripción cancelada</h1>
             <p className="unsub-body">
-              Listo. Ya no recibirás correos promocionales de Ideas Estudio.
+              Listo. Ya no recibirás correos promocionales de JJ Pega.
             </p>
             <Link to="/" className="unsub-btn unsub-btn--secondary">
-              Volver a Ideas Estudio
+              Volver a JJ Pega
             </Link>
           </div>
         )}

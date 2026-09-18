@@ -6,76 +6,21 @@ import {
 } from "react-router-dom";
 import MainLayout from "@/components/layout/MainLayout.jsx";
 import {
-  getPublicClientRouteBundle,
   getPublicProductBySlug,
   getPublicOrderByNumber,
-  getPublicPortfolioItems,
-  getPublicServiceSegment,
 } from "@/lib/api.js";
-import HomePage from "@/pages/HomePage.jsx";
 import JJPegaHomePage from "@/pages/JJPegaHomePage.jsx";
 import JJPersonalizePage from "@/pages/JJPersonalizePage.jsx";
-import SmallBusinessPage from "@/pages/SmallBusinessPage.jsx";
-import EntrepreneurPage from "@/pages/EntrepreneurPage.jsx";
-import EmergingBusinessPage from "@/pages/EmergingBusinessPage.jsx";
-import WeddingsPage from "@/pages/WeddingsPage.jsx";
-import ServiceNichePage from "@/pages/ServiceNichePage.jsx";
 import StorePage from "@/pages/StorePage.jsx";
 import ProductDetailPage from "@/pages/ProductDetailPage.jsx";
-import MembershipCheckoutPage from "@/pages/MembershipCheckoutPage.jsx";
-import MembershipCheckoutSuccessPage from "@/pages/MembershipCheckoutSuccessPage.jsx";
-import MembershipCheckoutCancelPage from "@/pages/MembershipCheckoutCancelPage.jsx";
-import PortfolioPage from "@/pages/PortfolioPage.jsx";
-import PortfolioProjectPage from "@/pages/PortfolioProjectPage.jsx";
-import TeamPage from "@/pages/TeamPage.jsx";
-import BlogPage from "@/pages/BlogPage.jsx";
-import BlogPostDetailPage from "@/pages/BlogPostDetailPage.jsx";
-import BlogPostPreviewPage from "@/pages/BlogPostPreviewPage.jsx";
 import ContactPage from "@/pages/ContactPage.jsx";
-import BusinessIntakeLanding from "@/pages/BusinessIntakeLanding.jsx";
 import CartPage from "@/pages/CartPage.jsx";
 import CheckoutPage from "@/pages/CheckoutPage.jsx";
-import PublicBookingPage from "@/pages/PublicBookingPage.jsx";
 import OrderConfirmationPage from "@/pages/OrderConfirmationPage.jsx";
-import AccountLoginPage from "@/pages/AccountLoginPage.jsx";
-import AccountCallbackPage from "@/pages/AccountCallbackPage.jsx";
-import AccountPasswordResetPage from "@/pages/AccountPasswordResetPage.jsx";
-import AccountPage from "@/pages/AccountPage.jsx";
-import AccountOrderDetailPage from "@/pages/AccountOrderDetailPage.jsx";
-import AccountOrderPaymentPage from "@/pages/AccountOrderPaymentPage.jsx";
-import AccountOrderReschedulePage from "@/pages/AccountOrderReschedulePage.jsx";
 import NotFoundPage from "@/pages/NotFoundPage.jsx";
 const IS_JJ_PEGA = true;
-import CmsPage from "@/pages/CmsPage.jsx";
-import UnsubscribePage from "@/pages/UnsubscribePage.jsx";
 import RouteErrorPage from "@/pages/RouteErrorPage.jsx";
 import LegalPage from "@/pages/LegalPage.jsx";
-import QulandSystemPreview from "@/pages/QulandSystemPreview.jsx";
-import { getClientRouteByKey } from "@/data/routes.js";
-import { getServiceNichePageBySlug } from "@/data/serviceNichePages.js";
-
-const loadClientRoute = (routeKey) => async () => {
-  try {
-    return await getPublicClientRouteBundle(routeKey);
-  } catch (error) {
-    return {
-      route: getClientRouteByKey(routeKey),
-      services: [],
-    };
-  }
-};
-
-const loadServiceNiche = (slug) => async () => {
-  try {
-    const data = await getPublicServiceSegment(slug);
-    if (data?.segment) {
-      return { niche: getServiceNichePageBySlug(slug), segment: data.segment, services: data.services ?? [] };
-    }
-  } catch {
-    // fall through to local data
-  }
-  return { niche: getServiceNichePageBySlug(slug), segment: null, services: [] };
-};
 
 const loadProductsCatalog = ({ request }) => {
   const url = new URL(request.url);
@@ -102,43 +47,6 @@ const loadProductDetail = async ({ params }) => {
   } catch (error) {
     return {
       product: null,
-    };
-  }
-};
-
-const loadPortfolioProject = async ({ params }) => {
-  try {
-    const items = await getPublicPortfolioItems({ limit: 500 });
-    const project = items.find((item) => item.slug === params.slug) || null;
-
-    if (!project) {
-      return {
-        project: null,
-        related: [],
-      };
-    }
-
-    const candidates = items.filter(
-      (item) => item.slug && item.slug !== project.slug
-    );
-    const preferred = candidates.filter(
-      (item) =>
-        item.subcategory === project.subcategory ||
-        item.category === project.category
-    );
-    const preferredIds = new Set(preferred.map((item) => item.id));
-
-    return {
-      project,
-      related: [
-        ...preferred,
-        ...candidates.filter((item) => !preferredIds.has(item.id)),
-      ],
-    };
-  } catch {
-    return {
-      project: null,
-      related: [],
     };
   }
 };
@@ -174,10 +82,7 @@ function RedirectLegacyOrder() {
 }
 
 const router = createBrowserRouter([
-  {
-    path: "/unsubscribe",
-    element: <UnsubscribePage />,
-  },
+  { path: "/unsubscribe", element: <Navigate replace to="/" /> },
   {
     path: "/",
     element: <MainLayout />,
@@ -188,26 +93,6 @@ const router = createBrowserRouter([
         element: <JJPegaHomePage />,
       },
       {
-        path: "pequenos-negocios",
-        loader: loadClientRoute("small_business"),
-        element: <SmallBusinessPage />,
-      },
-      {
-        path: "emprendedores",
-        loader: loadClientRoute("entrepreneur"),
-        element: <EntrepreneurPage />,
-      },
-      {
-        path: "empresas-emergentes",
-        loader: loadClientRoute("emerging_business"),
-        element: <EmergingBusinessPage />,
-      },
-      {
-        path: "bodas-eventos-sesiones",
-        loader: loadClientRoute("weddings_events_sessions"),
-        element: <WeddingsPage />,
-      },
-      {
         path: "servicios",
         loader: loadProductsCatalog,
         element: <StorePage />,
@@ -216,26 +101,20 @@ const router = createBrowserRouter([
         path: "personaliza",
         element: <JJPersonalizePage />,
       },
-      {
-        path: "servicios/marca-o-negocio",
-        loader: loadServiceNiche("marca-o-negocio"),
-        element: <ServiceNichePage />,
-      },
-      {
-        path: "servicios/presencia-visual-profesional",
-        loader: loadServiceNiche("presencia-visual-profesional"),
-        element: <ServiceNichePage />,
-      },
-      {
-        path: "servicios/momento-especial",
-        loader: loadServiceNiche("momento-especial"),
-        element: <ServiceNichePage />,
-      },
-      {
-        path: "servicios/solucion-creativa",
-        loader: loadServiceNiche("solucion-creativa"),
-        element: <ServiceNichePage />,
-      },
+      ...[
+        "servicios/marca-o-negocio",
+        "servicios/presencia-visual-profesional",
+        "servicios/momento-especial",
+        "servicios/solucion-creativa",
+        "reservar",
+        "portafolio",
+        "equipo",
+        "blog",
+        "membresias",
+        "conoce-tu-negocio",
+        "landing/:slug",
+        "preview/quland-system",
+      ].map((path) => ({ path, element: <Navigate replace to="/personaliza" /> })),
       {
         path: "servicios/contratar",
         element: <RedirectWithLocation to="/servicios" />,
@@ -259,14 +138,6 @@ const router = createBrowserRouter([
       {
         path: "servicios/checkout",
         element: <CheckoutPage />,
-      },
-      {
-        path: "reservar",
-        element: <PublicBookingPage />,
-      },
-      {
-        path: "reservar/:slug",
-        element: <PublicBookingPage />,
       },
       {
         path: "servicios/ordenes/:orderNumber",
@@ -297,47 +168,6 @@ const router = createBrowserRouter([
         element: <RedirectLegacyStoreProduct />,
       },
       {
-        path: "portafolio",
-        element: <PortfolioPage />,
-      },
-      {
-        path: "portafolio/:slug",
-        loader: loadPortfolioProject,
-        element: <PortfolioProjectPage />,
-      },
-      {
-        path: "equipo",
-        element: <TeamPage />,
-      },
-      {
-        path: "membresias",
-        element: <Navigate to="/servicios" replace />,
-      },
-      {
-        path: "membresias/checkout",
-        element: <MembershipCheckoutPage />,
-      },
-      {
-        path: "membresias/checkout/exito",
-        element: <MembershipCheckoutSuccessPage />,
-      },
-      {
-        path: "membresias/checkout/cancelado",
-        element: <MembershipCheckoutCancelPage />,
-      },
-      {
-        path: "blog",
-        element: <BlogPage />,
-      },
-      {
-        path: "blog/preview",
-        element: <BlogPostPreviewPage />,
-      },
-      {
-        path: "blog/:slug",
-        element: <BlogPostDetailPage />,
-      },
-      {
         path: "contacto",
         element: <ContactPage />,
       },
@@ -345,16 +175,8 @@ const router = createBrowserRouter([
       { path: "terms", element: <LegalPage /> },
       { path: "data-deletion", element: <LegalPage /> },
       {
-        path: "conoce-tu-negocio",
-        element: <BusinessIntakeLanding />,
-      },
-      {
-        path: "landing/:slug",
-        element: <BusinessIntakeLanding />,
-      },
-      {
         path: "formulario-negocio",
-        element: <RedirectWithLocation to="/conoce-tu-negocio" />,
+        element: <RedirectWithLocation to="/personaliza" />,
       },
       {
         path: "carrito",
@@ -369,40 +191,8 @@ const router = createBrowserRouter([
         element: <RedirectLegacyOrder />,
       },
       {
-        path: "mi-cuenta/login",
-        element: <AccountLoginPage />,
-      },
-      {
-        path: "mi-cuenta/callback",
-        element: <AccountCallbackPage />,
-      },
-      {
-        path: "mi-cuenta/reset-password",
-        element: <AccountPasswordResetPage />,
-      },
-      {
-        path: "mi-cuenta/ordenes/:orderId",
-        element: <AccountOrderDetailPage />,
-      },
-      {
-        path: "mi-cuenta/ordenes/:orderId/pagar",
-        element: <AccountOrderPaymentPage />,
-      },
-      {
-        path: "mi-cuenta/ordenes/:orderId/reprogramar",
-        element: <AccountOrderReschedulePage />,
-      },
-      {
-        path: "mi-cuenta",
-        element: <AccountPage />,
-      },
-      {
-        path: "preview/quland-system",
-        element: <QulandSystemPreview />,
-      },
-      {
         path: "*",
-        element: <CmsPage />,
+        element: <NotFoundPage />,
       },
     ],
   },

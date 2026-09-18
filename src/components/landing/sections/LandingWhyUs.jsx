@@ -6,7 +6,7 @@ export default function LandingWhyUs() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-8 max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-black/50">
-            Por qué Ideas Estudio
+            Por qué JJ Pega
           </p>
           <h2 className="mt-3 text-3xl font-semibold text-black md:text-4xl">
             Creatividad con intención, no solo con estilo

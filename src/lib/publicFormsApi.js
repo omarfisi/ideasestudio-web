@@ -65,7 +65,7 @@ function apiBase() {
     );
   }
   if (isPrivateLanHost(hostname)) return "";
-  return "https://api.ideasestudio.com";
+  return "";
 }
 
 async function _apiFetch(path, opts = {}) {

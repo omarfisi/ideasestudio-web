@@ -42,9 +42,9 @@ import sharp from 'sharp';
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const ALLOWED_DOMAINS = new Set([
-  'aijczfwbnmumcvygqxkv.supabase.co', // Supabase Storage (Ideas Estudio project)
-  'www.ideasestudio.com',
-  'ideasestudio.com',
+  'aijczfwbnmumcvygqxkv.supabase.co', // Supabase Storage used by JJ Pega
+  'jjpega.com',
+  'www.jjpega.com',
   'images.unsplash.com',
 ]);
 
@@ -101,7 +101,7 @@ export default async function handler(req, res) {
       headers: {
         Accept: 'image/*,*/*;q=0.8',
         'User-Agent':
-          'Mozilla/5.0 (compatible; IdeasEstudio-OGProxy/1.0; +https://www.ideasestudio.com)',
+          'Mozilla/5.0 (compatible; JJPega-OGProxy/1.0; +https://jjpega.com)',
       },
       signal: controller.signal,
       redirect: 'follow',

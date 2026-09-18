@@ -4,4 +4,4 @@ Disallow: /servicios/carrito
 Disallow: /servicios/checkout
 Disallow: /mi-cuenta
 
-Sitemap: https://ideasestudio.com/sitemap.xml
+Sitemap: https://jjpega.com/sitemap.xml

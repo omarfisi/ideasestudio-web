@@ -6,6 +6,7 @@ import Button from "@/components/shared/Button.jsx";
 import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
 import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
 import { getPublicPortfolioItems } from "@/lib/api.js";
+import { SITE_CONFIG } from "@/lib/siteConfig.js";
 import {
   getCardEyebrow,
   getCardTitle,
@@ -764,9 +765,9 @@ export default function PortfolioPage() {
   return (
     <main className="bg-[#f5f5f3] text-neutral-950">
       <SEOHead
-        title="Portafolio | Ideas Estudio"
+        title="Portafolio | JJ Pega"
         description="Galería de proyectos de fotografía, video y diseño. Trabajos reales para marcas y eventos en Puerto Rico."
-        canonical="https://ideasestudio.com/portafolio"
+        canonical={`${SITE_CONFIG.siteUrl}/portafolio`}
         seoEntry={pageSeo}
       />
       {/* ── HERO ── */}
@@ -1179,11 +1180,11 @@ export default function PortfolioPage() {
             sectionKey="portfolio_cta_split"
             fallback={
               <SplitLeadBlock
-                eyebrow="Portafolio / Ideas Estudio"
+                eyebrow="Portafolio / JJ Pega"
                 title={<>Si esto te gustó, podemos crear algo igual o mejor para tu <span style={{ color: "#f2cc3d" }}>negocio</span>.</>}
                 description="Cuéntanos lo que tienes en mente y te ayudamos a desarrollar una propuesta visual más clara, profesional y estratégica."
                 imageSrc="https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=900&q=80"
-                imageAlt="Portafolio Ideas Estudio"
+                imageAlt="Portafolio JJ Pega"
                 buttonLabel="Quiero algo así"
                 successMessage="Perfecto. Hemos recibido tu información y te contactaremos pronto."
                 showNameField={true}

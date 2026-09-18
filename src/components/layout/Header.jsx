@@ -807,44 +807,34 @@ export default function Header() {
               <span>{SITE_CONTACT.email}</span>
             </a>
 
-            <a href={SITE_CONTACT.phone.href} className="ie-topbar__item">
-              <span className="ie-topbar__icon ie-topbar__icon--social" aria-hidden="true">
-                <PhoneIcon />
-              </span>
-              <span>{SITE_CONTACT.phone.display}</span>
-            </a>
+            {SITE_CONTACT.phone && (
+              <a href={SITE_CONTACT.phone.href} className="ie-topbar__item">
+                <span className="ie-topbar__icon ie-topbar__icon--social" aria-hidden="true">
+                  <PhoneIcon />
+                </span>
+                <span>{SITE_CONTACT.phone.display}</span>
+              </a>
+            )}
           </div>
 
           <div className="ie-topbar__right">
-            <a
-              href={SITE_CONTACT.social.facebook}
-              target="_blank"
-              rel="noreferrer"
-              className="ie-topbar__social"
-              aria-label="Facebook"
-            >
-              <FacebookIcon />
-            </a>
+            {SITE_CONTACT.social.facebook && (
+              <a href={SITE_CONTACT.social.facebook} target="_blank" rel="noreferrer" className="ie-topbar__social" aria-label="Facebook">
+                <FacebookIcon />
+              </a>
+            )}
 
-            <a
-              href={SITE_CONTACT.social.instagram}
-              target="_blank"
-              rel="noreferrer"
-              className="ie-topbar__social"
-              aria-label="Instagram"
-            >
-              <InstagramIcon />
-            </a>
+            {SITE_CONTACT.social.instagram && (
+              <a href={SITE_CONTACT.social.instagram} target="_blank" rel="noreferrer" className="ie-topbar__social" aria-label="Instagram">
+                <InstagramIcon />
+              </a>
+            )}
 
-            <a
-              href={SITE_CONTACT.social.youtube}
-              target="_blank"
-              rel="noreferrer"
-              className="ie-topbar__social"
-              aria-label="YouTube"
-            >
-              <YouTubeIcon />
-            </a>
+            {SITE_CONTACT.social.youtube && (
+              <a href={SITE_CONTACT.social.youtube} target="_blank" rel="noreferrer" className="ie-topbar__social" aria-label="YouTube">
+                <YouTubeIcon />
+              </a>
+            )}
           </div>
         </div>
       </div>
@@ -977,7 +967,7 @@ export default function Header() {
           {solutionsOpen && !mobileOpen && (
             <div className="ie-dropdown" role="menu">
               <div className="ie-dropdown__intro">
-                <span className="ie-dropdown__eyebrow">Ideas Estudio</span>
+                <span className="ie-dropdown__eyebrow">JJ Pega</span>
                 <h3 className="ie-dropdown__title">
                   Elige el camino que mejor encaje contigo
                 </h3>

@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext.jsx";
 import { TESTIMONIALS } from "@/data/testimonials.js";
 
 const BRAND_LOGO =
-  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/logos/favicon_ideasestudio.webp";
+  "/assets/jj-high-quality/trimmed/logo-header.webp";
 
 const TESTIMONIAL = TESTIMONIALS["maria-del-mar"];
 
@@ -166,7 +166,7 @@ export default function AccountLoginPage() {
 
         {/* ── Left: form panel ── */}
         <div className="customer-login-form-panel">
-          <img src={BRAND_LOGO} alt="Ideas Estudio" className="customer-login-logo" />
+          <img src={BRAND_LOGO} alt="JJ Pega" className="customer-login-logo" />
 
           {status === "sent" ? (
             <div className="customer-login-success">

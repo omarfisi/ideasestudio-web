@@ -376,7 +376,7 @@ export default function ProductDetailPage() {
               ) : (
                 <div className="service-detail-gallery__placeholder">
                   <p>Servicio premium</p>
-                  <small>Ideas Estudio</small>
+                  <small>JJ Pega</small>
                 </div>
               )}
 

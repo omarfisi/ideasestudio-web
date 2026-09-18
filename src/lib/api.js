@@ -1476,27 +1476,37 @@ export async function getBlogPosts(params = {}) {
 }
 
 export async function getBlogPostBySlug(slug) {
-  const url = buildUrl(`/api/blog/posts/${slug}`);
+  const url = buildUrl(`/api/blog/posts/${slug}`, {
+    workspace_id: PUBLIC_WORKSPACE_ID || undefined,
+  });
   return apiFetch(url);
 }
 
 export async function getBlogRelated(slug) {
-  const url = buildUrl(`/api/blog/posts/${slug}/related`);
+  const url = buildUrl(`/api/blog/posts/${slug}/related`, {
+    workspace_id: PUBLIC_WORKSPACE_ID || undefined,
+  });
   return apiFetch(url);
 }
 
 export async function getBlogCategories() {
-  const url = buildUrl("/api/blog/categories");
+  const url = buildUrl("/api/blog/categories", {
+    workspace_id: PUBLIC_WORKSPACE_ID || undefined,
+  });
   return apiFetch(url);
 }
 
 export async function getBlogComments(slug) {
-  const url = buildUrl(`/api/blog/posts/${slug}/comments`);
+  const url = buildUrl(`/api/blog/posts/${slug}/comments`, {
+    workspace_id: PUBLIC_WORKSPACE_ID || undefined,
+  });
   return apiFetch(url);
 }
 
 export async function submitBlogComment(slug, payload) {
-  const url = buildUrl(`/api/blog/posts/${slug}/comments`);
+  const url = buildUrl(`/api/blog/posts/${slug}/comments`, {
+    workspace_id: PUBLIC_WORKSPACE_ID || undefined,
+  });
   return apiFetch(url, {
     method: "POST",
     body: JSON.stringify(payload),
@@ -1519,6 +1529,8 @@ export async function getPublicTeam() {
 // ─────────────────────────────────────────────────────────────
 
 export async function getPublicServiceSegment(slug) {
-  const url = buildUrl(`/public/service-segments/${slug}`);
+  const url = buildUrl(`/public/service-segments/${slug}`, {
+    workspace_id: PUBLIC_WORKSPACE_ID || undefined,
+  });
   return apiFetch(url);
 }

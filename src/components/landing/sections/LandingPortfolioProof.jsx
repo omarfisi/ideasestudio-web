@@ -12,7 +12,7 @@ export default function LandingPortfolioProof() {
         </h2>
         <p className="mt-4 max-w-2xl text-white/70">
           Desde marcas y contenido comercial hasta sesiones y eventos, el portafolio
-          valida la calidad visual de Ideas Estudio.
+          valida la calidad visual de JJ Pega.
         </p>
 
         <div className="mt-8">

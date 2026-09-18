@@ -2465,7 +2465,7 @@ export default function PublicChatWidget() {
           className={`public-chat-widget__panel${screen === "prechat" ? " public-chat-widget__panel--prechat" : ""}${isKeyboardOpen ? " public-chat-widget__panel--keyboard-open" : ""}`}
           role="dialog"
           aria-modal="true"
-          aria-label="Chat de asistencia de Ideas Estudio"
+          aria-label="Chat de asistencia de JJ Pega"
         >
           <header className="public-chat-widget__header">
             <div className="public-chat-widget__header-identity">

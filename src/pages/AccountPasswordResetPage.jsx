@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient.js";
 
 const BRAND_LOGO =
-  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/logos/favicon_ideasestudio.webp";
+  "/assets/jj-high-quality/trimmed/logo-header.webp";
 
 // phase: "verifying" | "ready" | "invalid" | "done"
 export default function AccountPasswordResetPage() {
@@ -88,7 +88,7 @@ export default function AccountPasswordResetPage() {
     <div className="customer-login-wrap">
       <div className="customer-login-card customer-login-card--single">
         <div className="customer-login-form-panel">
-          <img src={BRAND_LOGO} alt="Ideas Estudio" className="customer-login-logo" />
+          <img src={BRAND_LOGO} alt="JJ Pega" className="customer-login-logo" />
 
           {phase === "verifying" && (
             <>

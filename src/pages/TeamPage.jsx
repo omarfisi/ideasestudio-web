@@ -3,6 +3,7 @@ import Button from "@/components/shared/Button.jsx";
 import { getPublicTeam } from "@/lib/api.js";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
+import { SITE_CONFIG } from "@/lib/siteConfig.js";
 
 // No fallback data — if the API returns empty or fails, we show an empty state.
 // Never show invented names or Unsplash stock photos as real team members.
@@ -193,7 +194,7 @@ function TeamGallery({ items }) {
 
         <div className="mb-10 text-center">
           <h2 className="text-3xl font-semibold md:text-4xl">
-            Ideas Estudio <span className="highlight-box-glow">en acción.</span>
+            JJ Pega <span className="highlight-box-glow">en acción.</span>
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-neutral-500">
             Una mirada a los proyectos, eventos y espacios donde nuestro equipo ha trabajado.
@@ -302,9 +303,9 @@ export default function TeamPage() {
   return (
     <main className="bg-white text-neutral-950">
       <SEOHead
-        title="Nuestro Equipo | Ideas Estudio"
-        description="Conoce al equipo de Ideas Estudio: fotógrafos, diseñadores y creativos comprometidos con tu proyecto en Puerto Rico."
-        canonical="https://ideasestudio.com/equipo"
+        title="Nuestro Equipo | JJ Pega"
+        description="Conoce al equipo de JJ Pega: creativos comprometidos con tus stickers y diseños personalizados."
+        canonical={`${SITE_CONFIG.siteUrl}/equipo`}
         seoEntry={pageSeo}
       />
 
@@ -313,7 +314,7 @@ export default function TeamPage() {
         <div className="mx-auto max-w-7xl">
           <div className="mx-auto max-w-4xl text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-400">
-              Ideas Estudio
+              JJ Pega
             </p>
             <h1 className="mt-4 text-5xl font-black leading-none tracking-tight text-black md:text-7xl">
               Cada proyecto nace de una <span className="highlight-box-glow">historia,</span> una idea y una persona.
@@ -331,12 +332,12 @@ export default function TeamPage() {
           <div className="relative w-full overflow-hidden" style={{ aspectRatio: "16/9" }}>
             <img
               src={groupPhoto.image_url}
-              alt={groupPhoto.alt_text || "El equipo creativo detrás de Ideas Estudio"}
+              alt={groupPhoto.alt_text || "El equipo creativo detrás de JJ Pega"}
               className="absolute inset-0 h-full w-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
             <p className="absolute bottom-5 left-6 text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
-              {groupPhoto.title || "El equipo creativo detrás de Ideas Estudio"}
+              {groupPhoto.title || "El equipo creativo detrás de JJ Pega"}
             </p>
           </div>
         </section>
@@ -349,7 +350,7 @@ export default function TeamPage() {
           {!loading && equipo.length === 0 && (
             <div className="py-16 text-center">
               <p className="text-base text-neutral-500">
-                Pronto estaremos actualizando esta sección con información oficial del equipo de Ideas Estudio.
+                Pronto estaremos actualizando esta sección con información oficial del equipo de JJ Pega.
               </p>
             </div>
           )}

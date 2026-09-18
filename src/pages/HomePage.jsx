@@ -12,6 +12,7 @@ import {
   TESTIMONIAL_SECTION_COPY,
 } from "@/data/testimonials.js";
 import { getPublicPortfolioItems } from "@/lib/api.js";
+import { SITE_CONFIG } from "@/lib/siteConfig.js";
 import portfolioProcessHero from "../assets/quland-process/process-1.webp";
 import portfolioProcessStep1 from "../assets/quland-process/process-2.webp";
 import portfolioProcessStep2 from "../assets/quland-process/process-3.webp";
@@ -21,7 +22,7 @@ import portfolioProcessStep4 from "../assets/quland-process/process-5.webp";
 const PORTFOLIO_VISUAL_SLIDES = [
   {
     image: portfolioProcessHero,
-    eyebrow: "Ideas Estudio",
+    eyebrow: "JJ Pega",
     title: "Soluciones visuales para marcas y negocios",
     text: "Fotografía, video, diseño y presencia digital con enfoque estratégico.",
   },
@@ -314,9 +315,9 @@ export default function HomePage() {
   return (
     <main>
       <SEOHead
-        title="Ideas Estudio | La idea que tu negocio necesita"
+        title="JJ Pega | Stickers & good vibes"
         description="Fotografía profesional, diseño, video y branding en Puerto Rico. La agencia creativa que impulsa tu marca, negocio o evento especial."
-        canonical="https://ideasestudio.com"
+        canonical={SITE_CONFIG.siteUrl}
         jsonLd={buildOrganizationSchema()}
         seoEntry={pageSeo}
       />
@@ -555,11 +556,11 @@ export default function HomePage() {
                 sectionKey="home_ideas_split"
                 fallback={
                   <SplitLeadBlock
-                    eyebrow="Ideas Estudio"
+                    eyebrow="JJ Pega"
                     title={<>Recibe ideas y <span style={{ color: "#f2cc3d" }}>estrategias</span> para hacer crecer tu negocio.</>}
                     description="Diseño, branding, contenido y marketing digital explicados de forma clara y útil para negocios reales."
                     imageSrc="https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=900&q=80"
-                    imageAlt="Ideas Estudio — Estrategias de marca"
+                    imageAlt="JJ Pega — Stickers y diseños personalizados"
                     buttonLabel="Quiero recibir ideas"
                     successMessage="Listo. Pronto recibirás contenido útil directamente en tu correo."
                     showNameField={true}

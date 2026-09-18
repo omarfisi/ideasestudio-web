@@ -7,7 +7,7 @@ function isValidEmail(v) {
 }
 
 export default function BlogNewsletterSection({
-  eyebrow = "Ideas Estudio",
+  eyebrow = "JJ Pega",
   title = "Recibe ideas para construir una marca más clara.",
   description = "Suscríbete para recibir contenido sobre branding, páginas web, marketing digital y estrategias para hacer crecer tu negocio.",
   source = "website_blog",

@@ -43,7 +43,7 @@ const socialLinks = [
     href: SITE_CONTACT.social.youtube,
     Icon: YouTubeIcon,
   },
-];
+].filter((item) => item.href);
 
 function ArrowRightIcon() {
   return (
@@ -233,10 +233,12 @@ export default function Footer() {
                 <span>{SITE_CONTACT.email}</span>
               </a>
 
-              <a className="site-footer__contact-row" href={SITE_CONTACT.phone.href}>
-                <PhoneIcon />
-                <span>{SITE_CONTACT.phone.display}</span>
-              </a>
+              {SITE_CONTACT.phone && (
+                <a className="site-footer__contact-row" href={SITE_CONTACT.phone.href}>
+                  <PhoneIcon />
+                  <span>{SITE_CONTACT.phone.display}</span>
+                </a>
+              )}
 
               <div className="site-footer__contact-row">
                 <MapPinIcon />
@@ -259,12 +261,7 @@ export default function Footer() {
           <div className="site-footer__bottom-copy">
             <span>&copy; {new Date().getFullYear()} JJ Pega</span>
             <span>Todos los derechos reservados.</span>
-            <span className="site-footer__credit">
-              Creado por{" "}
-              <a href="https://www.ideasestudio.com/" target="_blank" rel="noreferrer">
-                Ideas Estudio
-              </a>
-            </span>
+            <span className="site-footer__credit">Hecho con cariño desde Puerto Rico</span>
           </div>
 
           <div className="site-footer__bottom-meta">

@@ -36,7 +36,7 @@ export default function JJPegaFooter() {
 
       <div className="jjp-footer__bottom">
         <span>© {new Date().getFullYear()} JJ Pega · Stickers &amp; good vibes</span>
-        <span>Creado por <a href="https://www.ideasestudio.com/" target="_blank" rel="noreferrer">Ideas Estudio</a></span>
+        <span>Hecho con cariño desde Puerto Rico</span>
         <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} aria-label="Volver arriba">↑</button>
       </div>
     </footer>

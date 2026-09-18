@@ -6,7 +6,7 @@ export default function LandingHero() {
       <div className="mx-auto max-w-7xl rounded-[2rem] bg-white p-8 shadow-sm ring-1 ring-black/5 md:p-14">
         <div className="max-w-3xl">
           <span className="inline-flex rounded-full bg-black px-4 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white">
-            Ideas Estudio
+            JJ Pega
           </span>
 
           <h1 className="mt-6 text-4xl font-semibold leading-tight text-black md:text-6xl">

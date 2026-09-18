@@ -276,7 +276,7 @@ export default function OrderConfirmationPage() {
                   block
                   className="quote-confirmation-actions__text-link"
                 >
-                  Contactar a Ideas Estudio
+                  Contactar a JJ Pega
                 </Button>
               </div>
             </article>
