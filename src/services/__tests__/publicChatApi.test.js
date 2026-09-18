@@ -139,7 +139,7 @@ describe("submitPublicProjectDetails", () => {
       additionalInfo: "Ya tengo el contenido preparado.",
     });
     const [url, options] = fetch.mock.calls[0];
-    expect(String(url)).toMatch(/^http:\/\/127\.0\.0\.1:8000\/public\/chat\/project-details$/);
+    expect(String(url)).toMatch(/^http:\/\/127\.0\.0\.1:8001\/public\/chat\/project-details$/);
     expect(options.method).toBe("POST");
     expect(JSON.parse(options.body)).toMatchObject({
       session_id: "session-1",
@@ -195,9 +195,9 @@ describe("publicChatApi local backend base", () => {
     await requestPublicChatHuman("session-local-base-check");
     const [url] = fetch.mock.calls[0];
     // import.meta.env.VITE_CRM_BASE_URL in this test run comes from
-    // .env.local (http://127.0.0.1:8000) — publicChatApi.js has no
+    // .env.local (http://127.0.0.1:8001) — publicChatApi.js has no
     // relative-path fallback at all (getPublicChatBaseUrl() throws if the
     // env var is missing), so this must always be absolute and local here.
-    expect(String(url)).toMatch(/^http:\/\/127\.0\.0\.1:8000\/public\/chat\//);
+    expect(String(url)).toMatch(/^http:\/\/127\.0\.0\.1:8001\/public\/chat\//);
   });
 });
