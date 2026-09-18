@@ -6,6 +6,7 @@ import { usePageSeo } from "@/hooks/usePageSeo.js";
 import TestimonialsSlider from "@/components/shared/TestimonialsSlider.jsx";
 import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
 import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
+import SafeImage from "@/components/shared/SafeImage.jsx";
 import SegmentHeroSection from "@/components/home/SegmentHeroSection.jsx";
 import {
   getTestimonialsForPage,
@@ -405,7 +406,7 @@ export default function HomePage() {
                       index === getPortfolioTopMediaIndex() ? "is-active" : ""
                     }`}
                   >
-                    <img src={slide.image} alt="" />
+                    <SafeImage src={slide.image} fallbackSrc={portfolioProcessStep1} alt="" />
                     <div className="portfolio-process__media-overlay">
                       <p className="portfolio-process__media-eyebrow">{slide.eyebrow}</p>
                       <h3>{slide.title}</h3>
@@ -456,7 +457,7 @@ export default function HomePage() {
                         index === getPortfolioLeftMediaIndex() ? "is-active" : ""
                       }`}
                     >
-                      <img src={slide.image} alt="" />
+                      <SafeImage src={slide.image} fallbackSrc={portfolioProcessStep2} alt="" />
                       <div className="portfolio-process__media-overlay portfolio-process__media-overlay--compact">
                         <p className="portfolio-process__media-eyebrow">{slide.eyebrow}</p>
                         <h3>{slide.title}</h3>
@@ -506,8 +507,9 @@ export default function HomePage() {
                       >
                         <div className="portfolio-item-card__media">
                           {(item.homeCoverUrl || item.coverUrl) && (
-                            <img
+                            <SafeImage
                               src={item.homeCoverUrl || item.coverUrl}
+                              fallbackSrc={portfolioProcessStep3}
                               alt={item.title}
                               loading="lazy"
                             />

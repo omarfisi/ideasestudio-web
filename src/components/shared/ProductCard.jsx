@@ -1,6 +1,7 @@
 import { CalendarDays, Clock3, MapPin, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 import Button from "@/components/shared/Button.jsx";
+import SafeImage from "@/components/shared/SafeImage.jsx";
 import ServiceMembershipPlansTrigger from "@/components/memberships/ServiceMembershipPlansTrigger.jsx";
 import { formatPrice } from "@/lib/formatPrice.js";
 import {
@@ -10,6 +11,9 @@ import {
   resolveProductServiceId,
 } from "@/lib/serviceFlowType.js";
 import { useServiceMembershipPlans } from "@/lib/useServiceMembershipPlans.js";
+
+const SERVICE_IMAGE_FALLBACK =
+  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/marca-negocio.webp";
 
 function toReadableLabel(value) {
   return String(value || "")
@@ -155,8 +159,9 @@ export default function ProductCard({
     <article className="product-card">
       <div className="product-card__media">
         {product.coverImage ? (
-          <img
+          <SafeImage
             src={product.coverImage}
+            fallbackSrc={SERVICE_IMAGE_FALLBACK}
             alt={product.name}
             loading="lazy"
             className="product-card__media-image"

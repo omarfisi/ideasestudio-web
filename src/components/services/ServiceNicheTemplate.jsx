@@ -21,6 +21,7 @@ import {
 import Button from "@/components/shared/Button.jsx";
 import HighlightTitle from "@/components/shared/HighlightTitle.jsx";
 import ServiceNicheHero from "@/components/services/ServiceNicheHero.jsx";
+import SafeImage from "@/components/shared/SafeImage.jsx";
 import serviceShowcaseImage from "/images/services/service-img.webp";
 import serviceShowcaseShape from "/images/services/tab-content-shape.png";
 
@@ -124,8 +125,9 @@ export default function ServiceNicheTemplate({ niche, segment, apiServices }) {
                     className={`niche-service-card ${isReadyRoute ? "is-ready" : "is-consultive"}`}
                   >
                     <div className="niche-service-card__media" aria-hidden="true">
-                      <img
+                      <SafeImage
                         src={service.image || serviceShowcaseImage}
+                        fallbackSrc={serviceShowcaseImage}
                         alt=""
                         className="niche-service-card__image"
                       />
