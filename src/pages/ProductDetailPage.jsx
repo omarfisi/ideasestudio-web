@@ -211,7 +211,7 @@ export default function ProductDetailPage() {
       try {
         const response = await getPublicProducts({
           category: product?.category?.slug || "all",
-          productType: "service",
+          productType: "physical",
           limit: 6,
           offset: 0,
         });
@@ -222,7 +222,7 @@ export default function ProductDetailPage() {
           .filter(
             (item) =>
               item?.isActive !== false &&
-              item?.productType === "service" &&
+              item?.productType === "physical" &&
               item?.slug !== product.slug
           )
           .slice(0, 3);
@@ -268,9 +268,9 @@ export default function ProductDetailPage() {
       <section className="section">
         <div className="container">
           <div className="empty-state">
-            <h1>Servicio no encontrado</h1>
-            <p>El servicio solicitado no existe o no está publicado.</p>
-            <Button to="/servicios">Volver a servicios</Button>
+            <h1>Producto no encontrado</h1>
+            <p>El producto solicitado no existe o no está publicado.</p>
+            <Button to="/servicios">Volver al catálogo</Button>
           </div>
         </div>
       </section>
@@ -283,8 +283,8 @@ export default function ProductDetailPage() {
       status: "loading",
       message:
         mode === "checkout"
-          ? "Preparando contratación..."
-          : "Añadiendo servicio al resumen...",
+          ? "Preparando tu pedido..."
+          : "Añadiendo producto al carrito...",
     });
 
     try {
@@ -297,8 +297,8 @@ export default function ProductDetailPage() {
 
       setActionState({
         status: "success",
-        message: `Servicio agregado. Tu resumen ahora tiene ${cart.summary.totalQuantity} ${
-          cart.summary.totalQuantity === 1 ? "servicio" : "servicios"
+        message: `Producto agregado. Tu carrito ahora tiene ${cart.summary.totalQuantity} ${
+          cart.summary.totalQuantity === 1 ? "producto" : "productos"
         }.`,
       });
 
@@ -375,7 +375,7 @@ export default function ProductDetailPage() {
                 />
               ) : (
                 <div className="service-detail-gallery__placeholder">
-                  <p>Servicio premium</p>
+                  <p>Producto JJ Pega</p>
                   <small>JJ Pega</small>
                 </div>
               )}
@@ -423,7 +423,7 @@ export default function ProductDetailPage() {
 
           <aside className="service-detail-content">
             <span className="pill service-detail-content__category">
-              {product.category?.name || "Servicios"}
+              {product.category?.name || "Productos"}
             </span>
 
             <h1>{product.name}</h1>
@@ -455,7 +455,7 @@ export default function ProductDetailPage() {
             {quickFacts.length > 0 ? (
               <ul
                 className="service-detail-quickfacts"
-                aria-label="Datos clave del servicio"
+                aria-label="Datos clave del producto"
               >
                 {quickFacts.map((fact) => {
                   const Icon = QUICK_FACT_ICONS[fact.icon];
@@ -670,7 +670,7 @@ export default function ProductDetailPage() {
               aria-controls="service-detail-accordion-panel"
               onClick={() => setDetailsOpen((current) => !current)}
             >
-              <span>Ver todos los detalles del servicio</span>
+              <span>Ver todos los detalles del producto</span>
               <ChevronDown
                 size={18}
                 aria-hidden="true"
@@ -686,7 +686,7 @@ export default function ProductDetailPage() {
                 id="service-detail-accordion-panel"
                 className="service-detail-accordion__panel"
                 role="region"
-                aria-label="Detalles completos del servicio"
+                aria-label="Detalles completos del producto"
               >
                 {descriptionBlocks.map((block, index) => {
                   if (block.type === "list") {
@@ -722,7 +722,7 @@ export default function ProductDetailPage() {
         {relatedState.items.length ? (
           <section className="service-detail-related">
             <div className="service-detail-related__header">
-              <h2>Servicios relacionados</h2>
+              <h2>Productos relacionados</h2>
               <Link to="/servicios">Ver catálogo completo</Link>
             </div>
 
@@ -734,12 +734,12 @@ export default function ProductDetailPage() {
                       <img src={item.coverImage} alt={item.name} loading="lazy" />
                     ) : (
                       <div>
-                        <span>Servicio</span>
+                        <span>Producto</span>
                       </div>
                     )}
                   </Link>
                   <div className="service-detail-related__copy">
-                    <span>{item.category?.name || "Servicios"}</span>
+                    <span>{item.category?.name || "Productos"}</span>
                     <h3>
                       <Link to={`/servicios/${item.slug}`}>{item.name}</Link>
                     </h3>
