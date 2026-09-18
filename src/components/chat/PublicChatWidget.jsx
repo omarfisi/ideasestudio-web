@@ -877,7 +877,10 @@ export default function PublicChatWidget() {
   // behavior, but NEVER mark it visually resolved on the first frame. Browser
   // storage may be stale and must not flash AIRA before the CRM-selected
   // public assistant (IVOX) is validated by the assistants/default lookup.
-  const [selectedAssistantKey, setSelectedAssistantKey] = useState(() => storedSessionAssistantKey() || "aira-webchat-public");
+  // El asistente del CRM es la única fuente de verdad. No usar AIRA como
+  // placeholder: si el Backend aún no responde, el launcher permanece oculto
+  // en vez de mostrar AIRA dos veces o presentar una identidad incorrecta.
+  const [selectedAssistantKey, setSelectedAssistantKey] = useState(() => storedSessionAssistantKey() || null);
   const [assistantIdentityResolved, setAssistantIdentityResolved] = useState(false);
   const [visitorProfile, setVisitorProfile] = useState(null);
   const [projectFormOpen, setProjectFormOpen] = useState(false);
@@ -1224,8 +1227,8 @@ export default function PublicChatWidget() {
         setAssistants(next);
         if (next.length === 0) {
           if (!cancelled) {
-            setSelectedAssistantKey((current) => current || "aira-webchat-public");
-            setAssistantIdentityResolved(true);
+            setSelectedAssistantKey(null);
+            setAssistantIdentityResolved(false);
           }
           return;
         }
@@ -1274,8 +1277,8 @@ export default function PublicChatWidget() {
       .catch(() => {
         if (!cancelled) {
           setAssistants([]);
-          setSelectedAssistantKey((current) => current || "aira-webchat-public");
-          setAssistantIdentityResolved(true);
+          setSelectedAssistantKey(null);
+          setAssistantIdentityResolved(false);
         }
       });
     return () => { cancelled = true; };

@@ -12,11 +12,14 @@ import {
   TESTIMONIAL_SECTION_COPY,
 } from "@/data/testimonials.js";
 import { getPublicPortfolioItems } from "@/lib/api.js";
-import portfolioProcessHero from "../assets/quland-process/process-1.png";
-import portfolioProcessStep1 from "../assets/quland-process/process-2.png";
-import portfolioProcessStep2 from "../assets/quland-process/process-3.png";
-import portfolioProcessStep3 from "../assets/quland-process/process-4.png";
-import portfolioProcessStep4 from "../assets/quland-process/process-5.png";
+// Los PNG de quland-process son placeholders de dimensiones, no imágenes de
+// contenido. En local usamos las imágenes públicas reales ya versionadas en
+// el catálogo de Ideas Estudio para no pintar bloques grises.
+const portfolioProcessHero = "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/Diseno%20de%20Marca%20Personal.png";
+const portfolioProcessStep1 = "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/1776851142698-sesion-de-fotografia-de-estudio-para-isaac-esquilin.webp";
+const portfolioProcessStep2 = "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/Collage.png";
+const portfolioProcessStep3 = "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/Impulso%20inicial.png";
+const portfolioProcessStep4 = "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/presencia-visual.webp";
 
 const PORTFOLIO_VISUAL_SLIDES = [
   {
@@ -72,6 +75,19 @@ const PORTFOLIO_VISUAL_SLIDES = [
   },
 ];
 
+// El catálogo remoto puede no estar disponible durante el desarrollo local.
+// Usamos estos assets versionados para que la portada nunca quede con tarjetas vacías.
+const LOCAL_PORTFOLIO_ITEMS = PORTFOLIO_VISUAL_SLIDES.map((slide, index) => ({
+  id: `local-portfolio-${index + 1}`,
+  title: slide.title,
+  description: slide.text,
+  category: "branding_diseno",
+  subcategory: "ideas_estudio",
+  homeCoverUrl: slide.image,
+  coverUrl: slide.image,
+  placements: ["home_wide", "home_portrait", "home_cards"],
+}));
+
 const OBJETIVO_WORDS = ["marca", "empresa", "crecimiento", "presencia"];
 const PORTFOLIO_PROCESS_STEPS = [
   {
@@ -118,8 +134,10 @@ export default function HomePage() {
   const [wordIndex, setWordIndex] = useState(0);
   const [typedObjetivo, setTypedObjetivo] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
-  const [homePortfolioItems, setHomePortfolioItems] = useState([]);
-  const [portfolioLoading, setPortfolioLoading] = useState(true);
+  // Pintar el catálogo local desde el primer render evita que un Backend
+  // local caído deje skeletons beige permanentes en la portada.
+  const [homePortfolioItems, setHomePortfolioItems] = useState(LOCAL_PORTFOLIO_ITEMS);
+  const [portfolioLoading, setPortfolioLoading] = useState(false);
 
   const CAT_EYEBROW_HOME = { fotografia:"FOTOGRAFÍA", video:"VIDEO", branding_diseno:"DISEÑO GRÁFICO", web:"WEB", marketing_digital:"MARKETING" };
 
@@ -261,10 +279,9 @@ export default function HomePage() {
 
   useEffect(() => {
     let cancelled = false;
-    setPortfolioLoading(true);
     getPublicPortfolioItems({ limit: 500 }).then((all) => {
       if (cancelled) return;
-      setHomePortfolioItems(all);
+      setHomePortfolioItems(all.length > 0 ? all : LOCAL_PORTFOLIO_ITEMS);
       setPortfolioLoading(false);
     });
     return () => { cancelled = true; };
@@ -578,6 +595,7 @@ export default function HomePage() {
               />
             }
           />
+
         </div>
       </section>
     </main>

@@ -11,16 +11,16 @@ afterEach(() => {
 
 describe("publicFormsApi local backend selection", () => {
   it.each([
-    ["localhost", "http://127.0.0.1:8000"],
-    ["127.0.0.1", "http://127.0.0.1:8000"],
-    ["::1", "http://127.0.0.1:8000"],
+    ["localhost", "http://127.0.0.1:8001"],
+    ["127.0.0.1", "http://127.0.0.1:8001"],
+    ["::1", "http://127.0.0.1:8001"],
   ])("selects the local API for %s", (hostname, expectedBase) => {
     expect(isLocalHost(hostname)).toBe(true);
     expect(resolvePublicFormsApiBase({
       hostname,
       origin: "http://127.0.0.1:5196",
-      crmBase: "http://127.0.0.1:8000",
-      apiBase: "http://127.0.0.1:8000",
+      crmBase: "http://127.0.0.1:8001",
+      apiBase: "http://127.0.0.1:8001",
     })).toBe(expectedBase);
   });
 
@@ -38,8 +38,8 @@ describe("publicFormsApi local backend selection", () => {
     expect(isPrivateLanHost("192.168.68.63")).toBe(true);
     expect(resolvePublicFormsApiBase({
       hostname: "192.168.68.63",
-      crmBase: "http://127.0.0.1:8000",
-      apiBase: "http://127.0.0.1:8000",
+      crmBase: "http://127.0.0.1:8001",
+      apiBase: "http://127.0.0.1:8001",
     })).toBe("");
   });
 
@@ -53,7 +53,7 @@ describe("publicFormsApi local backend selection", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url] = fetchMock.mock.calls[0];
-    expect(url).toMatch(/^https?:\/\/127\.0\.0\.1:8000\/api\/public\/forms\/aira-prechat\/submit\?/);
+    expect(url).toMatch(/^https?:\/\/127\.0\.0\.1:8001\/api\/public\/forms\/aira-prechat\/submit\?/);
     expect(url).toContain("workspace_id=c7e594e2-5218-40fc-9e4b-e830a21d96b3");
   });
 
