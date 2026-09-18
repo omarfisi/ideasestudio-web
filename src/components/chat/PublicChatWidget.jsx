@@ -1046,7 +1046,11 @@ export default function PublicChatWidget() {
     image.crossOrigin = "anonymous";
     image.src = pose.url;
     const promise = typeof image.decode === "function"
-      ? Promise.resolve().then(() => image.decode()).then(() => true).catch(() => false)
+      // A failed warm-up must not suppress a valid pose transition: a plain
+      // cross-origin <img> can still render even when decode() is unavailable
+      // or rejected by the test/browser environment. The image element's
+      // error handler remains the final visual fallback.
+      ? Promise.resolve().then(() => image.decode()).then(() => true).catch(() => true)
       : Promise.resolve(true);
     airaPreparedPosesRef.current.set(pose.url, { image, promise });
     return promise;
