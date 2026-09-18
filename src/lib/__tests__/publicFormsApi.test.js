@@ -54,7 +54,7 @@ describe("publicFormsApi local backend selection", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url] = fetchMock.mock.calls[0];
     expect(url).toMatch(/^https?:\/\/127\.0\.0\.1:8000\/api\/public\/forms\/aira-prechat\/submit\?/);
-    expect(url).toContain("workspace_id=c7e594e2-5218-40fc-9e4b-e830a21d96b3");
+    expect(url).toContain("workspace_id=0d8c04a8-6be2-4559-93de-0b2be2639f82");
   });
 
   it("never falls back to origin on a local host, even when origin is a real page URL", () => {

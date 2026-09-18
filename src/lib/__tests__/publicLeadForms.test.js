@@ -46,7 +46,7 @@ describe("publicLeadForms CRM routing", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, options] = fetchMock.mock.calls[0];
     expect(url).toBe(
-      "http://127.0.0.1:8000/api/public/contact-submit?workspace_id=c7e594e2-5218-40fc-9e4b-e830a21d96b3",
+      "http://127.0.0.1:8000/api/public/contact-submit?workspace_id=0d8c04a8-6be2-4559-93de-0b2be2639f82",
     );
     expect(options.method).toBe("POST");
     expect(JSON.parse(options.body)).toMatchObject({
@@ -65,7 +65,7 @@ describe("publicLeadForms CRM routing", () => {
 
     const [url] = fetchMock.mock.calls[0];
     expect(url).toBe(
-      "https://api.ideasestudio.com/api/public/contact-submit?workspace_id=c7e594e2-5218-40fc-9e4b-e830a21d96b3",
+      "https://api.ideasestudio.com/api/public/contact-submit?workspace_id=0d8c04a8-6be2-4559-93de-0b2be2639f82",
     );
   });
 });

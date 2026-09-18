@@ -5,7 +5,7 @@
 // (FASE 3D) y el hallazgo de FASE 4: si VITE_PUBLIC_WORKSPACE_ID llegara a
 // faltar en cualquier entorno, este fallback debe seguir siendo el
 // workspace activo real, nunca el legacy vacío.
-const CRM_WORKSPACE_ID = "c7e594e2-5218-40fc-9e4b-e830a21d96b3";
+const CRM_WORKSPACE_ID = "0d8c04a8-6be2-4559-93de-0b2be2639f82";
 const configuredWorkspaceId = (
   (typeof import.meta !== "undefined" && import.meta?.env?.VITE_PUBLIC_WORKSPACE_ID) ||
   ""

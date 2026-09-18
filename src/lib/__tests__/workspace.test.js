@@ -6,7 +6,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 // Estudio" quedó vacío tras esa migración -- caer ahí silenciosamente es
 // justamente el bug que este archivo antes afirmaba como comportamiento
 // correcto.
-const CRM_WORKSPACE_ID = "c7e594e2-5218-40fc-9e4b-e830a21d96b3";
+const CRM_WORKSPACE_ID = "0d8c04a8-6be2-4559-93de-0b2be2639f82";
 const LEGACY_IDEAS_ESTUDIO_WORKSPACE_ID = "cfdd0b5a-3468-4d5a-86da-50e1f4f324a6";
 
 // workspace.js reads import.meta.env.VITE_PUBLIC_WORKSPACE_ID once at module
