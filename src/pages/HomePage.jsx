@@ -4,6 +4,7 @@ import SEOHead from "@/components/seo/SEOHead.jsx";
 import { buildOrganizationSchema } from "@/components/seo/schema.js";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
 import TestimonialsSlider from "@/components/shared/TestimonialsSlider.jsx";
+import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
 import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
 import SegmentHeroSection from "@/components/home/SegmentHeroSection.jsx";
 import {
@@ -566,7 +567,35 @@ export default function HomePage() {
 
           <FormPlacementRenderer
             sectionKey="home_solicitar_info"
+            fallback={
+              <FormPlacementRenderer
+                sectionKey="home_ideas_split"
+                fallback={
+                  <SplitLeadBlock
+                    eyebrow="Ideas Estudio"
+                    title={<>Recibe ideas y <span style={{ color: "#f2cc3d" }}>estrategias</span> para hacer crecer tu negocio.</>}
+                    description="Diseño, branding, contenido y marketing digital explicados de forma clara y útil para negocios reales."
+                    imageSrc="https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=900&q=80"
+                    imageAlt="Ideas Estudio — Estrategias de marca"
+                    buttonLabel="Quiero recibir ideas"
+                    successMessage="Listo. Pronto recibirás contenido útil directamente en tu correo."
+                    showNameField={true}
+                    namePlaceholder="Tu nombre"
+                    emailPlaceholder="Tu email"
+                    consentLabel="Sin spam. Solo contenido útil."
+                    source="website_home"
+                    segment="home_leads"
+                    segments={["home_leads", "newsletter"]}
+                    submissionKind="lead_capture"
+                    defaultMessage="Lead desde Home"
+                    meta={{ page_url: "/", form_name: "home_split_lead_block", entry_point: "home_page", ui_context: "ideas_web_public", ab_variant: "home_v1" }}
+                    theme="dark"
+                  />
+                }
+              />
+            }
           />
+
         </div>
       </section>
     </main>
