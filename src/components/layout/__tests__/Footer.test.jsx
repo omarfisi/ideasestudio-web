@@ -15,7 +15,7 @@ function renderFooter(initialPath = "/") {
 describe("Footer — logo", () => {
   it("navigates to / via a real anchor (SPA Link, not a full reload)", () => {
     renderFooter();
-    const logo = screen.getByRole("link", { name: "Ideas Estudio" });
+    const logo = screen.getByRole("link", { name: "JJ Pega" });
     expect(logo).toHaveAttribute("href", "/");
   });
 });
@@ -88,27 +88,21 @@ describe("Footer — CTA", () => {
 describe("Footer — mailto / tel / external social links", () => {
   it("email uses a mailto: link", () => {
     renderFooter();
-    expect(screen.getByRole("link", { name: /omarfisi@ideasestudiopr\.com/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /info@jjpega\.com/ })).toHaveAttribute(
       "href",
-      "mailto:omarfisi@ideasestudiopr.com"
+      "mailto:info@jjpega.com"
     );
   });
 
-  it("phone uses a tel: link", () => {
+  it("does not render an unconfigured phone link", () => {
     renderFooter();
-    expect(screen.getByRole("link", { name: /1-787-503-0349/ })).toHaveAttribute(
-      "href",
-      "tel:17875030349"
-    );
+    expect(screen.queryByRole("link", { name: /1-787-503-0349/ })).not.toBeInTheDocument();
   });
 
-  it("Facebook/Instagram/YouTube are external, open in a new tab with rel=noreferrer", () => {
+  it("does not render social links when JJ Pega has no URLs configured", () => {
     renderFooter();
     for (const label of ["Facebook", "Instagram", "YouTube"]) {
-      const link = screen.getByRole("link", { name: label });
-      expect(link.getAttribute("href")).toMatch(/^https:\/\//);
-      expect(link).toHaveAttribute("target", "_blank");
-      expect(link).toHaveAttribute("rel", "noreferrer");
+      expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
     }
   });
 });

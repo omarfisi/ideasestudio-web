@@ -109,7 +109,7 @@ async function fillPrechatForm({ name = "Ana Pérez", email = "ana@example.com",
   if (phone) {
     fireEvent.change(screen.getByLabelText(/teléfono/i), { target: { value: phone } });
   }
-  fireEvent.click(screen.getByLabelText(/acepto que ideas estudio/i));
+  fireEvent.click(screen.getByLabelText(/acepto que (ideas estudio|jj pega)/i));
 }
 
 async function completePrechat() {
@@ -1308,7 +1308,7 @@ describe("PublicChatWidget — pre-chat gate", () => {
 
     fireEvent.change(screen.getByLabelText(/nombre completo/i), { target: { value: "Ana" } });
     fireEvent.change(screen.getByLabelText(/correo electrónico/i), { target: { value: "no-es-un-email" } });
-    fireEvent.click(screen.getByLabelText(/acepto que ideas estudio/i));
+    fireEvent.click(screen.getByLabelText(/acepto que (ideas estudio|jj pega)/i));
     fireEvent.click(screen.getByRole("button", { name: /comenzar conversación/i }));
 
     expect(await screen.findByText(/correo electrónico válido/i)).toBeInTheDocument();
@@ -1419,7 +1419,7 @@ describe("PublicChatWidget — pre-chat gate", () => {
     await act(async () => {});
 
     await fillPrechatForm();
-    const consent = screen.getByLabelText(/acepto que ideas estudio/i);
+    const consent = screen.getByLabelText(/acepto que (ideas estudio|jj pega)/i);
     if (!consent.checked) fireEvent.click(consent);
     await waitFor(() => expect(consent).toBeChecked());
     fireEvent.click(screen.getByRole("button", { name: /comenzar conversación/i }));

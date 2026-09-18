@@ -1,4 +1,3 @@
-import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
 import { PUBLIC_WORKSPACE_ID } from "@/lib/workspace.js";
 
 export async function submitLeadForm({
@@ -14,7 +13,7 @@ export async function submitLeadForm({
   submission_kind = "lead_capture",
   meta = {},
 }) {
-  const CRM_BASE = String(CRM_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "");
+  const CRM_BASE = String(import.meta.env.VITE_CRM_BASE_URL || "").replace(/\/+$/, "");
 
   if (!CRM_BASE) {
     throw new Error(

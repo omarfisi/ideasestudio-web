@@ -11,12 +11,14 @@ const getPublicProductCategoriesMock = vi.fn();
 const getPublicProductsMock = vi.fn();
 const addProductToPublicCartMock = vi.fn();
 const getPublicMembershipPlansByServiceMock = vi.fn();
+const getPublicTestimonialsMock = vi.fn();
 
 vi.mock("@/lib/api.js", () => ({
   getPublicProductCategories: (...args) => getPublicProductCategoriesMock(...args),
   getPublicProducts: (...args) => getPublicProductsMock(...args),
   addProductToPublicCart: (...args) => addProductToPublicCartMock(...args),
   getPublicMembershipPlansByService: (...args) => getPublicMembershipPlansByServiceMock(...args),
+  getPublicTestimonials: (...args) => getPublicTestimonialsMock(...args),
 }));
 
 vi.mock("@/components/seo/SEOHead.jsx", () => ({ default: () => null }));
@@ -45,12 +47,14 @@ beforeEach(() => {
   getPublicProductsMock.mockReset().mockResolvedValue({ items: [] });
   addProductToPublicCartMock.mockReset();
   getPublicMembershipPlansByServiceMock.mockReset().mockResolvedValue([]);
+  getPublicTestimonialsMock.mockReset().mockResolvedValue([]);
 });
 
-describe("StorePage — services catalog is untouched", () => {
-  it("still renders the main services catalog heading", async () => {
+describe("StorePage — JJ Pega catalog", () => {
+  it("renders the JJ Pega storefront without the legacy services heading", async () => {
     renderStorePage();
-    expect(await screen.findByText("Servicios profesionales")).toBeInTheDocument();
+    expect(await screen.findByAltText("Nuestra tienda JJ Pega")).toBeInTheDocument();
+    expect(screen.queryByText("Servicios profesionales")).not.toBeInTheDocument();
   });
 });
 
@@ -63,13 +67,13 @@ describe("StorePage — services catalog is untouched", () => {
 describe("StorePage — no general plans section", () => {
   it("does not render a #mensualidades section", async () => {
     const { container } = renderStorePage();
-    await screen.findByText("Servicios profesionales");
+    await screen.findByAltText("Nuestra tienda JJ Pega");
     expect(container.querySelector("#mensualidades")).toBeNull();
   });
 
   it("does not show the old 'Servicios mensuales' heading or intro copy", async () => {
     renderStorePage();
-    await screen.findByText("Servicios profesionales");
+    await screen.findByAltText("Nuestra tienda JJ Pega");
     expect(screen.queryByText("Servicios mensuales")).not.toBeInTheDocument();
     expect(
       screen.queryByText("Planes mensuales para marcas que necesitan apoyo creativo continuo.")
