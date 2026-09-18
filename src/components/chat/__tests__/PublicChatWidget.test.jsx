@@ -1592,7 +1592,9 @@ describe("PublicChatWidget — auto-scroll inteligente", () => {
       },
       rules: [
         { event_key: "chat.opened", rule_type: "pose", payload: { pose: "neutral" } },
-        { event_key: "message.streaming", rule_type: "pose_sequence", payload: { sequence: ["talk-a", "talk-o"], interval_ms: 40 } },
+        // Keep the first frame observable before the assertion; the production
+        // interval remains unchanged and the test still verifies cycling.
+        { event_key: "message.streaming", rule_type: "pose_sequence", payload: { sequence: ["talk-a", "talk-o"], interval_ms: 200 } },
       ],
     });
     getPublicAvatarRuntime.mockResolvedValueOnce(runtime);
