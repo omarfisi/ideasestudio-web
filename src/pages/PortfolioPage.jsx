@@ -6,6 +6,49 @@ import Button from "@/components/shared/Button.jsx";
 import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
 import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
 import { getPublicPortfolioItems } from "@/lib/api.js";
+
+// Fallback local para que el portafolio no quede vacío cuando la API local aún
+// no tiene la carga de datos pública. La API sigue teniendo prioridad cuando
+// devuelve proyectos reales.
+const LOCAL_PORTFOLIO_ITEMS = [
+  {
+    id: "local-portfolio-branding",
+    title: "Soluciones visuales para marcas y negocios",
+    description: "Fotografía, video, diseño y presencia digital con enfoque estratégico.",
+    category: "branding_diseno",
+    sectionKey: "featured",
+    isFeatured: true,
+    coverUrl: "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/marca-negocio.webp",
+    homeCoverUrl: "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/marca-negocio.webp",
+  },
+  {
+    id: "local-portfolio-presencia",
+    title: "Presencia visual profesional",
+    description: "Una imagen clara, sólida y coherente para tu proyecto.",
+    category: "fotografia",
+    sectionKey: "fotografia",
+    coverUrl: "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/presencia-visual.webp",
+    homeCoverUrl: "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/presencia-visual.webp",
+  },
+  {
+    id: "local-portfolio-social",
+    title: "Contenido para web y redes",
+    description: "Piezas visuales preparadas para comunicar, mostrar y conectar.",
+    category: "marketing_digital",
+    sectionKey: "grid",
+    coverUrl: "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/solucion-social.webp",
+    homeCoverUrl: "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/solucion-social.webp",
+  },
+  {
+    id: "local-portfolio-medida",
+    title: "Soluciones a la medida",
+    description: "Una propuesta creativa aterrizada a las necesidades de tu negocio.",
+    category: "web",
+    sectionKey: "grid",
+    coverUrl: "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/solucion-medida.webp",
+    homeCoverUrl: "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/solucion-medida.webp",
+  },
+];
 import {
   getCardEyebrow,
   getCardTitle,
@@ -535,7 +578,7 @@ export default function PortfolioPage() {
   const [videoAbierto, setVideoAbierto] = useState(null);
   const [galleryItem, setGalleryItem] = useState(null);
   const [slideIndex, setSlideIndex] = useState(0);
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState(LOCAL_PORTFOLIO_ITEMS);
   const [loading, setLoading] = useState(true);
   const carouselRef = useRef(null);
   const hasRestoredStateRef = useRef(false);
@@ -584,7 +627,7 @@ export default function PortfolioPage() {
     setLoading(true);
     getPublicPortfolioItems({ limit: 500 }).then((data) => {
       if (!cancelled) {
-        setItems(data);
+        setItems(data?.length ? data : LOCAL_PORTFOLIO_ITEMS);
         setLoading(false);
       }
     });
