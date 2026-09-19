@@ -6,6 +6,54 @@ import Button from "@/components/shared/Button.jsx";
 import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
 import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
 import { getPublicPortfolioItems } from "@/lib/api.js";
+import localPortfolioCta from "@/assets/quland-process/process-5.png";
+import localPortfolioAsset1 from "@/assets/quland-process/process-1.png";
+import localPortfolioAsset2 from "@/assets/quland-process/process-2.png";
+import localPortfolioAsset3 from "@/assets/quland-process/process-3.png";
+import localPortfolioAsset4 from "@/assets/quland-process/process-4.png";
+
+// Fallback local para que el portafolio no quede vacío cuando la API local aún
+// no tiene la carga de datos pública. La API sigue teniendo prioridad cuando
+// devuelve proyectos reales.
+const LOCAL_PORTFOLIO_ITEMS = [
+  {
+    id: "local-portfolio-branding",
+    title: "Soluciones visuales para marcas y negocios",
+    description: "Fotografía, video, diseño y presencia digital con enfoque estratégico.",
+    category: "branding_diseno",
+    sectionKey: "featured",
+    isFeatured: true,
+    coverUrl: localPortfolioAsset1,
+    homeCoverUrl: localPortfolioAsset1,
+  },
+  {
+    id: "local-portfolio-presencia",
+    title: "Presencia visual profesional",
+    description: "Una imagen clara, sólida y coherente para tu proyecto.",
+    category: "fotografia",
+    sectionKey: "fotografia",
+    coverUrl: localPortfolioAsset2,
+    homeCoverUrl: localPortfolioAsset2,
+  },
+  {
+    id: "local-portfolio-social",
+    title: "Contenido para web y redes",
+    description: "Piezas visuales preparadas para comunicar, mostrar y conectar.",
+    category: "marketing_digital",
+    sectionKey: "grid",
+    coverUrl: localPortfolioAsset3,
+    homeCoverUrl: localPortfolioAsset3,
+  },
+  {
+    id: "local-portfolio-medida",
+    title: "Soluciones a la medida",
+    description: "Una propuesta creativa aterrizada a las necesidades de tu negocio.",
+    category: "web",
+    sectionKey: "grid",
+    coverUrl: localPortfolioAsset4,
+    homeCoverUrl: localPortfolioAsset4,
+  },
+];
 import {
   getCardEyebrow,
   getCardTitle,
@@ -535,7 +583,7 @@ export default function PortfolioPage() {
   const [videoAbierto, setVideoAbierto] = useState(null);
   const [galleryItem, setGalleryItem] = useState(null);
   const [slideIndex, setSlideIndex] = useState(0);
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState(LOCAL_PORTFOLIO_ITEMS);
   const [loading, setLoading] = useState(true);
   const carouselRef = useRef(null);
   const hasRestoredStateRef = useRef(false);
@@ -584,7 +632,7 @@ export default function PortfolioPage() {
     setLoading(true);
     getPublicPortfolioItems({ limit: 500 }).then((data) => {
       if (!cancelled) {
-        setItems(data);
+        setItems(data?.length ? data : LOCAL_PORTFOLIO_ITEMS);
         setLoading(false);
       }
     });
@@ -1182,7 +1230,7 @@ export default function PortfolioPage() {
                 eyebrow="Portafolio / Ideas Estudio"
                 title={<>Si esto te gustó, podemos crear algo igual o mejor para tu <span style={{ color: "#f2cc3d" }}>negocio</span>.</>}
                 description="Cuéntanos lo que tienes en mente y te ayudamos a desarrollar una propuesta visual más clara, profesional y estratégica."
-                imageSrc="https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=900&q=80"
+                imageSrc={localPortfolioCta}
                 imageAlt="Portafolio Ideas Estudio"
                 buttonLabel="Quiero algo así"
                 successMessage="Perfecto. Hemos recibido tu información y te contactaremos pronto."

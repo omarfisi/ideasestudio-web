@@ -164,6 +164,7 @@
   width: 148px;
   height: 260px;
   flex-basis: 148px;
+  background: transparent;
 }
 
 .public-chat-widget__launcher-image--ivox {
@@ -172,6 +173,7 @@
   bottom: calc(-1 * var(--launcher-alpha-bottom-offset));
   width: 176px;
   height: 264px;
+  background: transparent;
   transform-origin: 52% 82%;
 }
 
@@ -283,6 +285,7 @@
 .public-chat-widget__launcher-portrait-runtime {
   width: 100%;
   height: 100%;
+  background: transparent;
   object-fit: contain;
   object-position: center bottom;
   transform: scale(1.18);

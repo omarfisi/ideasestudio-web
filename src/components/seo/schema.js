@@ -6,7 +6,7 @@ export function buildOrganizationSchema() {
     "@type": ["Organization", "LocalBusiness"],
     name: "Ideas Estudio",
     url: SITE_URL,
-    logo: "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/logos/favicon_ideasestudio.webp",
+    logo: "/ideas-estudio-logo.svg",
     description:
       "Agencia creativa en Puerto Rico especializada en fotografía, diseño gráfico, video y branding.",
     areaServed: "Puerto Rico",

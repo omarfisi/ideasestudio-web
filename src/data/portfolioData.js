@@ -45,7 +45,7 @@ export const proyectosDestacados = [
     descripcion:
       "Una selección visual pensada para mostrar el nivel, la intención y la calidad del trabajo realizado para marcas, negocios y momentos especiales.",
     imagen:
-      "https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=1600&q=80",
+      "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/solucion-social.webp",
   },
   {
     id: 101,

@@ -1,5 +1,13 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import SafeImage from "@/components/shared/SafeImage.jsx";
+
+const SEGMENT_IMAGE_FALLBACKS = [
+  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/marca-negocio.webp",
+  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/presencia-visual.webp",
+  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/solucion-social.webp",
+  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/solucion-medida.webp",
+];
 
 const SEGMENT_ITEMS = [
   {
@@ -8,8 +16,7 @@ const SEGMENT_ITEMS = [
     title: "Impulso inicial",
     description:
       "Para marcas o negocios que necesitan comenzar con una base visual clara, profesional y lista para vender mejor.",
-    image:
-      "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/Diseno%20de%20Marca%20Personal.png",
+    image: SEGMENT_IMAGE_FALLBACKS[0],
     imagePosition: "object-top",
     heroTitle: "Arranca con una identidad visual lista para vender",
     heroHighlight: "identidad",
@@ -24,8 +31,7 @@ const SEGMENT_ITEMS = [
     heroHighlight: "valor",
     description:
       "Para negocios y profesionales que quieren fortalecer su imagen, su contenido y la percepción de valor en web, redes y materiales comerciales.",
-    image:
-      "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/1776851142698-sesion-de-fotografia-de-estudio-para-isaac-esquilin.webp",
+    image: SEGMENT_IMAGE_FALLBACKS[1],
     imagePosition: "object-top",
     href: "/servicios/presencia-visual-profesional",
     ctaLabel: "Ver opción",
@@ -38,8 +44,7 @@ const SEGMENT_ITEMS = [
     heroHighlight: "momento",
     description:
       "Para sesiones o eventos sociales que merecen una propuesta visual cuidada, con intención, calidad y una experiencia organizada.",
-    image:
-      "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/Collage.png",
+    image: SEGMENT_IMAGE_FALLBACKS[2],
     href: "/servicios/momento-especial",
     ctaLabel: "Ver opción",
   },
@@ -51,8 +56,7 @@ const SEGMENT_ITEMS = [
     heroHighlight: "único,",
     description:
       "Para proyectos híbridos que combinan fotografía, video, branding, web o marketing y necesitan una estrategia personalizada.",
-    image:
-      "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/Impulso%20inicial.png",
+    image: SEGMENT_IMAGE_FALLBACKS[3],
     href: "/servicios/solucion-creativa",
     ctaLabel: "Solicitar propuesta",
   },
@@ -122,8 +126,9 @@ export default function SegmentHeroSection() {
             </div>
 
             <div className="hidden lg:block lg:relative lg:min-h-full">
-              <img
+              <SafeImage
                 src={activeSegment.image}
+                fallbackSrc={SEGMENT_IMAGE_FALLBACKS[0]}
                 alt={activeSegment.title}
                 className="h-full w-full object-cover"
                 loading="lazy"
@@ -151,8 +156,9 @@ export default function SegmentHeroSection() {
                   className="block w-full text-left"
                   aria-label={`Seleccionar ${item.title}`}
                 >
-                  <img
+                  <SafeImage
                     src={item.image}
+                    fallbackSrc={SEGMENT_IMAGE_FALLBACKS[0]}
                     alt={item.title}
                     className={`h-40 w-full object-cover ${item.imagePosition ?? ""}`}
                     loading="lazy"

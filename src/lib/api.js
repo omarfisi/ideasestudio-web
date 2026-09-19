@@ -1,3 +1,7 @@
+import localPortfolioAsset1 from "@/assets/quland-process/process-1.png";
+import localPortfolioAsset2 from "@/assets/quland-process/process-2.png";
+import localPortfolioAsset3 from "@/assets/quland-process/process-3.png";
+import localPortfolioAsset4 from "@/assets/quland-process/process-4.png";
 import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
 import { PUBLIC_WORKSPACE_ID } from "@/lib/workspace.js";
 import { getClientRouteByKey } from "@/data/routes.js";
@@ -1316,7 +1320,19 @@ export async function getPublicClientRouteBundle(routeKey) {
 
 function normalizePortfolioItem(raw) {
   if (!raw) return null;
-  const coverUrl = raw.cover_url || "";
+  const localPortfolioAssets = [
+    localPortfolioAsset1,
+    localPortfolioAsset2,
+    localPortfolioAsset3,
+    localPortfolioAsset4,
+  ];
+  const legacyAsset = (value) =>
+    typeof value === "string" &&
+    (value.includes("supabase.co/storage") || value.includes("images.unsplash.com"));
+  const fallbackAsset = localPortfolioAssets[Math.abs(Number(raw.visual_order ?? 0)) % localPortfolioAssets.length];
+  const coverUrl = legacyAsset(raw.cover_url) ? fallbackAsset : (raw.cover_url || fallbackAsset);
+  const homeCoverUrl = legacyAsset(raw.home_cover_url) ? fallbackAsset : (raw.home_cover_url || coverUrl);
+  const portfolioCoverUrl = legacyAsset(raw.portfolio_cover_url) ? fallbackAsset : (raw.portfolio_cover_url || coverUrl);
   return {
     id: raw.id || "",
     title: raw.title || "",
@@ -1329,8 +1345,8 @@ function normalizePortfolioItem(raw) {
     tags: Array.isArray(raw.tags) ? raw.tags : [],
     // Imagen según contexto — fallback siempre a cover_url
     coverUrl,
-    homeCoverUrl: raw.home_cover_url || coverUrl,
-    portfolioCoverUrl: raw.portfolio_cover_url || coverUrl,
+    homeCoverUrl,
+    portfolioCoverUrl,
     mediaUrls: Array.isArray(raw.media_urls) ? raw.media_urls.filter(Boolean) : [],
     isPublished: !!raw.is_published,
     isFeatured: !!raw.is_featured,

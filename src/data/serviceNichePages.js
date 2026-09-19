@@ -6,6 +6,16 @@ const presenciaVisualSegment = getSegmentByKey("empresas_corporaciones");
 const momentoEspecialSegment = getSegmentByKey("eventos");
 const solucionCreativaSegment = getSegmentByKey("emprendedores");
 
+// El API local puede no tener todavía los segmentos publicados. Estos assets
+// son el catálogo público canónico y evitan que el hero quede como un bloque
+// vacío mientras se sincroniza la base local.
+const SERVICE_NICHE_HERO_IMAGES = {
+  "marca-o-negocio": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/marca-negocio.webp",
+  "presencia-visual-profesional": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/presencia-visual.webp",
+  "momento-especial": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/solucion-social.webp",
+  "solucion-creativa": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/solucion-medida.webp",
+};
+
 const sharedSegmentSelector = {
   title: "Encuentra la propuesta ideal para tu marca, negocio o evento social.",
   titleBoxGlow: "propuesta",
@@ -676,6 +686,7 @@ const baseServiceNichePages = [
 
 export const serviceNichePages = baseServiceNichePages.map((page) => ({
   ...page,
+  heroImageUrl: page.heroImageUrl || SERVICE_NICHE_HERO_IMAGES[page.slug],
   catalogPreview: page.catalogCards.map((card) => ({
     title: card.title,
     description: card.description,

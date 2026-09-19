@@ -22,7 +22,7 @@ export const DEMO_POST = {
     short_description: "Fundador de Ideas Estudio",
     bio: "Diseñador, estratega y creador de contenido. Fundador de Ideas Estudio, agencia creativa especializada en branding, diseño web, fotografía y marketing digital para negocios que quieren comunicar mejor.",
     avatar_url:
-      "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/logos/favicon_ideasestudio.webp",
+      "/favicon.svg",
     avatar_alt: "Osvaldo Marfisi",
   },
   show_youtube_embed: true,

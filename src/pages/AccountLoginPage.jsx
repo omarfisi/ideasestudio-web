@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext.jsx";
 import { TESTIMONIALS } from "@/data/testimonials.js";
 
 const BRAND_LOGO =
-  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/logos/favicon_ideasestudio.webp";
+  "/ideas-estudio-logo.svg";
 
 const TESTIMONIAL = TESTIMONIALS["maria-del-mar"];
 

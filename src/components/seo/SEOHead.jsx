@@ -14,8 +14,7 @@ const DEFAULT_DESCRIPTION =
  * This is the brand/site social card — NOT the favicon.
  * Replace with a proper 1200×630 image when available.
  */
-const DEFAULT_OG_IMAGE =
-  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/logos/favicon_ideasestudio.webp";
+const DEFAULT_OG_IMAGE = "/ideas-estudio-logo.svg";
 
 export default function SEOHead({
   title,
