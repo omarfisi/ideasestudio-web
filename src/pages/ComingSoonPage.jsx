@@ -13,8 +13,8 @@ export default function ComingSoonPage() {
           Estamos preparando algo especial para que puedas pegar tus ideas en
           todas partes.
         </p>
-        <Link className="jj-coming-soon__back" to="/">
-          Volver a la página actual
+        <Link className="jj-coming-soon__back" to="/home">
+          Ver la página actual
         </Link>
       </div>
       <div className="jj-coming-soon__sticker" aria-hidden="true">

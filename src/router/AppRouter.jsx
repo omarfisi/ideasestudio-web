@@ -95,6 +95,10 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
+        element: <ComingSoonPage />,
+      },
+      {
+        path: "home",
         element: <JJPegaHomePage />,
       },
       {
