@@ -37,7 +37,7 @@ const SOLUTIONS_MENU_ITEMS = [
 ];
 
 const BRAND_LOGO_URL =
-  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/logos/favicon_ideasestudio.webp";
+  "/ideas-estudio-logo.svg";
 
 function ChevronDownIcon({ open = false }) {
   return (
@@ -857,11 +857,11 @@ export default function Header() {
               {logoError ? (
                 <span className="ie-brand__fallback">IE</span>
               ) : (
-                <img
+                <span
                   className="ie-brand__logo"
-                  src={BRAND_LOGO_URL}
-                  alt="Ideas Estudio"
-                  onError={() => setLogoError(true)}
+                  role="img"
+                  aria-label="Ideas Estudio"
+                  style={{ backgroundImage: `url(${BRAND_LOGO_URL})` }}
                 />
               )}
               <span className="ie-brand__text">

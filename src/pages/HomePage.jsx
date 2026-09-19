@@ -13,14 +13,18 @@ import {
   TESTIMONIAL_SECTION_COPY,
 } from "@/data/testimonials.js";
 import { getPublicPortfolioItems } from "@/lib/api.js";
+import localPortfolioAsset1 from "@/assets/quland-process/process-1.png";
+import localPortfolioAsset2 from "@/assets/quland-process/process-2.png";
+import localPortfolioAsset3 from "@/assets/quland-process/process-3.png";
+import localPortfolioAsset4 from "@/assets/quland-process/process-4.png";
 // Los PNG de quland-process son placeholders de dimensiones, no imágenes de
 // contenido. En local usamos las imágenes públicas reales ya versionadas en
 // el catálogo de Ideas Estudio para no pintar bloques grises.
-const portfolioProcessHero = "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/Diseno%20de%20Marca%20Personal.png";
-const portfolioProcessStep1 = "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/1776851142698-sesion-de-fotografia-de-estudio-para-isaac-esquilin.webp";
-const portfolioProcessStep2 = "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/Collage.png";
-const portfolioProcessStep3 = "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/Impulso%20inicial.png";
-const portfolioProcessStep4 = "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/presencia-visual.webp";
+const portfolioProcessHero = localPortfolioAsset1;
+const portfolioProcessStep1 = localPortfolioAsset2;
+const portfolioProcessStep2 = localPortfolioAsset3;
+const portfolioProcessStep3 = localPortfolioAsset4;
+const portfolioProcessStep4 = localPortfolioAsset1;
 
 const PORTFOLIO_VISUAL_SLIDES = [
   {
@@ -54,22 +58,19 @@ const PORTFOLIO_VISUAL_SLIDES = [
     text: "Organizamos tus piezas visuales para que salgan a tiempo y con consistencia.",
   },
   {
-    image:
-      "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/presencia-visual.webp",
+    image: localPortfolioAsset2,
     eyebrow: "Marca",
     title: "Imagen que inspira confianza",
     text: "Desarrollamos piezas que elevan la percepción profesional de tu servicio.",
   },
   {
-    image:
-      "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/marca-negocio.webp",
+    image: localPortfolioAsset1,
     eyebrow: "Negocio",
     title: "Comunicación alineada a tu negocio",
     text: "Cada formato responde a tus objetivos comerciales y de posicionamiento.",
   },
   {
-    image:
-      "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/solucion-social.webp",
+    image: localPortfolioAsset3,
     eyebrow: "Contenido",
     title: "Formatos pensados para compartir",
     text: "Piezas visuales preparadas para redes, campañas y momentos clave.",
@@ -577,7 +578,7 @@ export default function HomePage() {
                     eyebrow="Ideas Estudio"
                     title={<>Recibe ideas y <span style={{ color: "#f2cc3d" }}>estrategias</span> para hacer crecer tu negocio.</>}
                     description="Diseño, branding, contenido y marketing digital explicados de forma clara y útil para negocios reales."
-                    imageSrc="https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=900&q=80"
+                    imageSrc={portfolioProcessStep2}
                     imageAlt="Ideas Estudio — Estrategias de marca"
                     buttonLabel="Quiero recibir ideas"
                     successMessage="Listo. Pronto recibirás contenido útil directamente en tu correo."

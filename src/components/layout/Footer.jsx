@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { SITE_CONTACT } from "@/lib/siteContact.js";
 
 const BRAND_LOGO_URL =
-  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/logos/favicon_ideasestudio.webp";
+  "/ideas-estudio-logo.svg";
 
 // Real routes confirmed against src/data/clientNiches.js and the router
 // (src/router/AppRouter.jsx) — these previously all pointed at the same
@@ -168,7 +168,12 @@ export default function Footer() {
           <div className="site-footer__brand">
             <Link className="site-footer__brand-link" to="/" aria-label="Ideas Estudio">
               <span className="site-footer__brand-mark">
-                <img src={BRAND_LOGO_URL} alt="" loading="lazy" />
+                <span
+                  className="ie-brand__logo"
+                  role="img"
+                  aria-label="Ideas Estudio"
+                  style={{ backgroundImage: `url(${BRAND_LOGO_URL})` }}
+                />
               </span>
               <span className="site-footer__brand-text">
                 <strong>Ideas Estudio</strong>
