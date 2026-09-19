@@ -32,7 +32,7 @@ export default function MainLayout() {
       <main className="site-main">
         <Outlet />
       </main>
-      <JJPegaFooter />
+      <JJPegaFooter compact={compactHeader} />
       <ScrollRestoration />
       <HashScrollHandler />
     </div>

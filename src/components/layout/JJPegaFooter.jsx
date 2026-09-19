@@ -10,7 +10,7 @@ const links = [
   { label: "Ayuda", to: "/#ayuda" },
 ];
 
-export default function JJPegaFooter() {
+export default function JJPegaFooter({ compact = false }) {
   return (
     <footer className="jjp-footer">
       <div className="jjp-footer__inner">
@@ -21,10 +21,10 @@ export default function JJPegaFooter() {
           <p>Stickers, ideas y buenas vibras para todo lo que quieres pegar.</p>
         </div>
 
-        <nav className="jjp-footer__column" aria-label="Enlaces JJ Pega">
+        {!compact && <nav className="jjp-footer__column" aria-label="Enlaces JJ Pega">
           <h2>Explora</h2>
           {links.map((item) => <Link key={item.label} to={item.to}>{item.label}<span>→</span></Link>)}
-        </nav>
+        </nav>}
 
         <div className="jjp-footer__column">
           <h2>Hablemos</h2>
