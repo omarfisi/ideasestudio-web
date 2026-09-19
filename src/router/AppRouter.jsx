@@ -21,6 +21,7 @@ import NotFoundPage from "@/pages/NotFoundPage.jsx";
 const IS_JJ_PEGA = true;
 import RouteErrorPage from "@/pages/RouteErrorPage.jsx";
 import LegalPage from "@/pages/LegalPage.jsx";
+import ComingSoonPage from "@/pages/ComingSoonPage.jsx";
 
 const loadProductsCatalog = ({ request }) => {
   const url = new URL(request.url);
@@ -82,6 +83,10 @@ function RedirectLegacyOrder() {
 }
 
 const router = createBrowserRouter([
+  {
+    path: "/coming-soon",
+    element: <ComingSoonPage />,
+  },
   { path: "/unsubscribe", element: <Navigate replace to="/" /> },
   {
     path: "/",
