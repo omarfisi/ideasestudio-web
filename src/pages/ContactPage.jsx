@@ -3,7 +3,6 @@ import { Link, useSearchParams } from "react-router-dom";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
 import { submitLeadForm } from "@/lib/publicLeadForms.js";
-import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
 import "./JJPegaContact.css";
 
 const SERVICE_OPTIONS = [
@@ -49,8 +48,6 @@ const CONTACT_INFO = [
     href: null,
   },
 ];
-
-const CONTACT_FORM_SECTION_KEY = "contact_main_form";
 
 // ─── Contact form ─────────────────────────────────────────────────────────────
 
@@ -245,11 +242,7 @@ export default function ContactPage() {
                   src="/assets/jj-pega/contact/contact-form-banner.webp"
                   alt="Hablemos de tu idea. Cuéntanos tu idea y te ayudamos a darle vida."
                 />
-                <FormPlacementRenderer
-                  sectionKey={CONTACT_FORM_SECTION_KEY}
-                  formSlug="contacto-jj-pega"
-                  fallback={<ContactForm prefilledService={prefilledService} />}
-                />
+                <ContactForm prefilledService={prefilledService} />
               </div>
             </div>
           </div>
