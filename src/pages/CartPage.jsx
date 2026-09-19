@@ -395,7 +395,7 @@ export default function CartPage() {
                         <div className="cart-checkout-item__body">
                           <div className="cart-checkout-item__copy">
                             <h3>{item.snapshotName}</h3>
-                            <p>{item.snapshotDescription || "Servicio profesional"}</p>
+                            <p>{item.snapshotDescription || product.shortDescription || "Producto JJ Pega"}</p>
                           </div>
 
                           <div className="cart-checkout-item__meta">

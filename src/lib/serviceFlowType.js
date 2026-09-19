@@ -184,6 +184,13 @@ function inferFromNameSlugCategory(product) {
 export function getServiceFlowType(product) {
   if (!product) return SAFE_DEFAULT;
 
+  // Physical JJ Pega products are always direct purchases. Keep this rule
+  // ahead of legacy service metadata so an old/missing sale_mode cannot turn
+  // a real product into a quote-only service in detail and cart views.
+  if (String(product?.productType || product?.product_type || "").toLowerCase() === "physical") {
+    return SERVICE_FLOW_TYPES.C_FIXED_PRICE;
+  }
+
   const metadata = product?.metadata || {};
 
   const fromExplicit =

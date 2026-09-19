@@ -65,6 +65,10 @@ function getPriceLabel(product) {
   return formatPrice(numeric, product?.currency || "USD");
 }
 
+function getCartActionLabel(product) {
+  return product?.productType === "physical" ? "Añadir al carrito" : "Añadir al resumen";
+}
+
 /**
  * Splits description_long into paragraph / list blocks, preserving the
  * "Incluye:\n- item\n- item" structure real service descriptions use
@@ -573,7 +577,7 @@ export default function ProductDetailPage() {
                     disabled={pendingAction !== ""}
                     className="service-detail-purchase__summary-btn"
                   >
-                    {pendingAction === "cart" ? "Añadiendo..." : "Añadir al resumen"}
+                    {pendingAction === "cart" ? "Añadiendo..." : getCartActionLabel(product)}
                   </Button>
                 ) : null}
               </div>
