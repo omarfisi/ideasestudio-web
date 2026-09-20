@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { Search } from "lucide-react";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { getPublicProducts } from "@/lib/api.js";
@@ -69,7 +68,6 @@ export default function StickerIndividualsPage() {
         ) : null}
         {!loading && !error && !visibleProducts.length ? <p className="jj-catalog-message">No encontramos stickers con esa búsqueda.</p> : null}
       </section>
-      <footer className="jj-catalog-footer"><span>¿Buscas una colección completa?</span><Link to="/packs">Explorar packs por colección →</Link></footer>
     </main>
   );
 }
