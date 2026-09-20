@@ -6,9 +6,9 @@ const collections = [
   { slug: "frases-y-humor", asset: "collection-01-frases-y-humor.png", name: "Frases y humor" },
   { slug: "food-and-drinks", asset: "collection-02-food-and-drinks.png", name: "Food & Drinks" },
   { slug: "animales", asset: "collection-03-animales.png", name: "Animales" },
-  { slug: "cultura", asset: "collection-04-cultura.png", name: "Cultura" },
-  { slug: "cute-jj-pega-characters", asset: "collection-05-cute-characters.png", name: "Cute JJ Pega Characters" },
   { slug: "fe-y-esperanza", asset: "collection-07-fe-y-esperanza.png", name: "Fe y Esperanza" },
+  { slug: "cute-jj-pega-characters", asset: "collection-05-cute-characters.png", name: "Cute JJ Pega Characters" },
+  { slug: "cultura", asset: "collection-04-cultura.png", name: "Cultura" },
   { slug: "personalizados", asset: "collection-06-personalizados.png", name: "Personalizados" },
 ];
 
