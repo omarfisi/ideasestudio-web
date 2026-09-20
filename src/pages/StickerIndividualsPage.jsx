@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Search } from "lucide-react";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { getPublicProducts } from "@/lib/api.js";
-import { formatPrice } from "@/lib/formatPrice.js";
+import StickerProductCard from "@/components/store/StickerProductCard.jsx";
 import "@/components/store/ShopProductCard.css";
 import "./StickerCatalogPages.css";
 
@@ -44,7 +44,7 @@ export default function StickerIndividualsPage() {
     <main className="jj-catalog-page jj-store-page">
       <SEOHead title="Stickers individuales | JJ Pega" description="Escoge tus stickers individuales favoritos de JJ Pega." />
       <header className="jj-catalog-banner">
-        <img src="/assets/jj-high-quality/stickers-individuales-banner.webp" alt="Stickers individuales: elige tus diseños favoritos y combínalos como quieras" />
+        <img src="/assets/jj-high-quality/stickers-individuales-banner.png" alt="Stickers individuales: elige tus diseños favoritos y combínalos como quieras" />
       </header>
       <section className="jj-catalog-toolbar" aria-label="Buscar stickers">
         <label className="jj-sticker-search">
@@ -58,18 +58,12 @@ export default function StickerIndividualsPage() {
         {!loading && !error && visibleProducts.length ? (
           <div className="jj-shop-grid">
             {visibleProducts.map((product, index) => (
-              <article className={`jj-shop-product jj-shop-product--${index % 5}`} key={product.id || product.slug}>
-                <div className="jj-shop-product__media">
-                  <img src={product.coverImage} alt={product.name} loading="lazy" />
-                  {index === 0 ? <span className="jj-shop-product__badge">Más popular</span> : null}
-                  <button className="jj-shop-product__favorite" type="button" aria-label={`Añadir ${product.name} a favoritos`}>♡</button>
-                </div>
-                <div className="jj-shop-product__body">
-                  <h3>{product.name}</h3>
-                  <p><strong>{formatPrice(product.price, product.currency)}</strong></p>
-                  <Link to={`/servicios/productos/${product.slug}`} className="jj-shop-product__add">Ver producto <span aria-hidden="true">→</span></Link>
-                </div>
-              </article>
+              <StickerProductCard
+                key={product.id || product.slug}
+                product={product}
+                index={index}
+                badge={index === 0 ? "Más popular" : ""}
+              />
             ))}
           </div>
         ) : null}

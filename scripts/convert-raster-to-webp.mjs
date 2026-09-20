@@ -43,7 +43,7 @@ for (const source of sourceAssets) {
 
 const textFiles = (await Promise.all(
   roots.map((root) => walk(path.join(projectRoot, root)))
-)).flat().concat(await walk(path.join(projectRoot, "src")));
+)).flat();
 
 const uniqueBasenames = new Map();
 for (const { source } of converted) {
