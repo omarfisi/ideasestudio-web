@@ -18,13 +18,8 @@ export default function StickerPacksPage() {
   return (
     <main className="jj-catalog-page jj-packs-page">
       <SEOHead title="Packs por colección | JJ Pega" description="Descubre los packs de stickers JJ Pega organizados por colección." />
-      <header className="jj-catalog-hero jj-catalog-hero--yellow">
-        <div>
-          <span className="jj-catalog-kicker">JJ Pega · colecciones</span>
-          <h1>Packs por colección</h1>
-          <p>Estamos organizando cada pack por una vibe: buenas vibras, comida, cultura, personajes y más.</p>
-        </div>
-        <img src="/assets/jj-high-quality/category-2.webp" alt="Colección de stickers JJ Pega" />
+      <header className="jj-catalog-banner jj-packs-banner">
+        <img src="/assets/jj-high-quality/packs-colecciones-banner.png" alt="Packs por colección de JJ Pega" />
       </header>
       <section className="jj-collection-intro"><h2>Escoge tu colección</h2><p>Los packs se construirán alrededor de estas colecciones para que encuentres varios diseños que combinan entre sí.</p></section>
       <section className="jj-collection-grid">
