@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { Heart, Search, Star } from "lucide-react";
 import SEOHead from "@/components/seo/SEOHead.jsx";
-import ProductsGrid from "@/components/shared/ProductsGrid.jsx";
-import { addProductToPublicCart, getPublicProducts } from "@/lib/api.js";
+import { getPublicProducts } from "@/lib/api.js";
+import { formatPrice } from "@/lib/formatPrice.js";
 import "./StickerCatalogPages.css";
 
 export default function StickerIndividualsPage() {
@@ -10,7 +11,6 @@ export default function StickerIndividualsPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [addingSlug, setAddingSlug] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,29 +39,39 @@ export default function StickerIndividualsPage() {
     );
   }, [products, search]);
 
-  async function handleAddToCart(product) {
-    setAddingSlug(product.slug);
-    try {
-      await addProductToPublicCart({ productId: product.id, productSlug: product.slug, quantity: 1 });
-    } finally {
-      setAddingSlug(null);
-    }
-  }
-
   return (
     <main className="jj-catalog-page">
       <SEOHead title="Stickers individuales | JJ Pega" description="Escoge tus stickers individuales favoritos de JJ Pega." />
       <header className="jj-catalog-banner">
-        <img src="/assets/jj-high-quality/stickers-individuales-banner.png" alt="Stickers individuales: elige tus diseños favoritos y combínalos como quieras" />
+        <img src="/assets/jj-high-quality/stickers-individuales-banner.webp" alt="Stickers individuales: elige tus diseños favoritos y combínalos como quieras" />
       </header>
       <section className="jj-catalog-toolbar" aria-label="Buscar stickers">
-        <div><strong>{loading ? "…" : visibleProducts.length}</strong><span> stickers disponibles</span></div>
-        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por nombre o colección…" type="search" />
+        <label className="jj-sticker-search">
+          <Search size={27} strokeWidth={2.5} aria-hidden="true" />
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar stickers…" type="search" />
+        </label>
       </section>
       <section className="jj-catalog-products">
         {error ? <p className="jj-catalog-message">{error}</p> : null}
         {loading ? <p className="jj-catalog-message">Cargando stickers…</p> : null}
-        {!loading && !error && visibleProducts.length ? <ProductsGrid products={visibleProducts} onAddToCart={handleAddToCart} addingProductSlug={addingSlug} /> : null}
+        {!loading && !error && visibleProducts.length ? (
+          <div className="jj-sticker-grid">
+            {visibleProducts.map((product, index) => (
+              <article className={`jj-sticker-card jj-sticker-card--${index % 4}`} key={product.id || product.slug}>
+                <div className="jj-sticker-card__image">
+                  {product.coverImage ? <img src={product.coverImage} alt={product.name} loading="lazy" /> : null}
+                  {index === 0 ? <span className="jj-sticker-card__popular"><Star size={18} fill="currentColor" /> Más popular</span> : null}
+                  <button className="jj-sticker-card__favorite" type="button" aria-label={`Guardar ${product.name}`}><Heart size={32} strokeWidth={2.2} /></button>
+                </div>
+                <div className="jj-sticker-card__body">
+                  <h2>{product.name}</h2>
+                  <strong>{formatPrice(product.price, product.currency)}</strong>
+                  <Link to={`/servicios/productos/${product.slug}`} className="jj-sticker-card__button">Ver producto <span aria-hidden="true">→</span></Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : null}
         {!loading && !error && !visibleProducts.length ? <p className="jj-catalog-message">No encontramos stickers con esa búsqueda.</p> : null}
       </section>
       <footer className="jj-catalog-footer"><span>¿Buscas una colección completa?</span><Link to="/packs">Explorar packs por colección →</Link></footer>
