@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Heart, Search, Star } from "lucide-react";
+import { Search } from "lucide-react";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { getPublicProducts } from "@/lib/api.js";
 import { formatPrice } from "@/lib/formatPrice.js";
+import "@/components/store/ShopProductCard.css";
 import "./StickerCatalogPages.css";
 
 export default function StickerIndividualsPage() {
@@ -43,7 +44,7 @@ export default function StickerIndividualsPage() {
     <main className="jj-catalog-page">
       <SEOHead title="Stickers individuales | JJ Pega" description="Escoge tus stickers individuales favoritos de JJ Pega." />
       <header className="jj-catalog-banner">
-        <img src="/assets/jj-high-quality/stickers-individuales-banner.png" alt="Stickers individuales: elige tus diseños favoritos y combínalos como quieras" />
+        <img src="/assets/jj-high-quality/stickers-individuales-banner.webp" alt="Stickers individuales: elige tus diseños favoritos y combínalos como quieras" />
       </header>
       <section className="jj-catalog-toolbar" aria-label="Buscar stickers">
         <label className="jj-sticker-search">
@@ -55,18 +56,18 @@ export default function StickerIndividualsPage() {
         {error ? <p className="jj-catalog-message">{error}</p> : null}
         {loading ? <p className="jj-catalog-message">Cargando stickers…</p> : null}
         {!loading && !error && visibleProducts.length ? (
-          <div className="jj-sticker-grid">
+          <div className="jj-shop-grid">
             {visibleProducts.map((product, index) => (
-              <article className={`jj-sticker-card jj-sticker-card--${index % 4}`} key={product.id || product.slug}>
-                <div className="jj-sticker-card__image">
-                  {product.coverImage ? <img src={product.coverImage} alt={product.name} loading="lazy" /> : null}
-                  {index === 0 ? <span className="jj-sticker-card__popular"><Star size={18} fill="currentColor" /> Más popular</span> : null}
-                  <button className="jj-sticker-card__favorite" type="button" aria-label={`Guardar ${product.name}`}><Heart size={32} strokeWidth={2.2} /></button>
+              <article className={`jj-shop-product jj-shop-product--${index % 5}`} key={product.id || product.slug}>
+                <div className="jj-shop-product__media">
+                  <img src={product.coverImage} alt={product.name} loading="lazy" />
+                  {index === 0 ? <span className="jj-shop-product__badge">Más popular</span> : null}
+                  <button className="jj-shop-product__favorite" type="button" aria-label={`Añadir ${product.name} a favoritos`}>♡</button>
                 </div>
-                <div className="jj-sticker-card__body">
-                  <h2>{product.name}</h2>
-                  <strong>{formatPrice(product.price, product.currency)}</strong>
-                  <Link to={`/servicios/productos/${product.slug}`} className="jj-sticker-card__button">Ver producto <span aria-hidden="true">→</span></Link>
+                <div className="jj-shop-product__body">
+                  <h3>{product.name}</h3>
+                  <p><strong>{formatPrice(product.price, product.currency)}</strong></p>
+                  <Link to={`/servicios/productos/${product.slug}`} className="jj-shop-product__add">Ver producto <span aria-hidden="true">→</span></Link>
                 </div>
               </article>
             ))}
