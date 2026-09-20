@@ -41,7 +41,7 @@ export default function StickerIndividualsPage() {
   }, [products, search]);
 
   return (
-    <main className="jj-catalog-page">
+    <main className="jj-catalog-page jj-store-page">
       <SEOHead title="Stickers individuales | JJ Pega" description="Escoge tus stickers individuales favoritos de JJ Pega." />
       <header className="jj-catalog-banner">
         <img src="/assets/jj-high-quality/stickers-individuales-banner.webp" alt="Stickers individuales: elige tus diseños favoritos y combínalos como quieras" />
