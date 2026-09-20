@@ -2,8 +2,8 @@ import { Link } from "react-router-dom";
 import "@/components/store/HomeProductCards.css";
 
 const categories = [
-  { title: "Stickers individuales", tone: "pink", asset: "category-individual.webp", to: "/servicios" },
-  { title: "Packs", tone: "yellow", asset: "category-packs.webp", to: "/servicios" },
+  { title: "Stickers individuales", tone: "pink", asset: "category-individual.webp", to: "/stickers-individuales" },
+  { title: "Packs", tone: "yellow", asset: "category-packs.webp", to: "/packs" },
   { title: "Personalizados", tone: "cyan", asset: "category-custom.webp", to: "/personaliza" },
   { title: "Diseños con IA", tone: "lime", asset: "category-ai.webp", to: "/personaliza" },
 ];

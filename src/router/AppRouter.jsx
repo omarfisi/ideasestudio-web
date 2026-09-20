@@ -22,6 +22,8 @@ const IS_JJ_PEGA = true;
 import RouteErrorPage from "@/pages/RouteErrorPage.jsx";
 import LegalPage from "@/pages/LegalPage.jsx";
 import ComingSoonPage from "@/pages/ComingSoonPage.jsx";
+import StickerIndividualsPage from "@/pages/StickerIndividualsPage.jsx";
+import StickerPacksPage from "@/pages/StickerPacksPage.jsx";
 
 const loadProductsCatalog = ({ request }) => {
   const url = new URL(request.url);
@@ -106,6 +108,10 @@ const router = createBrowserRouter([
         loader: loadProductsCatalog,
         element: <StorePage />,
       },
+      { path: "stickers-individuales", element: <StickerIndividualsPage /> },
+      { path: "packs", element: <StickerPacksPage /> },
+      { path: "servicios/stickers-individuales", element: <StickerIndividualsPage /> },
+      { path: "servicios/packs", element: <StickerPacksPage /> },
       {
         path: "personaliza",
         element: <JJPersonalizePage />,
