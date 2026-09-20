@@ -18,7 +18,9 @@ export default function StickerPacksPage() {
       <header className="jj-catalog-banner jj-packs-banner">
         <img src="/assets/jj-high-quality/packs-colecciones-banner.png" alt="Packs por colección de JJ Pega" />
       </header>
-      <section className="jj-collection-intro"><h2>Escoge tu colección</h2><p>Los packs se construirán alrededor de estas colecciones para que encuentres varios diseños que combinan entre sí.</p></section>
+      <section className="jj-collection-intro-banner">
+        <img src="/assets/jj-high-quality/packs-collections-intro.png" alt="Escoge tu colección" />
+      </section>
       <section className="jj-collection-image-grid" aria-label="Colecciones de stickers">
         {collections.map((collection) => (
           <Link className="jj-collection-image-card" to="/stickers-individuales" key={collection.slug} aria-label={`Ver colección ${collection.name}`}>
