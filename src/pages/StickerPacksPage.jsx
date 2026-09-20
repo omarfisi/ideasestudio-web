@@ -8,6 +8,7 @@ const collections = [
   { slug: "animales", asset: "collection-03-animales.png", name: "Animales" },
   { slug: "cultura", asset: "collection-04-cultura.png", name: "Cultura" },
   { slug: "cute-jj-pega-characters", asset: "collection-05-cute-characters.png", name: "Cute JJ Pega Characters" },
+  { slug: "fe-y-esperanza", asset: "collection-07-fe-y-esperanza.png", name: "Fe y Esperanza" },
   { slug: "personalizados", asset: "collection-06-personalizados.png", name: "Personalizados" },
 ];
 
