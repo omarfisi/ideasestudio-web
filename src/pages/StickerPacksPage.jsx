@@ -1,20 +1,17 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import SEOHead from "@/components/seo/SEOHead.jsx";
-import { getPublicProductCategories } from "@/lib/api.js";
 import "./StickerCatalogPages.css";
 
+const collections = [
+  { slug: "frases-y-humor", asset: "collection-01-frases-y-humor.png", name: "Frases y humor" },
+  { slug: "food-and-drinks", asset: "collection-02-food-and-drinks.png", name: "Food & Drinks" },
+  { slug: "animales", asset: "collection-03-animales.png", name: "Animales" },
+  { slug: "cultura", asset: "collection-04-cultura.png", name: "Cultura" },
+  { slug: "cute-jj-pega-characters", asset: "collection-05-cute-characters.png", name: "Cute JJ Pega Characters" },
+  { slug: "personalizados", asset: "collection-06-personalizados.png", name: "Personalizados" },
+];
+
 export default function StickerPacksPage() {
-  const [collections, setCollections] = useState([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    getPublicProductCategories()
-      .then((items) => { if (!cancelled) setCollections(Array.isArray(items) ? items : []); })
-      .catch(() => { if (!cancelled) setCollections([]); });
-    return () => { cancelled = true; };
-  }, []);
-
   return (
     <main className="jj-catalog-page jj-packs-page">
       <SEOHead title="Packs por colección | JJ Pega" description="Descubre los packs de stickers JJ Pega organizados por colección." />
@@ -22,16 +19,13 @@ export default function StickerPacksPage() {
         <img src="/assets/jj-high-quality/packs-colecciones-banner.png" alt="Packs por colección de JJ Pega" />
       </header>
       <section className="jj-collection-intro"><h2>Escoge tu colección</h2><p>Los packs se construirán alrededor de estas colecciones para que encuentres varios diseños que combinan entre sí.</p></section>
-      <section className="jj-collection-grid">
-        {collections.map((collection, index) => (
-          <article className={`jj-collection-card jj-collection-card--${index % 4}`} key={collection.id || collection.slug}>
-            <img src={collection.imageUrl || collection.image_url || "/assets/jj-high-quality/category-1.webp"} alt="" loading="lazy" />
-            <div><span>Colección {String(index + 1).padStart(2, "0")}</span><h2>{collection.name}</h2><p>{collection.description || "Diseños para combinar y compartir."}</p><Link to={`/servicios?category=${encodeURIComponent(collection.slug)}`}>Ver diseños de la colección →</Link></div>
-          </article>
+      <section className="jj-collection-image-grid" aria-label="Colecciones de stickers">
+        {collections.map((collection) => (
+          <Link className="jj-collection-image-card" to="/stickers-individuales" key={collection.slug} aria-label={`Ver colección ${collection.name}`}>
+            <img src={`/assets/jj-high-quality/${collection.asset}`} alt={collection.name} loading="lazy" />
+          </Link>
         ))}
       </section>
-      {!collections.length ? <p className="jj-catalog-message">Las colecciones se están preparando. Muy pronto podrás ver los packs disponibles.</p> : null}
-      <div className="jj-catalog-footer"><span>Mientras tanto, arma tu propia combinación.</span><Link to="/stickers-individuales">Ver stickers individuales →</Link></div>
     </main>
   );
 }
