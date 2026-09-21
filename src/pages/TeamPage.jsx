@@ -6,6 +6,15 @@ import { usePageSeo } from "@/hooks/usePageSeo.js";
 
 // No fallback data — if the API returns empty or fails, we show an empty state.
 // Never show invented names or Unsplash stock photos as real team members.
+// The original group photo already exists in the official Supabase media bucket.
+// Keep this as a data fallback while older workspaces finish receiving the
+// team_media seed; it prevents the public page from hiding the real photo when
+// the API returns group_photo: null.
+const OFFICIAL_GROUP_PHOTO = {
+  image_url: "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/blog-images/team/media/4fa6c6d9f97e4258b19a88741c422ad7.png",
+  alt_text: "El equipo completo de Ideas Estudio",
+  title: "El equipo creativo detrás de Ideas Estudio",
+};
 
 // Normaliza el formato de la API al formato que usa el componente
 function normalizeApiMember(m) {
@@ -287,7 +296,7 @@ export default function TeamPage() {
         const members = data?.members || [];
         // Only show real members from the API. Never fall back to invented data.
         setEquipo(members.map(normalizeApiMember));
-        if (data?.group_photo?.image_url) setGroupPhoto(data.group_photo);
+        setGroupPhoto(data?.group_photo?.image_url ? data.group_photo : OFFICIAL_GROUP_PHOTO);
         if (data?.gallery?.length > 0) setGallery(data.gallery);
       })
       .catch((error) => {
