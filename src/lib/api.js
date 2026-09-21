@@ -890,7 +890,7 @@ export async function createOrUpdatePublicCart(payload) {
   });
   const cartId = cartEnvelope?.cart?.id;
   if (!cartId) {
-    throw new Error("No se pudo inicializar el resumen de servicios.");
+    throw new Error("No se pudo inicializar el carrito de productos.");
   }
 
   const nextItems = serializeCartItems(payload.items);
@@ -932,7 +932,6 @@ export async function createOrUpdatePublicCart(payload) {
         cartId,
         productId,
         quantity,
-        variantId: item.variant_id || null,
       });
     }
   } else {
