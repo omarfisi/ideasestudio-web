@@ -1,9 +1,32 @@
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, ScrollRestoration, useLocation } from "react-router-dom";
 import HashScrollHandler from "@/components/layout/HashScrollHandler.jsx";
 import { Link } from "react-router-dom";
 import JJPegaFooter from "@/components/layout/JJPegaFooter.jsx";
+import { getPublicCart } from "@/lib/api.js";
 
 function JJHeader({ compact = false }) {
+  const [cartQuantity, setCartQuantity] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    const refreshCartQuantity = async () => {
+      try {
+        const cart = await getPublicCart();
+        if (active) setCartQuantity(Number(cart?.summary?.totalQuantity || 0));
+      } catch {
+        if (active) setCartQuantity(0);
+      }
+    };
+
+    refreshCartQuantity();
+    window.addEventListener("jj-cart-updated", refreshCartQuantity);
+    return () => {
+      active = false;
+      window.removeEventListener("jj-cart-updated", refreshCartQuantity);
+    };
+  }, []);
+
   return (
     <header className="jj-site-header">
       <div className="container jj-site-header__inner">
@@ -16,7 +39,7 @@ function JJHeader({ compact = false }) {
           <NavLink to="/personaliza">Personaliza</NavLink>
           <a href="#ayuda">Ayuda</a>
         </nav>}
-        {!compact && <div className="jj-site-header__tools"><span aria-hidden="true">⌕</span><Link to="/servicios/carrito" className="jj-site-header__cart">🛒 <b>0</b></Link></div>}
+        {!compact && <div className="jj-site-header__tools"><span aria-hidden="true">⌕</span><Link to="/servicios/carrito" className="jj-site-header__cart">🛒 <b>{cartQuantity}</b></Link></div>}
       </div>
     </header>
   );

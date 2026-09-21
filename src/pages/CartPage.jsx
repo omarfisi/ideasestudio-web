@@ -158,7 +158,7 @@ export default function CartPage() {
     setPendingProductId(productId);
     setViewState({
       status: "loading",
-      message: "Quitando servicio del resumen...",
+      message: "Quitando producto del carrito...",
     });
 
     try {
@@ -169,7 +169,7 @@ export default function CartPage() {
       );
       setViewState({
         status: "success",
-        message: "Servicio removido del resumen.",
+        message: "Producto removido del carrito.",
       });
     } catch (error) {
       setViewState({
@@ -177,7 +177,7 @@ export default function CartPage() {
         message:
           error instanceof Error
             ? error.message
-            : "No se pudo remover el servicio.",
+            : "No se pudo remover el producto.",
       });
     } finally {
       setPendingProductId(null);
@@ -191,7 +191,7 @@ export default function CartPage() {
 
     setViewState({
       status: "loading",
-      message: "Eliminando servicios seleccionados...",
+      message: "Eliminando productos seleccionados...",
     });
 
     try {
@@ -206,7 +206,7 @@ export default function CartPage() {
       setSelectedProductIds(syncSelectedProductIds(nextCart, []));
       setViewState({
         status: "success",
-        message: "Servicios eliminados del resumen.",
+        message: "Productos eliminados del carrito.",
       });
     } catch (error) {
       setViewState({
@@ -214,7 +214,7 @@ export default function CartPage() {
         message:
           error instanceof Error
             ? error.message
-            : "No se pudieron eliminar los servicios seleccionados.",
+            : "No se pudieron eliminar los productos seleccionados.",
       });
     } finally {
       setPendingProductId(null);
@@ -330,7 +330,7 @@ export default function CartPage() {
               <div className="empty-state">
                 <h2>Tu resumen está vacío</h2>
                 <p>
-                  Cuando agregues servicios desde el catálogo, aquí verás tu
+                  Cuando agregues productos desde el catálogo, aquí verás tu
                   selección, cantidades y subtotal antes de continuar.
                 </p>
                 <Button to="/servicios">Ir a servicios</Button>
@@ -479,7 +479,7 @@ export default function CartPage() {
                   </p>
                 )}
                 <div className="summary-row">
-                  <span>Servicios</span>
+                  <span>Productos</span>
                   <strong>{Number(cart?.summary?.lineItems || 0)}</strong>
                 </div>
                 <div className="summary-row">

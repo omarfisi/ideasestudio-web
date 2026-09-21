@@ -652,6 +652,7 @@ export function setStoredCartSessionToken(sessionToken) {
   }
 
   storage.setItem(STORE_CART_SESSION_KEY, sessionToken);
+  window.dispatchEvent(new Event("jj-cart-updated"));
 }
 
 export function clearStoredCartSessionToken() {
@@ -661,6 +662,7 @@ export function clearStoredCartSessionToken() {
   }
 
   storage.removeItem(STORE_CART_SESSION_KEY);
+  window.dispatchEvent(new Event("jj-cart-updated"));
 }
 
 function serializeCartItems(items = []) {

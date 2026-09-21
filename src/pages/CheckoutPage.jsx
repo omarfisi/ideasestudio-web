@@ -1779,7 +1779,7 @@ export default function CheckoutPage() {
           <div style={{ maxWidth: 1180, margin: "0 auto", padding: "40px 24px" }}>
             <div className="empty-state">
               <h2>Tu resumen no está listo para checkout</h2>
-              <p>{cartState.message || "Agrega servicios desde el catálogo antes de continuar."}</p>
+              <p>{cartState.message || "Agrega productos desde el catálogo antes de continuar."}</p>
               <div className="empty-state__actions">
                 <Button to="/servicios">Ir a servicios</Button>
                 <Button to="/servicios/carrito" variant="secondary">Revisar resumen</Button>
