@@ -4,8 +4,7 @@ import { supabase } from "@/lib/supabaseClient.js";
 import { useAuth } from "@/contexts/AuthContext.jsx";
 import { TESTIMONIALS } from "@/data/testimonials.js";
 
-const BRAND_LOGO =
-  "/ideas-estudio-logo.svg";
+const BRAND_LOGO = "/ideas-estudio-logo-mark.png";
 
 const TESTIMONIAL = TESTIMONIALS["maria-del-mar"];
 

@@ -16,7 +16,8 @@ const SEGMENT_ITEMS = [
     title: "Impulso inicial",
     description:
       "Para marcas o negocios que necesitan comenzar con una base visual clara, profesional y lista para vender mejor.",
-    image: SEGMENT_IMAGE_FALLBACKS[0],
+    image:
+      "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/Diseno%20de%20Marca%20Personal.png",
     imagePosition: "object-top",
     heroTitle: "Arranca con una identidad visual lista para vender",
     heroHighlight: "identidad",
@@ -31,7 +32,8 @@ const SEGMENT_ITEMS = [
     heroHighlight: "valor",
     description:
       "Para negocios y profesionales que quieren fortalecer su imagen, su contenido y la percepción de valor en web, redes y materiales comerciales.",
-    image: SEGMENT_IMAGE_FALLBACKS[1],
+    image:
+      "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/1776851142698-sesion-de-fotografia-de-estudio-para-isaac-esquilin.webp",
     imagePosition: "object-top",
     href: "/servicios/presencia-visual-profesional",
     ctaLabel: "Ver opción",
@@ -44,7 +46,8 @@ const SEGMENT_ITEMS = [
     heroHighlight: "momento",
     description:
       "Para sesiones o eventos sociales que merecen una propuesta visual cuidada, con intención, calidad y una experiencia organizada.",
-    image: SEGMENT_IMAGE_FALLBACKS[2],
+    image:
+      "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/Collage.png",
     href: "/servicios/momento-especial",
     ctaLabel: "Ver opción",
   },
@@ -56,7 +59,8 @@ const SEGMENT_ITEMS = [
     heroHighlight: "único,",
     description:
       "Para proyectos híbridos que combinan fotografía, video, branding, web o marketing y necesitan una estrategia personalizada.",
-    image: SEGMENT_IMAGE_FALLBACKS[3],
+    image:
+      "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/Impulso%20inicial.png",
     href: "/servicios/solucion-creativa",
     ctaLabel: "Solicitar propuesta",
   },

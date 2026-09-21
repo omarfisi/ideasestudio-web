@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient.js";
 
-const BRAND_LOGO =
-  "/ideas-estudio-logo.svg";
+const BRAND_LOGO = "/ideas-estudio-logo-mark.png";
 
 // phase: "verifying" | "ready" | "invalid" | "done"
 export default function AccountPasswordResetPage() {

@@ -14,7 +14,7 @@ const DEFAULT_DESCRIPTION =
  * This is the brand/site social card — NOT the favicon.
  * Replace with a proper 1200×630 image when available.
  */
-const DEFAULT_OG_IMAGE = "/ideas-estudio-logo.svg";
+const DEFAULT_OG_IMAGE = "/ideas-estudio-logo-mark.png";
 
 export default function SEOHead({
   title,

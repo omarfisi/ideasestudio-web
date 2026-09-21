@@ -1326,13 +1326,24 @@ function normalizePortfolioItem(raw) {
     localPortfolioAsset3,
     localPortfolioAsset4,
   ];
-  const legacyAsset = (value) =>
-    typeof value === "string" &&
-    (value.includes("supabase.co/storage") || value.includes("images.unsplash.com"));
+  const legacyAsset = (value) => {
+    if (typeof value !== "string" || !value.trim()) return true;
+    const normalized = value.toLowerCase();
+    return (
+      normalized.includes("images.unsplash.com") ||
+      normalized.includes("placehold.co") ||
+      normalized.includes("via.placeholder") ||
+      normalized.includes("placeholder") ||
+      normalized.includes("520x630")
+    );
+  };
   const fallbackAsset = localPortfolioAssets[Math.abs(Number(raw.visual_order ?? 0)) % localPortfolioAssets.length];
   const coverUrl = legacyAsset(raw.cover_url) ? fallbackAsset : (raw.cover_url || fallbackAsset);
-  const homeCoverUrl = legacyAsset(raw.home_cover_url) ? fallbackAsset : (raw.home_cover_url || coverUrl);
-  const portfolioCoverUrl = legacyAsset(raw.portfolio_cover_url) ? fallbackAsset : (raw.portfolio_cover_url || coverUrl);
+  // La API no siempre guarda una portada específica para Home o Portafolio.
+  // En ese caso debemos reutilizar el cover real del proyecto, no los PNG de
+  // dimensiones de prueba de quland-process (520x630).
+  const homeCoverUrl = legacyAsset(raw.home_cover_url) ? coverUrl : (raw.home_cover_url || coverUrl);
+  const portfolioCoverUrl = legacyAsset(raw.portfolio_cover_url) ? coverUrl : (raw.portfolio_cover_url || coverUrl);
   return {
     id: raw.id || "",
     title: raw.title || "",
@@ -1347,7 +1358,9 @@ function normalizePortfolioItem(raw) {
     coverUrl,
     homeCoverUrl,
     portfolioCoverUrl,
-    mediaUrls: Array.isArray(raw.media_urls) ? raw.media_urls.filter(Boolean) : [],
+    mediaUrls: Array.isArray(raw.media_urls)
+      ? raw.media_urls.filter((value) => !legacyAsset(value))
+      : [],
     isPublished: !!raw.is_published,
     isFeatured: !!raw.is_featured,
     visualOrder: Number(raw.visual_order ?? 100),

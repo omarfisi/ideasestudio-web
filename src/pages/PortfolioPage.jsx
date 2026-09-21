@@ -12,9 +12,8 @@ import localPortfolioAsset2 from "@/assets/quland-process/process-2.png";
 import localPortfolioAsset3 from "@/assets/quland-process/process-3.png";
 import localPortfolioAsset4 from "@/assets/quland-process/process-4.png";
 
-// Fallback local para que el portafolio no quede vacío cuando la API local aún
-// no tiene la carga de datos pública. La API sigue teniendo prioridad cuando
-// devuelve proyectos reales.
+// Los assets de quland-process son placeholders de dimensiones. El portafolio
+// debe esperar al catálogo público real y mostrar skeletons mientras carga.
 const LOCAL_PORTFOLIO_ITEMS = [
   {
     id: "local-portfolio-branding",
@@ -583,7 +582,7 @@ export default function PortfolioPage() {
   const [videoAbierto, setVideoAbierto] = useState(null);
   const [galleryItem, setGalleryItem] = useState(null);
   const [slideIndex, setSlideIndex] = useState(0);
-  const [items, setItems] = useState(LOCAL_PORTFOLIO_ITEMS);
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const carouselRef = useRef(null);
   const hasRestoredStateRef = useRef(false);
@@ -630,12 +629,17 @@ export default function PortfolioPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getPublicPortfolioItems({ limit: 500 }).then((data) => {
-      if (!cancelled) {
-        setItems(data?.length ? data : LOCAL_PORTFOLIO_ITEMS);
+    getPublicPortfolioItems({ limit: 500 })
+      .then((data) => {
+        if (cancelled) return;
+        setItems(data || []);
         setLoading(false);
-      }
-    });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setItems([]);
+        setLoading(false);
+      });
     return () => { cancelled = true; };
   }, []);
 
