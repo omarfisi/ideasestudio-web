@@ -6,7 +6,7 @@ export function buildOrganizationSchema() {
     "@type": ["Organization", "LocalBusiness"],
     name: "Ideas Estudio",
     url: SITE_URL,
-    logo: "/ideas-estudio-logo.svg",
+    logo: "/ideas-estudio-logo-mark.png",
     description:
       "Agencia creativa en Puerto Rico especializada en fotografía, diseño gráfico, video y branding.",
     areaServed: "Puerto Rico",

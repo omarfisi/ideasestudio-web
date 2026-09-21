@@ -36,8 +36,7 @@ const SOLUTIONS_MENU_ITEMS = [
   ...CLIENT_PATHS,
 ];
 
-const BRAND_LOGO_URL =
-  "/ideas-estudio-logo.svg";
+const BRAND_LOGO_URL = "/ideas-estudio-logo-mark.png";
 
 function ChevronDownIcon({ open = false }) {
   return (
@@ -333,8 +332,8 @@ export default function Header() {
         .ie-brand__logo {
           width: 44px;
           height: 44px;
-          border-radius: 14px;
-          object-fit: cover;
+          border-radius: 0;
+          object-fit: contain;
           background: transparent;
           border: none;
           flex-shrink: 0;
@@ -781,7 +780,12 @@ export default function Header() {
             font-size: 0.7rem;
           }
 
-          .ie-brand__logo,
+          .ie-brand__logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 0;
+          }
+
           .ie-brand__fallback {
             width: 40px;
             height: 40px;
@@ -857,11 +861,11 @@ export default function Header() {
               {logoError ? (
                 <span className="ie-brand__fallback">IE</span>
               ) : (
-                <span
+                <img
                   className="ie-brand__logo"
-                  role="img"
-                  aria-label="Ideas Estudio"
-                  style={{ backgroundImage: `url(${BRAND_LOGO_URL})` }}
+                  src={BRAND_LOGO_URL}
+                  alt="Ideas Estudio"
+                  onError={() => setLogoError(true)}
                 />
               )}
               <span className="ie-brand__text">

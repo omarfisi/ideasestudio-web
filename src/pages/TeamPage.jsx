@@ -301,7 +301,9 @@ export default function TeamPage() {
       })
       .catch((error) => {
         console.warn("[TEAM] public team unavailable", error);
-        // Leave equipo as empty array — the empty state will be shown.
+        // Keep the real group photo visible even if the local team endpoint is
+        // unavailable; member data remains empty instead of being invented.
+        setGroupPhoto(OFFICIAL_GROUP_PHOTO);
       })
       .finally(() => {
         setLoading(false);

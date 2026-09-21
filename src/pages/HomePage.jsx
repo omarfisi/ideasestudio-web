@@ -77,8 +77,9 @@ const PORTFOLIO_VISUAL_SLIDES = [
   },
 ];
 
-// El catálogo remoto puede no estar disponible durante el desarrollo local.
-// Usamos estos assets versionados para que la portada nunca quede con tarjetas vacías.
+// El catálogo remoto es la única fuente de imágenes del portafolio. Los assets
+// de quland-process son placeholders de dimensiones y no deben pintarse como
+// contenido real mientras la petición todavía está cargando.
 const LOCAL_PORTFOLIO_ITEMS = PORTFOLIO_VISUAL_SLIDES.map((slide, index) => ({
   id: `local-portfolio-${index + 1}`,
   title: slide.title,
@@ -138,8 +139,8 @@ export default function HomePage() {
   const [isDeleting, setIsDeleting] = useState(false);
   // Pintar el catálogo local desde el primer render evita que un Backend
   // local caído deje skeletons beige permanentes en la portada.
-  const [homePortfolioItems, setHomePortfolioItems] = useState(LOCAL_PORTFOLIO_ITEMS);
-  const [portfolioLoading, setPortfolioLoading] = useState(false);
+  const [homePortfolioItems, setHomePortfolioItems] = useState([]);
+  const [portfolioLoading, setPortfolioLoading] = useState(true);
 
   const CAT_EYEBROW_HOME = { fotografia:"FOTOGRAFÍA", video:"VIDEO", branding_diseno:"DISEÑO GRÁFICO", web:"WEB", marketing_digital:"MARKETING" };
 
@@ -281,11 +282,17 @@ export default function HomePage() {
 
   useEffect(() => {
     let cancelled = false;
-    getPublicPortfolioItems({ limit: 500 }).then((all) => {
-      if (cancelled) return;
-      setHomePortfolioItems(all.length > 0 ? all : LOCAL_PORTFOLIO_ITEMS);
-      setPortfolioLoading(false);
-    });
+    getPublicPortfolioItems({ limit: 500 })
+      .then((all) => {
+        if (cancelled) return;
+        setHomePortfolioItems(all);
+        setPortfolioLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setHomePortfolioItems([]);
+        setPortfolioLoading(false);
+      });
     return () => { cancelled = true; };
   }, []);
 
