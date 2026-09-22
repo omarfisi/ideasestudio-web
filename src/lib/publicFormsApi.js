@@ -1,4 +1,5 @@
 import { appendWorkspace } from "@/lib/workspace.js";
+import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
 
 function cleanBase(value) {
   return String(value || "").trim().replace(/\/+$/, "");
@@ -43,12 +44,11 @@ export function resolvePublicFormsApiBase({ hostname, crmBase, apiBase } = {}) {
 }
 
 function getPublicFormsApiBase() {
-  const env = import.meta.env || {};
   const location = typeof window !== "undefined" ? window.location : null;
   return resolvePublicFormsApiBase({
     hostname: location?.hostname,
-    crmBase: env.VITE_CRM_BASE_URL,
-    apiBase: env.VITE_API_BASE,
+    crmBase: CRM_PUBLIC_API_BASE_URL,
+    apiBase: CRM_PUBLIC_API_BASE_URL,
   });
 }
 
@@ -61,7 +61,7 @@ function apiBase() {
     // that's exactly the bug that let a local form submission get created
     // remotely while /prechat verified it against the local database.
     throw new Error(
-      "Falta VITE_CRM_BASE_URL/VITE_API_BASE. Define la URL del backend local en tu .env."
+      "Falta VITE_JJ_PEGA_CRM_BASE_URL/VITE_JJ_PEGA_API_BASE. Define la URL del backend local de JJ Pega."
     );
   }
   if (isPrivateLanHost(hostname)) return "";

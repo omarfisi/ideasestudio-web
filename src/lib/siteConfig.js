@@ -1,3 +1,8 @@
+import {
+  JJ_PEGA_API_BASE,
+  JJ_PEGA_WORKSPACE_ID,
+} from "@/lib/jjPegaRuntime.js";
+
 /**
  * Public brand configuration for the JJ Pega storefront.
  * Keep this separate from CRM/admin configuration so public requests never
@@ -8,9 +13,9 @@ export const SITE_CONFIG = {
   legalName: "JJ Pega",
   siteUrl: "https://jjpega.com",
   // Tenant-specific; supplied by each environment, never hardcoded.
-  publicWorkspaceId: (import.meta.env.VITE_PUBLIC_WORKSPACE_ID || "").trim(),
-  crmApiUrl: import.meta.env.VITE_CRM_BASE_URL || "",
-  crmAppUrl: import.meta.env.VITE_APP_CRM_URL || "",
+  publicWorkspaceId: JJ_PEGA_WORKSPACE_ID,
+  crmApiUrl: JJ_PEGA_API_BASE,
+  crmAppUrl: import.meta.env.VITE_JJ_PEGA_APP_CRM_URL || "",
   contact: {
     email: "info@jjpega.com",
     phone: null,

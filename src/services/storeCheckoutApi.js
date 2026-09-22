@@ -7,7 +7,7 @@ function getStoreBaseUrl() {
 
   if (!base) {
     throw new Error(
-      "Falta VITE_CRM_BASE_URL. Define la URL del backend CRM en tu .env."
+      "Falta VITE_JJ_PEGA_CRM_BASE_URL/VITE_JJ_PEGA_API_BASE. Define la URL del backend JJ Pega."
     );
   }
 

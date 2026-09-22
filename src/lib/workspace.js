@@ -1,19 +1,12 @@
 // FASE 4A — antes apuntaba al workspace legacy "Ideas Estudio"
 // (cfdd0b5a-3468-4d5a-86da-50e1f4f324a6), vacío desde que el catálogo
 // comercial y todo el contenido público se movieron al workspace "CRM" en
-// PR-5c/5d (mayo 2026). Ver WORKSPACE_CONFIGURATION_DECISION_REPORT
-// (FASE 3D) y el hallazgo de FASE 4: si VITE_PUBLIC_WORKSPACE_ID llegara a
-// faltar en cualquier entorno, este fallback debe seguir siendo el
-// workspace activo real, nunca el legacy vacío.
-const CRM_WORKSPACE_ID = "0d8c04a8-6be2-4559-93de-0b2be2639f82";
-const configuredWorkspaceId = (
-  (typeof import.meta !== "undefined" && import.meta?.env?.VITE_PUBLIC_WORKSPACE_ID) ||
-  ""
-).trim();
-const isPlaceholderWorkspaceId = /^(?:0{8}-0{4}-0{4}-0{4}-0{12}|00000000-0000-0000-0000-000000000001)$/.test(configuredWorkspaceId);
-const PUBLIC_WORKSPACE_ID = configuredWorkspaceId && !isPlaceholderWorkspaceId
-  ? configuredWorkspaceId
-  : CRM_WORKSPACE_ID;
+// The JJ Pega workspace is supplied only through VITE_JJ_PEGA_WORKSPACE_ID.
+// Missing configuration fails closed instead of falling back to another
+// tenant's workspace.
+import { JJ_PEGA_WORKSPACE_ID } from "@/lib/jjPegaRuntime.js";
+
+const PUBLIC_WORKSPACE_ID = JJ_PEGA_WORKSPACE_ID;
 
 export { PUBLIC_WORKSPACE_ID };
 

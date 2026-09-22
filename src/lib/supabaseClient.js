@@ -1,11 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
+import {
+  JJ_PEGA_SUPABASE_ANON_KEY,
+  JJ_PEGA_SUPABASE_URL,
+} from "@/lib/jjPegaRuntime.js";
 
-const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL || "").trim();
-const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
+const supabaseUrl = JJ_PEGA_SUPABASE_URL;
+const supabaseAnonKey = JJ_PEGA_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn(
-    "[supabase] VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY no están configuradas. " +
+    "[supabase] VITE_JJ_PEGA_SUPABASE_URL o VITE_JJ_PEGA_SUPABASE_ANON_KEY no están configuradas. " +
     "El portal de cliente no funcionará hasta que se agreguen al .env.local."
   );
 }

@@ -1,11 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
 
-const API_BASE = (
-  import.meta.env.VITE_CRM_BASE_URL ||
-  import.meta.env.VITE_API_BASE ||
-  ""
-).replace(/\/+$/, "");
+const API_BASE = CRM_PUBLIC_API_BASE_URL;
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 

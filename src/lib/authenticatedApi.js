@@ -31,7 +31,7 @@ export class ApiRequestError extends Error {
 function getBaseUrl() {
   const base = (CRM_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "");
   if (!base) {
-    throw new Error("Falta VITE_CRM_BASE_URL. Define la URL del backend CRM en tu .env.");
+    throw new Error("Falta VITE_JJ_PEGA_CRM_BASE_URL/VITE_JJ_PEGA_API_BASE. Define la URL del backend JJ Pega.");
   }
   return base;
 }

@@ -5,7 +5,8 @@ vi.stubGlobal("fetch", fetchMock);
 
 async function loadLeadForms(crmBase) {
   vi.resetModules();
-  vi.stubEnv("VITE_CRM_BASE_URL", crmBase);
+  vi.stubEnv("VITE_JJ_PEGA_API_BASE", crmBase);
+  vi.stubEnv("VITE_JJ_PEGA_WORKSPACE_ID", "0d8c04a8-6be2-4559-93de-0b2be2639f82");
   return import("@/lib/publicLeadForms.js");
 }
 
@@ -27,7 +28,7 @@ describe("publicLeadForms CRM routing", () => {
 
     await expect(
       submitLeadForm({ full_name: "Synthetic User", email: "user@example.invalid" }),
-    ).rejects.toThrow(/VITE_CRM_BASE_URL/);
+    ).rejects.toThrow(/VITE_JJ_PEGA_CRM_BASE_URL|VITE_JJ_PEGA_API_BASE/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -59,13 +60,13 @@ describe("publicLeadForms CRM routing", () => {
 
   it("uses an explicitly configured production base without a silent fallback", async () => {
     fetchMock.mockResolvedValueOnce(okResponse({ submission_id: "production-configured" }));
-    const { submitLeadForm } = await loadLeadForms("https://api.ideasestudio.com");
+    const { submitLeadForm } = await loadLeadForms("https://api.jjpega.com");
 
     await submitLeadForm({ full_name: "Configured User", email: "user@example.invalid" });
 
     const [url] = fetchMock.mock.calls[0];
     expect(url).toBe(
-      "https://api.ideasestudio.com/api/public/contact-submit?workspace_id=0d8c04a8-6be2-4559-93de-0b2be2639f82",
+      "https://api.jjpega.com/api/public/contact-submit?workspace_id=0d8c04a8-6be2-4559-93de-0b2be2639f82",
     );
   });
 });

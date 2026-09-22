@@ -1454,7 +1454,7 @@ function StoreCheckout({
                   </Elements>
                 ) : (
                   <p className="form-status form-status--error">
-                    Falta `VITE_STRIPE_PUBLISHABLE_KEY` para inicializar Stripe en frontend.
+                    Falta `VITE_JJ_PEGA_STRIPE_PUBLISHABLE_KEY` para inicializar Stripe en frontend.
                   </p>
                 )
               ) : submitState.status === "error" ? (
@@ -1607,6 +1607,18 @@ function StoreCheckout({
                     </span>
                     <span>{formatPrice(cart.summary.subtotal, cart.summary.currency)}</span>
                   </div>
+                  {Number(cart.summary.taxTotal || 0) > 0 && (
+                    <div className="checkout-total-row">
+                      <span>IVU (Puerto Rico)</span>
+                      <span>{formatPrice(cart.summary.taxTotal, cart.summary.currency)}</span>
+                    </div>
+                  )}
+                  {Number(cart.summary.shippingTotal || 0) > 0 && (
+                    <div className="checkout-total-row">
+                      <span>Shipping y handling</span>
+                      <span>{formatPrice(cart.summary.shippingTotal, cart.summary.currency)}</span>
+                    </div>
+                  )}
                   {bookingExtrasEstimate > 0 && (
                     <div className="checkout-total-row">
                       <span>Extras (estimado)</span>
@@ -1629,7 +1641,12 @@ function StoreCheckout({
                     <span>Total estimado</span>
                     <span>
                       {formatPrice(
-                        Math.max(0, Number(cart.summary.subtotal) - Number(appliedCoupon?.discountAmount || 0)),
+                        Math.max(
+                          0,
+                          Number(cart.summary.subtotal) - Number(appliedCoupon?.discountAmount || 0)
+                            + Number(cart.summary.taxTotal || 0)
+                            + Number(cart.summary.shippingTotal || 0),
+                        ),
                         cart.summary.currency
                       )}
                     </span>

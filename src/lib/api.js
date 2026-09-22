@@ -42,7 +42,7 @@ function buildUrl(path, query = {}) {
 
   if (!base) {
     throw new Error(
-      "Falta VITE_CRM_BASE_URL. Define la URL del backend CRM en tu .env."
+      "Falta VITE_JJ_PEGA_CRM_BASE_URL/VITE_JJ_PEGA_API_BASE. Define la URL del backend JJ Pega."
     );
   }
 
@@ -431,6 +431,7 @@ function normalizeProduct(raw) {
     trackInventory: Boolean(raw.track_inventory),
     isActive: raw.is_active !== false,
     productType: raw.product_type || "digital",
+    requiresShipping: raw.requires_shipping === true,
     coverImage: raw.cover_image || raw.cover_image_url || null,
     gallery,
     metadata: metadataSource,
@@ -542,6 +543,9 @@ function normalizeCart(raw) {
           items.reduce((total, item) => total + item.quantity, 0)
       ),
       subtotal,
+      taxTotal: Number(summary.tax_total ?? raw.tax_total ?? 0),
+      shippingTotal: Number(summary.shipping_total ?? raw.shipping_total ?? 0),
+      discountTotal: Number(summary.discount_total ?? raw.discount_total ?? 0),
       currency: summary.currency || raw.currency || items[0]?.currency || "USD",
     },
   };
@@ -701,6 +705,9 @@ function normalizeStoreCartEnvelope(data) {
         )
       ),
       subtotal: Number(data.cart?.subtotal ?? 0),
+      tax_total: Number(data.cart?.tax_total ?? 0),
+      shipping_total: Number(data.cart?.shipping_total ?? 0),
+      discount_total: Number(data.cart?.discount_total ?? 0),
       currency: data.cart?.currency || "USD",
     },
   };

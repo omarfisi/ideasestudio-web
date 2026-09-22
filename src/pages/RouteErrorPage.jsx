@@ -26,7 +26,7 @@ export default function RouteErrorPage() {
 
   if (message === "Failed to fetch") {
     message =
-      "No se pudo conectar con el backend local. Verifica que la API este levantada y que VITE_CRM_BASE_URL apunte a la URL correcta.";
+      "No se pudo conectar con el backend local. Verifica que la API este levantada y que VITE_JJ_PEGA_CRM_BASE_URL apunte a la URL correcta.";
   }
 
   return (

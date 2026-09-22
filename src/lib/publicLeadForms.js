@@ -1,4 +1,5 @@
 import { PUBLIC_WORKSPACE_ID } from "@/lib/workspace.js";
+import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
 
 export async function submitLeadForm({
   full_name = "",
@@ -13,16 +14,16 @@ export async function submitLeadForm({
   submission_kind = "lead_capture",
   meta = {},
 }) {
-  const CRM_BASE = String(import.meta.env.VITE_CRM_BASE_URL || "").replace(/\/+$/, "");
+  const CRM_BASE = String(CRM_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "");
 
   if (!CRM_BASE) {
     throw new Error(
-      "Falta VITE_CRM_BASE_URL. Define la URL del backend CRM antes de enviar el formulario.",
+      "Falta VITE_JJ_PEGA_CRM_BASE_URL/VITE_JJ_PEGA_API_BASE antes de enviar el formulario.",
     );
   }
 
   if (!PUBLIC_WORKSPACE_ID) {
-    throw new Error("Falta VITE_PUBLIC_WORKSPACE_ID para enviar el formulario.");
+    throw new Error("Falta VITE_JJ_PEGA_WORKSPACE_ID para enviar el formulario.");
   }
 
   const normalizedName = String(full_name || "").trim();
