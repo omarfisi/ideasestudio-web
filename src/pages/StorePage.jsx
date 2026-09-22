@@ -10,7 +10,6 @@ import "@/components/store/ShopProductCard.css";
 import "./JJPegaTestimonials.css";
 import BlogNewsletterSection from "@/components/blog/BlogNewsletterSection.jsx";
 import {
-  addProductToPublicCart,
   getPublicProductCategories,
   getPublicProducts,
   getPublicTestimonials,
@@ -114,12 +113,7 @@ export default function StorePage() {
   const [catalogError, setCatalogError] = useState("");
   const [publicTestimonials, setPublicTestimonials] = useState([]);
   const [reviewIndex, setReviewIndex] = useState(0);
-  const [addingProductSlug, setAddingProductSlug] = useState(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-  const [cartState, setCartState] = useState({
-    status: "idle",
-    message: "",
-  });
   const productsRequestRef = useRef(0);
 
   useEffect(() => {
@@ -444,39 +438,6 @@ export default function StorePage() {
     return sorted;
   }, [activeProducts, filters]);
 
-  async function handleAddToCart(product) {
-    setAddingProductSlug(product.slug);
-    setCartState({
-      status: "loading",
-      message: `Agregando ${product.name} al carrito...`,
-    });
-
-    try {
-      const cart = await addProductToPublicCart({
-        productId: product.id,
-        productSlug: product.slug,
-        quantity: 1,
-      });
-
-      setCartState({
-        status: "success",
-        productName: product.name || "",
-        totalQuantity: cart.summary.totalQuantity,
-        sessionToken: cart.sessionToken || null,
-      });
-    } catch (error) {
-      setCartState({
-        status: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "No se pudo agregar el servicio al resumen.",
-      });
-    } finally {
-      setAddingProductSlug(null);
-    }
-  }
-
   const storeAssets = [
     "sticker-good-vibes.webp", "sticker-corazon-rosa.webp", "sticker-corona-jj.webp",
     "sticker-margarita.webp", "sticker-arcoiris.webp", "sticker-good-vibes-text.webp",
@@ -493,11 +454,11 @@ export default function StorePage() {
       : `/tienda?q=${encodeURIComponent(title)}`;
   };
   const storeExampleProducts = [
-    { id: "example-good-vibes", slug: "example-good-vibes", name: "Sticker Good Vibes", price: 15, coverImage: "/assets/jj-high-quality/sticker-good-vibes.webp", isExample: true },
-    { id: "example-corazon-rosa", slug: "example-corazon-rosa", name: "Sticker Corazón Rosa", price: 15, coverImage: "/assets/jj-high-quality/sticker-corazon-rosa.webp", isExample: true },
-    { id: "example-good-ideas", slug: "example-good-ideas", name: "Sticker Good Ideas Always", price: 15, coverImage: "/assets/jj-high-quality/sticker-good-vibes-text.webp", isExample: true },
-    { id: "example-aguacate", slug: "example-aguacate", name: "Sticker Aguacate Cool", price: 15, coverImage: "/assets/jj-high-quality/sticker-aguacate-feliz.webp", isExample: true },
-    { id: "example-flower", slug: "example-flower", name: "Sticker Flower Power", price: 15, coverImage: "/assets/jj-high-quality/sticker-margarita.webp", isExample: true },
+    { id: "example-good-vibes", slug: "sticker-good-vibes", name: "Sticker Good Vibes", price: 15, coverImage: "/assets/jj-high-quality/sticker-good-vibes.webp", isExample: true },
+    { id: "example-corazon-rosa", slug: "sticker-corazon-rosa", name: "Sticker Corazón Rosa", price: 15, coverImage: "/assets/jj-high-quality/sticker-corazon-rosa.webp", isExample: true },
+    { id: "example-good-ideas", slug: "sticker-good-ideas-always", name: "Sticker Good Ideas Always", price: 15, coverImage: "/assets/jj-high-quality/sticker-good-vibes-text.webp", isExample: true },
+    { id: "example-aguacate", slug: "sticker-aguacate-cool", name: "Sticker Aguacate Cool", price: 15, coverImage: "/assets/jj-high-quality/sticker-aguacate-feliz.webp", isExample: true },
+    { id: "example-flower", slug: "sticker-flower-power", name: "Sticker Flower Power", price: 15, coverImage: "/assets/jj-high-quality/sticker-margarita.webp", isExample: true },
   ];
   const shopProducts = visibleProducts.length ? visibleProducts.slice(0, 5) : storeExampleProducts;
   const popularProducts = visibleProducts.length ? visibleProducts.slice(0, 5).reverse() : storeExampleProducts.slice().reverse();
@@ -542,7 +503,7 @@ export default function StorePage() {
       <div className="jj-shop-product__body">
         <h3>{product.name}</h3>
         <p><strong>${Number(product.price || 0).toFixed(2)}</strong></p>
-        {product.isExample ? <Link className="jj-shop-product__add" to="/tienda">Ver producto</Link> : <button type="button" className="jj-shop-product__add" disabled={addingProductSlug === product.slug} onClick={() => handleAddToCart(product)}>{addingProductSlug === product.slug ? "Agregando..." : "Agregar al carrito"}</button>}
+        <Link className="jj-shop-product__add" to={`/tienda/${product.slug}`} aria-label={`Ver ${product.name}`}>Ver producto</Link>
       </div>
     </article>
   );
