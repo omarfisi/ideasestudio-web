@@ -22,7 +22,7 @@ export default function StickerProductCard({ product, index = 0, badge = "" }) {
       <div className="jj-shop-product__body">
         <h3>{product.name}</h3>
         <p><strong>{formatPrice(product.price, product.currency)}</strong></p>
-        <Link to={`/servicios/productos/${product.slug}`} className="jj-shop-product__add">
+        <Link to={`/tienda/${product.slug}`} className="jj-shop-product__add">
           Ver producto <span aria-hidden="true">→</span>
         </Link>
       </div>

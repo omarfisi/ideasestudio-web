@@ -67,7 +67,7 @@ function RedirectLegacyStoreProduct() {
   return (
     <Navigate
       replace
-      to={`/servicios/${slug}${location.search}${location.hash}`}
+      to={`/tienda/${slug}${location.search}${location.hash}`}
     />
   );
 }
@@ -104,9 +104,13 @@ const router = createBrowserRouter([
         element: <JJPegaHomePage />,
       },
       {
-        path: "servicios",
+        path: "tienda",
         loader: loadProductsCatalog,
         element: <StorePage />,
+      },
+      {
+        path: "servicios",
+        element: <RedirectWithLocation to="/tienda" />,
       },
       { path: "stickers-individuales", element: <StickerIndividualsPage /> },
       { path: "packs", element: <StickerPacksPage /> },
@@ -132,7 +136,7 @@ const router = createBrowserRouter([
       ].map((path) => ({ path, element: <Navigate replace to="/personaliza" /> })),
       {
         path: "servicios/contratar",
-        element: <RedirectWithLocation to="/servicios" />,
+        element: <RedirectWithLocation to="/tienda" />,
       },
       {
         path: "servicios/contratar/:slug",
@@ -140,7 +144,7 @@ const router = createBrowserRouter([
       },
       {
         path: "servicios/productos",
-        element: <RedirectWithLocation to="/servicios" />,
+        element: <RedirectWithLocation to="/tienda" />,
       },
       {
         path: "servicios/productos/:slug",
@@ -175,12 +179,9 @@ const router = createBrowserRouter([
         element: <ProductDetailPage />,
       },
       {
-        path: "tienda",
-        element: <RedirectWithLocation to="/servicios" />,
-      },
-      {
         path: "tienda/:slug",
-        element: <RedirectLegacyStoreProduct />,
+        loader: loadProductDetail,
+        element: <ProductDetailPage />,
       },
       {
         path: "contacto",
