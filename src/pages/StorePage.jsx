@@ -264,7 +264,7 @@ export default function StorePage() {
         setCatalogError(
           error instanceof Error
             ? error.message
-            : "No se pudo cargar el catálogo de servicios."
+            : "No se pudo cargar la tienda."
         );
       } finally {
         if (!cancelled && requestId === productsRequestRef.current) {
@@ -489,8 +489,8 @@ export default function StorePage() {
       return normalizedLabel.includes(normalizedTitle) || normalizedTitle.includes(normalizedLabel);
     });
     return match
-      ? `/servicios?category=${encodeURIComponent(match.value)}`
-      : `/servicios?q=${encodeURIComponent(title)}`;
+      ? `/tienda?category=${encodeURIComponent(match.value)}`
+      : `/tienda?q=${encodeURIComponent(title)}`;
   };
   const storeExampleProducts = [
     { id: "example-good-vibes", slug: "example-good-vibes", name: "Sticker Good Vibes", price: 15, coverImage: "/assets/jj-high-quality/sticker-good-vibes.webp", isExample: true },
@@ -542,7 +542,7 @@ export default function StorePage() {
       <div className="jj-shop-product__body">
         <h3>{product.name}</h3>
         <p><strong>${Number(product.price || 0).toFixed(2)}</strong></p>
-        {product.isExample ? <Link className="jj-shop-product__add" to="/servicios">Ver producto</Link> : <button type="button" className="jj-shop-product__add" disabled={addingProductSlug === product.slug} onClick={() => handleAddToCart(product)}>{addingProductSlug === product.slug ? "Agregando..." : "Agregar al carrito"}</button>}
+        {product.isExample ? <Link className="jj-shop-product__add" to="/tienda">Ver producto</Link> : <button type="button" className="jj-shop-product__add" disabled={addingProductSlug === product.slug} onClick={() => handleAddToCart(product)}>{addingProductSlug === product.slug ? "Agregando..." : "Agregar al carrito"}</button>}
       </div>
     </article>
   );
@@ -566,7 +566,7 @@ export default function StorePage() {
         successMessage="¡Listo! Revisa tu correo para recibir tu código de 10% de descuento."
         consentLabel="Al suscribirte aceptas recibir ofertas de JJ Pega."
       />
-      <section className="jj-store-section"><div className="jj-store-container"><div className="jj-store-most-ordered-title"><img src="/assets/most-ordered-title.webp" alt="Los más pedidos" /></div>{popularProducts.length ? <div className="jj-shop-grid">{popularProducts.map((product, index) => renderShopCard(product, index + 3))}</div> : null}<div className="jj-store-most-ordered-cta"><Link className="jj-image-button" to="/servicios"><img src="/assets/most-ordered-cta.webp" alt="Ver más productos" /></Link></div></div></section>
+      <section className="jj-store-section"><div className="jj-store-container"><div className="jj-store-most-ordered-title"><img src="/assets/most-ordered-title.webp" alt="Los más pedidos" /></div>{popularProducts.length ? <div className="jj-shop-grid">{popularProducts.map((product, index) => renderShopCard(product, index + 3))}</div> : null}<div className="jj-store-most-ordered-cta"><Link className="jj-image-button" to="/tienda"><img src="/assets/most-ordered-cta.webp" alt="Ver más productos" /></Link></div></div></section>
       <section className="jj-store-section jj-store-reviews"><div className="jj-store-container"><div className="jj-store-section__head jj-store-reviews__head"><img className="jj-store-reviews-banner" src="/assets/jj-high-quality/reviews-title.webp" alt="Lo que dicen nuestros clientes" /></div><div className="jj-review-slideshow"><button type="button" className="jj-review-slideshow__arrow jj-review-slideshow__arrow--prev" onClick={showPreviousReview} aria-label="Testimonios anteriores">←</button><div className="jj-review-grid">{visibleReviewItems.map((item) => <article className="jj-review-card" key={item.id}><div className="jj-review-card__top"><span className="jj-review-card__avatar">{getReviewInitials(item.name)}</span><span className="jj-review-card__stars" aria-label={String(item.rating || 5) + " estrellas"}>{"★".repeat(Math.max(1, Math.min(5, Number(item.rating) || 5)))}</span><span className="jj-review-card__quote-mark" aria-hidden="true">“</span></div><p className="jj-review-card__quote">“{item.quote}”</p><div className="jj-review-card__author"><b>{item.name}</b><small><span aria-hidden="true">✓</span> {item.meta || "Compra verificada"}</small></div><span className="jj-review-card__heart" aria-hidden="true">♥</span></article>)}</div><button type="button" className="jj-review-slideshow__arrow jj-review-slideshow__arrow--next" onClick={showNextReview} aria-label="Siguientes testimonios">→</button></div>{reviewPageCount > 1 ? <div className="jj-review-slideshow__dots" aria-label="Navegación de testimonios">{Array.from({ length: reviewPageCount }).map((_, index) => <button type="button" key={index} className={index === reviewIndex ? "is-active" : ""} onClick={() => setReviewIndex(index)} aria-label={"Ver grupo de testimonios " + (index + 1)} />)}</div> : null}</div></section>
       <section className="jj-store-container"><div className="jj-store-trust"><span>◇ <b>Calidad premium</b><small>Stickers que duran</small></span><span>🚚 <b>Envíos a todo el mundo</b><small>Rápido y seguro</small></span><span>☺ <b>Compra segura</b><small>Tus datos están protegidos</small></span><span>⌁ <b>Amamos el planeta</b><small>Empaques responsables</small></span></div></section>
     </main>

@@ -274,7 +274,7 @@ export default function ProductDetailPage() {
           <div className="empty-state">
             <h1>Producto no encontrado</h1>
             <p>El producto solicitado no existe o no está publicado.</p>
-            <Button to="/servicios">Volver al catálogo</Button>
+            <Button to="/tienda">Volver al catálogo</Button>
           </div>
         </div>
       </section>
@@ -362,7 +362,7 @@ export default function ProductDetailPage() {
         <nav className="service-detail-breadcrumb" aria-label="Breadcrumb">
           <Link to="/">Inicio</Link>
           <span>/</span>
-          <Link to="/servicios">Servicios</Link>
+          <Link to="/tienda">Tienda</Link>
           <span>/</span>
           <span>{product.name}</span>
         </nav>
@@ -727,13 +727,13 @@ export default function ProductDetailPage() {
           <section className="service-detail-related">
             <div className="service-detail-related__header">
               <h2>Productos relacionados</h2>
-              <Link to="/servicios">Ver catálogo completo</Link>
+              <Link to="/tienda">Ver catálogo completo</Link>
             </div>
 
             <div className="service-detail-related__grid">
               {relatedState.items.map((item) => (
                 <article key={item.id || item.slug} className="service-detail-related__card">
-                  <Link to={`/servicios/${item.slug}`} className="service-detail-related__media">
+                  <Link to={`/tienda/${item.slug}`} className="service-detail-related__media">
                     {item.coverImage ? (
                       <img src={item.coverImage} alt={item.name} loading="lazy" />
                     ) : (
@@ -745,7 +745,7 @@ export default function ProductDetailPage() {
                   <div className="service-detail-related__copy">
                     <span>{item.category?.name || "Productos"}</span>
                     <h3>
-                      <Link to={`/servicios/${item.slug}`}>{item.name}</Link>
+                      <Link to={`/tienda/${item.slug}`}>{item.name}</Link>
                     </h3>
                     <strong>{getPriceLabel(item)}</strong>
                   </div>
