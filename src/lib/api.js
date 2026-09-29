@@ -883,7 +883,8 @@ export async function createOrUpdatePublicCart(payload) {
     currency: "USD",
   });
   const cartId = cartEnvelope?.cart?.id;
-  if (!cartId) {
+  const cartToken = cartEnvelope?.cart?.cart_token || seedToken || null;
+  if (!cartId || !cartToken) {
     throw new Error("No se pudo inicializar el resumen de servicios.");
   }
 
@@ -907,13 +908,14 @@ export async function createOrUpdatePublicCart(payload) {
       }
 
       if (!wantedQuantity) {
-        cartEnvelope = await deleteStoreCartItem({ itemId: item.id });
+        cartEnvelope = await deleteStoreCartItem({ itemId: item.id, cartToken });
         continue;
       }
 
       if (Number(item.quantity || 0) !== Number(wantedQuantity)) {
         cartEnvelope = await updateStoreCartItem({
           itemId: item.id,
+          cartToken,
           quantity: Number(wantedQuantity),
         });
       }
@@ -924,6 +926,7 @@ export async function createOrUpdatePublicCart(payload) {
     for (const [productId, quantity] of desiredByProductId.entries()) {
       cartEnvelope = await addStoreCartItem({
         cartId,
+        cartToken,
         productId,
         quantity,
       });
@@ -932,6 +935,7 @@ export async function createOrUpdatePublicCart(payload) {
     for (const item of nextItems) {
       cartEnvelope = await addStoreCartItem({
         cartId,
+        cartToken,
         productId: item.product_id,
         quantity: item.quantity,
       });
@@ -1034,10 +1038,12 @@ export async function setPublicCartItemQuantity({
     nextQuantity > 0
       ? await updateStoreCartItem({
           itemId: currentItem.id,
+          cartToken: sessionToken,
           quantity: nextQuantity,
         })
       : await deleteStoreCartItem({
           itemId: currentItem.id,
+          cartToken: sessionToken,
         });
 
   const cart = normalizeStoreCartEnvelope(envelope);

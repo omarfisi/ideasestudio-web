@@ -127,22 +127,24 @@ export async function resolveStoreCart({
 }
 
 export async function getStoreCartCurrent({ cartId = null, cartToken = null } = {}) {
-  if (!cartId && !cartToken) {
-    throw new Error("cartId o cartToken es requerido para consultar el carrito.");
+  if (!cartToken) {
+    throw new Error("cartToken es requerido para consultar el carrito.");
   }
 
   return storeFetch("/cart/current", {
     method: "GET",
     query: {
       cart_id: cartId || null,
-      cart_token: cartToken || null,
+      cart_token: cartToken,
     },
   });
 }
 
-export async function addStoreCartItem({ cartId, productId, quantity = 1 }) {
+export async function addStoreCartItem({ cartId, cartToken, productId, quantity = 1 }) {
+  if (!cartToken) throw new Error("cartToken es requerido para modificar el carrito.");
   return storeFetch("/cart/items", {
     method: "POST",
+    headers: { "X-Cart-Token": cartToken },
     body: JSON.stringify({
       cart_id: cartId,
       product_id: productId,
@@ -151,16 +153,20 @@ export async function addStoreCartItem({ cartId, productId, quantity = 1 }) {
   });
 }
 
-export async function updateStoreCartItem({ itemId, quantity }) {
+export async function updateStoreCartItem({ itemId, cartToken, quantity }) {
+  if (!cartToken) throw new Error("cartToken es requerido para modificar el carrito.");
   return storeFetch(`/cart/items/${itemId}`, {
     method: "PATCH",
+    headers: { "X-Cart-Token": cartToken },
     body: JSON.stringify({ quantity }),
   });
 }
 
-export async function deleteStoreCartItem({ itemId }) {
+export async function deleteStoreCartItem({ itemId, cartToken }) {
+  if (!cartToken) throw new Error("cartToken es requerido para modificar el carrito.");
   return storeFetch(`/cart/items/${itemId}`, {
     method: "DELETE",
+    headers: { "X-Cart-Token": cartToken },
   });
 }
 
