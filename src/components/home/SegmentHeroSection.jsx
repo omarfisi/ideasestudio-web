@@ -1,5 +1,13 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import SafeImage from "@/components/shared/SafeImage.jsx";
+
+const SEGMENT_IMAGE_FALLBACKS = [
+  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/marca-negocio.webp",
+  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/presencia-visual.webp",
+  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/solucion-social.webp",
+  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/solucion-medida.webp",
+];
 
 const SEGMENT_ITEMS = [
   {
@@ -122,8 +130,9 @@ export default function SegmentHeroSection() {
             </div>
 
             <div className="hidden lg:block lg:relative lg:min-h-full">
-              <img
+              <SafeImage
                 src={activeSegment.image}
+                fallbackSrc={SEGMENT_IMAGE_FALLBACKS[0]}
                 alt={activeSegment.title}
                 className="h-full w-full object-cover"
                 loading="lazy"
@@ -151,8 +160,9 @@ export default function SegmentHeroSection() {
                   className="block w-full text-left"
                   aria-label={`Seleccionar ${item.title}`}
                 >
-                  <img
+                  <SafeImage
                     src={item.image}
+                    fallbackSrc={SEGMENT_IMAGE_FALLBACKS[0]}
                     alt={item.title}
                     className={`h-40 w-full object-cover ${item.imagePosition ?? ""}`}
                     loading="lazy"

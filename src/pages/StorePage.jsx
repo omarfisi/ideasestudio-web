@@ -99,6 +99,21 @@ function getReviewInitials(name) {
     .toUpperCase();
 }
 
+// Accept both canonical camelCase and legacy snake_case product fields.
+export function isActiveProductOfType(product, expectedType) {
+  const productType = product?.productType ?? product?.product_type;
+  const active = product?.isActive ?? product?.is_active;
+  return (
+    String(productType || "").trim().toLowerCase() ===
+      String(expectedType || "").trim().toLowerCase() &&
+    active !== false
+  );
+}
+
+export function isActiveServiceProduct(product) {
+  return isActiveProductOfType(product, "service");
+}
+
 export default function StorePage() {
   const pageSeo = usePageSeo();
   const loaderData = useLoaderData();
@@ -245,8 +260,8 @@ export default function StorePage() {
         }
 
         const items = Array.isArray(catalog?.items)
-          ? catalog.items.filter(
-              (item) => item?.productType === (IS_JJ_PEGA ? "physical" : "service") && item?.isActive !== false
+          ? catalog.items.filter((item) =>
+              isActiveProductOfType(item, IS_JJ_PEGA ? "physical" : "service")
             )
           : [];
         setProducts(items);

@@ -127,22 +127,24 @@ export async function resolveStoreCart({
 }
 
 export async function getStoreCartCurrent({ cartId = null, cartToken = null } = {}) {
-  if (!cartId && !cartToken) {
-    throw new Error("cartId o cartToken es requerido para consultar el carrito.");
+  if (!cartToken) {
+    throw new Error("cartToken es requerido para consultar el carrito.");
   }
 
   return storeFetch("/cart/current", {
     method: "GET",
     query: {
       cart_id: cartId || null,
-      cart_token: cartToken || null,
+      cart_token: cartToken,
     },
   });
 }
 
-export async function addStoreCartItem({ cartId, productId, quantity = 1, variantId = null }) {
+export async function addStoreCartItem({ cartId, cartToken, productId, quantity = 1, variantId = null }) {
+  if (!cartToken) throw new Error("cartToken es requerido para modificar el carrito.");
   return storeFetch("/cart/items", {
     method: "POST",
+    headers: { "X-Cart-Token": cartToken },
     body: JSON.stringify({
       cart_id: cartId,
       product_id: productId,
@@ -152,20 +154,24 @@ export async function addStoreCartItem({ cartId, productId, quantity = 1, varian
   });
 }
 
-export async function updateStoreCartItem({ itemId, quantity }) {
+export async function updateStoreCartItem({ itemId, cartToken, quantity }) {
+  if (!cartToken) throw new Error("cartToken es requerido para modificar el carrito.");
   return storeFetch(`/cart/items/${itemId}`, {
     method: "PATCH",
+    headers: { "X-Cart-Token": cartToken },
     body: JSON.stringify({ quantity }),
   });
 }
 
-export async function deleteStoreCartItem({ itemId }) {
+export async function deleteStoreCartItem({ itemId, cartToken }) {
+  if (!cartToken) throw new Error("cartToken es requerido para modificar el carrito.");
   return storeFetch(`/cart/items/${itemId}`, {
     method: "DELETE",
+    headers: { "X-Cart-Token": cartToken },
   });
 }
 
-export async function createStoreOrder(payload) {
+export async function createStoreOrder(payload, { cartToken = null } = {}) {
   // withAuth: if the customer is logged in, the backend links the created/
   // found contact to their account (contacts.user_id) — see
   // resolve_customer_contact on the backend. Guests (no session) still work
@@ -173,13 +179,15 @@ export async function createStoreOrder(payload) {
   return storeFetch("/checkout/create-order", {
     method: "POST",
     withAuth: true,
+    headers: cartToken ? { "X-Cart-Token": cartToken } : undefined,
     body: JSON.stringify(payload),
   });
 }
 
-export async function createStorePaymentIntent({ orderId, provider = "stripe" }) {
+export async function createStorePaymentIntent({ orderId, provider = "stripe", cartToken = null }) {
   return storeFetch("/payments/create-intent", {
     method: "POST",
+    headers: cartToken ? { "X-Cart-Token": cartToken } : undefined,
     body: JSON.stringify({
       order_id: orderId,
       provider,
@@ -187,12 +195,18 @@ export async function createStorePaymentIntent({ orderId, provider = "stripe" })
   });
 }
 
-export async function getStoreOrderById(orderId) {
-  return storeFetch(`/orders/${orderId}`, { method: "GET" });
+export async function getStoreOrderById(orderId, { cartToken = null } = {}) {
+  return storeFetch(`/orders/${orderId}`, {
+    method: "GET",
+    headers: cartToken ? { "X-Cart-Token": cartToken } : undefined,
+  });
 }
 
-export async function getStoreOrderByNumber(orderNumber) {
-  return storeFetch(`/orders/by-number/${orderNumber}`, { method: "GET" });
+export async function getStoreOrderByNumber(orderNumber, { cartToken = null } = {}) {
+  return storeFetch(`/orders/by-number/${orderNumber}`, {
+    method: "GET",
+    headers: cartToken ? { "X-Cart-Token": cartToken } : undefined,
+  });
 }
 
 export async function validateStoreCoupon({ code, orderAmount, currency = "USD" }) {

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title>Ideas Estudio</title>
+  <circle cx="32" cy="32" r="30" fill="#ffd21f"/>
+  <path d="M32 8 42 14 48 24 46 36 38 48 27 54 16 47 10 37 12 25 20 14Z" fill="none" stroke="#fff" stroke-width="5"/>
+  <path d="M20 14 32 32 42 14M12 25l20 7 14 4M16 47l16-15 6 16" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

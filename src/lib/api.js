@@ -1,3 +1,7 @@
+import localPortfolioAsset1 from "@/assets/quland-process/process-1.png";
+import localPortfolioAsset2 from "@/assets/quland-process/process-2.png";
+import localPortfolioAsset3 from "@/assets/quland-process/process-3.png";
+import localPortfolioAsset4 from "@/assets/quland-process/process-4.png";
 import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
 import { PUBLIC_WORKSPACE_ID } from "@/lib/workspace.js";
 import { getClientRouteByKey } from "@/data/routes.js";
@@ -42,7 +46,7 @@ function buildUrl(path, query = {}) {
 
   if (!base) {
     throw new Error(
-      "Falta VITE_JJ_PEGA_CRM_BASE_URL/VITE_JJ_PEGA_API_BASE. Define la URL del backend JJ Pega."
+      "Falta VITE_CRM_BASE_URL. Define la URL del backend CRM en tu .env."
     );
   }
 
@@ -431,19 +435,9 @@ function normalizeProduct(raw) {
     trackInventory: Boolean(raw.track_inventory),
     isActive: raw.is_active !== false,
     productType: raw.product_type || "digital",
-    requiresShipping: raw.requires_shipping === true,
     coverImage: raw.cover_image || raw.cover_image_url || null,
     gallery,
     metadata: metadataSource,
-    variants: Array.isArray(raw.variants)
-      ? raw.variants.filter((v) => v?.is_active !== false).map((v) => ({
-          id: v.id,
-          name: v.name || v.size_label || "Opción",
-          sizeLabel: v.size_label || v.name || "",
-          price: Number(v.price ?? 0),
-          currency: v.currency || raw.currency || "USD",
-        }))
-      : [],
     // The public.services row this product was synced from, if any.
     // GET /api/store/products/{slug} (single-product detail) includes a
     // top-level service_id — but GET /api/store/products (the catalog
@@ -543,9 +537,6 @@ function normalizeCart(raw) {
           items.reduce((total, item) => total + item.quantity, 0)
       ),
       subtotal,
-      taxTotal: Number(summary.tax_total ?? raw.tax_total ?? 0),
-      shippingTotal: Number(summary.shipping_total ?? raw.shipping_total ?? 0),
-      discountTotal: Number(summary.discount_total ?? raw.discount_total ?? 0),
       currency: summary.currency || raw.currency || items[0]?.currency || "USD",
     },
   };
@@ -656,7 +647,6 @@ export function setStoredCartSessionToken(sessionToken) {
   }
 
   storage.setItem(STORE_CART_SESSION_KEY, sessionToken);
-  window.dispatchEvent(new Event("jj-cart-updated"));
 }
 
 export function clearStoredCartSessionToken() {
@@ -666,7 +656,6 @@ export function clearStoredCartSessionToken() {
   }
 
   storage.removeItem(STORE_CART_SESSION_KEY);
-  window.dispatchEvent(new Event("jj-cart-updated"));
 }
 
 function serializeCartItems(items = []) {
@@ -682,7 +671,6 @@ function serializeCartItems(items = []) {
       return {
         product_id: productId,
         quantity,
-        ...(item.variantId || item.variant_id ? { variant_id: item.variantId || item.variant_id } : {}),
       };
     })
     .filter(Boolean);
@@ -705,9 +693,6 @@ function normalizeStoreCartEnvelope(data) {
         )
       ),
       subtotal: Number(data.cart?.subtotal ?? 0),
-      tax_total: Number(data.cart?.tax_total ?? 0),
-      shipping_total: Number(data.cart?.shipping_total ?? 0),
-      discount_total: Number(data.cart?.discount_total ?? 0),
       currency: data.cart?.currency || "USD",
     },
   };
@@ -898,8 +883,9 @@ export async function createOrUpdatePublicCart(payload) {
     currency: "USD",
   });
   const cartId = cartEnvelope?.cart?.id;
-  if (!cartId) {
-    throw new Error("No se pudo inicializar el carrito de productos.");
+  const cartToken = cartEnvelope?.cart?.cart_token || seedToken || null;
+  if (!cartId || !cartToken) {
+    throw new Error("No se pudo inicializar el resumen de servicios.");
   }
 
   const nextItems = serializeCartItems(payload.items);
@@ -922,13 +908,14 @@ export async function createOrUpdatePublicCart(payload) {
       }
 
       if (!wantedQuantity) {
-        cartEnvelope = await deleteStoreCartItem({ itemId: item.id });
+        cartEnvelope = await deleteStoreCartItem({ itemId: item.id, cartToken });
         continue;
       }
 
       if (Number(item.quantity || 0) !== Number(wantedQuantity)) {
         cartEnvelope = await updateStoreCartItem({
           itemId: item.id,
+          cartToken,
           quantity: Number(wantedQuantity),
         });
       }
@@ -939,6 +926,7 @@ export async function createOrUpdatePublicCart(payload) {
     for (const [productId, quantity] of desiredByProductId.entries()) {
       cartEnvelope = await addStoreCartItem({
         cartId,
+        cartToken,
         productId,
         quantity,
       });
@@ -947,9 +935,9 @@ export async function createOrUpdatePublicCart(payload) {
     for (const item of nextItems) {
       cartEnvelope = await addStoreCartItem({
         cartId,
+        cartToken,
         productId: item.product_id,
         quantity: item.quantity,
-        variantId: item.variant_id || null,
       });
     }
   }
@@ -1002,7 +990,6 @@ export async function addProductToPublicCart({
   productId = null,
   productSlug = null,
   quantity = 1,
-  variantId = null,
 }) {
   const resolvedProductId = await resolveProductIdForCart({
     productId,
@@ -1020,7 +1007,6 @@ export async function addProductToPublicCart({
       {
         productId: resolvedProductId,
         quantity: Number(quantity || 1),
-        ...(variantId ? { variantId } : {}),
       },
     ],
     replaceItems: false,
@@ -1052,10 +1038,12 @@ export async function setPublicCartItemQuantity({
     nextQuantity > 0
       ? await updateStoreCartItem({
           itemId: currentItem.id,
+          cartToken: sessionToken,
           quantity: nextQuantity,
         })
       : await deleteStoreCartItem({
           itemId: currentItem.id,
+          cartToken: sessionToken,
         });
 
   const cart = normalizeStoreCartEnvelope(envelope);
@@ -1146,7 +1134,7 @@ export async function submitPublicStoreCheckout(payload) {
           postal_code: payload.shippingAddress?.postalCode || null,
         }
       : null,
-  });
+  }, { cartToken: sessionToken });
 
   const order = normalizeOrder({
     ...(data?.order || {}),
@@ -1160,10 +1148,6 @@ export async function submitPublicStoreCheckout(payload) {
     document_type: data?.sale_mode === "cotizacion" ? "proposal" : "invoice",
     proposal_id: data?.proposal_id ?? null,
   });
-  if (order?.id) {
-    clearStoredCartSessionToken();
-  }
-
   return {
     order,
     bookingSummary: normalizeBookingSummary(data?.booking_summary),
@@ -1186,8 +1170,9 @@ export async function submitPublicStoreCheckout(payload) {
 export async function createPublicStorePaymentIntent({
   orderId,
   provider = "stripe",
+  cartToken = getStoredCartSessionToken(),
 }) {
-  const data = await createStorePaymentIntent({ orderId, provider });
+  const data = await createStorePaymentIntent({ orderId, provider, cartToken });
   return {
     id: data?.payment?.id || null,
     provider: data?.payment?.provider || "stripe",
@@ -1197,13 +1182,13 @@ export async function createPublicStorePaymentIntent({
   };
 }
 
-export async function getPublicOrderById(orderId) {
-  const data = await getStoreOrderById(orderId);
+export async function getPublicOrderById(orderId, cartToken = getStoredCartSessionToken()) {
+  const data = await getStoreOrderById(orderId, { cartToken });
   return normalizeOrder(data?.item);
 }
 
-export async function getPublicOrderByNumber(orderNumber) {
-  const data = await getStoreOrderByNumber(orderNumber);
+export async function getPublicOrderByNumber(orderNumber, cartToken = getStoredCartSessionToken()) {
+  const data = await getStoreOrderByNumber(orderNumber, { cartToken });
   return normalizeOrder(data?.item);
 }
 
@@ -1338,7 +1323,30 @@ export async function getPublicClientRouteBundle(routeKey) {
 
 function normalizePortfolioItem(raw) {
   if (!raw) return null;
-  const coverUrl = raw.cover_url || "";
+  const localPortfolioAssets = [
+    localPortfolioAsset1,
+    localPortfolioAsset2,
+    localPortfolioAsset3,
+    localPortfolioAsset4,
+  ];
+  const legacyAsset = (value) => {
+    if (typeof value !== "string" || !value.trim()) return true;
+    const normalized = value.toLowerCase();
+    return (
+      normalized.includes("images.unsplash.com") ||
+      normalized.includes("placehold.co") ||
+      normalized.includes("via.placeholder") ||
+      normalized.includes("placeholder") ||
+      normalized.includes("520x630")
+    );
+  };
+  const fallbackAsset = localPortfolioAssets[Math.abs(Number(raw.visual_order ?? 0)) % localPortfolioAssets.length];
+  const coverUrl = legacyAsset(raw.cover_url) ? fallbackAsset : (raw.cover_url || fallbackAsset);
+  // La API no siempre guarda una portada específica para Home o Portafolio.
+  // En ese caso debemos reutilizar el cover real del proyecto, no los PNG de
+  // dimensiones de prueba de quland-process (520x630).
+  const homeCoverUrl = legacyAsset(raw.home_cover_url) ? coverUrl : (raw.home_cover_url || coverUrl);
+  const portfolioCoverUrl = legacyAsset(raw.portfolio_cover_url) ? coverUrl : (raw.portfolio_cover_url || coverUrl);
   return {
     id: raw.id || "",
     title: raw.title || "",
@@ -1351,9 +1359,11 @@ function normalizePortfolioItem(raw) {
     tags: Array.isArray(raw.tags) ? raw.tags : [],
     // Imagen según contexto — fallback siempre a cover_url
     coverUrl,
-    homeCoverUrl: raw.home_cover_url || coverUrl,
-    portfolioCoverUrl: raw.portfolio_cover_url || coverUrl,
-    mediaUrls: Array.isArray(raw.media_urls) ? raw.media_urls.filter(Boolean) : [],
+    homeCoverUrl,
+    portfolioCoverUrl,
+    mediaUrls: Array.isArray(raw.media_urls)
+      ? raw.media_urls.filter((value) => !legacyAsset(value))
+      : [],
     isPublished: !!raw.is_published,
     isFeatured: !!raw.is_featured,
     visualOrder: Number(raw.visual_order ?? 100),
@@ -1468,13 +1478,6 @@ export async function getBlogHome() {
   return apiFetch(url);
 }
 
-export async function getPublicTestimonials() {
-  const url = buildUrl("/api/public/testimonials", {
-    workspace_id: PUBLIC_WORKSPACE_ID || undefined,
-  });
-  return apiFetch(url);
-}
-
 export async function getBlogPosts(params = {}) {
   const url = buildUrl("/api/blog/posts", {
     workspace_id: PUBLIC_WORKSPACE_ID || undefined,
@@ -1484,37 +1487,27 @@ export async function getBlogPosts(params = {}) {
 }
 
 export async function getBlogPostBySlug(slug) {
-  const url = buildUrl(`/api/blog/posts/${slug}`, {
-    workspace_id: PUBLIC_WORKSPACE_ID || undefined,
-  });
+  const url = buildUrl(`/api/blog/posts/${slug}`);
   return apiFetch(url);
 }
 
 export async function getBlogRelated(slug) {
-  const url = buildUrl(`/api/blog/posts/${slug}/related`, {
-    workspace_id: PUBLIC_WORKSPACE_ID || undefined,
-  });
+  const url = buildUrl(`/api/blog/posts/${slug}/related`);
   return apiFetch(url);
 }
 
 export async function getBlogCategories() {
-  const url = buildUrl("/api/blog/categories", {
-    workspace_id: PUBLIC_WORKSPACE_ID || undefined,
-  });
+  const url = buildUrl("/api/blog/categories");
   return apiFetch(url);
 }
 
 export async function getBlogComments(slug) {
-  const url = buildUrl(`/api/blog/posts/${slug}/comments`, {
-    workspace_id: PUBLIC_WORKSPACE_ID || undefined,
-  });
+  const url = buildUrl(`/api/blog/posts/${slug}/comments`);
   return apiFetch(url);
 }
 
 export async function submitBlogComment(slug, payload) {
-  const url = buildUrl(`/api/blog/posts/${slug}/comments`, {
-    workspace_id: PUBLIC_WORKSPACE_ID || undefined,
-  });
+  const url = buildUrl(`/api/blog/posts/${slug}/comments`);
   return apiFetch(url, {
     method: "POST",
     body: JSON.stringify(payload),
@@ -1537,8 +1530,6 @@ export async function getPublicTeam() {
 // ─────────────────────────────────────────────────────────────
 
 export async function getPublicServiceSegment(slug) {
-  const url = buildUrl(`/public/service-segments/${slug}`, {
-    workspace_id: PUBLIC_WORKSPACE_ID || undefined,
-  });
+  const url = buildUrl(`/public/service-segments/${slug}`);
   return apiFetch(url);
 }

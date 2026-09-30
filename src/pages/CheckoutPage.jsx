@@ -762,7 +762,10 @@ function StoreCheckout({
       await wait(900);
     }
     setCompletedOrder(latest);
-    clearStoredCartSessionToken();
+    // Keep the opaque cart capability after payment so the order confirmation
+    // route can still reload the same order securely. A converted cart cannot
+    // be mutated as an open cart, and a later cart resolution will replace a
+    // stale capability when shopping starts again.
     setSubmitState({
       status: "success",
       message: latest?.paymentStatus === "paid"

@@ -5,6 +5,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const localApiTarget = process.env.VITE_DEV_API_TARGET || 'http://127.0.0.1:8000'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -12,6 +13,10 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/testSetup.js'],
+    // The public-chat suite exercises many asynchronous browser states and
+    // runs alongside the full Web suite. Avoid false negatives from the
+    // default 5s timeout when jsdom workers are saturated.
+    testTimeout: 15000,
     // Excludes the pre-existing *.test.mjs files (src/lib/bookingCheckoutSteps.
     // test.mjs, src/lib/orderPaymentState.test.mjs) — a separate, standalone
     // `node <file>.mjs` convention (plain node:assert, no framework) that
@@ -33,11 +38,11 @@ export default defineConfig({
     // class of bug in publicFormsApi.js's own fallback chain.
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: localApiTarget,
         changeOrigin: true,
       },
       '/public': {
-        target: 'http://127.0.0.1:8000',
+        target: localApiTarget,
         changeOrigin: true,
       },
     },

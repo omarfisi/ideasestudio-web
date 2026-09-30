@@ -13,6 +13,10 @@ import {
   TESTIMONIAL_SECTION_COPY,
 } from "@/data/testimonials.js";
 import { getPublicProducts } from "@/lib/api.js";
+import SafeImage from "@/components/shared/SafeImage.jsx";
+
+const SERVICE_IMAGE_FALLBACK =
+  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/marca-negocio.webp";
 
 const CATEGORY_ALL = "all";
 const SALE_TYPE_ALL = "all";
@@ -298,8 +302,9 @@ export default function ServicesPage() {
               <article key={service.id} className="service-catalog-card">
                 <div className="service-catalog-card__media">
                   {service.image ? (
-                    <img
+                    <SafeImage
                       src={service.image}
+                      fallbackSrc={SERVICE_IMAGE_FALLBACK}
                       alt=""
                       aria-hidden="true"
                       className="service-catalog-card__media-img"
