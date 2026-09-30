@@ -132,8 +132,8 @@ describe("submitPublicStoreCheckout — sale_mode / payment_required contract", 
     expect(result.saleMode).toBe("compra_directa");
   });
 
-  // 15. éxito de cotización limpia carrito (cart token cleared once the order exists)
-  it("clears the stored cart session token once the order is created, regardless of sale_mode", async () => {
+  // 15. la capacidad del carrito se conserva hasta completar el flujo de pago/confirmación
+  it("keeps the stored cart capability after order creation and forwards it to create-order", async () => {
     mockCartLookup();
     createStoreOrder.mockResolvedValue({
       order: { id: "order-4", order_number: "ORD-4", grand_total: 500, status: "pending", payment_status: "pending" },
@@ -144,7 +144,11 @@ describe("submitPublicStoreCheckout — sale_mode / payment_required contract", 
 
     expect(getStoredCartSessionToken()).toBe("session-abc");
     await submitPublicStoreCheckout(checkoutPayload());
-    expect(getStoredCartSessionToken()).toBeNull();
+    expect(getStoredCartSessionToken()).toBe("session-abc");
+    expect(createStoreOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ cart_id: "cart-1" }),
+      { cartToken: "session-abc" }
+    );
   });
 
   // 14. error de propuesta no limpia carrito (create-order itself rejects/throws)

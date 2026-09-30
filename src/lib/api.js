@@ -1134,7 +1134,7 @@ export async function submitPublicStoreCheckout(payload) {
           postal_code: payload.shippingAddress?.postalCode || null,
         }
       : null,
-  });
+  }, { cartToken: sessionToken });
 
   const order = normalizeOrder({
     ...(data?.order || {}),
@@ -1148,10 +1148,6 @@ export async function submitPublicStoreCheckout(payload) {
     document_type: data?.sale_mode === "cotizacion" ? "proposal" : "invoice",
     proposal_id: data?.proposal_id ?? null,
   });
-  if (order?.id) {
-    clearStoredCartSessionToken();
-  }
-
   return {
     order,
     bookingSummary: normalizeBookingSummary(data?.booking_summary),
@@ -1174,8 +1170,9 @@ export async function submitPublicStoreCheckout(payload) {
 export async function createPublicStorePaymentIntent({
   orderId,
   provider = "stripe",
+  cartToken = getStoredCartSessionToken(),
 }) {
-  const data = await createStorePaymentIntent({ orderId, provider });
+  const data = await createStorePaymentIntent({ orderId, provider, cartToken });
   return {
     id: data?.payment?.id || null,
     provider: data?.payment?.provider || "stripe",
@@ -1185,13 +1182,13 @@ export async function createPublicStorePaymentIntent({
   };
 }
 
-export async function getPublicOrderById(orderId) {
-  const data = await getStoreOrderById(orderId);
+export async function getPublicOrderById(orderId, cartToken = getStoredCartSessionToken()) {
+  const data = await getStoreOrderById(orderId, { cartToken });
   return normalizeOrder(data?.item);
 }
 
-export async function getPublicOrderByNumber(orderNumber) {
-  const data = await getStoreOrderByNumber(orderNumber);
+export async function getPublicOrderByNumber(orderNumber, cartToken = getStoredCartSessionToken()) {
+  const data = await getStoreOrderByNumber(orderNumber, { cartToken });
   return normalizeOrder(data?.item);
 }
 
