@@ -816,6 +816,12 @@ export async function getPublicProductCategories() {
   }
 }
 
+export async function getPublicTestimonials() {
+  const url = buildUrl("/api/public/testimonials");
+  const data = await apiFetch(url);
+  return Array.isArray(data?.items) ? data.items : [];
+}
+
 export async function getPublicProducts(filters = {}) {
   const data = await getStoreProducts(filters);
   const rawItems = Array.isArray(data?.items)
