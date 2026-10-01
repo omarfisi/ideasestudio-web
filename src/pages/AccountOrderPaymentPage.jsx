@@ -223,7 +223,7 @@ export default function AccountOrderPaymentPage() {
                     </Elements>
                   ) : (
                     <p className="form-status form-status--error">
-                      Falta `VITE_STRIPE_PUBLISHABLE_KEY` para inicializar Stripe en frontend.
+                  Falta `VITE_JJ_PEGA_STRIPE_PUBLISHABLE_KEY` para inicializar Stripe en frontend.
                     </p>
                   )
                 ) : recoveryAction?.kind === "booking_expired" ? (

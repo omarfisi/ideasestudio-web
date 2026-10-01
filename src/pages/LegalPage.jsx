@@ -1,16 +1,15 @@
 import { Link, useLocation } from "react-router-dom";
 import SEOHead from "@/components/seo/SEOHead.jsx";
-import { SITE_CONTACT } from "@/lib/siteContact.js";
-
-const BRAND_NAME = "Ideas Estudio";
+const BRAND_NAME = "JJ Pega";
 const CONTROLLER_NAME = "OSVALDO MARFISI RODRIGUEZ";
-const PUBLIC_ORIGIN = "https://www.ideasestudio.com";
+const PUBLIC_ORIGIN = "https://jjpega.com";
+const CONTACT_EMAIL = "info@jjpega.com";
 
 const LEGAL_PAGES = {
   privacy: {
     canonicalPath: "privacy-policy",
     title: "Política de Privacidad",
-    description: "Cómo Ideas Estudio recopila, utiliza y protege la información compartida a través de su sitio web público.",
+    description: "Cómo JJ Pega recopila, utiliza y protege la información compartida a través de su sitio web público.",
     eyebrow: "Transparencia",
     intro: "Esta política explica cómo tratamos la información cuando visitas nuestro sitio web, solicitas información, compras un servicio o conectas una integración.",
     sections: [
@@ -20,7 +19,7 @@ const LEGAL_PAGES = {
         "También podemos recibir información técnica básica de tu visita, como el navegador, el dispositivo y las páginas visitadas, según la configuración del sitio web y de sus servicios de soporte.",
       ]],
       ["Cómo utilizamos la información", [
-        "Utilizamos la información para responder consultas, preparar propuestas, prestar servicios, procesar compras, gestionar reservas, mantener la seguridad y mejorar la experiencia pública de Ideas Estudio.",
+        "Utilizamos la información para responder consultas, preparar pedidos, prestar servicios, procesar compras, mantener la seguridad y mejorar la experiencia pública de JJ Pega.",
         "No vendemos información personal. No utilizamos la integración de Meta para publicar contenido ni solicitamos permisos de Meta que no estén respaldados por una función demostrable.",
       ]],
       ["Datos de la Plataforma de Meta", [
@@ -41,24 +40,24 @@ const LEGAL_PAGES = {
   terms: {
     canonicalPath: "terms",
     title: "Términos y Condiciones",
-    description: "Condiciones generales para utilizar el sitio web público y contratar los servicios de Ideas Estudio.",
+    description: "Condiciones generales para utilizar el sitio web público y comprar productos o servicios de JJ Pega.",
     eyebrow: "Condiciones de uso",
-    intro: "Al utilizar este sitio web o solicitar servicios de Ideas Estudio, aceptas utilizarlo de manera lícita, respetuosa y conforme a estas condiciones.",
+    intro: "Al utilizar este sitio web o realizar una compra en JJ Pega, aceptas utilizarlo de manera lícita, respetuosa y conforme a estas condiciones.",
     sections: [
       ["Contenido y servicios", [
-        "El sitio web presenta información sobre servicios creativos, contenido, fotografía, video, branding, presencia digital y otras soluciones de Ideas Estudio. La disponibilidad, el alcance, el precio y el calendario de un servicio se confirman en la propuesta o acuerdo correspondiente.",
+        "El sitio web presenta productos de stickers, diseños personalizados, packs y soluciones creativas de JJ Pega. La disponibilidad, el alcance, el precio y el calendario de un pedido se confirman durante el proceso correspondiente.",
         "El contenido público puede cambiar para reflejar actualizaciones de servicios, procesos, precios, disponibilidad o información operativa.",
       ]],
       ["Solicitudes, compras y reservas", [
-        "Enviar un formulario, iniciar un pago o solicitar una propuesta no garantiza por sí solo la aceptación de un trabajo. La relación de servicio se confirma cuando Ideas Estudio acepta la solicitud y se acuerdan sus condiciones.",
+        "Enviar un formulario, iniciar un pago o solicitar un diseño no garantiza por sí solo la aceptación de un pedido. La compra o servicio se confirma cuando JJ Pega acepta la solicitud y se acuerdan sus condiciones.",
         "Debes proporcionar información exacta y mantener segura cualquier cuenta utilizada en el sitio web. No debes utilizar el sitio para fraude, abuso, acceso no autorizado ni contenido malicioso.",
       ]],
       ["Integraciones de terceros", [
         "Cuando conectas una Page de Facebook, autorizas únicamente las funciones mostradas en el flujo de Meta. La integración demostrable actualmente permite seleccionar una Page y leer las publicaciones públicas de la Page seleccionada.",
-        "Ideas Estudio no afirma que este sitio publique contenido, cambie metadatos de una Page o muestre Meta Insights. Esas funciones están fuera del alcance actual de la integración.",
+        "JJ Pega no afirma que este sitio publique contenido, cambie metadatos de una Page o muestre Meta Insights. Esas funciones están fuera del alcance actual de la integración.",
       ]],
       ["Propiedad intelectual", [
-        "El nombre, la identidad, el diseño, los textos, las fotografías, los gráficos y demás contenido de este sitio pertenecen a Ideas Estudio o se utilizan con autorización. No puedes copiar, redistribuir, modificar ni explotar ese contenido sin permiso, salvo cuando la ley aplicable lo permita.",
+        "El nombre, la identidad, el diseño, los textos, las fotografías, los gráficos y demás contenido de este sitio pertenecen a JJ Pega o se utilizan con autorización. No puedes copiar, redistribuir, modificar ni explotar ese contenido sin permiso, salvo cuando la ley aplicable lo permita.",
       ]],
       ["Contacto", [
         "Puedes enviar preguntas sobre estos términos al correo indicado a continuación. Las condiciones de un proyecto, compra o reserva pueden complementar estos términos mediante una propuesta, contrato o confirmación del servicio.",
@@ -68,12 +67,12 @@ const LEGAL_PAGES = {
   deletion: {
     canonicalPath: "data-deletion",
     title: "Eliminación de Datos",
-    description: "Solicita la eliminación de información personal o de la conexión de Meta asociada con Ideas Estudio.",
+    description: "Solicita la eliminación de información personal o de datos asociados con JJ Pega.",
     eyebrow: "Tus datos",
     intro: "Puedes solicitar la eliminación de información personal o de datos asociados con una conexión de Meta. Esta página describe el canal público para iniciar la solicitud.",
     sections: [
       ["Cómo solicitar la eliminación", [
-        `Escribe a ${SITE_CONTACT.email} desde una dirección que permita identificar razonablemente la solicitud. Incluye tu nombre, el correo utilizado y, si corresponde, el nombre de la Page o la cuenta de Ideas Estudio involucrada.`,
+        `Escribe a ${CONTACT_EMAIL} desde una dirección que permita identificar razonablemente la solicitud. Incluye tu nombre, el correo utilizado y los datos de la solicitud de JJ Pega.`,
         "No incluyas contraseñas, tokens de acceso, App Secrets ni credenciales en el mensaje. Nunca necesitamos que envíes un token de Meta por correo.",
       ]],
       ["Qué puede eliminarse", [
@@ -84,7 +83,7 @@ const LEGAL_PAGES = {
         "Podemos solicitar información razonable para confirmar que la solicitud proviene de la persona o entidad cuyos datos están involucrados. Después de verificarla, revisaremos el alcance y confirmaremos la acción realizada o el motivo de cualquier limitación.",
       ]],
       ["Conexiones de Meta", [
-        "También puedes revocar el acceso desde la configuración de tu cuenta de Facebook. La revocación en Meta y la solicitud de eliminación a Ideas Estudio son acciones relacionadas, pero pueden requerir pasos separados.",
+        "También puedes revocar el acceso desde la configuración de tu cuenta de Facebook. La revocación en Meta y la solicitud de eliminación a JJ Pega son acciones relacionadas, pero pueden requerir pasos separados.",
       ]],
     ],
   },
@@ -127,8 +126,7 @@ export default function LegalPage() {
               </nav>
               <div className="legal-page__contact">
                 <strong>¿Preguntas?</strong>
-                <a href={`mailto:${SITE_CONTACT.email}`}>{SITE_CONTACT.email}</a>
-                <a href={SITE_CONTACT.phone.href}>{SITE_CONTACT.phone.display}</a>
+                <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
               </div>
             </aside>
 

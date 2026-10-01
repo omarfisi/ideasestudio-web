@@ -4,6 +4,7 @@ import { getBlogHome, getBlogPosts } from "@/lib/api.js";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
 import BlogNewsletterSection from "@/components/blog/BlogNewsletterSection.jsx";
+import { SITE_CONFIG } from "@/lib/siteConfig.js";
 
 
 const POSTS_PER_PAGE = 9;
@@ -40,7 +41,7 @@ function postToCard(post) {
     category: post.category_name || "Blog",
     meta: post.reading_time_minutes ? `${post.reading_time_minutes} min` : "Lectura",
     image: post.featured_image_url || "",
-    author: post.author_name || post.author?.name || "Ideas Estudio",
+    author: post.author_name || post.author?.name || "JJ Pega",
     author_avatar: getAuthorAvatar(post),
     date: post.published_at ? new Date(post.published_at).toLocaleDateString("es", { month: "long", year: "numeric" }) : "",
     is_featured: post.is_featured,
@@ -52,7 +53,7 @@ function EditorialImageFrame({ src, alt = "", className = "", imageClassName = "
   if (!src) {
     return (
       <div className={`flex h-full w-full items-center justify-center bg-neutral-100 text-sm font-bold uppercase tracking-[0.18em] text-neutral-400 ${className}`}>
-        Ideas Estudio
+        JJ Pega
       </div>
     );
   }
@@ -82,7 +83,7 @@ function MetaLine({ category, meta }) {
   );
 }
 
-function AuthorRow({ author = "Ideas Estudio", avatarUrl = "", date }) {
+function AuthorRow({ author = "JJ Pega", avatarUrl = "", date }) {
   return (
     <div className="flex items-center gap-3">
       <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full bg-[#f2cc3d]">
@@ -606,9 +607,9 @@ export default function BlogPage() {
   return (
     <main className="bg-white text-neutral-950">
       <SEOHead
-        title="Blog | Ideas Estudio"
+        title="Blog | JJ Pega"
         description="Artículos sobre fotografía, diseño, branding y creatividad para marcas y negocios en Puerto Rico."
-        canonical="https://ideasestudio.com/blog"
+        canonical={`${SITE_CONFIG.siteUrl}/blog`}
         seoEntry={pageSeo}
       />
       <div className="mx-auto max-w-[1220px] px-4 pb-20 pt-10 md:px-6 md:pb-28 md:pt-16">
@@ -617,7 +618,7 @@ export default function BlogPage() {
         <section>
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-[11px] uppercase tracking-[0.25em] text-neutral-500">
-              Blog / Ideas Estudio
+              Blog / JJ Pega
             </p>
             <h1 className="mt-5 text-5xl font-semibold leading-[0.95] tracking-[-0.03em] md:text-6xl">
               Artículos con <span className="highlight-box-glow">estrategias</span> para generar más ventas, visitas y prospectos.
@@ -823,7 +824,7 @@ export default function BlogPage() {
         {/* ── CTA STRIP ── */}
         <section className="mt-0 rounded-[24px] bg-black px-8 py-12 text-center md:px-12">
           <h2 className="text-3xl font-semibold text-white md:text-4xl">
-            <span className="highlight-box-glow">Ideas Estudio</span> Blog
+            <span className="highlight-box-glow">JJ Pega</span> Blog
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-[15px] leading-7 text-white/70">
             Artículos sobre branding, web, marketing digital, contenido, fotografía y video para negocios que quieren comunicar mejor.

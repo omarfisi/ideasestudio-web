@@ -3,6 +3,7 @@ import Button from "@/components/shared/Button.jsx";
 import ServiceNicheTemplate from "@/components/services/ServiceNicheTemplate.jsx";
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
+import { SITE_CONFIG } from "@/lib/siteConfig.js";
 
 export default function ServiceNichePage() {
   const pageSeo = usePageSeo();
@@ -28,9 +29,9 @@ export default function ServiceNichePage() {
   return (
     <>
       <SEOHead
-        title={`${niche.title} | Ideas Estudio`}
+        title={`${niche.title} | JJ Pega`}
         description={niche.description || niche.hero?.description || undefined}
-        canonical={`https://ideasestudio.com${pathname}`}
+        canonical={`${SITE_CONFIG.siteUrl}${pathname}`}
         seoEntry={pageSeo}
       />
       <ServiceNicheTemplate niche={niche} segment={segment} apiServices={services} />

@@ -6,53 +6,7 @@ import Button from "@/components/shared/Button.jsx";
 import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
 import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
 import { getPublicPortfolioItems } from "@/lib/api.js";
-import localPortfolioCta from "@/assets/quland-process/process-5.png";
-import localPortfolioAsset1 from "@/assets/quland-process/process-1.png";
-import localPortfolioAsset2 from "@/assets/quland-process/process-2.png";
-import localPortfolioAsset3 from "@/assets/quland-process/process-3.png";
-import localPortfolioAsset4 from "@/assets/quland-process/process-4.png";
-
-// Los assets de quland-process son placeholders de dimensiones. El portafolio
-// debe esperar al catálogo público real y mostrar skeletons mientras carga.
-const LOCAL_PORTFOLIO_ITEMS = [
-  {
-    id: "local-portfolio-branding",
-    title: "Soluciones visuales para marcas y negocios",
-    description: "Fotografía, video, diseño y presencia digital con enfoque estratégico.",
-    category: "branding_diseno",
-    sectionKey: "featured",
-    isFeatured: true,
-    coverUrl: localPortfolioAsset1,
-    homeCoverUrl: localPortfolioAsset1,
-  },
-  {
-    id: "local-portfolio-presencia",
-    title: "Presencia visual profesional",
-    description: "Una imagen clara, sólida y coherente para tu proyecto.",
-    category: "fotografia",
-    sectionKey: "fotografia",
-    coverUrl: localPortfolioAsset2,
-    homeCoverUrl: localPortfolioAsset2,
-  },
-  {
-    id: "local-portfolio-social",
-    title: "Contenido para web y redes",
-    description: "Piezas visuales preparadas para comunicar, mostrar y conectar.",
-    category: "marketing_digital",
-    sectionKey: "grid",
-    coverUrl: localPortfolioAsset3,
-    homeCoverUrl: localPortfolioAsset3,
-  },
-  {
-    id: "local-portfolio-medida",
-    title: "Soluciones a la medida",
-    description: "Una propuesta creativa aterrizada a las necesidades de tu negocio.",
-    category: "web",
-    sectionKey: "grid",
-    coverUrl: localPortfolioAsset4,
-    homeCoverUrl: localPortfolioAsset4,
-  },
-];
+import { SITE_CONFIG } from "@/lib/siteConfig.js";
 import {
   getCardEyebrow,
   getCardTitle,
@@ -629,17 +583,12 @@ export default function PortfolioPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getPublicPortfolioItems({ limit: 500 })
-      .then((data) => {
-        if (cancelled) return;
-        setItems(data || []);
+    getPublicPortfolioItems({ limit: 500 }).then((data) => {
+      if (!cancelled) {
+        setItems(data);
         setLoading(false);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setItems([]);
-        setLoading(false);
-      });
+      }
+    });
     return () => { cancelled = true; };
   }, []);
 
@@ -816,9 +765,9 @@ export default function PortfolioPage() {
   return (
     <main className="bg-[#f5f5f3] text-neutral-950">
       <SEOHead
-        title="Portafolio | Ideas Estudio"
+        title="Portafolio | JJ Pega"
         description="Galería de proyectos de fotografía, video y diseño. Trabajos reales para marcas y eventos en Puerto Rico."
-        canonical="https://ideasestudio.com/portafolio"
+        canonical={`${SITE_CONFIG.siteUrl}/portafolio`}
         seoEntry={pageSeo}
       />
       {/* ── HERO ── */}
@@ -1231,11 +1180,11 @@ export default function PortfolioPage() {
             sectionKey="portfolio_cta_split"
             fallback={
               <SplitLeadBlock
-                eyebrow="Portafolio / Ideas Estudio"
+                eyebrow="Portafolio / JJ Pega"
                 title={<>Si esto te gustó, podemos crear algo igual o mejor para tu <span style={{ color: "#f2cc3d" }}>negocio</span>.</>}
                 description="Cuéntanos lo que tienes en mente y te ayudamos a desarrollar una propuesta visual más clara, profesional y estratégica."
-                imageSrc={localPortfolioCta}
-                imageAlt="Portafolio Ideas Estudio"
+                imageSrc="https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=900&q=80"
+                imageAlt="Portafolio JJ Pega"
                 buttonLabel="Quiero algo así"
                 successMessage="Perfecto. Hemos recibido tu información y te contactaremos pronto."
                 showNameField={true}

@@ -6,6 +6,7 @@ import { buildArticleSchema, buildBreadcrumbSchema } from "@/components/seo/sche
 import { usePageSeo } from "@/hooks/usePageSeo.js";
 import BlogVisualBlock from "@/components/blog/ArticleVisualBlocks.jsx";
 import BlogNewsletterSection from "@/components/blog/BlogNewsletterSection.jsx";
+import { SITE_CONFIG } from "@/lib/siteConfig.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -170,7 +171,7 @@ function AuthorAvatar({ author = {}, post = {}, size = "md" }) {
 // ─── AuthorSidebarCard ────────────────────────────────────────────────────────
 
 function AuthorSidebarCard({ author, authorName }) {
-  const name = author?.name || authorName || "Ideas Estudio";
+  const name = author?.name || authorName || "JJ Pega";
   const socialLinks = normalizeAuthorSocialLinks(author || {});
 
   return (
@@ -204,7 +205,7 @@ function AuthorSidebarCard({ author, authorName }) {
 // ─── AuthorFooterCard ─────────────────────────────────────────────────────────
 
 function AuthorFooterCard({ author, authorName }) {
-  const name = author?.name || authorName || "Ideas Estudio";
+  const name = author?.name || authorName || "JJ Pega";
   const socialLinks = normalizeAuthorSocialLinks(author || {});
 
   return (
@@ -805,7 +806,7 @@ function RelatedPostsSection({ posts = [] }) {
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-slate-100 text-sm font-semibold text-slate-400">
-                      Ideas Estudio
+                      JJ Pega
                     </div>
                   )}
                 </div>
@@ -1297,13 +1298,13 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
         description={post.meta_description || post.excerpt || undefined}
         post={post}
         ogType="article"
-        canonical={`https://www.ideasestudio.com/blog/${post.slug}`}
+                      canonical={`${SITE_CONFIG.siteUrl}/blog/${post.slug}`}
         jsonLd={[
           buildArticleSchema(post),
           buildBreadcrumbSchema([
-            { name: "Inicio", url: "https://www.ideasestudio.com" },
-            { name: "Blog",   url: "https://www.ideasestudio.com/blog" },
-            { name: post.title, url: `https://www.ideasestudio.com/blog/${post.slug}` },
+            { name: "Inicio", url: SITE_CONFIG.siteUrl },
+            { name: "Blog",   url: `${SITE_CONFIG.siteUrl}/blog` },
+            { name: post.title, url: `${SITE_CONFIG.siteUrl}/blog/${post.slug}` },
           ]),
         ].filter(Boolean)}
         seoEntry={pageSeo}
@@ -1343,7 +1344,7 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
             {/* C1. Editorial intro quote — omit if article already has a quote block */}
             {post.excerpt && !(Array.isArray(post.content_json) && post.content_json.some((b) => b?.type === "quote")) && (
               <BlogQuoteBlock
-                block={{ text: post.excerpt, author: "Ideas Estudio", variant: "editorial", align: "center" }}
+                block={{ text: post.excerpt, author: "JJ Pega", variant: "editorial", align: "center" }}
               />
             )}
 
@@ -1437,7 +1438,7 @@ export default function BlogPostDetailPage({ initialPost = null, initialRelated 
               <div className="flex justify-center mb-3">
                 <AuthorAvatar author={post.author || {}} post={post} />
               </div>
-              <p className="font-bold text-slate-900 mb-2">{post.author_name || post.author?.name || "Ideas Estudio"}</p>
+              <p className="font-bold text-slate-900 mb-2">{post.author_name || post.author?.name || "JJ Pega"}</p>
               {(post.author_short_description || post.author?.short_description) && (
                 <p className="text-xs font-medium text-slate-600 leading-relaxed">{post.author_short_description || post.author?.short_description}</p>
               )}

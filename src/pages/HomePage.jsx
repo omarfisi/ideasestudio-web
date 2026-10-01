@@ -6,30 +6,23 @@ import { usePageSeo } from "@/hooks/usePageSeo.js";
 import TestimonialsSlider from "@/components/shared/TestimonialsSlider.jsx";
 import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
 import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
-import SafeImage from "@/components/shared/SafeImage.jsx";
 import SegmentHeroSection from "@/components/home/SegmentHeroSection.jsx";
 import {
   getTestimonialsForPage,
   TESTIMONIAL_SECTION_COPY,
 } from "@/data/testimonials.js";
 import { getPublicPortfolioItems } from "@/lib/api.js";
-import localPortfolioAsset1 from "@/assets/quland-process/process-1.png";
-import localPortfolioAsset2 from "@/assets/quland-process/process-2.png";
-import localPortfolioAsset3 from "@/assets/quland-process/process-3.png";
-import localPortfolioAsset4 from "@/assets/quland-process/process-4.png";
-// Los PNG de quland-process son placeholders de dimensiones, no imágenes de
-// contenido. En local usamos las imágenes públicas reales ya versionadas en
-// el catálogo de Ideas Estudio para no pintar bloques grises.
-const portfolioProcessHero = localPortfolioAsset1;
-const portfolioProcessStep1 = localPortfolioAsset2;
-const portfolioProcessStep2 = localPortfolioAsset3;
-const portfolioProcessStep3 = localPortfolioAsset4;
-const portfolioProcessStep4 = localPortfolioAsset1;
+import { SITE_CONFIG } from "@/lib/siteConfig.js";
+import portfolioProcessHero from "../assets/quland-process/process-1.webp";
+import portfolioProcessStep1 from "../assets/quland-process/process-2.webp";
+import portfolioProcessStep2 from "../assets/quland-process/process-3.webp";
+import portfolioProcessStep3 from "../assets/quland-process/process-4.webp";
+import portfolioProcessStep4 from "../assets/quland-process/process-5.webp";
 
 const PORTFOLIO_VISUAL_SLIDES = [
   {
     image: portfolioProcessHero,
-    eyebrow: "Ideas Estudio",
+    eyebrow: "JJ Pega",
     title: "Soluciones visuales para marcas y negocios",
     text: "Fotografía, video, diseño y presencia digital con enfoque estratégico.",
   },
@@ -58,38 +51,27 @@ const PORTFOLIO_VISUAL_SLIDES = [
     text: "Organizamos tus piezas visuales para que salgan a tiempo y con consistencia.",
   },
   {
-    image: localPortfolioAsset2,
+    image:
+      "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/presencia-visual.webp",
     eyebrow: "Marca",
     title: "Imagen que inspira confianza",
     text: "Desarrollamos piezas que elevan la percepción profesional de tu servicio.",
   },
   {
-    image: localPortfolioAsset1,
+    image:
+      "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/marca-negocio.webp",
     eyebrow: "Negocio",
     title: "Comunicación alineada a tu negocio",
     text: "Cada formato responde a tus objetivos comerciales y de posicionamiento.",
   },
   {
-    image: localPortfolioAsset3,
+    image:
+      "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/solucion-social.webp",
     eyebrow: "Contenido",
     title: "Formatos pensados para compartir",
     text: "Piezas visuales preparadas para redes, campañas y momentos clave.",
   },
 ];
-
-// El catálogo remoto es la única fuente de imágenes del portafolio. Los assets
-// de quland-process son placeholders de dimensiones y no deben pintarse como
-// contenido real mientras la petición todavía está cargando.
-const LOCAL_PORTFOLIO_ITEMS = PORTFOLIO_VISUAL_SLIDES.map((slide, index) => ({
-  id: `local-portfolio-${index + 1}`,
-  title: slide.title,
-  description: slide.text,
-  category: "branding_diseno",
-  subcategory: "ideas_estudio",
-  homeCoverUrl: slide.image,
-  coverUrl: slide.image,
-  placements: ["home_wide", "home_portrait", "home_cards"],
-}));
 
 const OBJETIVO_WORDS = ["marca", "empresa", "crecimiento", "presencia"];
 const PORTFOLIO_PROCESS_STEPS = [
@@ -137,8 +119,6 @@ export default function HomePage() {
   const [wordIndex, setWordIndex] = useState(0);
   const [typedObjetivo, setTypedObjetivo] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
-  // Pintar el catálogo local desde el primer render evita que un Backend
-  // local caído deje skeletons beige permanentes en la portada.
   const [homePortfolioItems, setHomePortfolioItems] = useState([]);
   const [portfolioLoading, setPortfolioLoading] = useState(true);
 
@@ -282,17 +262,12 @@ export default function HomePage() {
 
   useEffect(() => {
     let cancelled = false;
-    getPublicPortfolioItems({ limit: 500 })
-      .then((all) => {
-        if (cancelled) return;
-        setHomePortfolioItems(all);
-        setPortfolioLoading(false);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setHomePortfolioItems([]);
-        setPortfolioLoading(false);
-      });
+    setPortfolioLoading(true);
+    getPublicPortfolioItems({ limit: 500 }).then((all) => {
+      if (cancelled) return;
+      setHomePortfolioItems(all);
+      setPortfolioLoading(false);
+    });
     return () => { cancelled = true; };
   }, []);
 
@@ -340,9 +315,9 @@ export default function HomePage() {
   return (
     <main>
       <SEOHead
-        title="Ideas Estudio | La idea que tu negocio necesita"
+        title="JJ Pega | Stickers & good vibes"
         description="Fotografía profesional, diseño, video y branding en Puerto Rico. La agencia creativa que impulsa tu marca, negocio o evento especial."
-        canonical="https://ideasestudio.com"
+        canonical={SITE_CONFIG.siteUrl}
         jsonLd={buildOrganizationSchema()}
         seoEntry={pageSeo}
       />
@@ -414,7 +389,7 @@ export default function HomePage() {
                       index === getPortfolioTopMediaIndex() ? "is-active" : ""
                     }`}
                   >
-                    <SafeImage src={slide.image} fallbackSrc={portfolioProcessStep1} alt="" />
+                    <img src={slide.image} alt="" />
                     <div className="portfolio-process__media-overlay">
                       <p className="portfolio-process__media-eyebrow">{slide.eyebrow}</p>
                       <h3>{slide.title}</h3>
@@ -465,7 +440,7 @@ export default function HomePage() {
                         index === getPortfolioLeftMediaIndex() ? "is-active" : ""
                       }`}
                     >
-                      <SafeImage src={slide.image} fallbackSrc={portfolioProcessStep2} alt="" />
+                      <img src={slide.image} alt="" />
                       <div className="portfolio-process__media-overlay portfolio-process__media-overlay--compact">
                         <p className="portfolio-process__media-eyebrow">{slide.eyebrow}</p>
                         <h3>{slide.title}</h3>
@@ -515,9 +490,8 @@ export default function HomePage() {
                       >
                         <div className="portfolio-item-card__media">
                           {(item.homeCoverUrl || item.coverUrl) && (
-                            <SafeImage
+                            <img
                               src={item.homeCoverUrl || item.coverUrl}
-                              fallbackSrc={portfolioProcessStep3}
                               alt={item.title}
                               loading="lazy"
                             />
@@ -582,11 +556,11 @@ export default function HomePage() {
                 sectionKey="home_ideas_split"
                 fallback={
                   <SplitLeadBlock
-                    eyebrow="Ideas Estudio"
+                    eyebrow="JJ Pega"
                     title={<>Recibe ideas y <span style={{ color: "#f2cc3d" }}>estrategias</span> para hacer crecer tu negocio.</>}
                     description="Diseño, branding, contenido y marketing digital explicados de forma clara y útil para negocios reales."
-                    imageSrc={portfolioProcessStep2}
-                    imageAlt="Ideas Estudio — Estrategias de marca"
+                    imageSrc="https://images.unsplash.com/photo-1516321497487-e288fb19713f?auto=format&fit=crop&w=900&q=80"
+                    imageAlt="JJ Pega — Stickers y diseños personalizados"
                     buttonLabel="Quiero recibir ideas"
                     successMessage="Listo. Pronto recibirás contenido útil directamente en tu correo."
                     showNameField={true}
@@ -605,7 +579,6 @@ export default function HomePage() {
               />
             }
           />
-
         </div>
       </section>
     </main>

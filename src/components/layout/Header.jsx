@@ -36,7 +36,7 @@ const SOLUTIONS_MENU_ITEMS = [
   ...CLIENT_PATHS,
 ];
 
-const BRAND_LOGO_URL = "/ideas-estudio-logo-mark.png";
+const BRAND_LOGO_URL = "/assets/jj-pega-logo.webp";
 
 function ChevronDownIcon({ open = false }) {
   return (
@@ -332,8 +332,8 @@ export default function Header() {
         .ie-brand__logo {
           width: 44px;
           height: 44px;
-          border-radius: 0;
-          object-fit: contain;
+          border-radius: 14px;
+          object-fit: cover;
           background: transparent;
           border: none;
           flex-shrink: 0;
@@ -780,12 +780,7 @@ export default function Header() {
             font-size: 0.7rem;
           }
 
-          .ie-brand__logo {
-            width: 40px;
-            height: 40px;
-            border-radius: 0;
-          }
-
+          .ie-brand__logo,
           .ie-brand__fallback {
             width: 40px;
             height: 40px;
@@ -812,44 +807,34 @@ export default function Header() {
               <span>{SITE_CONTACT.email}</span>
             </a>
 
-            <a href={SITE_CONTACT.phone.href} className="ie-topbar__item">
-              <span className="ie-topbar__icon ie-topbar__icon--social" aria-hidden="true">
-                <PhoneIcon />
-              </span>
-              <span>{SITE_CONTACT.phone.display}</span>
-            </a>
+            {SITE_CONTACT.phone && (
+              <a href={SITE_CONTACT.phone.href} className="ie-topbar__item">
+                <span className="ie-topbar__icon ie-topbar__icon--social" aria-hidden="true">
+                  <PhoneIcon />
+                </span>
+                <span>{SITE_CONTACT.phone.display}</span>
+              </a>
+            )}
           </div>
 
           <div className="ie-topbar__right">
-            <a
-              href={SITE_CONTACT.social.facebook}
-              target="_blank"
-              rel="noreferrer"
-              className="ie-topbar__social"
-              aria-label="Facebook"
-            >
-              <FacebookIcon />
-            </a>
+            {SITE_CONTACT.social.facebook && (
+              <a href={SITE_CONTACT.social.facebook} target="_blank" rel="noreferrer" className="ie-topbar__social" aria-label="Facebook">
+                <FacebookIcon />
+              </a>
+            )}
 
-            <a
-              href={SITE_CONTACT.social.instagram}
-              target="_blank"
-              rel="noreferrer"
-              className="ie-topbar__social"
-              aria-label="Instagram"
-            >
-              <InstagramIcon />
-            </a>
+            {SITE_CONTACT.social.instagram && (
+              <a href={SITE_CONTACT.social.instagram} target="_blank" rel="noreferrer" className="ie-topbar__social" aria-label="Instagram">
+                <InstagramIcon />
+              </a>
+            )}
 
-            <a
-              href={SITE_CONTACT.social.youtube}
-              target="_blank"
-              rel="noreferrer"
-              className="ie-topbar__social"
-              aria-label="YouTube"
-            >
-              <YouTubeIcon />
-            </a>
+            {SITE_CONTACT.social.youtube && (
+              <a href={SITE_CONTACT.social.youtube} target="_blank" rel="noreferrer" className="ie-topbar__social" aria-label="YouTube">
+                <YouTubeIcon />
+              </a>
+            )}
           </div>
         </div>
       </div>
@@ -859,18 +844,18 @@ export default function Header() {
           <div className="ie-header">
             <Link className="ie-brand" to="/">
               {logoError ? (
-                <span className="ie-brand__fallback">IE</span>
+                <span className="ie-brand__fallback">JJ</span>
               ) : (
                 <img
                   className="ie-brand__logo"
                   src={BRAND_LOGO_URL}
-                  alt="Ideas Estudio"
+                  alt="JJ Pega"
                   onError={() => setLogoError(true)}
                 />
               )}
               <span className="ie-brand__text">
-                <span className="ie-brand__name">Ideas Estudio</span>
-                <span className="ie-brand__slogan">La idea que tu negocio necesita</span>
+                <span className="ie-brand__name">JJ Pega</span>
+                <span className="ie-brand__slogan">Stickers hechos para ti</span>
               </span>
             </Link>
 
@@ -982,7 +967,7 @@ export default function Header() {
           {solutionsOpen && !mobileOpen && (
             <div className="ie-dropdown" role="menu">
               <div className="ie-dropdown__intro">
-                <span className="ie-dropdown__eyebrow">Ideas Estudio</span>
+                <span className="ie-dropdown__eyebrow">JJ Pega</span>
                 <h3 className="ie-dropdown__title">
                   Elige el camino que mejor encaje contigo
                 </h3>

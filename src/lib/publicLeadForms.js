@@ -1,5 +1,5 @@
+import { PUBLIC_WORKSPACE_ID } from "@/lib/workspace.js";
 import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
-import { appendWorkspace } from "@/lib/workspace.js";
 
 export async function submitLeadForm({
   full_name = "",
@@ -18,8 +18,12 @@ export async function submitLeadForm({
 
   if (!CRM_BASE) {
     throw new Error(
-      "Falta VITE_CRM_BASE_URL. Define la URL del backend CRM antes de enviar el formulario.",
+      "Falta VITE_JJ_PEGA_CRM_BASE_URL/VITE_JJ_PEGA_API_BASE antes de enviar el formulario.",
     );
+  }
+
+  if (!PUBLIC_WORKSPACE_ID) {
+    throw new Error("Falta VITE_JJ_PEGA_WORKSPACE_ID para enviar el formulario.");
   }
 
   const normalizedName = String(full_name || "").trim();
@@ -54,7 +58,13 @@ export async function submitLeadForm({
     },
   };
 
-  const res = await fetch(appendWorkspace(`${CRM_BASE}/api/public/contact-submit`), {
+  // Public submissions must always be tenant-scoped. Fail closed instead of
+  // allowing the backend to resolve an unrelated/default workspace.
+  const endpoint = `${CRM_BASE}/api/public/contact-submit`;
+  const url = PUBLIC_WORKSPACE_ID
+    ? `${endpoint}?workspace_id=${encodeURIComponent(PUBLIC_WORKSPACE_ID)}`
+    : endpoint;
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

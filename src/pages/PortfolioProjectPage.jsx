@@ -13,6 +13,7 @@ import {
 import SEOHead from "@/components/seo/SEOHead.jsx";
 import { buildCreativeWorkSchema, buildBreadcrumbSchema } from "@/components/seo/schema.js";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
+import { SITE_CONFIG } from "@/lib/siteConfig.js";
 
 function uniqueUrls(urls) {
   return Array.from(new Set(urls.filter(Boolean)));
@@ -257,21 +258,21 @@ export default function PortfolioProjectPage() {
     );
   }
 
-  const projectCanonical = `https://ideasestudio.com/portafolio/${project.slug}`;
+  const projectCanonical = `${SITE_CONFIG.siteUrl}/portafolio/${project.slug}`;
 
   return (
     <>
       <SEOHead
         title={`${project.title} | Portafolio`}
-        description={description || `Proyecto creativo realizado por Ideas Estudio en Puerto Rico.`}
+        description={description || `Diseño creado por JJ Pega para convertir una idea en sticker.`}
         canonical={projectCanonical}
         ogImage={heroImage || undefined}
         ogType="article"
         jsonLd={[
           buildCreativeWorkSchema(project),
           buildBreadcrumbSchema([
-            { name: "Inicio", url: "https://ideasestudio.com" },
-            { name: "Portafolio", url: "https://ideasestudio.com/portafolio" },
+            { name: "Inicio", url: SITE_CONFIG.siteUrl },
+            { name: "Portafolio", url: `${SITE_CONFIG.siteUrl}/portafolio` },
             { name: project.title, url: projectCanonical },
           ]),
         ].filter(Boolean)}

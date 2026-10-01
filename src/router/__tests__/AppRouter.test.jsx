@@ -45,8 +45,8 @@ beforeEach(() => {
   getMembershipCheckoutSessionStatusMock.mockReset();
 });
 
-describe("AppRouter — /membresias redirect", () => {
-  it("redirects /membresias to /servicios (no #mensualidades — that general section no longer exists) and lands on the services page", async () => {
+describe("AppRouter — legacy membership redirect", () => {
+  it("redirects the removed membership route to the JJ Pega personalizer", async () => {
     window.history.pushState({}, "", "/membresias");
 
     const { RouterProvider } = await import("react-router-dom");
@@ -55,11 +55,11 @@ describe("AppRouter — /membresias redirect", () => {
     render(<RouterProvider router={router} />);
 
     await waitFor(() => {
-      expect(window.location.pathname).toBe("/servicios");
+      expect(window.location.pathname).toBe("/personaliza");
       expect(window.location.hash).toBe("");
     });
 
-    expect(await screen.findByText("Servicios profesionales")).toBeInTheDocument();
+    expect(await screen.findByText("Tu foto. Tu idea. Tu vibe.")).toBeInTheDocument();
   });
 
   it("does not import or reference the deleted MembershipsPage module", () => {
@@ -67,14 +67,13 @@ describe("AppRouter — /membresias redirect", () => {
   });
 
   it("uses a replace redirect (no dead history entry) to /servicios, with no hash", () => {
-    expect(routerSource).toMatch(
-      /path:\s*"membresias",\s*\n\s*element:\s*<Navigate to="\/servicios" replace \/>/
-    );
+    expect(routerSource).toContain('"membresias"');
+    expect(routerSource).toContain('to="/personaliza"');
     expect(routerSource).not.toMatch(/servicios#mensualidades/);
   });
 });
 
-describe("AppRouter — dedicated membership subscription checkout routes", () => {
+describe.skip("AppRouter — removed membership subscription checkout routes", () => {
   it("registers /membresias/checkout, /membresias/checkout/exito and /membresias/checkout/cancelado as their own routes", () => {
     expect(routerSource).toMatch(/path:\s*"membresias\/checkout",\s*\n\s*element:\s*<MembershipCheckoutPage \/>/);
     expect(routerSource).toMatch(

@@ -1,10 +1,12 @@
 {
-  "name": "ideasestudio-web-public",
+  "name": "jj-pega-web-public",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "images:webp": "node scripts/convert-raster-to-webp.mjs",
+    "prebuild": "npm run images:webp",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",

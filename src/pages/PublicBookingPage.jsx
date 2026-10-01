@@ -70,7 +70,7 @@ function PublicBookingHeader({ children, bookingPreview }) {
     <header className="public-booking__hero">
       <div className="public-booking__hero-inner">
         <div className="public-booking__hero-copy">
-          <div className="public-booking__eyebrow">Ideas Estudio</div>
+          <div className="public-booking__eyebrow">JJ Pega</div>
           {children}
           <div className="public-booking__hero-chips" aria-label="Beneficios de la reserva">
             <span>Reserva pública</span>
@@ -318,7 +318,7 @@ function BookingCatalog() {
 
   return (
     <>
-      <SEOHead title="Agenda una cita | Ideas Estudio" />
+      <SEOHead title="Agenda una cita | JJ Pega" />
       <PublicBookingHeader>
         <h1>Agenda una cita</h1>
         <p>Selecciona el servicio que deseas reservar.</p>
@@ -444,7 +444,7 @@ function BookingBySlug() {
 
   return (
     <>
-      <SEOHead title={`Reservar ${serviceLabel(state.service)} | Ideas Estudio`} />
+      <SEOHead title={`Reservar ${serviceLabel(state.service)} | JJ Pega`} />
       <PublicBookingHeader
         bookingPreview={
           <div id="booking-schedule">

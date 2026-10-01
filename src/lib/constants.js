@@ -1,4 +1,6 @@
-export const APP_CRM_URL =
-  import.meta.env.VITE_APP_CRM_URL || "https://app.ideasestudio.com/";
+import { SITE_CONFIG } from "@/lib/siteConfig.js";
+import { JJ_PEGA_API_BASE } from "@/lib/jjPegaRuntime.js";
 
-export const CRM_PUBLIC_API_BASE_URL = import.meta.env.VITE_CRM_BASE_URL || "";
+export const APP_CRM_URL = SITE_CONFIG.crmAppUrl;
+
+export const CRM_PUBLIC_API_BASE_URL = JJ_PEGA_API_BASE;

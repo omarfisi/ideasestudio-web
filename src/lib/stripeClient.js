@@ -1,4 +1,5 @@
 import { loadStripe } from "@stripe/stripe-js";
+import { JJ_PEGA_STRIPE_PUBLISHABLE_KEY } from "@/lib/jjPegaRuntime.js";
 
 /**
  * Single shared Stripe.js instance — both CheckoutPage.jsx (guest/first
@@ -7,7 +8,7 @@ import { loadStripe } from "@stripe/stripe-js";
  * against this, so there's exactly one loadStripe() call for the whole app.
  */
 export const stripePublishableKey = (
-  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || ""
+  JJ_PEGA_STRIPE_PUBLISHABLE_KEY
 ).trim();
 
 export const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;

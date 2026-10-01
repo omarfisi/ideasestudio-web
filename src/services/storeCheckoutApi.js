@@ -7,7 +7,7 @@ function getStoreBaseUrl() {
 
   if (!base) {
     throw new Error(
-      "Falta VITE_CRM_BASE_URL. Define la URL del backend CRM en tu .env."
+      "Falta VITE_JJ_PEGA_CRM_BASE_URL/VITE_JJ_PEGA_API_BASE. Define la URL del backend JJ Pega."
     );
   }
 
@@ -140,7 +140,7 @@ export async function getStoreCartCurrent({ cartId = null, cartToken = null } = 
   });
 }
 
-export async function addStoreCartItem({ cartId, cartToken, productId, quantity = 1 }) {
+export async function addStoreCartItem({ cartId, cartToken, productId, quantity = 1, variantId = null }) {
   if (!cartToken) throw new Error("cartToken es requerido para modificar el carrito.");
   return storeFetch("/cart/items", {
     method: "POST",
@@ -149,6 +149,7 @@ export async function addStoreCartItem({ cartId, cartToken, productId, quantity 
       cart_id: cartId,
       product_id: productId,
       quantity,
+      ...(variantId ? { variant_id: variantId } : {}),
     }),
   });
 }

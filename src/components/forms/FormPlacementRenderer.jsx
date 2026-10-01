@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { getFormByPlacement } from "@/lib/publicFormsApi.js";
+import { getFormByPlacement, getFormBySlug } from "@/lib/publicFormsApi.js";
 import PublicFormRenderer from "./PublicFormRenderer.jsx";
 
 export default function FormPlacementRenderer({
   sectionKey,
+  formSlug = "",
   fallback = null,
   onSuccess,
 }) {
@@ -18,7 +19,7 @@ export default function FormPlacementRenderer({
 
     let cancelled = false;
 
-    getFormByPlacement(sectionKey)
+    (formSlug ? getFormBySlug(formSlug) : getFormByPlacement(sectionKey))
       .then((data) => {
         if (cancelled) return;
         setFormConfig(data);

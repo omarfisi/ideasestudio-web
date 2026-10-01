@@ -182,7 +182,7 @@ export default function AccountOrderDetailPage() {
                     <Link to={ctaHref} className="order-detail-pay-button">
                       {paymentAction.ctaLabel}
                     </Link>
-                    <a href="/contacto" className="checkout-secondary-button">Contactar a Ideas Estudio</a>
+                    <a href="/contacto" className="checkout-secondary-button">Contactar a JJ Pega</a>
                   </div>
                 </div>
               ) : paymentAction.kind === "booking_expired" ? (
@@ -195,13 +195,13 @@ export default function AccountOrderDetailPage() {
                     <Link to={ctaHref} className="order-detail-pay-button">
                       {paymentAction.ctaLabel}
                     </Link>
-                    <a href="/contacto" className="checkout-secondary-button">Contactar a Ideas Estudio</a>
+                    <a href="/contacto" className="checkout-secondary-button">Contactar a JJ Pega</a>
                   </div>
                 </div>
               ) : paymentAction.message ? (
                 <div className="order-detail-notice">
                   <p>{paymentAction.message}</p>
-                  <a href="/contacto" className="checkout-secondary-button">Contactar a Ideas Estudio</a>
+                  <a href="/contacto" className="checkout-secondary-button">Contactar a JJ Pega</a>
                 </div>
               ) : null}
 

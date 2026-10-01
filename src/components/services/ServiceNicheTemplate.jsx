@@ -23,7 +23,7 @@ import HighlightTitle from "@/components/shared/HighlightTitle.jsx";
 import ServiceNicheHero from "@/components/services/ServiceNicheHero.jsx";
 import SafeImage from "@/components/shared/SafeImage.jsx";
 import serviceShowcaseImage from "/images/services/service-img.webp";
-import serviceShowcaseShape from "/images/services/tab-content-shape.png";
+import serviceShowcaseShape from "/images/services/tab-content-shape.webp";
 
 const DEFAULT_ICON_SET = [Megaphone, MonitorPlay, BriefcaseBusiness];
 

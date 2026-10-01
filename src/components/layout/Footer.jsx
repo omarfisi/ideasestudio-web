@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { SITE_CONTACT } from "@/lib/siteContact.js";
+import "./JJPegaFooter.css";
 
-const BRAND_LOGO_URL = "/ideas-estudio-logo-mark.png";
+const BRAND_LOGO_URL = "/assets/jj-pega-logo.webp";
 
 // Real routes confirmed against src/data/clientNiches.js and the router
 // (src/router/AppRouter.jsx) — these previously all pointed at the same
@@ -42,7 +43,7 @@ const socialLinks = [
     href: SITE_CONTACT.social.youtube,
     Icon: YouTubeIcon,
   },
-];
+].filter((item) => item.href);
 
 function ArrowRightIcon() {
   return (
@@ -165,26 +166,19 @@ export default function Footer() {
       <div className="container site-footer__shell">
         <div className="site-footer__grid">
           <div className="site-footer__brand">
-            <Link className="site-footer__brand-link" to="/" aria-label="Ideas Estudio">
+            <Link className="site-footer__brand-link" to="/" aria-label="JJ Pega">
               <span className="site-footer__brand-mark">
-                <img
-                  className="ie-brand__logo"
-                  role="img"
-                  aria-label="Ideas Estudio"
-                  src={BRAND_LOGO_URL}
-                  alt="Ideas Estudio"
-                />
+                <img src={BRAND_LOGO_URL} alt="" loading="lazy" />
               </span>
               <span className="site-footer__brand-text">
-                <strong>Ideas Estudio</strong>
-                <small>La idea que tu negocio necesita</small>
+                <strong>JJ Pega</strong>
+                <small>Stickers hechos para ti</small>
               </span>
             </Link>
 
             <p className="site-footer__copy">
-              Un estudio creativo con soluciones visuales y digitales para marcas,
-              negocios, eventos y proyectos que necesitan una presencia clara,
-              coherente y bien producida.
+              Stickers, ideas y buenas vibras para darle personalidad a todo lo
+              que quieres pegar, compartir y recordar.
             </p>
 
             <div className="site-footer__socials" aria-label="Redes sociales">
@@ -239,10 +233,12 @@ export default function Footer() {
                 <span>{SITE_CONTACT.email}</span>
               </a>
 
-              <a className="site-footer__contact-row" href={SITE_CONTACT.phone.href}>
-                <PhoneIcon />
-                <span>{SITE_CONTACT.phone.display}</span>
-              </a>
+              {SITE_CONTACT.phone && (
+                <a className="site-footer__contact-row" href={SITE_CONTACT.phone.href}>
+                  <PhoneIcon />
+                  <span>{SITE_CONTACT.phone.display}</span>
+                </a>
+              )}
 
               <div className="site-footer__contact-row">
                 <MapPinIcon />
@@ -263,8 +259,9 @@ export default function Footer() {
       <div className="site-footer__base">
         <div className="container site-footer__bottom">
           <div className="site-footer__bottom-copy">
-            <span>&copy; {new Date().getFullYear()} Ideas Estudio</span>
+            <span>&copy; {new Date().getFullYear()} JJ Pega</span>
             <span>Todos los derechos reservados.</span>
+            <span className="site-footer__credit">Hecho con cariño desde Puerto Rico</span>
           </div>
 
           <div className="site-footer__bottom-meta">

@@ -12,7 +12,7 @@
  *  8. siteDefaultOgImage (never favicon for articles)
  */
 
-const SITE_URL = 'https://www.ideasestudio.com';
+const SITE_URL = 'https://jjpega.com';
 
 /**
  * Convert a possibly-relative URL to an absolute HTTPS URL.
@@ -101,7 +101,7 @@ export function addImageCacheBust(url, version) {
  * Why: Supabase Storage responds with `x-robots-tag: none` on every object,
  * which causes WhatsApp's scraper (and possibly others) to reject the image.
  * Routing the image through /api/og-image strips that header and re-serves
- * the bytes under https://www.ideasestudio.com with bot-friendly headers.
+ * the bytes under https://jjpega.com with bot-friendly headers.
  *
  * The `v` parameter changes when the article is updated (derived from updated_at)
  * so caching scrapers see a "new" URL and re-fetch the image automatically.

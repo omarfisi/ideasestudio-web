@@ -6,6 +6,7 @@ import PublicBusinessIntakeForm from "@/components/forms/PublicBusinessIntakeFor
 import PublicLandingBlocks from "@/components/landing/blocks/PublicLandingBlocks.jsx";
 import HighlightedHeading from "@/components/common/HighlightedHeading.jsx";
 import { getPublicForm, getPublicFormLanding } from "@/lib/publicFormsApi.js";
+import { SITE_CONFIG } from "@/lib/siteConfig.js";
 
 const DEFAULT_BENEFITS = [
   "Entendemos mejor tu negocio",
@@ -394,7 +395,7 @@ export default function BusinessIntakeLanding() {
         <SEOHead
           title="Landing no disponible | Ideas Estudio"
           description="La landing solicitada no existe o no está publicada."
-          canonical={`https://www.ideasestudio.com${canonicalPath}`}
+          canonical={`${SITE_CONFIG.siteUrl}${canonicalPath}`}
           ogTitle="Landing no disponible | Ideas Estudio"
           ogDescription="La landing solicitada no existe o no está publicada."
         />
@@ -421,7 +422,7 @@ export default function BusinessIntakeLanding() {
       <SEOHead
         title={seo.title}
         description={seo.description}
-        canonical={`https://www.ideasestudio.com${canonicalPath}`}
+        canonical={`${SITE_CONFIG.siteUrl}${canonicalPath}`}
         ogTitle={seo.ogTitle}
         ogDescription={seo.ogDescription}
       />

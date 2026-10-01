@@ -6,11 +6,11 @@ function isValidEmail(value) {
 }
 
 export default function SplitLeadBlock({
-  eyebrow = "Ideas Estudio",
+  eyebrow = "JJ Pega",
   title = "Recibe ideas, contenido y estrategias para hacer crecer tu negocio.",
   description = "Déjanos tu correo y te compartiremos contenido útil, claro y pensado para ayudarte a comunicar mejor tu marca.",
   imageSrc,
-  imageAlt = "Ideas Estudio",
+  imageAlt = "JJ Pega",
   buttonLabel = "Enviar",
   successMessage = "Listo. Pronto recibirás contenido útil directamente en tu correo.",
   source = "website_contact",

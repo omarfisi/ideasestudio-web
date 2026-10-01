@@ -6,6 +6,7 @@ import MinimalCardPreset from "./presets/MinimalCardPreset.jsx";
 import PopupNewsletterPreset from "./presets/PopupNewsletterPreset.jsx";
 import PopupOfferSplitPreset from "./presets/PopupOfferSplitPreset.jsx";
 import ContactLandingPreset from "./presets/ContactLandingPreset.jsx";
+import JJPegaFormPreset from "./presets/JJPegaFormPreset.jsx";
 
 // Only implemented presets appear here. Unknown preset → error boundary, not silent alias.
 const PRESET_COMPONENTS = {
@@ -14,6 +15,7 @@ const PRESET_COMPONENTS = {
   "popup-newsletter": PopupNewsletterPreset,
   "popup-offer-split": PopupOfferSplitPreset,
   "contact-landing": ContactLandingPreset,
+  "jj-pega-form": JJPegaFormPreset,
 };
 
 const VALID_POPUP_TRIGGERS = new Set(["button", "auto", "delay", "exit_intent"]);

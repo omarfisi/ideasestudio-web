@@ -1,5 +1,5 @@
 /* ============================================================
-   IDEAS ESTUDIO — Design System
+   JJ PEGA — Design System
    Fuente de verdad única para toda la Página Web Pública.
    ============================================================ */
 
@@ -7,8 +7,11 @@
 @import "tailwindcss";
 
 :root {
-  /* Colores Ideas Estudio */
-  --ideas-yellow: #F9D001;
+  /* Colores del logo JJ Pega */
+  --ideas-yellow: #FFDF00;
+  --jj-pink: #F20B8C;
+  --jj-cyan: #00D8EE;
+  --jj-lime: #98F500;
   --ideas-black:  #0B0B0D;
   --ideas-white:  #FFFFFF;
   --ideas-light:  #FFFFFF;

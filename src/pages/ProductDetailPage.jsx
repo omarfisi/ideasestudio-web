@@ -65,6 +65,10 @@ function getPriceLabel(product) {
   return formatPrice(numeric, product?.currency || "USD");
 }
 
+function getCartActionLabel(product) {
+  return product?.productType === "physical" ? "Añadir al carrito" : "Añadir al resumen";
+}
+
 /**
  * Splits description_long into paragraph / list blocks, preserving the
  * "Incluye:\n- item\n- item" structure real service descriptions use
@@ -109,6 +113,8 @@ export default function ProductDetailPage() {
   const { product } = useLoaderData();
   const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
+  const variants = Array.isArray(product?.variants) ? product.variants : [];
+  const [selectedVariantId, setSelectedVariantId] = useState(variants[0]?.id || "");
   const [selectedImage, setSelectedImage] = useState("");
   const [actionState, setActionState] = useState({
     status: "idle",
@@ -140,6 +146,13 @@ export default function ProductDetailPage() {
     () => parseLongDescription(product?.longDescription),
     [product]
   );
+  const selectedVariant = variants.find((v) => v.id === selectedVariantId) || null;
+
+  useEffect(() => {
+    if (variants.length && !variants.some((v) => v.id === selectedVariantId)) {
+      setSelectedVariantId(variants[0].id);
+    }
+  }, [product?.id, selectedVariantId, variants]);
 
   // Services on the "monthly" purchase flow already have their own
   // checkout-flow CTA labeled "Conocer planes" (CTA_LABELS.monthly in
@@ -202,7 +215,7 @@ export default function ProductDetailPage() {
       try {
         const response = await getPublicProducts({
           category: product?.category?.slug || "all",
-          productType: "service",
+          productType: "physical",
           limit: 6,
           offset: 0,
         });
@@ -213,7 +226,7 @@ export default function ProductDetailPage() {
           .filter(
             (item) =>
               item?.isActive !== false &&
-              item?.productType === "service" &&
+              item?.productType === "physical" &&
               item?.slug !== product.slug
           )
           .slice(0, 3);
@@ -259,9 +272,9 @@ export default function ProductDetailPage() {
       <section className="section">
         <div className="container">
           <div className="empty-state">
-            <h1>Servicio no encontrado</h1>
-            <p>El servicio solicitado no existe o no está publicado.</p>
-            <Button to="/servicios">Volver a servicios</Button>
+            <h1>Producto no encontrado</h1>
+            <p>El producto solicitado no existe o no está publicado.</p>
+            <Button to="/tienda">Volver al catálogo</Button>
           </div>
         </div>
       </section>
@@ -274,8 +287,8 @@ export default function ProductDetailPage() {
       status: "loading",
       message:
         mode === "checkout"
-          ? "Preparando contratación..."
-          : "Añadiendo servicio al resumen...",
+          ? "Preparando tu pedido..."
+          : "Añadiendo producto al carrito...",
     });
 
     try {
@@ -283,12 +296,13 @@ export default function ProductDetailPage() {
         productId: product.id,
         productSlug: product.slug,
         quantity,
+        variantId: selectedVariant?.id || null,
       });
 
       setActionState({
         status: "success",
-        message: `Servicio agregado. Tu resumen ahora tiene ${cart.summary.totalQuantity} ${
-          cart.summary.totalQuantity === 1 ? "servicio" : "servicios"
+        message: `Producto agregado. Tu carrito ahora tiene ${cart.summary.totalQuantity} ${
+          cart.summary.totalQuantity === 1 ? "producto" : "productos"
         }.`,
       });
 
@@ -348,7 +362,7 @@ export default function ProductDetailPage() {
         <nav className="service-detail-breadcrumb" aria-label="Breadcrumb">
           <Link to="/">Inicio</Link>
           <span>/</span>
-          <Link to="/servicios">Servicios</Link>
+          <Link to="/tienda">Tienda</Link>
           <span>/</span>
           <span>{product.name}</span>
         </nav>
@@ -365,8 +379,8 @@ export default function ProductDetailPage() {
                 />
               ) : (
                 <div className="service-detail-gallery__placeholder">
-                  <p>Servicio premium</p>
-                  <small>Ideas Estudio</small>
+                  <p>Producto JJ Pega</p>
+                  <small>JJ Pega</small>
                 </div>
               )}
 
@@ -413,7 +427,7 @@ export default function ProductDetailPage() {
 
           <aside className="service-detail-content">
             <span className="pill service-detail-content__category">
-              {product.category?.name || "Servicios"}
+              {product.category?.name || "Productos"}
             </span>
 
             <h1>{product.name}</h1>
@@ -426,13 +440,26 @@ export default function ProductDetailPage() {
 
             <div className="service-detail-content__price">
               <small>Desde</small>
-              <strong>{getPriceLabel(product)}</strong>
+              <strong>{selectedVariant ? formatPrice(selectedVariant.price, selectedVariant.currency) : getPriceLabel(product)}</strong>
             </div>
+
+            {variants.length ? (
+              <div className="service-detail-purchase__variant">
+                <label htmlFor="sticker-size">Selecciona el tamaño</label>
+                <select id="sticker-size" value={selectedVariantId} onChange={(e) => setSelectedVariantId(e.target.value)}>
+                  {variants.map((variant) => (
+                    <option key={variant.id} value={variant.id}>
+                      {variant.sizeLabel || variant.name} — {formatPrice(variant.price, variant.currency)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
 
             {quickFacts.length > 0 ? (
               <ul
                 className="service-detail-quickfacts"
-                aria-label="Datos clave del servicio"
+                aria-label="Datos clave del producto"
               >
                 {quickFacts.map((fact) => {
                   const Icon = QUICK_FACT_ICONS[fact.icon];
@@ -550,7 +577,7 @@ export default function ProductDetailPage() {
                     disabled={pendingAction !== ""}
                     className="service-detail-purchase__summary-btn"
                   >
-                    {pendingAction === "cart" ? "Añadiendo..." : "Añadir al resumen"}
+                    {pendingAction === "cart" ? "Añadiendo..." : getCartActionLabel(product)}
                   </Button>
                 ) : null}
               </div>
@@ -647,7 +674,7 @@ export default function ProductDetailPage() {
               aria-controls="service-detail-accordion-panel"
               onClick={() => setDetailsOpen((current) => !current)}
             >
-              <span>Ver todos los detalles del servicio</span>
+              <span>Ver todos los detalles del producto</span>
               <ChevronDown
                 size={18}
                 aria-hidden="true"
@@ -663,7 +690,7 @@ export default function ProductDetailPage() {
                 id="service-detail-accordion-panel"
                 className="service-detail-accordion__panel"
                 role="region"
-                aria-label="Detalles completos del servicio"
+                aria-label="Detalles completos del producto"
               >
                 {descriptionBlocks.map((block, index) => {
                   if (block.type === "list") {
@@ -699,26 +726,26 @@ export default function ProductDetailPage() {
         {relatedState.items.length ? (
           <section className="service-detail-related">
             <div className="service-detail-related__header">
-              <h2>Servicios relacionados</h2>
-              <Link to="/servicios">Ver catálogo completo</Link>
+              <h2>Productos relacionados</h2>
+              <Link to="/tienda">Ver catálogo completo</Link>
             </div>
 
             <div className="service-detail-related__grid">
               {relatedState.items.map((item) => (
                 <article key={item.id || item.slug} className="service-detail-related__card">
-                  <Link to={`/servicios/${item.slug}`} className="service-detail-related__media">
+                  <Link to={`/tienda/${item.slug}`} className="service-detail-related__media">
                     {item.coverImage ? (
                       <img src={item.coverImage} alt={item.name} loading="lazy" />
                     ) : (
                       <div>
-                        <span>Servicio</span>
+                        <span>Producto</span>
                       </div>
                     )}
                   </Link>
                   <div className="service-detail-related__copy">
-                    <span>{item.category?.name || "Servicios"}</span>
+                    <span>{item.category?.name || "Productos"}</span>
                     <h3>
-                      <Link to={`/servicios/${item.slug}`}>{item.name}</Link>
+                      <Link to={`/tienda/${item.slug}`}>{item.name}</Link>
                     </h3>
                     <strong>{getPriceLabel(item)}</strong>
                   </div>

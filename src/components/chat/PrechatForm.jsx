@@ -5,7 +5,7 @@ import { verifyPrechat } from "@/services/publicChatApi.js";
 const PRECHAT_FORM_SLUG = "aira-prechat";
 
 const CONSENT_LABEL =
-  "Acepto que Ideas Estudio utilice mis datos para responder esta conversación y dar seguimiento a mi solicitud.";
+  "Acepto que JJ Pega utilice mis datos para responder esta conversación y dar seguimiento a mi solicitud.";
 
 function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);

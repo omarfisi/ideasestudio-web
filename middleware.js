@@ -41,19 +41,19 @@
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const SITE_URL       = 'https://www.ideasestudio.com';
-const SITE_NAME      = 'Ideas Estudio';
-const TWITTER_HANDLE = '@ideasestudio';
+const SITE_URL       = 'https://jjpega.com';
+const SITE_NAME      = 'JJ Pega';
+const TWITTER_HANDLE = '';
 
 /**
  * Default brand images — real photos, never favicon/logo.
  * Used only when no configured SEO image AND no item image exist.
  */
 const DEFAULT_SITE_IMAGE =
-  'https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/presencia-visual.webp';
+  `${SITE_URL}/assets/jj-high-quality/trimmed/logo-header.webp`;
 
 const SERVICES_IMAGE =
-  'https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/marca-negocio.webp';
+  `${SITE_URL}/assets/jj-high-quality/trimmed/logo-header.webp`;
 
 // ─── Static page fallback registry ───────────────────────────────────────────
 // This is a FALLBACK ONLY. The CMS SEO entry (GET /public/seo?path=) always wins.
@@ -61,72 +61,72 @@ const SERVICES_IMAGE =
 
 const STATIC_PAGE_META = {
   '/': {
-    title:       'Ideas Estudio | La idea que tu negocio necesita',
-    description: 'Fotografía profesional, diseño, video y branding en Puerto Rico. La agencia creativa que impulsa tu marca, negocio o evento especial.',
+    title:       'JJ Pega | Stickers & good vibes',
+    description: 'Stickers, diseños personalizados y buenas vibras para convertir tus ideas en algo que pega.',
     image:       DEFAULT_SITE_IMAGE,
   },
   '/blog': {
-    title:       'Blog | Ideas Estudio',
-    description: 'Artículos de fotografía, diseño, branding y estrategia visual para negocios y marcas en Puerto Rico.',
+    title:       'Blog | JJ Pega',
+    description: 'Ideas, novedades y buenas vibras de JJ Pega.',
     image:       DEFAULT_SITE_IMAGE,
   },
   '/servicios': {
-    title:       'Servicios Creativos | Ideas Estudio',
-    description: 'Explora fotografía, video, diseño gráfico y branding profesional para tu marca, negocio o evento en Puerto Rico.',
+    title:       'Servicios | JJ Pega',
+    description: 'Explora stickers, packs y diseños personalizados de JJ Pega.',
     image:       SERVICES_IMAGE,
   },
   '/portafolio': {
-    title:       'Portafolio | Ideas Estudio',
-    description: 'Galería de proyectos de fotografía, video y diseño. Trabajos reales para marcas y eventos en Puerto Rico.',
+    title:       'Portafolio | JJ Pega',
+    description: 'Conoce diseños y stickers creados por JJ Pega.',
     image:       DEFAULT_SITE_IMAGE,
   },
   '/contacto': {
-    title:       'Contacto | Ideas Estudio',
-    description: 'Ponte en contacto con Ideas Estudio. Cuéntanos sobre tu proyecto y te ayudamos a desarrollar una propuesta visual profesional.',
+    title:       'Contacto | JJ Pega',
+    description: 'Cuéntanos qué quieres crear y el equipo de JJ Pega te ayudará a convertirlo en stickers.',
     image:       DEFAULT_SITE_IMAGE,
   },
   '/equipo': {
-    title:       'Nuestro Equipo | Ideas Estudio',
-    description: 'Conoce al equipo creativo de Ideas Estudio. Fotógrafos, diseñadores y estrategas de contenido en Puerto Rico.',
+    title:       'JJ Pega | Nuestro equipo',
+    description: 'Conoce el equipo detrás de JJ Pega.',
     image:       DEFAULT_SITE_IMAGE,
   },
   '/pequenos-negocios': {
-    title:       'Para Pequeños Negocios | Ideas Estudio',
+    title:       'Para pequeños negocios | JJ Pega',
     description: 'Contenido visual, branding y presencia digital para tiendas, restaurantes y negocios locales en Puerto Rico.',
     image:       SERVICES_IMAGE,
   },
   '/emprendedores': {
-    title:       'Para Emprendedores | Ideas Estudio',
+    title:       'Para emprendedores | JJ Pega',
     description: 'Branding, fotografía y presencia digital para emprendedores y marcas personales.',
     image:       DEFAULT_SITE_IMAGE,
   },
   '/empresas-emergentes': {
-    title:       'Para Empresas Emergentes | Ideas Estudio',
+    title:       'Para empresas emergentes | JJ Pega',
     description: 'Identidad, contenido y presencia digital para startups y marcas nuevas.',
     image:       DEFAULT_SITE_IMAGE,
   },
   '/bodas-eventos-sesiones': {
-    title:       'Bodas, Eventos y Sesiones | Ideas Estudio',
+    title:       'Bodas, eventos y sesiones | JJ Pega',
     description: 'Coberturas, sesiones y fotografía para bodas, celebraciones y retratos en Puerto Rico.',
     image:       DEFAULT_SITE_IMAGE,
   },
   '/servicios/marca-o-negocio': {
-    title:       'Soluciones para Marcas y Negocios | Ideas Estudio',
+    title:       'Soluciones para marcas y negocios | JJ Pega',
     description: 'Branding, contenido, web y activos comerciales para negocios que necesitan verse mejor.',
     image:       SERVICES_IMAGE,
   },
   '/servicios/presencia-visual-profesional': {
-    title:       'Presencia Visual Profesional | Ideas Estudio',
+    title:       'Presencia visual profesional | JJ Pega',
     description: 'Imagen corporativa, fotografía y video profesional para empresas y equipos.',
     image:       DEFAULT_SITE_IMAGE,
   },
   '/servicios/momento-especial': {
-    title:       'Fotografía para Momentos Especiales | Ideas Estudio',
+    title:       'Diseños para momentos especiales | JJ Pega',
     description: 'Bodas, sesiones y coberturas con una experiencia clara desde la reserva hasta la entrega.',
     image:       DEFAULT_SITE_IMAGE,
   },
   '/servicios/solucion-creativa': {
-    title:       'Soluciones Creativas Personalizadas | Ideas Estudio',
+    title:       'Soluciones creativas personalizadas | JJ Pega',
     description: 'Campañas, proyectos mixtos y propuestas donde branding, contenido, producción y web se mezclan.',
     image:       DEFAULT_SITE_IMAGE,
   },
@@ -183,7 +183,7 @@ function resolveMixedProxy(value) {
   try {
     const parsed = new URL(raw);
     if (
-      parsed.hostname === 'www.ideasestudio.com' &&
+      parsed.hostname === 'www.jjpega.com' &&
       parsed.pathname === '/api/og-image'
     ) {
       return parsed.searchParams.get('src') || raw;
@@ -328,7 +328,7 @@ async function fetchPageSeoEntry(crmBase, pathname, signal) {
   if (!crmBase || !pathname) return null;
   try {
     const res = await fetch(
-      `${crmBase}/public/seo?path=${encodeURIComponent(pathname)}`,
+      `${crmBase}/public/seo?path=${encodeURIComponent(pathname)}&workspace_id=0d8c04a8-6be2-4559-93de-0b2be2639f82`,
       { signal, headers: { Accept: 'application/json' } }
     );
     if (!res.ok) return null;
@@ -738,7 +738,7 @@ export default async function middleware(request) {
 
   // ── Short link redirect / OG preview ──────────────────────────────────────
   // /r/{slug}  →  if social bot: return 200 HTML with OG tags (no click tracked)
-  //               if human:      302 → api.ideasestudiopr.com/r/{slug} (click tracked)
+  //               if human:      302 → configured API /r/{slug} (click tracked)
   const shortLinkMatch = pathname.match(/^\/r\/([a-zA-Z0-9_\-]{1,80})$/);
   if (shortLinkMatch) {
     const slug    = shortLinkMatch[1];
@@ -746,7 +746,7 @@ export default async function middleware(request) {
     const apiBase = (
       process.env.API_BASE_URL      ||
       process.env.VITE_CRM_BASE_URL ||
-      'https://api.ideasestudiopr.com'
+      ''
     ).replace(/\/+$/, '');
     const trackingUrl = `${apiBase}/r/${encodeURIComponent(slug)}`;
 

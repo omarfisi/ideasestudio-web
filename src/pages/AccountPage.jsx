@@ -178,7 +178,7 @@ export default function AccountPage() {
             <div className="account-user-card">
               <p>Hola,</p>
               <h2>{userEmail}</h2>
-              <span>Cliente Ideas Estudio</span>
+              <span>Cliente JJ Pega</span>
               <button onClick={handleSignOut}>Cerrar sesión</button>
             </div>
 
