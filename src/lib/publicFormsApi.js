@@ -5,6 +5,20 @@ function cleanBase(value) {
   return String(value || "").trim().replace(/\/+$/, "");
 }
 
+function formatApiError(data, fallback) {
+  const detail = data?.detail ?? data?.message;
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => (typeof item === "string" ? item : item?.msg || item?.message))
+      .filter(Boolean);
+    if (messages.length) return messages.join(" ");
+  }
+  if (detail && typeof detail === "object") {
+    return detail.msg || detail.message || fallback;
+  }
+  return detail || fallback;
+}
+
 export function isLocalHost(hostname) {
   const normalized = String(hostname || "").trim().toLowerCase();
   return normalized === "localhost" || normalized === "127.0.0.1" || normalized === "::1";
@@ -84,8 +98,7 @@ async function _apiFetch(path, opts = {}) {
   let data = null;
   try { data = await res.json(); } catch { data = null; }
   if (!res.ok) {
-    const detail = data?.detail || data?.message || "Error en la solicitud.";
-    const error = new Error(detail);
+    const error = new Error(formatApiError(data, "Error en la solicitud."));
     error.status = res.status;
     throw error;
   }
@@ -130,8 +143,7 @@ async function _publicFetch(path, opts = {}) {
   let data = null;
   try { data = await res.json(); } catch { data = null; }
   if (!res.ok) {
-    const detail = data?.detail || data?.message || "Error en la solicitud.";
-    const error = new Error(detail);
+    const error = new Error(formatApiError(data, "Error en la solicitud."));
     error.status = res.status;
     throw error;
   }

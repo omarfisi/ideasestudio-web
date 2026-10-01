@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const {
   requestPublicChatHuman,
   getPublicAvatarRuntime,
+  normalizeLocalAvatarAssetUrl,
   getPublicChatDefaultAssistant,
   switchPublicChatAssistant,
   sendPublicChatQuickReply,
@@ -139,7 +140,7 @@ describe("submitPublicProjectDetails", () => {
       additionalInfo: "Ya tengo el contenido preparado.",
     });
     const [url, options] = fetch.mock.calls[0];
-    expect(String(url)).toMatch(/^http:\/\/127\.0\.0\.1:8000\/public\/chat\/project-details$/);
+    expect(String(url)).toBe("/public/chat/project-details");
     expect(options.method).toBe("POST");
     expect(JSON.parse(options.body)).toMatchObject({
       session_id: "session-1",
@@ -187,6 +188,20 @@ describe("getPublicAvatarRuntime", () => {
     expect(options.method).toBe("GET");
     expect(String(url)).not.toMatch(/workspace_id|profile_id|variant_id|version_id/);
   });
+
+  it("normaliza assets locales del backend al proxy same-origin en desarrollo", async () => {
+    fetch.mockResolvedValue(jsonResponse(200, {
+      profile: "ivox",
+      poses: {
+        neutral: { url: "http://127.0.0.1:8001/local-avatar-assets/ivox/default/launcher/point-viewer.png" },
+      },
+    }));
+
+    const runtime = await getPublicAvatarRuntime();
+
+    expect(runtime.poses.neutral.url).toBe("/local-avatar-assets/ivox/default/launcher/point-viewer.png");
+    expect(normalizeLocalAvatarAssetUrl("https://cdn.example/avatar.png")).toBe("https://cdn.example/avatar.png");
+  });
 });
 
 describe("publicChatApi local backend base", () => {
@@ -194,10 +209,8 @@ describe("publicChatApi local backend base", () => {
     fetch.mockResolvedValue(jsonResponse(200, { ok: true, status: "waiting_agent" }));
     await requestPublicChatHuman("session-local-base-check");
     const [url] = fetch.mock.calls[0];
-    // import.meta.env.VITE_CRM_BASE_URL in this test run comes from
-    // .env.local (http://127.0.0.1:8001) — publicChatApi.js has no
-    // relative-path fallback at all (getPublicChatBaseUrl() throws if the
-    // env var is missing), so this must always be absolute and local here.
-    expect(String(url)).toMatch(/^http:\/\/127\.0\.0\.1:8000\/public\/chat\//);
+    // Local development uses the Vite same-origin proxy. The configured
+    // backend remains local, but the browser request must stay same-origin.
+    expect(String(url)).toMatch(/^\/public\/chat\//);
   });
 });

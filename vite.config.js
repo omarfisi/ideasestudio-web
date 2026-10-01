@@ -45,6 +45,10 @@ export default defineConfig({
         target: localApiTarget,
         changeOrigin: true,
       },
+      '/local-avatar-assets': {
+        target: localApiTarget,
+        changeOrigin: true,
+      },
     },
   },
   resolve: {

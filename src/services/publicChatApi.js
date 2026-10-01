@@ -11,6 +11,20 @@ function isPrivateLanHost(hostname) {
     octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31;
 }
 
+function formatApiError(data, fallback) {
+  const detail = data?.detail ?? data?.message;
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => (typeof item === "string" ? item : item?.msg || item?.message))
+      .filter(Boolean);
+    if (messages.length) return messages.join(" ");
+  }
+  if (detail && typeof detail === "object") {
+    return detail.msg || detail.message || fallback;
+  }
+  return detail || fallback;
+}
+
 // Cliente del widget de chat público (PR11). Nunca manda workspace_id ni
 // role_slug — el backend resuelve el workspace desde su propia configuración
 // de servidor (AIRA_WEBCHAT_PUBLIC_WORKSPACE_ID), nunca confía en un valor
@@ -18,7 +32,12 @@ function isPrivateLanHost(hostname) {
 function getPublicChatBaseUrl() {
   const base = (CRM_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "");
   const hostname = typeof window !== "undefined" ? window.location.hostname : "";
-  if (import.meta.env.DEV && isPrivateLanHost(hostname)) return "/public/chat";
+  const loopbackHost = ["localhost", "127.0.0.1", "::1"].includes(hostname);
+  // Keep every local development request same-origin. This covers both LAN
+  // validation hosts and loopback (127.0.0.1/localhost), avoiding a browser
+  // cross-origin hop between the public Web and the local backend while
+  // preserving the backend's public-chat contract.
+  if (import.meta.env.DEV && (loopbackHost || isPrivateLanHost(hostname))) return "/public/chat";
   if (!base) {
     throw new Error(
       "Falta VITE_JJ_PEGA_CRM_BASE_URL/VITE_JJ_PEGA_API_BASE. Define la URL del backend JJ Pega."
@@ -41,8 +60,7 @@ async function publicChatFetch(path, options = {}) {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message =
-      data?.detail || data?.message || `Request failed with status ${response.status}`;
+    const message = formatApiError(data, `Request failed with status ${response.status}`);
     const error = new Error(message);
     error.status = response.status;
     // FASE HANDOFF H3B.3 — el backend (_raise_rate_limited()) siempre manda
@@ -60,6 +78,41 @@ async function publicChatFetch(path, options = {}) {
   }
 
   return data;
+}
+
+// The local backend may return an absolute loopback URL for a signed avatar
+// asset. When the Web is opened from localhost (or from a LAN device), that
+// URL becomes a cross-origin request and may point at the wrong machine. Keep
+// the backend contract unchanged and route only local avatar assets through
+// Vite's same-origin proxy in development. Remote/signed URLs are untouched.
+export function normalizeLocalAvatarAssetUrl(value) {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw || !import.meta.env.DEV) return value;
+
+  try {
+    const parsed = new URL(raw, typeof window !== "undefined" ? window.location.origin : undefined);
+    const localHost = ["localhost", "127.0.0.1", "::1"].includes(parsed.hostname);
+    const localAsset = parsed.pathname.startsWith("/local-avatar-assets/");
+    if (!localHost || parsed.port !== "8001" || !localAsset) return value;
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return value;
+  }
+}
+
+function normalizeAvatarRuntime(runtime) {
+  if (!runtime || typeof runtime !== "object" || !runtime.poses || typeof runtime.poses !== "object") {
+    return runtime;
+  }
+  const poses = Object.fromEntries(
+    Object.entries(runtime.poses).map(([key, pose]) => [
+      key,
+      pose && typeof pose === "object"
+        ? { ...pose, url: normalizeLocalAvatarAssetUrl(pose.url) }
+        : pose,
+    ])
+  );
+  return { ...runtime, poses };
 }
 
 export async function startPublicChat(prechatToken, rememberMe = false, chatbotKey = null) {
@@ -189,10 +242,11 @@ export async function getPublicAvatarRuntime(options = {}) {
   const chatbotKey = typeof options.chatbotKey === "string" && options.chatbotKey.trim()
     ? `?chatbot_key=${encodeURIComponent(options.chatbotKey.trim())}`
     : "";
-  return publicChatFetch(`/avatar${chatbotKey}`, {
+  const runtime = await publicChatFetch(`/avatar${chatbotKey}`, {
     method: "GET",
     signal: options.signal,
   });
+  return normalizeAvatarRuntime(runtime);
 }
 
 // Gate de pre-chat: se llama justo después de un envío exitoso del
