@@ -4,8 +4,8 @@ import SEOHead from "@/components/seo/SEOHead.jsx";
 import { buildOrganizationSchema } from "@/components/seo/schema.js";
 import { usePageSeo } from "@/hooks/usePageSeo.js";
 import TestimonialsSlider from "@/components/shared/TestimonialsSlider.jsx";
-import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
 import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
+import PublicFormRenderer from "@/components/forms/PublicFormRenderer.jsx";
 import SafeImage from "@/components/shared/SafeImage.jsx";
 import SegmentHeroSection from "@/components/home/SegmentHeroSection.jsx";
 import {
@@ -25,6 +25,49 @@ const portfolioProcessStep1 = localPortfolioAsset2;
 const portfolioProcessStep2 = localPortfolioAsset3;
 const portfolioProcessStep3 = localPortfolioAsset4;
 const portfolioProcessStep4 = localPortfolioAsset1;
+
+const HOME_CONTACT_FORM_FALLBACK = {
+  form_id: "85bd4d30-1fc9-4fe9-86a8-0809f398e84e",
+  placement_id: "1e4ba66e-14e0-4e55-9792-7bedc6e67efd",
+  slug: "solicitar-informacion-home",
+  form_type: "lead",
+  title: "Cuéntanos sobre tu proyecto",
+  headline: "Hablemos de tu proyecto",
+  subheadline: "Completa el formulario y te contactamos en menos de 24 horas.",
+  button_label: "Enviar solicitud",
+  success_message: "¡Listo! Recibimos tu información. Te contactaremos pronto.",
+  theme_variant: "dark",
+  layout_variant: "split-right",
+  image_url: "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/blog-images/forms/6adebe1a0d2f4be6878dc44a78cd977e.webp",
+  design_variant: "contact-landing",
+  display_mode: "embedded",
+  popup_enabled: false,
+  fields_schema: [
+    { id: "nombre", name: "nombre", type: "text", label: "Nombre completo", width: "full", map_to: "full_name", options: [], visible: true, required: true, placeholder: "¿Cómo te llamas?", default_value: "" },
+    { id: "email", name: "email", type: "email", label: "Correo electrónico", width: "half", map_to: "email", options: [], visible: true, required: true, placeholder: "tu@correo.com", default_value: "" },
+    { id: "telefono", name: "telefono", type: "tel", label: "Teléfono", width: "half", map_to: "phone", options: [], visible: true, required: false, placeholder: "(787) 000-0000", default_value: "" },
+    { id: "servicio", name: "servicio", type: "select", label: "¿Qué servicio te interesa?", width: "full", map_to: "tags", options: [
+      { label: "Branding e Identidad Visual", value: "branding" },
+      { label: "Fotografía", value: "fotografia" },
+      { label: "Producción de Video", value: "video" },
+      { label: "Diseño Gráfico", value: "diseno_grafico" },
+      { label: "Diseño Web", value: "web" },
+      { label: "Marketing Digital", value: "marketing_digital" },
+      { label: "Otro / No estoy seguro", value: "otro" },
+    ], visible: true, required: true, placeholder: "Selecciona una opción", default_value: "" },
+    { id: "presupuesto", name: "presupuesto", type: "select", label: "Presupuesto aproximado", width: "full", map_to: "budget", options: [
+      { label: "Menos de $500", value: "menos_500" },
+      { label: "$500 – $1,500", value: "500_1500" },
+      { label: "$1,500 – $3,000", value: "1500_3000" },
+      { label: "$3,000 – $5,000", value: "3000_5000" },
+      { label: "Más de $5,000", value: "mas_5000" },
+      { label: "Aún no lo tengo definido", value: "por_definir" },
+    ], visible: true, required: false, placeholder: "Selecciona un rango", default_value: "" },
+    { id: "mensaje", name: "mensaje", type: "textarea", label: "Cuéntanos sobre tu proyecto", width: "full", map_to: "notes", options: [], visible: true, required: true, placeholder: "Describe brevemente qué quieres lograr, para cuándo lo necesitas y cualquier detalle relevante...", default_value: "" },
+  ],
+  source: "home_solicitar_info",
+  segments: ["leads", "prospectos"],
+};
 
 const PORTFOLIO_VISUAL_SLIDES = [
   {
@@ -578,30 +621,9 @@ export default function HomePage() {
           <FormPlacementRenderer
             sectionKey="home_solicitar_info"
             fallback={
-              <FormPlacementRenderer
-                sectionKey="home_ideas_split"
-                fallback={
-                  <SplitLeadBlock
-                    eyebrow="Ideas Estudio"
-                    title={<>Recibe ideas y <span style={{ color: "#f2cc3d" }}>estrategias</span> para hacer crecer tu negocio.</>}
-                    description="Diseño, branding, contenido y marketing digital explicados de forma clara y útil para negocios reales."
-                    imageSrc={portfolioProcessStep2}
-                    imageAlt="Ideas Estudio — Estrategias de marca"
-                    buttonLabel="Quiero recibir ideas"
-                    successMessage="Listo. Pronto recibirás contenido útil directamente en tu correo."
-                    showNameField={true}
-                    namePlaceholder="Tu nombre"
-                    emailPlaceholder="Tu email"
-                    consentLabel="Sin spam. Solo contenido útil."
-                    source="website_home"
-                    segment="home_leads"
-                    segments={["home_leads", "newsletter"]}
-                    submissionKind="lead_capture"
-                    defaultMessage="Lead desde Home"
-                    meta={{ page_url: "/", form_name: "home_split_lead_block", entry_point: "home_page", ui_context: "ideas_web_public", ab_variant: "home_v1" }}
-                    theme="dark"
-                  />
-                }
+              <PublicFormRenderer
+                formConfig={HOME_CONTACT_FORM_FALLBACK}
+                placementId={HOME_CONTACT_FORM_FALLBACK.placement_id}
               />
             }
           />
