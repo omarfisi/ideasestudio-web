@@ -22,8 +22,36 @@ import Button from "@/components/shared/Button.jsx";
 import HighlightTitle from "@/components/shared/HighlightTitle.jsx";
 import ServiceNicheHero from "@/components/services/ServiceNicheHero.jsx";
 import SafeImage from "@/components/shared/SafeImage.jsx";
-import serviceShowcaseImage from "/images/services/service-img.webp";
 import serviceShowcaseShape from "/images/services/tab-content-shape.png";
+
+const SERVICE_REAL_IMAGES = {
+  "marca-o-negocio": [
+    "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/marca-negocio.webp",
+    "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/Diseno%20de%20Marca%20Personal.png",
+    "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/Impulso%20inicial.png",
+    "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/presencia-visual.webp",
+  ],
+  "presencia-visual-profesional": [
+    "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/presencia-visual.webp",
+    "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/1776851142698-sesion-de-fotografia-de-estudio-para-isaac-esquilin.webp",
+    "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/Collage.png",
+  ],
+  "momento-especial": [
+    "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/solucion-social.webp",
+    "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/Collage.png",
+    "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/1776851142698-sesion-de-fotografia-de-estudio-para-isaac-esquilin.webp",
+  ],
+  "solucion-creativa": [
+    "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/solucion-medida.webp",
+    "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/covers/2026/04/Impulso%20inicial.png",
+    "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/marca-negocio.webp",
+  ],
+};
+
+function serviceFallbackImage(nicheSlug, index = 0) {
+  const images = SERVICE_REAL_IMAGES[nicheSlug] || SERVICE_REAL_IMAGES["marca-o-negocio"];
+  return images[index % images.length];
+}
 
 const DEFAULT_ICON_SET = [Megaphone, MonitorPlay, BriefcaseBusiness];
 
@@ -118,6 +146,7 @@ export default function ServiceNicheTemplate({ niche, segment, apiServices }) {
               {(liveServices || niche.segmentServices).map((service, index) => {
                 const routeNumber = String(index + 1).padStart(2, "0");
                 const isReadyRoute = Boolean(service.slug);
+                const fallbackImage = serviceFallbackImage(niche.slug, index);
 
                 return (
                   <article
@@ -126,8 +155,8 @@ export default function ServiceNicheTemplate({ niche, segment, apiServices }) {
                   >
                     <div className="niche-service-card__media" aria-hidden="true">
                       <SafeImage
-                        src={service.image || serviceShowcaseImage}
-                        fallbackSrc={serviceShowcaseImage}
+                        src={service.image || fallbackImage}
+                        fallbackSrc={fallbackImage}
                         alt=""
                         className="niche-service-card__image"
                       />
@@ -255,7 +284,7 @@ export default function ServiceNicheTemplate({ niche, segment, apiServices }) {
 
                         <div className="service-h5-showcase__media">
                           <img
-                            src={serviceShowcaseImage}
+                            src={serviceFallbackImage(niche.slug, index)}
                             alt=""
                             aria-hidden="true"
                             className="service-h5-showcase__image"
