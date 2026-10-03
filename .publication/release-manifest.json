@@ -1,20 +1,16 @@
 {
   "product": "IDEAS_ESTUDIO",
-  "source_branch": "fix/ideas-publication-workflow-lifecycle-20261003",
+  "source_branch": "ideas/enforce-source-prefix-20261003",
   "base_branch": "ideas-main",
   "production_project": "ideasestudio-web",
   "visual_baseline": "https://ideasestudio.com",
   "visual_change_approved": false,
   "shared_files_approved": false,
   "expected_files": [
-    ".github/workflows/publication-safety.yml",
-    ".publication/release-manifest.json"
+    ".publication/policy.json",
+    ".publication/release-manifest.json",
+    "scripts/publication/check-manifest.mjs"
   ],
-  "forbidden_files": [
-    "src/pages/JJPega*",
-    "src/components/layout/JJPega*",
-    "src/components/forms/presets/JJPega*",
-    "public/assets/jj-pega/**"
-  ],
+  "forbidden_files": [],
   "public_workspace_id": "cfdd0b5a-3468-4d5a-86da-50e1f4f324a6"
 }
