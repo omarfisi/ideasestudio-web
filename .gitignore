@@ -38,3 +38,6 @@ src/pages/*.backup.jsx
 src/pages/*.landing-backup.jsx
 .vercel
 .env*
+
+.publication/changed-files.txt
+.artifacts/visual/
