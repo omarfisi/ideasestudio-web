@@ -36,7 +36,8 @@ const SOLUTIONS_MENU_ITEMS = [
   ...CLIENT_PATHS,
 ];
 
-const BRAND_LOGO_URL = "/ideas-estudio-logo-mark.png";
+const BRAND_LOGO_URL =
+  "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/logos/favicon_ideasestudio.webp";
 
 function ChevronDownIcon({ open = false }) {
   return (
@@ -332,8 +333,8 @@ export default function Header() {
         .ie-brand__logo {
           width: 44px;
           height: 44px;
-          border-radius: 0;
-          object-fit: contain;
+          border-radius: 14px;
+          object-fit: cover;
           background: transparent;
           border: none;
           flex-shrink: 0;
@@ -780,12 +781,7 @@ export default function Header() {
             font-size: 0.7rem;
           }
 
-          .ie-brand__logo {
-            width: 40px;
-            height: 40px;
-            border-radius: 0;
-          }
-
+          .ie-brand__logo,
           .ie-brand__fallback {
             width: 40px;
             height: 40px;

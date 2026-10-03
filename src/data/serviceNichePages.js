@@ -6,16 +6,6 @@ const presenciaVisualSegment = getSegmentByKey("empresas_corporaciones");
 const momentoEspecialSegment = getSegmentByKey("eventos");
 const solucionCreativaSegment = getSegmentByKey("emprendedores");
 
-// El API local puede no tener todavía los segmentos publicados. Estos assets
-// son el catálogo público canónico y evitan que el hero quede como un bloque
-// vacío mientras se sincroniza la base local.
-const SERVICE_NICHE_HERO_IMAGES = {
-  "marca-o-negocio": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/marca-negocio.webp",
-  "presencia-visual-profesional": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/presencia-visual.webp",
-  "momento-especial": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/solucion-social.webp",
-  "solucion-creativa": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/public-web/solucion-medida.webp",
-};
-
 const sharedSegmentSelector = {
   title: "Encuentra la propuesta ideal para tu marca, negocio o evento social.",
   titleBoxGlow: "propuesta",
@@ -684,14 +674,233 @@ const baseServiceNichePages = [
   },
 ];
 
-export const serviceNichePages = baseServiceNichePages.map((page) => ({
-  ...page,
-  heroImageUrl: page.heroImageUrl || SERVICE_NICHE_HERO_IMAGES[page.slug],
-  catalogPreview: page.catalogCards.map((card) => ({
-    title: card.title,
-    description: card.description,
-  })),
-}));
+const LOCAL_SEGMENT_MEDIA = {
+  "marca-o-negocio": {
+    "heroImageUrl": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/blog-images/segments/hero/1444e6a7e5534efa887e4fb00c50a3cf.webp",
+    "heroFocalX": 50.0,
+    "heroFocalY": 50.0,
+    "heroFitMode": "cover",
+    "segmentServices": [
+      {
+        "title": "Diseño de Logotipo",
+        "slug": "diseno-de-logotipo",
+        "description": "Diseño profesional de logotipo alineado a la esencia de la marca, con investigación básica, propuestas creativas y entrega en formatos listos para impresión y uso digital.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/diseno-de-logotipo/covers/5f373287b9e24f3cb4fd4c31c0c04a40.webp",
+        "href": "/servicios/diseno-de-logotipo?mode=proposal&cta=segment_card&niche=marca-o-negocio",
+        "ctaLabel": "Ver servicio"
+      },
+      {
+        "title": "Diseño de Página Web Básica",
+        "slug": "diseno-de-pagina-web-basica",
+        "description": "Desarrollo de una página web básica profesional para presentar negocio, servicios y contacto, con diseño responsive y estructura optimizada.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/diseno-de-pagina-web-basica/covers/cf3d1ba7cb5f4bf7a0ac5b2c6c6714a1.webp",
+        "href": "/servicios/diseno-de-pagina-web-basica?mode=proposal&cta=segment_card&niche=marca-o-negocio",
+        "ctaLabel": "Ver servicio"
+      },
+      {
+        "title": "Gestión de Redes Sociales",
+        "slug": "gestion-de-redes-sociales",
+        "description": "Gestión profesional de una plataforma de redes sociales con contenido constante, diseño de piezas y seguimiento básico de comunidad.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/gestion-de-redes-sociales/covers/58eac0af17e348b5b0717c760910bc9c.webp",
+        "href": "/servicios/gestion-de-redes-sociales?mode=proposal&cta=segment_card&niche=marca-o-negocio",
+        "ctaLabel": "Ver servicio"
+      },
+      {
+        "title": "Materiales de Marketing",
+        "slug": "materiales-de-marketing",
+        "description": "Diseño de materiales gráficos promocionales para campañas, productos o eventos específicos de la marca.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/materiales-de-marketing/covers/4d5a1f94a95844aab7d61d8160a98a47.webp",
+        "href": "/servicios/materiales-de-marketing?mode=proposal&cta=segment_card&niche=marca-o-negocio",
+        "ctaLabel": "Ver servicio"
+      },
+      {
+        "title": "Estrategia de Contenido",
+        "slug": "estrategia-de-contenido",
+        "description": "Plan y creación de contenido escrito para fortalecer presencia digital, educar a la audiencia y apoyar objetivos comerciales.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/estrategia-de-contenido/covers/d15a5b7bb3144decb02aa608b03bea11.webp",
+        "href": "/servicios/estrategia-de-contenido?mode=proposal&cta=segment_card&niche=marca-o-negocio",
+        "ctaLabel": "Ver servicio"
+      },
+      {
+        "title": "Diseño de Tarjeta de Presentación",
+        "slug": "diseno-de-tarjeta-de-presentacion",
+        "description": "Diseño de tarjetas de presentación profesionales alineadas a la identidad visual del negocio, listas para impresión y uso digital.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/diseno-de-tarjeta-de-presentacion/covers/03075df8f19c4addba2730cbc593ce5d.webp",
+        "href": "/servicios/diseno-de-tarjeta-de-presentacion?mode=proposal&cta=segment_card&niche=marca-o-negocio",
+        "ctaLabel": "Ver servicio"
+      }
+    ]
+  },
+  "presencia-visual-profesional": {
+    "heroImageUrl": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/blog-images/segments/hero/9bc5e8b476eb4aedb24a4230865a6327.webp",
+    "heroFocalX": 50.0,
+    "heroFocalY": 50.0,
+    "heroFitMode": "cover",
+    "segmentServices": [
+      {
+        "title": "Fotografía Profesional de Estudio",
+        "slug": "fotografia-profesional-de-estudio",
+        "description": "Sesión de estudio para retratos profesionales, personales o corporativos con iluminación de calidad.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/fotografia-profesional-de-estudio/covers/cab594e038cd42338b1d81470919ca17.webp",
+        "href": "/servicios/fotografia-profesional-de-estudio?mode=proposal&cta=segment_card&niche=presencia-visual-profesional",
+        "ctaLabel": "Ver servicio"
+      },
+      {
+        "title": "Fotografía y Video Corporativo",
+        "slug": "fotografia-y-video-corporativo",
+        "description": "",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/fotografia-y-video-corporativo/covers/cf9e780a26324a65b62e5c666198fe4f.webp",
+        "href": "/servicios/fotografia-y-video-corporativo?mode=proposal&cta=segment_card&niche=presencia-visual-profesional",
+        "ctaLabel": "Ver servicio"
+      },
+      {
+        "title": "Fotografía Profesional de Exterior",
+        "slug": "fotografia-profesional-de-exterior",
+        "description": "Sesión fotográfica en exteriores aprovechando luz natural y escenarios atractivos.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/fotografia-profesional-de-exterior/covers/b7261973d98a46bd9285a526c0036676.webp",
+        "href": "/servicios/fotografia-profesional-de-exterior?mode=proposal&cta=segment_card&niche=presencia-visual-profesional",
+        "ctaLabel": "Ver servicio"
+      },
+      {
+        "title": "Producción de Videos Avanzado",
+        "slug": "produccion-de-videos-avanzado",
+        "description": "Producción de video avanzado de hasta 15 minutos, con múltiples locaciones, testimonios, guion personalizado y enfoque en marketing.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/produccion-de-videos-avanzado/covers/83dab92225f14c51a816a6ea6eea1dca.webp",
+        "href": "/servicios/produccion-de-videos-avanzado?mode=proposal&cta=segment_card&niche=presencia-visual-profesional",
+        "ctaLabel": "Ver servicio"
+      },
+      {
+        "title": "Fotografía Profesional de Productos",
+        "slug": "fotografia-profesional-de-productos",
+        "description": "Sesiones fotográficas de productos para catálogos, e-commerce y redes sociales.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/fotografia-profesional-de-productos/covers/1f4ea28659e14f94aa27f92ccca6d0ae.webp",
+        "href": "/servicios/fotografia-profesional-de-productos?mode=proposal&cta=segment_card&niche=presencia-visual-profesional",
+        "ctaLabel": "Ver servicio"
+      }
+    ]
+  },
+  "momento-especial": {
+    "heroImageUrl": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/blog-images/segments/hero/29500dea69144ce59d72a418376ce595.webp",
+    "heroFocalX": 50.0,
+    "heroFocalY": 50.0,
+    "heroFitMode": "cover",
+    "segmentServices": [
+      {
+        "title": "Fotografía Profesional de Bodas",
+        "slug": "fotografia-profesional-de-bodas",
+        "description": "Cobertura fotográfica profesional de bodas para documentar el gran día con imágenes emotivas y de alta calidad.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/fotografia-profesional-de-bodas/covers/1a17de3e3ba0452e83e197b936042e42.webp",
+        "href": "/servicios/fotografia-profesional-de-bodas?mode=proposal&cta=segment_card&niche=momento-especial",
+        "ctaLabel": "Ver servicio"
+      },
+      {
+        "title": "Fotografía Profesional de Embarazo",
+        "slug": "fotografia-profesional-de-embarazo",
+        "description": "Sesión fotográfica de embarazo enfocada en resaltar la belleza y emoción de esta etapa.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/fotografia-profesional-de-embarazo/covers/4314488a81f8499a8269cfc5047f19ce.webp",
+        "href": "/servicios/fotografia-profesional-de-embarazo?mode=proposal&cta=segment_card&niche=momento-especial",
+        "ctaLabel": "Ver servicio"
+      },
+      {
+        "title": "Fotografía Profesional Love Story",
+        "slug": "fotografia-profesional-love-story",
+        "description": "Sesión fotográfica romántica para parejas tipo Love Story, ideal como recuerdo o pre-boda.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/fotografia-profesional-love-story/covers/c0275559a9394d2abcc020246ccb5d86.webp",
+        "href": "/servicios/fotografia-profesional-love-story?mode=proposal&cta=segment_card&niche=momento-especial",
+        "ctaLabel": "Ver servicio"
+      },
+      {
+        "title": "Fotografía Profesional de Eventos",
+        "slug": "fotografia-profesional-de-eventos",
+        "description": "Cobertura fotográfica profesional de eventos corporativos o sociales con enfoque en momentos clave.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/fotografia-profesional-de-eventos/covers/3556baf8b04145fc8be1e3cd1b06bdd6.webp",
+        "href": "/servicios/fotografia-profesional-de-eventos?mode=proposal&cta=segment_card&niche=momento-especial",
+        "ctaLabel": "Ver servicio"
+      },
+      {
+        "title": "Fotografía Profesional de Cumpleaños",
+        "slug": "fotografia-profesional-de-cumpleanos",
+        "description": "Cobertura fotográfica de cumpleaños para capturar momentos especiales, invitados y detalles de la celebración.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/fotografia-profesional-de-cumpleanos/covers/434a19f02a9840f6b43fbf6895133d83.webp",
+        "href": "/servicios/fotografia-profesional-de-cumpleanos?mode=proposal&cta=segment_card&niche=momento-especial",
+        "ctaLabel": "Ver servicio"
+      },
+      {
+        "title": "Fotografía Profesional de Exterior",
+        "slug": "fotografia-profesional-de-exterior",
+        "description": "Sesión fotográfica en exteriores aprovechando luz natural y escenarios atractivos.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/fotografia-profesional-de-exterior/covers/b7261973d98a46bd9285a526c0036676.webp",
+        "href": "/servicios/fotografia-profesional-de-exterior?mode=proposal&cta=segment_card&niche=momento-especial",
+        "ctaLabel": "Ver servicio"
+      }
+    ]
+  },
+  "solucion-creativa": {
+    "heroImageUrl": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/blog-images/segments/hero/265d4cebd5b047769b1ee0bc8801931d.webp",
+    "heroFocalX": 50.0,
+    "heroFocalY": 50.0,
+    "heroFitMode": "cover",
+    "segmentServices": [
+      {
+        "title": "Fotografía de Estudio y Diseño para Montajes",
+        "slug": "fotografia-de-estudio-y-diseno-para-montajes",
+        "description": "Sesión fotográfica en estudio con diseño de montajes creativos para campañas y proyectos visuales.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/fotografia-de-estudio-y-diseno-para-montajes/covers/820c759dccfd4af3989b34f40a23a1f9.webp",
+        "href": "/servicios/fotografia-de-estudio-y-diseno-para-montajes?mode=proposal&cta=segment_card&niche=solucion-creativa",
+        "ctaLabel": "Ver servicio"
+      },
+      {
+        "title": "Diseño de Logotipo",
+        "slug": "diseno-de-logotipo",
+        "description": "Diseño profesional de logotipo alineado a la esencia de la marca, con investigación básica, propuestas creativas y entrega en formatos listos para impresión y uso digital.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/diseno-de-logotipo/covers/5f373287b9e24f3cb4fd4c31c0c04a40.webp",
+        "href": "/servicios/diseno-de-logotipo?mode=proposal&cta=segment_card&niche=solucion-creativa",
+        "ctaLabel": "Ver servicio"
+      },
+      {
+        "title": "Estrategia de Contenido",
+        "slug": "estrategia-de-contenido",
+        "description": "Plan y creación de contenido escrito para fortalecer presencia digital, educar a la audiencia y apoyar objetivos comerciales.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/estrategia-de-contenido/covers/d15a5b7bb3144decb02aa608b03bea11.webp",
+        "href": "/servicios/estrategia-de-contenido?mode=proposal&cta=segment_card&niche=solucion-creativa",
+        "ctaLabel": "Ver servicio"
+      },
+      {
+        "title": "Producción de Videos Avanzado",
+        "slug": "produccion-de-videos-avanzado",
+        "description": "Producción de video avanzado de hasta 15 minutos, con múltiples locaciones, testimonios, guion personalizado y enfoque en marketing.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/produccion-de-videos-avanzado/covers/83dab92225f14c51a816a6ea6eea1dca.webp",
+        "href": "/servicios/produccion-de-videos-avanzado?mode=proposal&cta=segment_card&niche=solucion-creativa",
+        "ctaLabel": "Ver servicio"
+      },
+      {
+        "title": "Gestión de Redes Sociales Avanzada",
+        "slug": "gestion-de-redes-sociales-avanzada",
+        "description": "Impulsar la presencia digital de pequeños negocios, emprendedores y empresas establecidas, creando estrategias de contenido personalizadas que generen engagement, posicionamiento de marca y ventas.",
+        "image": "https://aijczfwbnmumcvygqxkv.supabase.co/storage/v1/object/public/portfolio/cfdd0b5a-3468-4d5a-86da-50e1f4f324a6/gestion-de-redes-sociales-avanzada/covers/d12fda9ee4b34676bd23c29b8f95f0ec.webp",
+        "href": "/servicios/gestion-de-redes-sociales-avanzada?mode=proposal&cta=segment_card&niche=solucion-creativa",
+        "ctaLabel": "Ver servicio"
+      }
+    ]
+  }
+};
+
+export const serviceNichePages = baseServiceNichePages.map((page) => {
+  const media = LOCAL_SEGMENT_MEDIA[page.slug] || {};
+
+  return {
+    ...page,
+    heroImageUrl: media.heroImageUrl || page.heroImageUrl,
+    heroFocalX: media.heroFocalX ?? page.heroFocalX ?? 50,
+    heroFocalY: media.heroFocalY ?? page.heroFocalY ?? 50,
+    heroFitMode: media.heroFitMode || page.heroFitMode || "cover",
+    segmentServices: media.segmentServices || page.segmentServices || [],
+    catalogPreview: page.catalogCards.map((card) => ({
+      title: card.title,
+      description: card.description,
+    })),
+  };
+});
 
 export function getServiceNichePageBySlug(slug) {
   return serviceNichePages.find((item) => item.slug === slug) || null;
