@@ -3,6 +3,7 @@ name: Publication Safety
 on:
   pull_request:
     branches: [ideas-main, jj-pega-main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 permissions:
   contents: read
@@ -123,11 +124,22 @@ jobs:
         env:
           VITE_API_BASE: https://api.ideasestudio.com
           VITE_PUBLIC_WORKSPACE_ID: ${{ env.VITE_PUBLIC_WORKSPACE_ID }}
-      - name: Start candidate and base servers
+      - name: Run visual regression
+        env:
+          PUBLICATION_CANDIDATE_BASE: http://127.0.0.1:4173
+          PUBLICATION_REFERENCE_BASE: http://127.0.0.1:4174
         run: |
+          set -euo pipefail
           npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/candidate-preview.log 2>&1 &
-          echo $! > /tmp/candidate-preview.pid
-          (cd base-ref && npm run preview -- --host 127.0.0.1 --port 4174 > /tmp/base-preview.log 2>&1 & echo $! > /tmp/base-preview.pid)
+          CANDIDATE_PID=$!
+          pushd base-ref >/dev/null
+          npm run preview -- --host 127.0.0.1 --port 4174 > /tmp/base-preview.log 2>&1 &
+          BASE_PID=$!
+          popd >/dev/null
+          cleanup() {
+            kill "$CANDIDATE_PID" "$BASE_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
           for port in 4173 4174; do
             ok=0
             for i in {1..30}; do
@@ -140,10 +152,7 @@ jobs:
               exit 1
             fi
           done
-      - run: node scripts/publication/visual-regression.mjs
-        env:
-          PUBLICATION_CANDIDATE_BASE: http://127.0.0.1:4173
-          PUBLICATION_REFERENCE_BASE: http://127.0.0.1:4174
+          node scripts/publication/visual-regression.mjs
       - name: Upload visual evidence
         if: always()
         uses: actions/upload-artifact@v4
