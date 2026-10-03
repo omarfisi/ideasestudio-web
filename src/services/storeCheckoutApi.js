@@ -1,4 +1,5 @@
 import { CRM_PUBLIC_API_BASE_URL } from "@/lib/constants.js";
+import { PUBLIC_WORKSPACE_ID } from "@/lib/workspace.js";
 import { supabase } from "@/lib/supabaseClient.js";
 
 function getStoreBaseUrl() {
@@ -11,6 +12,22 @@ function getStoreBaseUrl() {
   }
 
   return `${base}/api/store`;
+}
+
+function getLocalWorkspaceOverride() {
+  const workspaceId = String(PUBLIC_WORKSPACE_ID || "").trim();
+  if (!workspaceId) return undefined;
+
+  try {
+    const hostname = new URL(CRM_PUBLIC_API_BASE_URL).hostname.toLowerCase();
+    if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") {
+      return workspaceId;
+    }
+  } catch {
+    // Invalid/missing API base is handled by getStoreBaseUrl().
+  }
+
+  return undefined;
 }
 
 function buildStoreUrl(path, query = {}) {
@@ -75,6 +92,7 @@ export async function getStoreCategories({ includeInactive = false } = {}) {
     method: "GET",
     query: {
       include_inactive: includeInactive ? "true" : undefined,
+      workspace_id: getLocalWorkspaceOverride(),
     },
   });
 }
@@ -93,6 +111,7 @@ export async function getStoreProducts(filters = {}) {
       include_inactive: filters.isActive === false ? "true" : undefined,
       limit: filters.limit || 60,
       offset: filters.offset || 0,
+      workspace_id: getLocalWorkspaceOverride(),
     },
   });
 }
@@ -100,6 +119,7 @@ export async function getStoreProducts(filters = {}) {
 export async function getStoreProductBySlug(slug) {
   return storeFetch(`/products/${slug}`, {
     method: "GET",
+    query: { workspace_id: getLocalWorkspaceOverride() },
   });
 }
 

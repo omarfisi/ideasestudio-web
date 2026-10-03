@@ -8,6 +8,7 @@
   "shared_files_approved": false,
   "expected_files": [
     "src/services/storeCheckoutApi.js",
+    "src/services/storeCheckoutApi.cartCapability.test.js",
     ".publication/release-manifest.json"
   ],
   "forbidden_files": [
