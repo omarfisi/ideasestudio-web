@@ -31,6 +31,7 @@ for (const key of ['product','source_branch','base_branch','production_project',
 }
 if (manifest.product !== productPolicy.product) fail(`product ${manifest.product} does not match ${productPolicy.product}`);
 if (manifest.source_branch !== head) fail(`source_branch ${manifest.source_branch} does not match ${head}`);
+if (!head.startsWith(productPolicy.source_branch_prefix || '')) fail(`source branch ${head} must start with ${productPolicy.source_branch_prefix}`);
 if (manifest.base_branch !== base) fail(`base_branch ${manifest.base_branch} does not match ${base}`);
 if (manifest.production_project !== productPolicy.production_project) fail(`production_project ${manifest.production_project} does not match ${productPolicy.production_project}`);
 if (manifest.public_workspace_id !== productPolicy.public_workspace_id) fail(`public_workspace_id does not match policy`);
