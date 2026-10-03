@@ -1,13 +1,14 @@
 {
   "product": "IDEAS_ESTUDIO",
-  "source_branch": "fix/ideas-publication-workflow-lifecycle-20261003",
+  "source_branch": "fix/ideas-public-workspace-runtime-20261003",
   "base_branch": "ideas-main",
   "production_project": "ideasestudio-web",
   "visual_baseline": "https://ideasestudio.com",
   "visual_change_approved": false,
   "shared_files_approved": false,
   "expected_files": [
-    ".github/workflows/publication-safety.yml",
+    "src/services/storeCheckoutApi.js",
+    "src/services/storeCheckoutApi.cartCapability.test.js",
     ".publication/release-manifest.json"
   ],
   "forbidden_files": [
