@@ -1,0 +1,24 @@
+# Global safety owner
+* @omarfisi
+
+# Shared production-critical files
+/src/App.css @omarfisi
+/src/main.jsx @omarfisi
+/src/lib/api.js @omarfisi
+/src/lib/publicFormsApi.js @omarfisi
+/src/components/layout/Header.jsx @omarfisi
+/src/components/layout/Footer.jsx @omarfisi
+/src/components/forms/PublicFormRenderer.jsx @omarfisi
+/src/components/forms/FormPlacementRenderer.jsx @omarfisi
+/src/components/services/ServiceNicheTemplate.jsx @omarfisi
+/src/data/serviceNichePages.js @omarfisi
+/vite.config.js @omarfisi
+/vercel.json @omarfisi
+/package.json @omarfisi
+/package-lock.json @omarfisi
+
+# JJ Pega product boundary
+/src/pages/JJPega* @omarfisi
+/src/components/layout/JJPega* @omarfisi
+/src/components/forms/presets/JJPega* @omarfisi
+/public/assets/jj-pega/ @omarfisi

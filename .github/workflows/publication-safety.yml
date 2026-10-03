@@ -1,0 +1,153 @@
+name: Publication Safety
+
+on:
+  pull_request:
+    branches: [ideas-main, jj-pega-main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: publication-safety-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  PUBLICATION_BASE_BRANCH: ${{ github.base_ref }}
+  PUBLICATION_SOURCE_BRANCH: ${{ github.head_ref }}
+  PUBLICATION_CHANGED_FILES: .publication/changed-files.txt
+  PUBLICATION_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+
+jobs:
+  tenant-file-scope:
+    name: TENANT_FILE_SCOPE
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - run: |
+          git fetch origin "${GITHUB_BASE_REF}" --depth=1
+          git diff --name-only "origin/${GITHUB_BASE_REF}...HEAD" > .publication/changed-files.txt
+          cat .publication/changed-files.txt
+      - run: node scripts/publication/check-manifest.mjs
+      - run: node scripts/publication/check-scope.mjs
+
+  shared-files-review:
+    name: SHARED_FILES_REVIEW
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - run: |
+          git fetch origin "${GITHUB_BASE_REF}" --depth=1
+          git diff --name-only "origin/${GITHUB_BASE_REF}...HEAD" > .publication/changed-files.txt
+      - name: Require explicit shared-file approval
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const policy=JSON.parse(fs.readFileSync('.publication/policy.json','utf8'));
+          const manifest=JSON.parse(fs.readFileSync('.publication/release-manifest.json','utf8'));
+          const changed=fs.readFileSync('.publication/changed-files.txt','utf8').split(/\r?\n/).filter(Boolean);
+          const shared=changed.filter((f)=>(policy.shared_hotspots||[]).includes(f));
+          const labels=new Set(String(process.env.PUBLICATION_LABELS||'').split(',').map(x=>x.trim()).filter(Boolean));
+          if(shared.length){
+            if(manifest.shared_files_approved!==true) throw new Error(`shared_files_approved must be true: ${shared.join(', ')}`);
+            if(!labels.has('shared-files-approved')) throw new Error(`missing PR label shared-files-approved for: ${shared.join(', ')}`);
+            console.log(`SHARED_FILES_REVIEW=PASS files=${shared.join(',')}`);
+          } else console.log('SHARED_FILES_REVIEW=PASS files=NONE');
+          NODE
+
+  placeholder-scan:
+    name: PLACEHOLDER_SCAN
+    runs-on: ubuntu-latest
+    needs: [tenant-file-scope, shared-files-review]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Load product build environment
+        run: |
+          node - <<'NODE' >> "$GITHUB_ENV"
+          const fs=require('fs');
+          const manifest=JSON.parse(fs.readFileSync('.publication/release-manifest.json','utf8'));
+          console.log(`VITE_PUBLIC_WORKSPACE_ID=${manifest.public_workspace_id}`);
+          NODE
+      - run: npm run build
+        env:
+          VITE_API_BASE: https://api.ideasestudio.com
+      - run: node scripts/publication/check-placeholders.mjs dist
+      - run: git diff --check
+      - name: Build must not modify tracked files
+        run: |
+          test -z "$(git status --porcelain --untracked-files=no)" || { git status --short; exit 1; }
+
+  visual-regression:
+    name: VISUAL_REGRESSION
+    runs-on: ubuntu-latest
+    needs: [tenant-file-scope, shared-files-review, placeholder-scan]
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+          path: base-ref
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Load product build environment
+        run: |
+          node - <<'NODE' >> "$GITHUB_ENV"
+          const fs=require('fs');
+          const manifest=JSON.parse(fs.readFileSync('.publication/release-manifest.json','utf8'));
+          console.log(`VITE_PUBLIC_WORKSPACE_ID=${manifest.public_workspace_id}`);
+          NODE
+      - name: Build candidate
+        run: npm run build
+        env:
+          VITE_API_BASE: https://api.ideasestudio.com
+      - name: Build base branch
+        working-directory: base-ref
+        run: |
+          npm ci
+          npm run build
+        env:
+          VITE_API_BASE: https://api.ideasestudio.com
+          VITE_PUBLIC_WORKSPACE_ID: ${{ env.VITE_PUBLIC_WORKSPACE_ID }}
+      - name: Start candidate and base servers
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/candidate-preview.log 2>&1 &
+          echo $! > /tmp/candidate-preview.pid
+          (cd base-ref && npm run preview -- --host 127.0.0.1 --port 4174 > /tmp/base-preview.log 2>&1 & echo $! > /tmp/base-preview.pid)
+          for port in 4173 4174; do
+            ok=0
+            for i in {1..30}; do
+              if curl -fsS "http://127.0.0.1:${port}/" >/dev/null; then ok=1; break; fi
+              sleep 1
+            done
+            if [ "$ok" != 1 ]; then
+              cat /tmp/candidate-preview.log || true
+              cat /tmp/base-preview.log || true
+              exit 1
+            fi
+          done
+      - run: node scripts/publication/visual-regression.mjs
+        env:
+          PUBLICATION_CANDIDATE_BASE: http://127.0.0.1:4173
+          PUBLICATION_REFERENCE_BASE: http://127.0.0.1:4174
+      - name: Upload visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression-${{ github.event.pull_request.number }}
+          path: .artifacts/visual
+          if-no-files-found: ignore

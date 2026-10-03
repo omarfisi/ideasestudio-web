@@ -1,0 +1,76 @@
+{
+  "ideas": {
+    "base_branch": "ideas-main",
+    "product": "IDEAS_ESTUDIO",
+    "production_project": "ideasestudio-web",
+    "forbidden_prefixes": [
+      "src/pages/JJPega",
+      "src/components/layout/JJPega",
+      "src/components/forms/presets/JJPega",
+      "public/assets/jj-pega/",
+      "public/assets/jj-pega-logo",
+      "public/assets/categories/cute-jj-pega",
+      "docs/jj-pega"
+    ],
+    "required_visual_routes": [
+      "/",
+      "/servicios",
+      "/servicios/marca-o-negocio",
+      "/servicios/presencia-visual-profesional",
+      "/servicios/momento-especial",
+      "/servicios/solucion-creativa",
+      "/portafolio",
+      "/contacto"
+    ],
+    "max_visual_diff_ratio": 0.08,
+    "public_workspace_id": "cfdd0b5a-3468-4d5a-86da-50e1f4f324a6"
+  },
+  "jj_pega": {
+    "base_branch": "jj-pega-main",
+    "product": "JJ_PEGA",
+    "production_project": "jj-pega-web",
+    "allowed_prefixes": [
+      "src/pages/JJPega",
+      "src/components/layout/JJPega",
+      "src/components/forms/presets/JJPega",
+      "public/assets/jj-pega/",
+      "public/assets/jj-pega-logo",
+      "public/assets/categories/cute-jj-pega",
+      "docs/jj-pega",
+      ".publication/",
+      ".github/",
+      "scripts/publication/"
+    ],
+    "required_visual_routes": [
+      "/",
+      "/contacto"
+    ],
+    "max_visual_diff_ratio": 0.08,
+    "public_workspace_id": "0d8c04a8-6be2-4559-93de-0b2be2639f82"
+  },
+  "shared_hotspots": [
+    "src/App.css",
+    "src/main.jsx",
+    "src/lib/api.js",
+    "src/lib/publicFormsApi.js",
+    "src/components/layout/Header.jsx",
+    "src/components/layout/Footer.jsx",
+    "src/components/forms/PublicFormRenderer.jsx",
+    "src/components/forms/FormPlacementRenderer.jsx",
+    "src/components/services/ServiceNicheTemplate.jsx",
+    "src/data/serviceNichePages.js",
+    "vite.config.js",
+    "vercel.json",
+    "package.json",
+    "package-lock.json"
+  ],
+  "placeholder_tokens": [
+    "300X250",
+    "300x250",
+    "520 x 230",
+    "520X230",
+    "498 x 671",
+    "498X671",
+    "service-img.webp"
+  ]
+}
