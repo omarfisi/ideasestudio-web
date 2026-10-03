@@ -23,7 +23,8 @@
       "/contacto"
     ],
     "max_visual_diff_ratio": 0.08,
-    "public_workspace_id": "cfdd0b5a-3468-4d5a-86da-50e1f4f324a6"
+    "public_workspace_id": "cfdd0b5a-3468-4d5a-86da-50e1f4f324a6",
+    "source_branch_prefix": "ideas/"
   },
   "jj_pega": {
     "base_branch": "jj-pega-main",
@@ -49,7 +50,8 @@
       "/contacto"
     ],
     "max_visual_diff_ratio": 0.08,
-    "public_workspace_id": "0d8c04a8-6be2-4559-93de-0b2be2639f82"
+    "public_workspace_id": "0d8c04a8-6be2-4559-93de-0b2be2639f82",
+    "source_branch_prefix": "jj-pega/"
   },
   "shared_hotspots": [
     "src/App.css",
