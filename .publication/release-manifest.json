@@ -1,0 +1,26 @@
+{
+  "product": "JJ_PEGA",
+  "source_branch": "safety/jj-publication-system-20261003",
+  "base_branch": "jj-pega-main",
+  "production_project": "jj-pega",
+  "visual_baseline": "https://jjpega.com",
+  "visual_change_approved": false,
+  "shared_files_approved": true,
+  "expected_files": [
+    ".github/**",
+    ".publication/**",
+    "scripts/publication/**",
+    ".gitignore",
+    "package.json",
+    "package-lock.json"
+  ],
+  "forbidden_files": [
+    "src/pages/HomePage.jsx",
+    "src/components/layout/Header.jsx",
+    "src/components/layout/Footer.jsx",
+    "src/App.css",
+    "src/data/serviceNichePages.js",
+    "src/components/services/ServiceNicheTemplate.jsx"
+  ],
+  "public_workspace_id": "0d8c04a8-6be2-4559-93de-0b2be2639f82"
+}

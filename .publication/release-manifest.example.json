@@ -1,0 +1,17 @@
+{
+  "product": "IDEAS_ESTUDIO",
+  "source_branch": "ideas/example-change",
+  "base_branch": "ideas-main",
+  "production_project": "ideasestudio-web",
+  "visual_baseline": "https://ideasestudio.com",
+  "visual_change_approved": false,
+  "shared_files_approved": false,
+  "expected_files": [
+    "src/pages/**",
+    "src/components/**"
+  ],
+  "forbidden_files": [
+    "public/assets/jj-pega/**"
+  ],
+  "public_workspace_id": "cfdd0b5a-3468-4d5a-86da-50e1f4f324a6"
+}

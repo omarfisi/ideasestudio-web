@@ -10,7 +10,13 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "vitest",
+    "publication:manifest": "node scripts/publication/check-manifest.mjs",
+    "publication:scope": "node scripts/publication/check-scope.mjs",
+    "publication:placeholders": "node scripts/publication/check-placeholders.mjs dist",
+    "publication:visual": "node scripts/publication/visual-regression.mjs",
+    "release:preflight:ideas": "bash scripts/publication/predeploy.sh ideas",
+    "release:preflight:jj": "bash scripts/publication/predeploy.sh jj-pega"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.3.0",
@@ -39,6 +45,9 @@
     "jsdom": "^29.1.1",
     "tailwindcss": "^4.1.13",
     "vite": "^7.1.7",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "playwright": "1.55.0",
+    "pixelmatch": "7.1.0",
+    "pngjs": "7.0.0"
   }
 }
