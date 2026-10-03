@@ -8,8 +8,7 @@
   "shared_files_approved": false,
   "expected_files": [
     ".publication/policy.json",
-    ".publication/release-manifest.json",
-    "scripts/publication/check-manifest.mjs"
+    ".publication/release-manifest.json"
   ],
   "forbidden_files": [],
   "public_workspace_id": "0d8c04a8-6be2-4559-93de-0b2be2639f82"
