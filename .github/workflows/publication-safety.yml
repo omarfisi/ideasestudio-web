@@ -3,6 +3,7 @@ name: Publication Safety
 on:
   pull_request:
     branches: [ideas-main, jj-pega-main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 permissions:
   contents: read
