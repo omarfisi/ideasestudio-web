@@ -1,13 +1,13 @@
 {
   "product": "IDEAS_ESTUDIO",
-  "source_branch": "ideas/enforce-source-prefix-20261003",
+  "source_branch": "ideas/enforce-protected-policy-20261004",
   "base_branch": "ideas-main",
   "production_project": "ideasestudio-web",
   "visual_baseline": "https://ideasestudio.com",
   "visual_change_approved": false,
   "shared_files_approved": false,
   "expected_files": [
-    ".publication/policy.json",
+    "scripts/publication/check-manifest.mjs",
     ".publication/release-manifest.json"
   ],
   "forbidden_files": [],
