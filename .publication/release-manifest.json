@@ -1,21 +1,15 @@
 {
   "product": "IDEAS_ESTUDIO",
-  "source_branch": "fix/ideas-public-workspace-runtime-20261003",
+  "source_branch": "ideas/enforce-source-prefix-20261003",
   "base_branch": "ideas-main",
   "production_project": "ideasestudio-web",
   "visual_baseline": "https://ideasestudio.com",
   "visual_change_approved": false,
   "shared_files_approved": false,
   "expected_files": [
-    "src/services/storeCheckoutApi.js",
-    "src/services/storeCheckoutApi.cartCapability.test.js",
+    ".publication/policy.json",
     ".publication/release-manifest.json"
   ],
-  "forbidden_files": [
-    "src/pages/JJPega*",
-    "src/components/layout/JJPega*",
-    "src/components/forms/presets/JJPega*",
-    "public/assets/jj-pega/**"
-  ],
+  "forbidden_files": [],
   "public_workspace_id": "cfdd0b5a-3468-4d5a-86da-50e1f4f324a6"
 }
