@@ -23,7 +23,8 @@
       "/contacto"
     ],
     "max_visual_diff_ratio": 0.08,
-    "public_workspace_id": "cfdd0b5a-3468-4d5a-86da-50e1f4f324a6"
+    "public_workspace_id": "cfdd0b5a-3468-4d5a-86da-50e1f4f324a6",
+    "source_branch_prefix": "ideas/"
   },
   "jj_pega": {
     "base_branch": "jj-pega-main",
