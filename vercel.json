@@ -12,7 +12,8 @@
   ],
   "git": {
     "deploymentEnabled": {
-      "ideas/v1015-protect-live-cart-20261014": false
+      "ideas/v1015-protect-live-cart-20261014": false,
+      "ideas-main": false
     }
   }
 }
