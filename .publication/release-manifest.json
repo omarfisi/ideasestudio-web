@@ -1,14 +1,15 @@
 {
   "product": "IDEAS_ESTUDIO",
-  "source_branch": "ideas/enforce-protected-policy-20261004",
+  "source_branch": "ideas/v1015-protect-live-cart-20261014",
   "base_branch": "ideas-main",
   "production_project": "ideasestudio-web",
   "visual_baseline": "https://ideasestudio.com",
   "visual_change_approved": false,
   "shared_files_approved": false,
   "expected_files": [
-    "scripts/publication/check-manifest.mjs",
-    ".publication/release-manifest.json"
+    ".publication/release-manifest.json",
+    "src/services/storeCheckoutApi.js",
+    "src/services/storeCheckoutApi.cartCapability.test.js"
   ],
   "forbidden_files": [],
   "public_workspace_id": "cfdd0b5a-3468-4d5a-86da-50e1f4f324a6"
