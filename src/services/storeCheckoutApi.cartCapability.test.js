@@ -29,6 +29,39 @@ describe("public cart capability transport", () => {
     expect(String(url)).toContain("cart_token=owner-token");
   });
 
+  it("sends JSON for new cart creation, preserving the request body", async () => {
+    await api.resolveStoreCart({ currency: "USD" });
+    const [, options] = global.fetch.mock.calls[0];
+    expect(options.method).toBe("POST");
+    expect(options.headers["Content-Type"]).toBe("application/json");
+    expect(JSON.parse(options.body)).toMatchObject({ currency: "USD" });
+  });
+
+  it.each([
+    ["add", () => api.addStoreCartItem({ cartId: "cart-1", cartToken: "owner-token", productId: "product-1", quantity: 1 })],
+    ["update", () => api.updateStoreCartItem({ itemId: "item-1", cartToken: "owner-token", quantity: 2 })],
+    ["delete", () => api.deleteStoreCartItem({ itemId: "item-1", cartToken: "owner-token" })],
+  ])("preserves JSON content type alongside X-Cart-Token for %s", async (_name, call) => {
+    await call();
+    const [, options] = global.fetch.mock.calls[0];
+    expect(options.headers["Content-Type"]).toBe("application/json");
+    expect(options.headers["X-Cart-Token"]).toBe("owner-token");
+  });
+
+  it("serializes the cart item payload as JSON even with a token header", async () => {
+    await api.addStoreCartItem({
+      cartId: "cart-1", productId: "product-1", cartToken: "owner-token", quantity: 1,
+    });
+    const [, options] = global.fetch.mock.calls[0];
+    expect(options.headers).toMatchObject({
+      "Content-Type": "application/json",
+      "X-Cart-Token": "owner-token",
+    });
+    expect(JSON.parse(options.body)).toEqual({
+      cart_id: "cart-1", product_id: "product-1", quantity: 1,
+    });
+  });
+
   it.each([
     ["add", () => api.addStoreCartItem({ cartId: "cart-1", cartToken: "owner-token", productId: "product-1", quantity: 1 })],
     ["update", () => api.updateStoreCartItem({ itemId: "item-1", cartToken: "owner-token", quantity: 2 })],

@@ -62,12 +62,12 @@ async function storeFetch(path, { query = undefined, withAuth = false, ...option
   const url = buildStoreUrl(path, query || {});
   const authToken = withAuth ? await _getOptionalAuthToken() : null;
   const response = await fetch(url, {
+    ...options,
     headers: {
       "Content-Type": "application/json",
       ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       ...(options.headers || {}),
     },
-    ...options,
   });
 
   const data = await response.json().catch(() => null);
