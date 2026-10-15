@@ -5,11 +5,12 @@
   "production_project": "ideasestudio-web",
   "visual_baseline": "https://ideasestudio.com",
   "visual_change_approved": false,
-  "shared_files_approved": false,
+  "shared_files_approved": true,
   "expected_files": [
     ".publication/release-manifest.json",
     "src/services/storeCheckoutApi.js",
-    "src/services/storeCheckoutApi.cartCapability.test.js"
+    "src/services/storeCheckoutApi.cartCapability.test.js",
+    "vercel.json"
   ],
   "forbidden_files": [],
   "public_workspace_id": "cfdd0b5a-3468-4d5a-86da-50e1f4f324a6"
