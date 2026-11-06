@@ -1374,7 +1374,7 @@ function normalizePortfolioItem(raw) {
   };
 }
 
-export async function getPublicPortfolioItems(params = {}) {
+export async function getPublicPortfolioItems(params = {}, { throwOnError = false } = {}) {
   try {
     const url = buildUrl("/portfolio", {
       is_published: true,
@@ -1385,7 +1385,8 @@ export async function getPublicPortfolioItems(params = {}) {
                : Array.isArray(data)        ? data
                : [];
     return raw.map(normalizePortfolioItem).filter(Boolean);
-  } catch {
+  } catch (error) {
+    if (throwOnError) throw error;
     return [];
   }
 }
