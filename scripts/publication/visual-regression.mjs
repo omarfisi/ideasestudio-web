@@ -57,6 +57,7 @@ const portfolioApiHostname = new URL(
 ).hostname;
 let portfolioMode = "success";
 let portfolioErrorRequestCount = 0;
+let portfolioMalformedRequestCount = 0;
 await context.route("**/*", async (route) => {
   const request = route.request();
   const url = new URL(request.url());
@@ -78,6 +79,20 @@ await context.route("**/*", async (route) => {
         body: JSON.stringify({ detail: "visual-regression fixture unavailable" })
       });
     }
+  }
+  if (portfolioMode === "malformed_entries_then_success") {
+    portfolioMalformedRequestCount += 1;
+    const data =
+      portfolioMalformedRequestCount === 1
+        ? { ok: true, total: 1, items: [null] }
+        : portfolioMalformedRequestCount === 2
+          ? { ok: true, total: 1, items: [{}] }
+          : visualPortfolioFixture;
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(data)
+    });
   }
   return route.fulfill({
     status: 200,
@@ -159,6 +174,8 @@ let portfolioErrorUiPass = false;
 let portfolioErrorUiError = null;
 let portfolioEmptyCatalogUiPass = false;
 let portfolioEmptyCatalogUiError = null;
+let portfolioMalformedItemsUiPass = false;
+let portfolioMalformedItemsUiError = null;
 try {
   portfolioMode = "error_then_success";
   portfolioErrorRequestCount = 0;
@@ -203,6 +220,63 @@ try {
   portfolioErrorUiError = error;
 }
 try {
+  portfolioMode = "malformed_entries_then_success";
+  portfolioMalformedRequestCount = 0;
+  const malformedResponsePromise = page.waitForResponse(
+    (response) => isPortfolioApiResponse(response, 200),
+    { timeout: 10000 }
+  );
+  await page.goto(new URL("/portafolio?visual_regression_malformed=1", candidateBase + "/").toString(), {
+    waitUntil: "domcontentloaded",
+    timeout: 45000
+  });
+  const firstMalformedResponse = await malformedResponsePromise;
+  if (firstMalformedResponse.status() !== 200 || portfolioMalformedRequestCount !== 1) {
+    throw new Error("first malformed portfolio fixture was not returned");
+  }
+  const malformedAlert = page.getByRole("alert");
+  await malformedAlert.waitFor({ state: "visible", timeout: 10000 });
+  if (!(await malformedAlert.innerText()).includes("No se pudo cargar el portafolio.")) {
+    throw new Error("malformed response did not render the error alert");
+  }
+  if (await page.getByText("Aún no hay proyectos publicados.", { exact: true }).count() !== 0) {
+    throw new Error("malformed response rendered the empty-catalog message");
+  }
+
+  const emptyObjectResponsePromise = page.waitForResponse(
+    (response) => isPortfolioApiResponse(response, 200),
+    { timeout: 10000 }
+  );
+  await page.getByRole("button", { name: "Reintentar" }).click();
+  const emptyObjectResponse = await emptyObjectResponsePromise;
+  if (emptyObjectResponse.status() !== 200 || portfolioMalformedRequestCount !== 2) {
+    throw new Error("empty-object portfolio fixture was not returned");
+  }
+  await malformedAlert.waitFor({ state: "visible", timeout: 10000 });
+  if (await page.getByText("Aún no hay proyectos publicados.", { exact: true }).count() !== 0) {
+    throw new Error("empty-object response rendered the empty-catalog message");
+  }
+
+  const validRetryResponsePromise = page.waitForResponse(
+    (response) => isPortfolioApiResponse(response, 200),
+    { timeout: 10000 }
+  );
+  await page.getByRole("button", { name: "Reintentar" }).click();
+  const validRetryResponse = await validRetryResponsePromise;
+  if (validRetryResponse.status() !== 200 || portfolioMalformedRequestCount !== 3) {
+    throw new Error("malformed portfolio retry did not reach the valid fixture");
+  }
+  await malformedAlert.waitFor({ state: "hidden", timeout: 10000 });
+  await page.getByText("Proyecto de prueba visual", { exact: true }).waitFor({
+    state: "visible",
+    timeout: 10000
+  });
+  portfolioMalformedItemsUiPass = true;
+  console.log("PORTFOLIO_MALFORMED_ITEMS_UI=PASS null_and_empty_object=error valid_retry=success");
+} catch (error) {
+  portfolioMalformedItemsUiError = error;
+}
+try {
   portfolioMode = "empty_success";
   const emptyResponsePromise = page.waitForResponse(
     (response) => isPortfolioApiResponse(response, 200),
@@ -239,6 +313,7 @@ fs.writeFileSync('.artifacts/visual/report.json',JSON.stringify({
   allowVisualChange,
   results,
   portfolioErrorUi: { pass: portfolioErrorUiPass },
+  portfolioMalformedItemsUi: { pass: portfolioMalformedItemsUiPass },
   portfolioEmptyCatalogUi: { pass: portfolioEmptyCatalogUiPass }
 },null,2));
 if (portfolioErrorUiError) {
@@ -247,6 +322,10 @@ if (portfolioErrorUiError) {
 }
 if (portfolioEmptyCatalogUiError) {
   console.error("PORTFOLIO_EMPTY_CATALOG_UI=FAIL", portfolioEmptyCatalogUiError);
+  process.exitCode = 1;
+}
+if (portfolioMalformedItemsUiError) {
+  console.error("PORTFOLIO_MALFORMED_ITEMS_UI=FAIL", portfolioMalformedItemsUiError);
   process.exitCode = 1;
 }
 if (failed) {
