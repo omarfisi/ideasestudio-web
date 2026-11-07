@@ -176,6 +176,12 @@ try {
   if (!(await errorAlert.innerText()).includes("No se pudo cargar el portafolio.")) {
     throw new Error("portfolio error alert text was not rendered");
   }
+  if (await page.getByRole("button", { name: /^Todos/ }).count() !== 0) {
+    throw new Error("error state still exposed a successful-looking category count");
+  }
+  if (await page.getByText("Aún no hay proyectos publicados.", { exact: true }).count() !== 0) {
+    throw new Error("error state rendered the empty-catalog message");
+  }
 
   const retrySuccessPromise = page.waitForResponse(
     (response) => isPortfolioApiResponse(response, 200),
@@ -207,6 +213,10 @@ try {
     timeout: 45000
   });
   await emptyResponsePromise;
+  await page.getByText("Aún no hay proyectos publicados.", { exact: true }).waitFor({
+    state: "visible",
+    timeout: 10000
+  });
   await page.getByRole("button").filter({ hasText: "Todos" }).getByText("0", { exact: true }).waitFor({
     state: "visible",
     timeout: 10000
@@ -216,7 +226,7 @@ try {
     throw new Error("empty portfolio response still rendered a catalog item");
   }
   portfolioEmptyCatalogUiPass = true;
-  console.log("PORTFOLIO_EMPTY_CATALOG_UI=PASS count=0 alert_absent=true");
+  console.log("PORTFOLIO_EMPTY_CATALOG_UI=PASS count=0 empty_message=true alert_absent=true");
 } catch (error) {
   portfolioEmptyCatalogUiError = error;
 } finally {
