@@ -850,7 +850,7 @@ export default async function middleware(request) {
       if (!crmBase) { clearTimeout(timerId); return undefined; }
 
       const [htmlRes, seoEntry] = await Promise.all([
-        fetch(indexUrl, { signal: controller.signal }),
+        fetch(indexUrl, { signal: controller.signal, redirect: 'manual' }),
         fetchPageSeoEntry(crmBase, pathname, controller.signal),
       ]);
       clearTimeout(timerId);
@@ -864,7 +864,7 @@ export default async function middleware(request) {
     // ── Known static pages ───────────────────────────────────────────────────
     } else if (route.type === 'static') {
       const [htmlRes, seoEntry] = await Promise.all([
-        fetch(indexUrl, { signal: controller.signal }),
+        fetch(indexUrl, { signal: controller.signal, redirect: 'manual' }),
         crmBase ? fetchPageSeoEntry(crmBase, pathname, controller.signal) : Promise.resolve(null),
       ]);
       clearTimeout(timerId);
@@ -892,7 +892,7 @@ export default async function middleware(request) {
 
       const [apiRes, htmlRes, seoEntry] = await Promise.all([
         fetch(apiUrl, { signal: controller.signal, headers: { Accept: 'application/json' } }),
-        fetch(indexUrl, { signal: controller.signal }),
+        fetch(indexUrl, { signal: controller.signal, redirect: 'manual' }),
         fetchPageSeoEntry(crmBase, seoPath, controller.signal),
       ]);
       clearTimeout(timerId);
@@ -929,7 +929,10 @@ export default async function middleware(request) {
       }
     }
 
-    if (!ogOpts || !html) return undefined;
+    // Deployment Protection can redirect this internal fetch to Vercel's SSO page.
+    // A followed redirect may return HTTP 200 with login HTML rather than our SPA.
+    // Only inject SEO tags into the actual Ideas Estudio application shell.
+    if (!ogOpts || !html || !/<div\b[^>]*\bid\s*=\s*(['"])root\1/i.test(html)) return undefined;
 
     // ── Inject OG block ──────────────────────────────────────────────────────
     const ogBlock = buildOgBlock(ogOpts);
