@@ -22,6 +22,64 @@ const executablePath = process.env.PUBLICATION_CHROMIUM_EXECUTABLE || undefined;
 const browser = await chromium.launch({ headless: true, executablePath });
 const context = await browser.newContext({ viewport: { width: 1440, height: 1100 }, deviceScaleFactor: 1, colorScheme: 'light' });
 const page = await context.newPage();
+
+const visualPortfolioFixture = {
+  ok: true,
+  total: 1,
+  items: [{
+    id: "publication-visual-fixture",
+    title: "Proyecto de prueba visual",
+    slug: "proyecto-de-prueba-visual",
+    description: "Contenido estable para comparar los builds.",
+    category: "diseno",
+    client_name: "Cliente de prueba",
+    tags: [],
+    cover_url: "",
+    home_cover_url: "",
+    portfolio_cover_url: "",
+    media_urls: [],
+    is_published: true,
+    is_featured: true,
+    visual_order: 1,
+    placements: ["home", "portfolio_page"],
+    section_key: "featured",
+    media_kind: "image",
+    video_url: ""
+  }]
+};
+let portfolioMode = "success";
+let portfolioRequestCount = 0;
+await context.route("**/*", async (route) => {
+  const request = route.request();
+  const url = new URL(request.url());
+  if (request.method() !== "GET" || !/(^|\\/)portfolio\\/?$/i.test(url.pathname)) {
+    return route.continue();
+  }
+  portfolioRequestCount += 1;
+  if (portfolioMode === "error") {
+    return route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "visual-regression fixture unavailable" })
+    });
+  }
+  return route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify(visualPortfolioFixture)
+  });
+});
+
+async function waitForPortfolioRequests(target) {
+  const deadline = Date.now() + 10000;
+  while (portfolioRequestCount < target && Date.now() < deadline) {
+    await page.waitForTimeout(50);
+  }
+  if (portfolioRequestCount < target) {
+    throw new Error(`portfolio retry did not reach fixture: expected=${target} actual=${portfolioRequestCount}`);
+  }
+}
+
 await page.emulateMedia({ reducedMotion: 'reduce' });
 
 const freezeCss = `
@@ -82,6 +140,26 @@ for (const route of routes) {
   results.push({ route, ratio, threshold, pass, reason });
   console.log(`VISUAL_ROUTE=${route} DIFF_RATIO=${ratio.toFixed(6)} THRESHOLD=${threshold} ${pass?'PASS':'FAIL'}`);
 }
+portfolioMode = "error";
+const requestsBeforeErrorState = portfolioRequestCount;
+await page.goto(new URL("/portafolio?visual_regression_error=1", `${candidateBase}/`).toString(), {
+  waitUntil: "domcontentloaded",
+  timeout: 45000
+});
+const errorAlert = page.getByRole("alert");
+await errorAlert.waitFor({ state: "visible", timeout: 10000 });
+if (!(await errorAlert.innerText()).includes("No se pudo cargar el portafolio.")) {
+  throw new Error("portfolio error alert text was not rendered");
+}
+if (portfolioRequestCount !== requestsBeforeErrorState + 1) {
+  throw new Error(`expected one portfolio request for error state; got=${portfolioRequestCount - requestsBeforeErrorState}`);
+}
+await page.getByRole("button", { name: "Reintentar" }).click();
+await errorAlert.waitFor({ state: "hidden", timeout: 5000 });
+await waitForPortfolioRequests(requestsBeforeErrorState + 2);
+await errorAlert.waitFor({ state: "visible", timeout: 10000 });
+console.log("PORTFOLIO_ERROR_UI=PASS alert=visible retry=second_request");
+
 await browser.close();
 fs.writeFileSync('.artifacts/visual/report.json',JSON.stringify({ referenceBase,candidateBase,allowVisualChange,results },null,2));
 if(failed){ console.error('VISUAL_REGRESSION=FAIL'); process.exit(1); }
