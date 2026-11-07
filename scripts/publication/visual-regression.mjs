@@ -58,6 +58,7 @@ await context.route("**/*", async (route) => {
   }
   portfolioRequestCount += 1;
   if (portfolioMode === "error") {
+    await new Promise((resolve) => setTimeout(resolve, 100));
     return route.fulfill({
       status: 503,
       contentType: "application/json",
