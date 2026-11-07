@@ -187,6 +187,10 @@ await page.goto(new URL('/portafolio?fixture=empty', candidateBase + '/').toStri
   timeout: 45000,
 });
 await emptyResponsePromise;
+await page.getByRole('status').waitFor({ state: 'visible', timeout: 10000 });
+if (await page.getByText('Aún no hay proyectos publicados.', { exact: true }).count() !== 1) {
+  throw new Error('A valid empty portfolio response did not render the empty state.');
+}
 await page.waitForFunction(() => {
   const allProjects = Array.from(document.querySelectorAll('button')).find((button) =>
     button.innerText.trim().startsWith('Todos')

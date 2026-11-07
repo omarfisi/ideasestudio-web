@@ -1123,6 +1123,19 @@ export default function PortfolioPage() {
         </div>
       </section>
 
+      {!loading && !portfolioLoadError && items.length === 0 ? (
+        <section className="section-split px-4 py-12">
+          <div className="mx-auto max-w-7xl rounded-3xl border border-neutral-200 bg-white px-6 py-10 text-center">
+            <p role="status" className="text-lg font-semibold text-neutral-900">
+              Aún no hay proyectos publicados.
+            </p>
+            <p className="mt-2 text-sm text-neutral-600">
+              Vuelve a consultar pronto.
+            </p>
+          </div>
+        </section>
+      ) : null}
+
       {/* ── VIDEOS ──
           Imagen: portfolioCoverUrl = portfolio_cover_url || cover_url
           Ratio: aspect-[16/10]
