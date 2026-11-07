@@ -48,6 +48,27 @@ await context.route(
     if (route.request().method() === 'OPTIONS') {
       return route.fulfill({ status: 204, headers });
     }
+    if (portfolioFixtureMode === 'empty') {
+      return route.fulfill({
+        status: 200,
+        headers: { ...headers, 'content-type': 'application/json' },
+        body: JSON.stringify({ items: [] }),
+      });
+    }
+    if (portfolioFixtureMode === 'malformed-null') {
+      return route.fulfill({
+        status: 200,
+        headers: { ...headers, 'content-type': 'application/json' },
+        body: JSON.stringify({ items: [null] }),
+      });
+    }
+    if (portfolioFixtureMode === 'malformed-object') {
+      return route.fulfill({
+        status: 200,
+        headers: { ...headers, 'content-type': 'application/json' },
+        body: JSON.stringify({ items: [{}] }),
+      });
+    }
     if (portfolioFixtureMode === 'error') {
       return route.fulfill({
         status: 503,
@@ -136,7 +157,51 @@ await page.getByText('CI Portfolio Fixture', { exact: true }).first().waitFor({ 
 await errorAlert.waitFor({ state: 'detached', timeout: 10000 });
 console.log('PORTFOLIO_ERROR_AND_RETRY=PASS');
 
+for (const mode of ['malformed-null', 'malformed-object']) {
+  portfolioFixtureMode = mode;
+  await page.goto(new URL(`/portafolio?fixture=${mode}`, candidateBase + '/').toString(), {
+    waitUntil: 'domcontentloaded',
+    timeout: 45000,
+  });
+  const malformedAlert = page.getByRole('alert');
+  await malformedAlert.waitFor({ state: 'visible', timeout: 10000 });
+  if (!(await malformedAlert.innerText()).includes('No se pudo cargar el portafolio')) {
+    throw new Error(`Malformed portfolio fixture did not render an error: ${mode}`);
+  }
+  if (await page.getByText('CI Portfolio Fixture', { exact: true }).count() !== 0) {
+    throw new Error(`Malformed portfolio fixture rendered a successful catalog: ${mode}`);
+  }
+}
+console.log('PORTFOLIO_MALFORMED_RESPONSE=PASS');
+
+portfolioFixtureMode = 'empty';
+const emptyResponsePromise = page.waitForResponse((response) => {
+  const url = new URL(response.url());
+  return response.request().method() === 'GET' &&
+    url.origin === 'http://127.0.0.1:4175' &&
+    url.pathname === '/portfolio' &&
+    response.status() === 200;
+}, { timeout: 10000 });
+await page.goto(new URL('/portafolio?fixture=empty', candidateBase + '/').toString(), {
+  waitUntil: 'domcontentloaded',
+  timeout: 45000,
+});
+await emptyResponsePromise;
+await page.waitForFunction(() => {
+  const allProjects = Array.from(document.querySelectorAll('button')).find((button) =>
+    button.innerText.trim().startsWith('Todos')
+  );
+  return allProjects && /\b0\b/.test(allProjects.innerText);
+}, null, { timeout: 10000 });
+if (await page.getByRole('alert').count() !== 0) {
+  throw new Error('A valid empty portfolio response rendered a loading error.');
+}
+if (await page.getByText('CI Portfolio Fixture', { exact: true }).count() !== 0) {
+  throw new Error('A valid empty portfolio response rendered fixture items.');
+}
+console.log('PORTFOLIO_EMPTY_RESPONSE=PASS error_alert=false item_count=0');
+
 await browser.close();
-fs.writeFileSync('.artifacts/visual/report.json',JSON.stringify({ referenceBase,candidateBase,allowVisualChange,portfolioErrorRecovery:'PASS',results },null,2));
+fs.writeFileSync('.artifacts/visual/report.json',JSON.stringify({ referenceBase,candidateBase,allowVisualChange,portfolioErrorRecovery:'PASS',portfolioMalformedResponse:'PASS',portfolioEmptyResponse:'PASS',results },null,2));
 if(failed){ console.error('VISUAL_REGRESSION=FAIL'); process.exit(1); }
 console.log(`VISUAL_REGRESSION=PASS approved_override=${allowVisualChange}`);
