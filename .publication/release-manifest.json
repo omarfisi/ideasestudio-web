@@ -8,6 +8,7 @@
   "shared_files_approved": true,
   "expected_files": [
     ".publication/release-manifest.json",
+    ".github/workflows/publication-safety.yml",
     "src/lib/api.js",
     "src/pages/PortfolioPage.jsx"
   ],
