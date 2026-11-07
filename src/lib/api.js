@@ -1381,9 +1381,21 @@ export async function getPublicPortfolioItems(params = {}, { throwOnError = fals
       ...params,
     });
     const data = await apiFetch(url);
-    const raw = Array.isArray(data?.items) ? data.items
-               : Array.isArray(data)        ? data
-               : [];
+    let raw;
+    if (Array.isArray(data)) {
+      raw = data;
+    } else if (
+      data &&
+      typeof data === "object" &&
+      Array.isArray(data.items)
+    ) {
+      raw = data.items;
+    } else {
+      if (throwOnError) {
+        throw new Error("Formato de respuesta inválido al cargar el portafolio.");
+      }
+      return [];
+    }
     return raw.map(normalizePortfolioItem).filter(Boolean);
   } catch (error) {
     if (throwOnError) throw error;
