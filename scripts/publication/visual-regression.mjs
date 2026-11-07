@@ -52,7 +52,8 @@ let portfolioRequestCount = 0;
 await context.route("**/*", async (route) => {
   const request = route.request();
   const url = new URL(request.url());
-  if (request.method() !== "GET" || !/(^|\\/)portfolio\\/?$/i.test(url.pathname)) {
+  const apiPath = url.pathname.endsWith("/") ? url.pathname.slice(0, -1) : url.pathname;
+  if (request.method() !== "GET" || !(apiPath === "/portfolio" || apiPath.endsWith("/portfolio"))) {
     return route.continue();
   }
   portfolioRequestCount += 1;
