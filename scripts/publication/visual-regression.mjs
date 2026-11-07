@@ -207,7 +207,7 @@ try {
     timeout: 45000
   });
   await emptyResponsePromise;
-  await page.locator("button").filter({ hasText: /Todos\\s+0/ }).first().waitFor({
+  await page.getByRole("button").filter({ hasText: "Todos" }).getByText("0", { exact: true }).waitFor({
     state: "visible",
     timeout: 10000
   });
