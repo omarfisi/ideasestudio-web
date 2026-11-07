@@ -78,7 +78,7 @@ jobs:
           NODE
       - run: npm run build
         env:
-          VITE_API_BASE: https://api.ideasestudio.com
+          VITE_CRM_BASE_URL: http://127.0.0.1:4175
       - run: node scripts/publication/check-placeholders.mjs dist
       - run: git diff --check
       - name: Build must not modify tracked files
@@ -115,14 +115,14 @@ jobs:
       - name: Build candidate
         run: npm run build
         env:
-          VITE_API_BASE: https://api.ideasestudio.com
+          VITE_CRM_BASE_URL: http://127.0.0.1:4175
       - name: Build base branch
         working-directory: base-ref
         run: |
           npm ci
           npm run build
         env:
-          VITE_API_BASE: https://api.ideasestudio.com
+          VITE_CRM_BASE_URL: http://127.0.0.1:4175
           VITE_PUBLIC_WORKSPACE_ID: ${{ env.VITE_PUBLIC_WORKSPACE_ID }}
       - name: Run visual regression
         env:

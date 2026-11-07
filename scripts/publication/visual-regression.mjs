@@ -24,6 +24,45 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 1100
 const page = await context.newPage();
 await page.emulateMedia({ reducedMotion: 'reduce' });
 
+let portfolioFixtureMode = 'success';
+const portfolioFixtureItems = [{
+  id: 'ci-portfolio-fixture',
+  title: 'CI Portfolio Fixture',
+  slug: 'ci-portfolio-fixture',
+  description: 'Deterministic local visual regression data.',
+  category: 'branding',
+  tags: [],
+  is_published: true,
+  is_featured: true,
+  visual_order: 1,
+  placements: ['portfolio_page'],
+}];
+await context.route(
+  (url) => url.origin === 'http://127.0.0.1:4175' && url.pathname === '/portfolio',
+  async (route) => {
+    const headers = {
+      'access-control-allow-origin': '*',
+      'access-control-allow-methods': 'GET, OPTIONS',
+      'access-control-allow-headers': 'content-type',
+    };
+    if (route.request().method() === 'OPTIONS') {
+      return route.fulfill({ status: 204, headers });
+    }
+    if (portfolioFixtureMode === 'error') {
+      return route.fulfill({
+        status: 503,
+        headers: { ...headers, 'content-type': 'application/json' },
+        body: JSON.stringify({ error: 'Deterministic CI failure' }),
+      });
+    }
+    return route.fulfill({
+      status: 200,
+      headers: { ...headers, 'content-type': 'application/json' },
+      body: JSON.stringify({ items: portfolioFixtureItems }),
+    });
+  },
+);
+
 const freezeCss = `
   *, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }
   [class*="chat" i], [id*="chat" i], [class*="aira" i], [class*="ivox" i], [class*="assistant" i], iframe { visibility: hidden !important; }
@@ -82,7 +121,22 @@ for (const route of routes) {
   results.push({ route, ratio, threshold, pass, reason });
   console.log(`VISUAL_ROUTE=${route} DIFF_RATIO=${ratio.toFixed(6)} THRESHOLD=${threshold} ${pass?'PASS':'FAIL'}`);
 }
+portfolioFixtureMode = 'error';
+await page.goto(new URL('/portafolio', candidateBase).toString(), { waitUntil: 'domcontentloaded', timeout: 45000 });
+const errorAlert = page.getByRole('alert');
+await errorAlert.waitFor({ state: 'visible', timeout: 10000 });
+if (!(await errorAlert.innerText()).includes('No se pudo cargar el portafolio')) {
+  throw new Error('Portfolio error state did not render the expected message.');
+}
+const retryButton = page.getByRole('button', { name: 'Reintentar' });
+await retryButton.waitFor({ state: 'visible', timeout: 10000 });
+portfolioFixtureMode = 'success';
+await retryButton.click();
+await page.getByText('CI Portfolio Fixture', { exact: true }).first().waitFor({ state: 'visible', timeout: 10000 });
+await errorAlert.waitFor({ state: 'detached', timeout: 10000 });
+console.log('PORTFOLIO_ERROR_AND_RETRY=PASS');
+
 await browser.close();
-fs.writeFileSync('.artifacts/visual/report.json',JSON.stringify({ referenceBase,candidateBase,allowVisualChange,results },null,2));
+fs.writeFileSync('.artifacts/visual/report.json',JSON.stringify({ referenceBase,candidateBase,allowVisualChange,portfolioErrorRecovery:'PASS',results },null,2));
 if(failed){ console.error('VISUAL_REGRESSION=FAIL'); process.exit(1); }
 console.log(`VISUAL_REGRESSION=PASS approved_override=${allowVisualChange}`);
