@@ -1396,7 +1396,26 @@ export async function getPublicPortfolioItems(params = {}, { throwOnError = fals
       }
       return [];
     }
-    return raw.map(normalizePortfolioItem).filter(Boolean);
+    const items = raw.map((item, index) => {
+      const isValidRecord =
+        item !== null &&
+        typeof item === "object" &&
+        !Array.isArray(item) &&
+        typeof item.id === "string" &&
+        item.id.trim().length > 0 &&
+        typeof item.title === "string" &&
+        item.title.trim().length > 0 &&
+        typeof item.slug === "string" &&
+        item.slug.trim().length > 0;
+      if (!isValidRecord) {
+        if (throwOnError) {
+          throw new Error(`Formato inválido en el elemento ${index + 1} del portafolio.`);
+        }
+        return null;
+      }
+      return normalizePortfolioItem(item);
+    });
+    return items.filter(Boolean);
   } catch (error) {
     if (throwOnError) throw error;
     return [];
