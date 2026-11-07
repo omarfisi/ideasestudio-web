@@ -47,23 +47,32 @@ const visualPortfolioFixture = {
     video_url: ""
   }]
 };
+const portfolioApiHostname = new URL(
+  process.env.VITE_CRM_BASE_URL || "https://api.ideasestudio.com"
+).hostname;
 let portfolioMode = "success";
-let portfolioRequestCount = 0;
+let portfolioErrorRequestCount = 0;
 await context.route("**/*", async (route) => {
   const request = route.request();
   const url = new URL(request.url());
   const apiPath = url.pathname.endsWith("/") ? url.pathname.slice(0, -1) : url.pathname;
-  if (request.method() !== "GET" || !(apiPath === "/portfolio" || apiPath.endsWith("/portfolio"))) {
+  if (
+    request.method() !== "GET" ||
+    url.hostname !== portfolioApiHostname ||
+    !(apiPath === "/portfolio" || apiPath.endsWith("/portfolio"))
+  ) {
     return route.continue();
   }
-  portfolioRequestCount += 1;
-  if (portfolioMode === "error") {
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    return route.fulfill({
-      status: 503,
-      contentType: "application/json",
-      body: JSON.stringify({ detail: "visual-regression fixture unavailable" })
-    });
+  if (portfolioMode === "error_then_success") {
+    portfolioErrorRequestCount += 1;
+    if (portfolioErrorRequestCount === 1) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      return route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "visual-regression fixture unavailable" })
+      });
+    }
   }
   return route.fulfill({
     status: 200,
@@ -72,14 +81,13 @@ await context.route("**/*", async (route) => {
   });
 });
 
-async function waitForPortfolioRequests(target) {
-  const deadline = Date.now() + 10000;
-  while (portfolioRequestCount < target && Date.now() < deadline) {
-    await page.waitForTimeout(50);
-  }
-  if (portfolioRequestCount < target) {
-    throw new Error(`portfolio retry did not reach fixture: expected=${target} actual=${portfolioRequestCount}`);
-  }
+function isPortfolioApiResponse(response, status) {
+  const url = new URL(response.url());
+  const apiPath = url.pathname.endsWith("/") ? url.pathname.slice(0, -1) : url.pathname;
+  return response.request().method() === "GET" &&
+    url.hostname === portfolioApiHostname &&
+    (apiPath === "/portfolio" || apiPath.endsWith("/portfolio")) &&
+    response.status() === status;
 }
 
 await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -142,27 +150,62 @@ for (const route of routes) {
   results.push({ route, ratio, threshold, pass, reason });
   console.log(`VISUAL_ROUTE=${route} DIFF_RATIO=${ratio.toFixed(6)} THRESHOLD=${threshold} ${pass?'PASS':'FAIL'}`);
 }
-portfolioMode = "error";
-const requestsBeforeErrorState = portfolioRequestCount;
-await page.goto(new URL("/portafolio?visual_regression_error=1", `${candidateBase}/`).toString(), {
-  waitUntil: "domcontentloaded",
-  timeout: 45000
-});
-const errorAlert = page.getByRole("alert");
-await errorAlert.waitFor({ state: "visible", timeout: 10000 });
-if (!(await errorAlert.innerText()).includes("No se pudo cargar el portafolio.")) {
-  throw new Error("portfolio error alert text was not rendered");
-}
-if (portfolioRequestCount !== requestsBeforeErrorState + 1) {
-  throw new Error(`expected one portfolio request for error state; got=${portfolioRequestCount - requestsBeforeErrorState}`);
-}
-await page.getByRole("button", { name: "Reintentar" }).click();
-await errorAlert.waitFor({ state: "hidden", timeout: 5000 });
-await waitForPortfolioRequests(requestsBeforeErrorState + 2);
-await errorAlert.waitFor({ state: "visible", timeout: 10000 });
-console.log("PORTFOLIO_ERROR_UI=PASS alert=visible retry=second_request");
+let portfolioErrorUiPass = false;
+let portfolioErrorUiError = null;
+try {
+  portfolioMode = "error_then_success";
+  portfolioErrorRequestCount = 0;
+  const initialFailurePromise = page.waitForResponse(
+    (response) => isPortfolioApiResponse(response, 503),
+    { timeout: 10000 }
+  );
+  await page.goto(new URL("/portafolio?visual_regression_error=1", `${candidateBase}/`).toString(), {
+    waitUntil: "domcontentloaded",
+    timeout: 45000
+  });
+  await initialFailurePromise;
+  const errorAlert = page.getByRole("alert");
+  await errorAlert.waitFor({ state: "visible", timeout: 10000 });
+  if (!(await errorAlert.innerText()).includes("No se pudo cargar el portafolio.")) {
+    throw new Error("portfolio error alert text was not rendered");
+  }
 
-await browser.close();
-fs.writeFileSync('.artifacts/visual/report.json',JSON.stringify({ referenceBase,candidateBase,allowVisualChange,results },null,2));
-if(failed){ console.error('VISUAL_REGRESSION=FAIL'); process.exit(1); }
+  const retrySuccessPromise = page.waitForResponse(
+    (response) => isPortfolioApiResponse(response, 200),
+    { timeout: 10000 }
+  );
+  await page.getByRole("button", { name: "Reintentar" }).click();
+  const retryResponse = await retrySuccessPromise;
+  if (retryResponse.status() !== 200 || portfolioErrorRequestCount !== 2) {
+    throw new Error(`portfolio retry did not recover: status=${retryResponse.status()} attempts=${portfolioErrorRequestCount}`);
+  }
+  await errorAlert.waitFor({ state: "hidden", timeout: 10000 });
+  await page.getByText("Proyecto de prueba visual", { exact: true }).waitFor({
+    state: "visible",
+    timeout: 10000
+  });
+  portfolioErrorUiPass = true;
+  console.log("PORTFOLIO_ERROR_UI=PASS first_response=503 retry_response=200 alert_cleared=true");
+} catch (error) {
+  portfolioErrorUiError = error;
+} finally {
+  await browser.close();
+}
+
+fs.writeFileSync('.artifacts/visual/report.json',JSON.stringify({
+  referenceBase,
+  candidateBase,
+  allowVisualChange,
+  results,
+  portfolioErrorUi: { pass: portfolioErrorUiPass }
+},null,2));
+if (portfolioErrorUiError) {
+  console.error("PORTFOLIO_ERROR_UI=FAIL", portfolioErrorUiError);
+  process.exitCode = 1;
+}
+if (failed) {
+  console.error("VISUAL_REGRESSION=FAIL");
+  process.exitCode = 1;
+}
+if (process.exitCode) process.exit(process.exitCode);
 console.log(`VISUAL_REGRESSION=PASS approved_override=${allowVisualChange}`);
