@@ -47,6 +47,11 @@ const visualPortfolioFixture = {
     video_url: ""
   }]
 };
+const visualPortfolioEmptyFixture = {
+  ok: true,
+  total: 0,
+  items: []
+};
 const portfolioApiHostname = new URL(
   process.env.VITE_CRM_BASE_URL || "https://api.ideasestudio.com"
 ).hostname;
@@ -77,7 +82,7 @@ await context.route("**/*", async (route) => {
   return route.fulfill({
     status: 200,
     contentType: "application/json",
-    body: JSON.stringify(visualPortfolioFixture)
+    body: JSON.stringify(portfolioMode === "empty_success" ? visualPortfolioEmptyFixture : visualPortfolioFixture)
   });
 });
 
@@ -152,6 +157,8 @@ for (const route of routes) {
 }
 let portfolioErrorUiPass = false;
 let portfolioErrorUiError = null;
+let portfolioEmptyCatalogUiPass = false;
+let portfolioEmptyCatalogUiError = null;
 try {
   portfolioMode = "error_then_success";
   portfolioErrorRequestCount = 0;
@@ -188,6 +195,30 @@ try {
   console.log("PORTFOLIO_ERROR_UI=PASS first_response=503 retry_response=200 alert_cleared=true");
 } catch (error) {
   portfolioErrorUiError = error;
+}
+try {
+  portfolioMode = "empty_success";
+  const emptyResponsePromise = page.waitForResponse(
+    (response) => isPortfolioApiResponse(response, 200),
+    { timeout: 10000 }
+  );
+  await page.goto(new URL("/portafolio?visual_regression_empty=1", candidateBase + "/").toString(), {
+    waitUntil: "domcontentloaded",
+    timeout: 45000
+  });
+  await emptyResponsePromise;
+  await page.locator("button").filter({ hasText: /Todos\\s+0/ }).first().waitFor({
+    state: "visible",
+    timeout: 10000
+  });
+  await page.getByRole("alert").waitFor({ state: "hidden", timeout: 10000 });
+  if (await page.getByText("Proyecto de prueba visual", { exact: true }).count() !== 0) {
+    throw new Error("empty portfolio response still rendered a catalog item");
+  }
+  portfolioEmptyCatalogUiPass = true;
+  console.log("PORTFOLIO_EMPTY_CATALOG_UI=PASS count=0 alert_absent=true");
+} catch (error) {
+  portfolioEmptyCatalogUiError = error;
 } finally {
   await browser.close();
 }
@@ -197,10 +228,15 @@ fs.writeFileSync('.artifacts/visual/report.json',JSON.stringify({
   candidateBase,
   allowVisualChange,
   results,
-  portfolioErrorUi: { pass: portfolioErrorUiPass }
+  portfolioErrorUi: { pass: portfolioErrorUiPass },
+  portfolioEmptyCatalogUi: { pass: portfolioEmptyCatalogUiPass }
 },null,2));
 if (portfolioErrorUiError) {
   console.error("PORTFOLIO_ERROR_UI=FAIL", portfolioErrorUiError);
+  process.exitCode = 1;
+}
+if (portfolioEmptyCatalogUiError) {
+  console.error("PORTFOLIO_EMPTY_CATALOG_UI=FAIL", portfolioEmptyCatalogUiError);
   process.exitCode = 1;
 }
 if (failed) {
