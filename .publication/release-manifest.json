@@ -1,17 +1,13 @@
 {
   "product": "IDEAS_ESTUDIO",
-  "source_branch": "ideas/fix-portfolio-error-vs-empty-20261107",
+  "source_branch": "ideas/fix-portfolio-cta-placeholder-20261108",
   "base_branch": "ideas-main",
   "production_project": "ideasestudio-web",
   "visual_baseline": "https://ideasestudio.com",
   "visual_change_approved": false,
-  "shared_files_approved": true,
+  "shared_files_approved": false,
   "expected_files": [
     ".publication/release-manifest.json",
-    ".github/workflows/publication-safety.yml",
-    "middleware.js",
-    "scripts/publication/visual-regression.mjs",
-    "src/lib/api.js",
     "src/pages/PortfolioPage.jsx"
   ],
   "forbidden_files": [],
