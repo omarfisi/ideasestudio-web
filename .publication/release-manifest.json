@@ -9,9 +9,10 @@
   "expected_files": [
     ".publication/release-manifest.json",
     ".github/workflows/publication-safety.yml",
+    "middleware.js",
+    "scripts/publication/visual-regression.mjs",
     "src/lib/api.js",
-    "src/pages/PortfolioPage.jsx",
-    "scripts/publication/visual-regression.mjs"
+    "src/pages/PortfolioPage.jsx"
   ],
   "forbidden_files": [],
   "public_workspace_id": "cfdd0b5a-3468-4d5a-86da-50e1f4f324a6"
