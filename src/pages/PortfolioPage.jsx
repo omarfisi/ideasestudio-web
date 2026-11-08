@@ -584,6 +584,8 @@ export default function PortfolioPage() {
   const [slideIndex, setSlideIndex] = useState(0);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [portfolioLoadError, setPortfolioLoadError] = useState(false);
+  const [portfolioRetryKey, setPortfolioRetryKey] = useState(0);
   const carouselRef = useRef(null);
   const hasRestoredStateRef = useRef(false);
   const isRestoringStateRef = useRef(false);
@@ -629,7 +631,8 @@ export default function PortfolioPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getPublicPortfolioItems({ limit: 500 })
+    setPortfolioLoadError(false);
+    getPublicPortfolioItems({ limit: 500 }, { throwOnError: true })
       .then((data) => {
         if (cancelled) return;
         setItems(data || []);
@@ -638,10 +641,11 @@ export default function PortfolioPage() {
       .catch(() => {
         if (cancelled) return;
         setItems([]);
+        setPortfolioLoadError(true);
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [portfolioRetryKey]);
 
   useEffect(() => {
     if (loading || pendingScrollYRef.current === null) return;
@@ -835,6 +839,26 @@ export default function PortfolioPage() {
           </div>
         </div>
       </section>
+
+      {portfolioLoadError ? (
+        <section className="px-4 pb-8 md:px-6">
+          <div
+            role="alert"
+            className="mx-auto flex max-w-7xl flex-col gap-4 rounded-[28px] border border-amber-300 bg-amber-50 px-6 py-5 text-amber-950 md:flex-row md:items-center md:justify-between"
+          >
+            <p className="text-sm leading-6">
+              No se pudo cargar el portafolio. Intenta nuevamente.
+            </p>
+            <button
+              type="button"
+              onClick={() => setPortfolioRetryKey((key) => key + 1)}
+              className="inline-flex items-center justify-center rounded-full bg-neutral-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800"
+            >
+              Reintentar
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       {/* ── SLIDER DE DESTACADOS ──
           Imagen: homeCoverUrl = home_cover_url || cover_url
@@ -1098,6 +1122,19 @@ export default function PortfolioPage() {
           )}
         </div>
       </section>
+
+      {!loading && !portfolioLoadError && items.length === 0 ? (
+        <section className="section-split px-4 py-12">
+          <div className="mx-auto max-w-7xl rounded-3xl border border-neutral-200 bg-white px-6 py-10 text-center">
+            <p role="status" className="text-lg font-semibold text-neutral-900">
+              Aún no hay proyectos publicados.
+            </p>
+            <p className="mt-2 text-sm text-neutral-600">
+              Vuelve a consultar pronto.
+            </p>
+          </div>
+        </section>
+      ) : null}
 
       {/* ── VIDEOS ──
           Imagen: portfolioCoverUrl = portfolio_cover_url || cover_url

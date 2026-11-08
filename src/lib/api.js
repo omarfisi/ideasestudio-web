@@ -1374,7 +1374,7 @@ function normalizePortfolioItem(raw) {
   };
 }
 
-export async function getPublicPortfolioItems(params = {}) {
+export async function getPublicPortfolioItems(params = {}, { throwOnError = false } = {}) {
   try {
     const url = buildUrl("/portfolio", {
       is_published: true,
@@ -1383,9 +1383,31 @@ export async function getPublicPortfolioItems(params = {}) {
     const data = await apiFetch(url);
     const raw = Array.isArray(data?.items) ? data.items
                : Array.isArray(data)        ? data
-               : [];
+               : null;
+    if (!raw) {
+      if (throwOnError) {
+        throw new Error("Formato de respuesta inválido al cargar el portafolio.");
+      }
+      return [];
+    }
+    if (throwOnError) {
+      const invalidIndex = raw.findIndex(
+        (item) =>
+          !item ||
+          typeof item !== "object" ||
+          Array.isArray(item) ||
+          typeof item.id !== "string" ||
+          item.id.trim().length === 0 ||
+          typeof item.title !== "string" ||
+          item.title.trim().length === 0
+      );
+      if (invalidIndex !== -1) {
+        throw new Error(`Formato de elemento inválido al cargar el portafolio (fila ${invalidIndex}).`);
+      }
+    }
     return raw.map(normalizePortfolioItem).filter(Boolean);
-  } catch {
+  } catch (error) {
+    if (throwOnError) throw error;
     return [];
   }
 }
