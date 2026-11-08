@@ -6,7 +6,6 @@ import Button from "@/components/shared/Button.jsx";
 import SplitLeadBlock from "@/components/forms/SplitLeadBlock.jsx";
 import FormPlacementRenderer from "@/components/forms/FormPlacementRenderer.jsx";
 import { getPublicPortfolioItems } from "@/lib/api.js";
-import localPortfolioCta from "@/assets/quland-process/process-5.png";
 import localPortfolioAsset1 from "@/assets/quland-process/process-1.png";
 import localPortfolioAsset2 from "@/assets/quland-process/process-2.png";
 import localPortfolioAsset3 from "@/assets/quland-process/process-3.png";
@@ -765,6 +764,7 @@ export default function PortfolioPage() {
 
   // ── Slider de destacados — todos los publicados con imagen ──
   const slideItems = items.filter(i => i.homeCoverUrl || i.coverUrl);
+  const portfolioCtaImage = slideItems[0]?.homeCoverUrl || slideItems[0]?.coverUrl || "";
   const totalSlides = slideItems.length;
   const slideActual = slideItems[slideIndex] ?? null;
   const irAlSlide = (i) => setSlideIndex((i + totalSlides) % totalSlides);
@@ -1271,8 +1271,8 @@ export default function PortfolioPage() {
                 eyebrow="Portafolio / Ideas Estudio"
                 title={<>Si esto te gustó, podemos crear algo igual o mejor para tu <span style={{ color: "#f2cc3d" }}>negocio</span>.</>}
                 description="Cuéntanos lo que tienes en mente y te ayudamos a desarrollar una propuesta visual más clara, profesional y estratégica."
-                imageSrc={localPortfolioCta}
-                imageAlt="Portafolio Ideas Estudio"
+                imageSrc={portfolioCtaImage}
+                imageAlt="Proyecto publicado del portafolio de Ideas Estudio"
                 buttonLabel="Quiero algo así"
                 successMessage="Perfecto. Hemos recibido tu información y te contactaremos pronto."
                 showNameField={true}
