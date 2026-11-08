@@ -764,7 +764,10 @@ export default function PortfolioPage() {
 
   // ── Slider de destacados — todos los publicados con imagen ──
   const slideItems = items.filter(i => i.homeCoverUrl || i.coverUrl);
-  const portfolioCtaImage = slideItems[0]?.homeCoverUrl || slideItems[0]?.coverUrl || "";
+  const portfolioCtaProject = items.find(
+    (item) => Array.isArray(item.mediaUrls) && item.mediaUrls.length > 0
+  );
+  const portfolioCtaImage = portfolioCtaProject?.mediaUrls[0] || "";
   const totalSlides = slideItems.length;
   const slideActual = slideItems[slideIndex] ?? null;
   const irAlSlide = (i) => setSlideIndex((i + totalSlides) % totalSlides);
