@@ -1,6 +1,6 @@
 {
   "product": "IDEAS_ESTUDIO",
-  "source_branch": "ideas/fix-portfolio-error-vs-empty-20261107",
+  "source_branch": "ideas/f6-portfolio-workspace-policy-20261113",
   "base_branch": "ideas-main",
   "production_project": "ideasestudio-web",
   "visual_baseline": "https://ideasestudio.com",
@@ -8,6 +8,7 @@
   "shared_files_approved": true,
   "expected_files": [
     ".publication/release-manifest.json",
+    ".publication/policy.json",
     ".github/workflows/publication-safety.yml",
     "middleware.js",
     "scripts/publication/visual-regression.mjs",
