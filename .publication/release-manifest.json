@@ -1,6 +1,6 @@
 {
   "product": "IDEAS_ESTUDIO",
-  "source_branch": "ideas/f6-portfolio-workspace-policy-20261113",
+  "source_branch": "ideas/fix-portfolio-cta-real-image-20261108",
   "base_branch": "ideas-main",
   "production_project": "ideasestudio-web",
   "visual_baseline": "https://ideasestudio.com",
@@ -16,5 +16,5 @@
     "src/pages/PortfolioPage.jsx"
   ],
   "forbidden_files": [],
-  "public_workspace_id": "cfdd0b5a-3468-4d5a-86da-50e1f4f324a6"
+  "public_workspace_id": "c7e594e2-5218-40fc-9e4b-e830a21d96b3"
 }
