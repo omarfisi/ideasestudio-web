@@ -549,6 +549,8 @@ function Pagination({ total, pageSize, page, onChange }) {
           key={p}
           type="button"
           onClick={() => onChange(p)}
+          aria-label={`Ir a la página ${p}`}
+          aria-current={p === page ? "page" : undefined}
           className={`flex h-9 w-9 items-center justify-center rounded-full border text-sm font-semibold transition ${
             p === page
               ? "border-black bg-black text-white"
