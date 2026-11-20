@@ -369,6 +369,7 @@ function VideoCard({ item, onOpen, projectLinkState }) {
             to={getProjectHref(item)}
             state={item.slug ? projectLinkState : undefined}
             onClick={(event) => rememberReturnScrollY(event, projectLinkState)}
+            aria-label={`Ver proyecto ${item.title}`}
             className="inline-flex items-center rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:border-black hover:bg-black hover:text-white"
           >
             Ver proyecto
@@ -427,6 +428,7 @@ function MasonryCard({ item, onOpenGallery, projectLinkState }) {
               event.stopPropagation();
               rememberReturnScrollY(event, projectLinkState);
             }}
+            aria-label={`Ver proyecto ${item.title}`}
             className="inline-flex items-center rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:border-black hover:bg-black hover:text-white"
           >
             Ver proyecto
