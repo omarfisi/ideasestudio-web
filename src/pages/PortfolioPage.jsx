@@ -368,6 +368,8 @@ function VideoCard({ item, onOpen, projectLinkState }) {
           <Link
             to={getProjectHref(item)}
             state={item.slug ? projectLinkState : undefined}
+            onClick={(event) => rememberReturnScrollY(event, projectLinkState)}
+            aria-label={`Ver proyecto ${item.title}`}
             className="inline-flex items-center rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:border-black hover:bg-black hover:text-white"
           >
             Ver proyecto
@@ -422,7 +424,11 @@ function MasonryCard({ item, onOpenGallery, projectLinkState }) {
           <Link
             to={getProjectHref(item)}
             state={item.slug ? projectLinkState : undefined}
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              rememberReturnScrollY(event, projectLinkState);
+            }}
+            aria-label={`Ver proyecto ${item.title}`}
             className="inline-flex items-center rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:border-black hover:bg-black hover:text-white"
           >
             Ver proyecto
@@ -501,7 +507,11 @@ function GridCard({ item, onOpenVideo, onOpenGallery, projectLinkState }) {
           <Link
             to={getProjectHref(item)}
             state={item.slug ? projectLinkState : undefined}
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              rememberReturnScrollY(event, projectLinkState);
+            }}
+            aria-label={`Ver proyecto ${item.title}`}
             className="inline-flex items-center rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:border-black hover:bg-black hover:text-white"
           >
             Ver proyecto
@@ -572,6 +582,173 @@ function Pagination({ total, pageSize, page, onChange }) {
   );
 }
 
+// ─── Posición de scroll al abrir un proyecto ──────────────────
+// `window.scrollY` leído dentro de useMemo se evalúa en el render, no en el
+// clic: el <Link> recibe una posición obsoleta (normalmente la del último
+// render, p. ej. 0). Se captura en la fase de captura del clic.
+const RETURN_SCROLL_KEY = "portfolio:returnScrollY";
+
+// Caducidad: pasado este tiempo la posición guardada ya no significa "volver
+// al portafolio", sino un salto a un sitio que el usuario no reconoce. Una
+// lectura de proyecto más larga simplemente no restaura el scroll (los
+// filtros y la página sí se restauran).
+const RETURN_SCROLL_MAX_AGE_MS = 30 * 60 * 1000;
+
+// Red de seguridad del flag de restauración (ver el efecto que lo usa).
+const RESTORE_SAFETY_TIMEOUT_MS = 2000;
+
+// Respaldo en memoria cuando sessionStorage no está disponible. La navegación
+// cliente (lista → /portafolio/:slug → volver) ocurre en el mismo contexto JS,
+// así que un valor en memoria basta para no perder la posición.
+let memoryReturnScroll = null;
+
+// Devuelve sessionStorage sólo si realmente se puede escribir; si está
+// bloqueado (modo privado, política del navegador) o sin cuota, devuelve null.
+function getSessionStore() {
+  try {
+    const store = window.sessionStorage;
+    if (!store) return null;
+    const probe = "__portfolio_scroll_probe__";
+    store.setItem(probe, "1"); // si está bloqueada o sin cuota, esto lanza
+    store.removeItem(probe);
+    return store;
+  } catch {
+    return null;
+  }
+}
+
+function parseStoredScroll(raw) {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Number.isFinite(parsed.y) || !Number.isFinite(parsed.t)) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null; // contenido corrupto: se ignora, nunca rompe
+  }
+}
+
+function normalizeScrollY(value) {
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+// Guarda la posición capturada. NUNCA lanza: si no se puede persistir queda
+// sólo en memoria; si tampoco hay memoria (recarga dura), no se restaura nada.
+function writeReturnScrollY(y) {
+  const entry = { y, t: Date.now() };
+  memoryReturnScroll = entry;
+  try {
+    getSessionStore()?.setItem(RETURN_SCROLL_KEY, JSON.stringify(entry));
+  } catch {
+    /* cuota excedida al escribir la clave: se conserva el respaldo en memoria */
+  }
+}
+
+// Devuelve la posición recordada y la consume (una sola vez).
+// Prioridad: sessionStorage → respaldo en memoria → `fallback` (state heredado).
+// NUNCA lanza: ante cualquier fallo devuelve `fallback` o null.
+function readReturnScrollY(fallback) {
+  let entry = null;
+  try {
+    const store = getSessionStore();
+    if (store) {
+      entry = parseStoredScroll(store.getItem(RETURN_SCROLL_KEY));
+      store.removeItem(RETURN_SCROLL_KEY);
+    }
+  } catch {
+    /* lectura bloqueada: se intenta el respaldo en memoria */
+  }
+  if (!entry) entry = memoryReturnScroll;
+  memoryReturnScroll = null; // consumo único, incluso si el valor caducó
+  if (entry && Date.now() - entry.t <= RETURN_SCROLL_MAX_AGE_MS) {
+    const stored = normalizeScrollY(entry.y);
+    if (stored !== null) return stored;
+  }
+  return normalizeScrollY(fallback);
+}
+
+// Elegibilidad del clic: sólo se guarda posición si el clic navega en ESTA
+// pestaña hacia un proyecto del portafolio. Todo lo demás (nueva pestaña o
+// ventana, descarga, botón central) NO debe dejar una posición guardada que
+// luego se consuma por error en una navegación sin relación.
+function isEligibleProjectClick(event) {
+  if (event.defaultPrevented) return false; // otro handler ya canceló la navegación
+  // Botón secundario/central: `auxclick` no llega aquí, pero algunos
+  // navegadores sintetizan `click`; se descarta explícitamente.
+  if (typeof event.button === "number" && event.button !== 0) return false;
+  // Ctrl/Cmd/Shift/Alt + clic = nueva pestaña, nueva ventana o descarga.
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return false;
+
+  const el = event.target;
+  if (!el || typeof el.closest !== "function") return false;
+  const anchor = el.closest('a[href^="/portafolio/"]');
+  if (!anchor) return false;
+
+  const target = anchor.getAttribute("target");
+  if (target && target !== "_self") return false; // target="_blank" → otra pestaña
+  if (anchor.hasAttribute("download")) return false; // descarga: no navega
+
+  try {
+    const url = new URL(anchor.getAttribute("href"), window.location.href);
+    if (url.origin !== window.location.origin) return false;
+    return /^\/portafolio\/[^/]+\/?$/.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
+// Cada clic elegible invalida las observaciones pendientes de clics anteriores.
+let projectClickEpoch = 0;
+
+function rememberReturnScrollY(event, projectLinkState) {
+  if (!isEligibleProjectClick(event)) return; // clic no elegible: no se escribe nada
+  const y = normalizeScrollY(window.scrollY);
+  if (y === null) return;
+
+  // El state del enlace viaja con React Router incluso si su loader tarda
+  // más de cinco segundos. Se captura en el clic, nunca en el render.
+  // Un clic cancelado no lleva este state al destino, aunque la posición
+  // permanece en el objeto compartido hasta el siguiente clic elegible.
+  if (projectLinkState?.portfolioReturn) {
+    projectLinkState.portfolioReturn.scrollY = y;
+  }
+
+  // React Router puede esperar el loader antes de cambiar la URL. Un único
+  // setTimeout(0) interpreta erróneamente ese retraso como un clic cancelado.
+  // Confirmamos la ruta exacta (no solamente "la URL cambió") y acotamos la
+  // observación: un clic cancelado no deja una posición huérfana.
+  const anchor = event.target?.closest?.('a[href^="/portafolio/"]');
+  if (!anchor) return;
+  let destination;
+  try {
+    destination = new URL(anchor.getAttribute("href"), window.location.href).pathname;
+  } catch {
+    return;
+  }
+  const origin = window.location.pathname;
+  const epoch = ++projectClickEpoch;
+  const deadline = Date.now() + 5000;
+  const confirmNavigation = () => {
+    // El proyecto puede tardar en cargar. Un clic nuevo al mismo slug
+    // invalida el valor antiguo, incluso si el primer poll sigue activo.
+    if (epoch !== projectClickEpoch) return;
+    try {
+      const currentPath = window.location.pathname;
+      if (currentPath === destination) {
+        writeReturnScrollY(y);
+        return;
+      }
+      if (currentPath !== origin || Date.now() >= deadline) return;
+      window.setTimeout(confirmNavigation, 25);
+    } catch {
+      /* navegacion no verificable: no guardar la posicion */
+    }
+  };
+  window.setTimeout(confirmNavigation, 0);
+}
+
 // ─── Página principal ─────────────────────────────────────────
 export default function PortfolioPage() {
   const pageSeo = usePageSeo();
@@ -590,6 +767,10 @@ export default function PortfolioPage() {
   const hasRestoredStateRef = useRef(false);
   const isRestoringStateRef = useRef(false);
   const pendingScrollYRef = useRef(null);
+  // Valores que aplica la restauración y si su commit ya se observó. Sirven
+  // para que los efectos de reset distingan ese commit de un cambio real.
+  const restoredStateRef = useRef(null);
+  const restoredAppliedRef = useRef(false);
 
   // ── Paginación por sección ─────────────────────────────────
   const PAGE_SIZE = 6;
@@ -600,10 +781,17 @@ export default function PortfolioPage() {
   // Restaurar contexto al volver desde /portafolio/:slug
   useEffect(() => {
     const saved = location.state?.portfolioReturn;
-    if (!saved || hasRestoredStateRef.current) return;
+    if (!saved) {
+      // Un POP/visita limpia invalida también cualquier poll anterior:
+      // de lo contrario podría escribir después de consumir el registro.
+      projectClickEpoch += 1;
+      // ScrollRestoration gestiona el regreso nativo con Atrás.
+      readReturnScrollY(null);
+      return;
+    }
+    if (hasRestoredStateRef.current) return;
 
     hasRestoredStateRef.current = true;
-    isRestoringStateRef.current = true;
 
     if (saved.filtroActivo) setFiltroActivo(saved.filtroActivo);
     if ("subcategoryActivo" in saved) {
@@ -618,13 +806,45 @@ export default function PortfolioPage() {
     if (Number.isInteger(saved.videosPage) && saved.videosPage > 0) {
       setVideosPage(saved.videosPage);
     }
-    if (Number.isFinite(saved.scrollY) && saved.scrollY >= 0) {
-      pendingScrollYRef.current = saved.scrollY;
-    }
 
-    setTimeout(() => {
-      isRestoringStateRef.current = false;
-    }, 0);
+    // Valores que los efectos de reset deben respetar: sin esto, el commit
+    // que aplica la restauración volvería a poner páginas en 1.
+    restoredStateRef.current = {
+      filtroActivo: saved.filtroActivo || "Todos",
+      subcategoryActivo:
+        "subcategoryActivo" in saved ? saved.subcategoryActivo || null : null,
+      fotosPage: Number.isInteger(saved.fotosPage) && saved.fotosPage > 0 ? saved.fotosPage : 1,
+      gridPage: Number.isInteger(saved.gridPage) && saved.gridPage > 0 ? saved.gridPage : 1,
+      videosPage: Number.isInteger(saved.videosPage) && saved.videosPage > 0 ? saved.videosPage : 1,
+    };
+    restoredAppliedRef.current = false;
+
+    // Si el estado actual YA coincide con lo guardado no habrá commit nuevo:
+    // useState descarta valores idénticos y el efecto que marca "aplicado"
+    // nunca correría. Dejar la marca en false desactivaría los resets de
+    // categoría y paginación durante toda la vida de la página.
+    const coincides =
+      restoredStateRef.current.filtroActivo === filtroActivo &&
+      restoredStateRef.current.subcategoryActivo === subcategoryActivo &&
+      restoredStateRef.current.fotosPage === fotosPage &&
+      restoredStateRef.current.gridPage === gridPage &&
+      restoredStateRef.current.videosPage === videosPage;
+    restoredAppliedRef.current = coincides;
+
+    const savedScrollY = readReturnScrollY(saved.scrollY);
+    // El flag marca "hay una restauración de scroll en curso" y vive junto al
+    // destino pendiente: se libera cuando el scroll se aplica, cuando el
+    // usuario cambia de filtro o por el timeout de seguridad. Nunca con un
+    // setTimeout(…, 0) que competía con los efectos de reset.
+    if (savedScrollY !== null) {
+      pendingScrollYRef.current = savedScrollY;
+      isRestoringStateRef.current = true;
+    } else if (coincides) {
+      // No hay nada que restaurar realmente: se suelta el estado histórico en
+      // el acto para no dejar los resets desactivados.
+      restoredStateRef.current = null;
+      restoredAppliedRef.current = false;
+    }
   }, [location.state]);
 
   // Carga inicial
@@ -647,16 +867,102 @@ export default function PortfolioPage() {
     return () => { cancelled = true; };
   }, [portfolioRetryKey]);
 
+  // La restauración sólo puede darse por terminada cuando el commit con los
+  // valores restaurados ya ocurrió: en el primer commit tras el montaje el
+  // estado todavía tiene los valores por defecto.
   useEffect(() => {
-    if (loading || pendingScrollYRef.current === null) return;
+    const restored = restoredStateRef.current;
+    if (!restored) return;
+    if (
+      restored.filtroActivo === filtroActivo &&
+      restored.subcategoryActivo === subcategoryActivo &&
+      restored.fotosPage === fotosPage &&
+      restored.gridPage === gridPage &&
+      restored.videosPage === videosPage
+    ) {
+      restoredAppliedRef.current = true;
+    }
+  }, [filtroActivo, subcategoryActivo, fotosPage, gridPage, videosPage]);
+
+  // Aplica la posición restaurada sólo cuando el documento ya tiene la altura
+  // necesaria: si aún es más corto, `window.scrollTo` recorta el destino y el
+  // usuario aterriza en otro sitio. Se reintenta unos frames y el flag se
+  // libera al aplicar el scroll (fin real), no por un tiempo arbitrario.
+  useEffect(() => {
+    if (loading || pendingScrollYRef.current === null) return undefined;
     const targetY = pendingScrollYRef.current;
-    pendingScrollYRef.current = null;
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.scrollTo({ top: targetY, behavior: "auto" });
-      });
+    const MAX_ATTEMPTS = 30; // ~0,5 s a 60 fps
+    let attempts = 0;
+    let rafId = 0;
+    let cancelled = false;
+
+    const applyScroll = () => {
+      if (cancelled) return;
+      // Otro camino pudo consumir el destino mientras se esperaban frames
+      // (cambio de filtro o de página del usuario): en ese caso no se mueve el
+      // scroll a una posición que ya no corresponde.
+      if (pendingScrollYRef.current === null) return;
+      const maxY = Math.max(
+        0,
+        document.documentElement.scrollHeight - window.innerHeight
+      );
+      if (maxY + 2 < targetY && attempts < MAX_ATTEMPTS) {
+        attempts += 1;
+        rafId = requestAnimationFrame(applyScroll);
+        return;
+      }
+      pendingScrollYRef.current = null;
+      try {
+        window.scrollTo({ top: Math.min(targetY, maxY), behavior: "auto" });
+      } catch {
+        /* entorno sin scrollTo: nunca debe romper el render */
+      }
+      isRestoringStateRef.current = false; // fin real de la restauración
+      restoredStateRef.current = null;
+      restoredAppliedRef.current = false;
+    };
+
+    rafId = requestAnimationFrame(() => {
+      rafId = requestAnimationFrame(applyScroll);
     });
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafId);
+    };
   }, [loading]);
+
+  // Red de seguridad: se arma cuando la carga termina, o sea cuando la
+  // restauración ya podría aplicarse, y sólo actúa si a los 2 s el scroll
+  // sigue pendiente (p. ej. `requestAnimationFrame` congelado en una pestaña
+  // oculta). Un fetch lento NO la dispara: mientras `loading` sea true el
+  // temporizador no corre y la posición no se descarta.
+  useEffect(() => {
+    if (loading || !isRestoringStateRef.current) return undefined;
+    const id = window.setTimeout(() => {
+      if (!isRestoringStateRef.current) return;
+      isRestoringStateRef.current = false;
+      pendingScrollYRef.current = null;
+      restoredStateRef.current = null;
+      restoredAppliedRef.current = false;
+    }, RESTORE_SAFETY_TIMEOUT_MS);
+    return () => window.clearTimeout(id);
+  }, [loading]);
+
+  // Datos restaurados no alcanzables (filtro antiguo o página inválida):
+  // después de resolver la carga liberamos las guardas, evitando bloquear
+  // indefinidamente los resets posteriores del usuario.
+  useEffect(() => {
+    if (loading || !restoredStateRef.current ||
+        restoredAppliedRef.current || isRestoringStateRef.current) return undefined;
+    const id = window.setTimeout(() => {
+      if (restoredStateRef.current && !restoredAppliedRef.current) {
+        restoredStateRef.current = null;
+        restoredAppliedRef.current = false;
+      }
+    }, RESTORE_SAFETY_TIMEOUT_MS);
+    return () => window.clearTimeout(id);
+  }, [loading, filtroActivo, subcategoryActivo, fotosPage, gridPage, videosPage]);
 
   // ── Derivar colecciones a partir de los datos ──────────────
   // section_key controls placement explicitly; "general"/null falls back to category.
@@ -701,19 +1007,58 @@ export default function PortfolioPage() {
       .filter((s) => s && !seen.has(s) && seen.add(s));
   }, [filtroActivo, items]);
 
-  // reset subcategory cuando cambia la categoría principal
+  // reset subcategory cuando el usuario cambia la categoría principal
+  // El commit que aplica la restauración NO debe deshacerla: se compara contra
+  // los valores restaurados en lugar de depender de un flag liberado por tiempo.
   useEffect(() => {
-    if (isRestoringStateRef.current) return;
+    const restored = restoredStateRef.current;
+    // Todavía no se aplicó la restauración (el commit trae los valores por
+    // defecto): ni reset ni nada que deshacer.
+    if (restored && !restoredAppliedRef.current) return;
+    // El filtro es exactamente el restaurado: este commit viene de la
+    // restauración, no del usuario.
+    if (restored && restored.filtroActivo === filtroActivo) return;
+    // Cambio real del usuario: la posición guardada ya no sirve, se descarta
+    // la restauración pendiente para no saltar a un sitio sin relación.
+    if (isRestoringStateRef.current) {
+      isRestoringStateRef.current = false;
+      pendingScrollYRef.current = null;
+    }
     setSubcategoryActivo(null);
   }, [filtroActivo]);
 
-  // reset paginación cuando cambia filtro o subcategoría
+  // reset paginación cuando el usuario cambia filtro o subcategoría
   useEffect(() => {
-    if (isRestoringStateRef.current) return;
+    const restored = restoredStateRef.current;
+    if (restored && !restoredAppliedRef.current) return;
+    const stillRestored =
+      restored &&
+      restored.filtroActivo === filtroActivo &&
+      restored.subcategoryActivo === subcategoryActivo;
+    if (stillRestored) return;
+    if (isRestoringStateRef.current) {
+      isRestoringStateRef.current = false;
+      pendingScrollYRef.current = null;
+    }
     setFotosPage(1);
     setGridPage(1);
     setVideosPage(1);
   }, [filtroActivo, subcategoryActivo]);
+
+  // Sin scroll guardado: el commit de restauración ya se aplicó y los
+  // resets anteriores tuvieron oportunidad de respetarlo. Liberar el estado
+  // histórico evita que cambios futuros del usuario se confundan con retorno.
+  useEffect(() => {
+    if (
+      restoredStateRef.current &&
+      restoredAppliedRef.current &&
+      !isRestoringStateRef.current &&
+      pendingScrollYRef.current === null
+    ) {
+      restoredStateRef.current = null;
+      restoredAppliedRef.current = false;
+    }
+  }, [filtroActivo, subcategoryActivo, fotosPage, gridPage, videosPage]);
 
   // ── Filtrado por categoría ─────────────────────────────────
   const fotosFiltradas = useMemo(() => {
@@ -741,6 +1086,10 @@ export default function PortfolioPage() {
       .filter((slug) => slug && !seen.has(slug) && seen.add(slug));
   }, [videosFiltrados, fotosFiltradas, gridFiltrado]);
 
+  // El state de retorno lleva el contexto de navegación (filtros/páginas).
+  // La posición se captura en el clic (rememberReturnScrollY): leer
+  // `window.scrollY` aquí devolvería el valor del último render, no el del
+  // momento en que el usuario pulsa el enlace.
   const projectLinkState = useMemo(
     () => ({
       portfolioReturn: {
@@ -749,7 +1098,6 @@ export default function PortfolioPage() {
         fotosPage,
         gridPage,
         videosPage,
-        scrollY: window.scrollY,
         projectNavigationSlugs,
       },
     }),
@@ -818,7 +1166,9 @@ export default function PortfolioPage() {
   }, [items]);
 
   return (
-    <main className="bg-[#f5f5f3] text-neutral-950">
+    <main
+      className="bg-[#f5f5f3] text-neutral-950"
+    >
       <SEOHead
         title="Portafolio | Ideas Estudio"
         description="Galería de proyectos de fotografía, video y diseño. Trabajos reales para marcas y eventos en Puerto Rico."
@@ -950,6 +1300,8 @@ export default function PortfolioPage() {
                     <Link
                       to={slideActual.slug ? `/portafolio/${slideActual.slug}` : "/portafolio"}
                       state={slideActual.slug ? projectLinkState : undefined}
+                      onClick={(event) => rememberReturnScrollY(event, projectLinkState)}
+                      aria-label={`Ver proyecto ${slideActual.title}`}
                       className="inline-flex items-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-[#f2cc3d]"
                     >
                       Ver proyecto
