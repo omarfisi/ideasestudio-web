@@ -368,7 +368,7 @@ function VideoCard({ item, onOpen, projectLinkState }) {
           <Link
             to={getProjectHref(item)}
             state={item.slug ? projectLinkState : undefined}
-            onClick={rememberReturnScrollY}
+            onClick={(event) => rememberReturnScrollY(event, projectLinkState)}
             className="inline-flex items-center rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:border-black hover:bg-black hover:text-white"
           >
             Ver proyecto
@@ -425,7 +425,7 @@ function MasonryCard({ item, onOpenGallery, projectLinkState }) {
             state={item.slug ? projectLinkState : undefined}
             onClick={(event) => {
               event.stopPropagation();
-              rememberReturnScrollY(event);
+              rememberReturnScrollY(event, projectLinkState);
             }}
             className="inline-flex items-center rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:border-black hover:bg-black hover:text-white"
           >
@@ -507,7 +507,7 @@ function GridCard({ item, onOpenVideo, onOpenGallery, projectLinkState }) {
             state={item.slug ? projectLinkState : undefined}
             onClick={(event) => {
               event.stopPropagation();
-              rememberReturnScrollY(event);
+              rememberReturnScrollY(event, projectLinkState);
             }}
             className="inline-flex items-center rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition hover:border-black hover:bg-black hover:text-white"
           >
@@ -699,10 +699,18 @@ function isEligibleProjectClick(event) {
 // Cada clic elegible invalida las observaciones pendientes de clics anteriores.
 let projectClickEpoch = 0;
 
-function rememberReturnScrollY(event) {
+function rememberReturnScrollY(event, projectLinkState) {
   if (!isEligibleProjectClick(event)) return; // clic no elegible: no se escribe nada
   const y = normalizeScrollY(window.scrollY);
   if (y === null) return;
+
+  // El state del enlace viaja con React Router incluso si su loader tarda
+  // más de cinco segundos. Se captura en el clic, nunca en el render.
+  // Un clic cancelado no lleva este state al destino, aunque la posición
+  // permanece en el objeto compartido hasta el siguiente clic elegible.
+  if (projectLinkState?.portfolioReturn) {
+    projectLinkState.portfolioReturn.scrollY = y;
+  }
 
   // React Router puede esperar el loader antes de cambiar la URL. Un único
   // setTimeout(0) interpreta erróneamente ese retraso como un clic cancelado.
@@ -1289,7 +1297,7 @@ export default function PortfolioPage() {
                     <Link
                       to={slideActual.slug ? `/portafolio/${slideActual.slug}` : "/portafolio"}
                       state={slideActual.slug ? projectLinkState : undefined}
-                      onClick={rememberReturnScrollY}
+                      onClick={(event) => rememberReturnScrollY(event, projectLinkState)}
                       className="inline-flex items-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-[#f2cc3d]"
                     >
                       Ver proyecto
